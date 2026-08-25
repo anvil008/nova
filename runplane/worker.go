@@ -251,7 +251,10 @@ func workerRunProvider(ctx context.Context, claim WorkerClaim, transport *Worker
 	}()
 
 	workerDone := make(chan error, 1)
-	go func() { workerDone <- command.Wait() }()
+	go func() {
+		streams.Wait()
+		workerDone <- command.Wait()
+	}()
 	heartbeat := time.NewTicker(workerHeartbeatInterval)
 	defer heartbeat.Stop()
 	for workerDone != nil {
@@ -287,7 +290,6 @@ func workerRunProvider(ctx context.Context, claim WorkerClaim, transport *Worker
 			cancel()
 		case err := <-workerDone:
 			workerDone = nil
-			streams.Wait()
 			close(output)
 			for frame := range output {
 				queuedBytes.Add(-int64(len(frame.Data)))
