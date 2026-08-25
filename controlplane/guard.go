@@ -14,6 +14,7 @@ const (
 	GuardRecordSealRed    = "seal-red"
 	GuardRecordGreen      = "green"
 	GuardRecordDiffReview = "diff-review"
+	GuardRecordArchReview = "arch-review"
 )
 
 // GuardRecord is one command anvil-guard ran and wrote to its state directory.

@@ -16,6 +16,7 @@ const usage = `usage: anvil-guard <command> [options]
   verify --green-command <argv...> [--coverage-command <argv...>] [--min-coverage <float>]
   reseal --reason <text>
   diff-review record --findings <file>
+  arch-check --assertions <file>
   hook --harness claude|codex|agy --event PreToolUse|PostToolUse|Stop|SubagentStop
   status [--json]`
 
@@ -112,6 +113,12 @@ func dispatch(options Options, args []string) (int, error) {
 			return 1, err
 		}
 		return 0, recordDiffReview(loaded, flags.values["--findings"])
+	case "arch-check":
+		flags, err := parseFlags(rest, map[string]bool{"--assertions": true})
+		if err != nil {
+			return 1, err
+		}
+		return archCheck(loaded, flags.values["--assertions"], options.Stderr)
 	case "status":
 		// Output is machine-readable either way; --json is accepted so callers
 		// can name the contract they depend on.

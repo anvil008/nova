@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -53,6 +54,139 @@ func runArgv(workingDirectory string, argv []string) (controlplane.CommandEviden
 	}
 	evidence.CommandID = commandID(evidence)
 	return evidence, nil
+}
+
+// astGrepBinary resolves the structural verifier: the AstGrepEnv override when
+// set, otherwise `ast-grep` on PATH.
+func astGrepBinary() string {
+	if override := strings.TrimSpace(os.Getenv(AstGrepEnv)); override != "" {
+		return override
+	}
+	return "ast-grep"
+}
+
+// astGrepInstalled reports whether the resolved ast-grep binary can be run. A
+// missing tool is what turns an arch-check into an unverified record rather than
+// a pass or a fail.
+func astGrepInstalled() bool {
+	binary := astGrepBinary()
+	if strings.ContainsRune(binary, filepath.Separator) {
+		info, err := os.Stat(binary)
+		return err == nil && !info.IsDir()
+	}
+	_, err := exec.LookPath(binary)
+	return err == nil
+}
+
+// runAstGrepPattern runs one structural pattern over paths and returns the match
+// count ast-grep reported. It never routes through a shell; paths are handed as
+// an argv array. A non-zero exit is a real tool error (a bad pattern, say), not
+// "no match", so it is surfaced rather than counted as zero.
+func runAstGrepPattern(workingDirectory, pattern string, paths []string) (int, controlplane.CommandEvidence, error) {
+	argv := append([]string{astGrepBinary(), "run", "--pattern", pattern, "--json"}, paths...)
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	command := exec.Command(argv[0], argv[1:]...)
+	command.Dir = workingDirectory
+	command.Stdout, command.Stderr = stdout, stderr
+	startedAt := time.Now().UTC()
+	runErr := command.Run()
+	finishedAt := time.Now().UTC()
+	var exitError *exec.ExitError
+	if runErr != nil && !errors.As(runErr, &exitError) {
+		return 0, controlplane.CommandEvidence{}, fmt.Errorf("run ast-grep: %w", runErr)
+	}
+	evidence := controlplane.CommandEvidence{
+		ArgvDigest:   digestBytes([]byte(strings.Join(argv, "\x00"))),
+		ExitCode:     command.ProcessState.ExitCode(),
+		StartedAt:    startedAt.Format(time.RFC3339Nano),
+		FinishedAt:   finishedAt.Format(time.RFC3339Nano),
+		StdoutDigest: digestBytes(stdout.Bytes()),
+		StderrDigest: digestBytes(stderr.Bytes()),
+	}
+	evidence.CommandID = commandID(evidence)
+	if evidence.ExitCode != 0 {
+		return 0, evidence, fmt.Errorf("ast-grep exited %d for pattern %q: %s", evidence.ExitCode, pattern, strings.TrimSpace(stderr.String()))
+	}
+	count, err := countAstGrepMatches(stdout.Bytes())
+	if err != nil {
+		return 0, evidence, fmt.Errorf("parse ast-grep output for pattern %q: %w", pattern, err)
+	}
+	return count, evidence, nil
+}
+
+// countAstGrepMatches counts the entries in ast-grep's `--json` array. Empty
+// output is treated as no matches so a pattern that finds nothing is not an error.
+func countAstGrepMatches(output []byte) (int, error) {
+	trimmed := bytes.TrimSpace(output)
+	if len(trimmed) == 0 {
+		return 0, nil
+	}
+	var matches []json.RawMessage
+	if err := json.Unmarshal(trimmed, &matches); err != nil {
+		return 0, err
+	}
+	return len(matches), nil
+}
+
+// aggregateArchEvidence folds the per-assertion ast-grep runs into one command
+// record, so the arch-review resolves as a single citeable run whose exit code
+// is 0 exactly when every structural assertion held.
+func aggregateArchEvidence(runs []controlplane.CommandEvidence, allPassed bool) controlplane.CommandEvidence {
+	argv, out, errs := make([]string, 0, len(runs)), make([]string, 0, len(runs)), make([]string, 0, len(runs))
+	for _, run := range runs {
+		argv = append(argv, run.ArgvDigest)
+		out = append(out, run.StdoutDigest)
+		errs = append(errs, run.StderrDigest)
+	}
+	exitCode := 0
+	if !allPassed {
+		exitCode = 1
+	}
+	evidence := controlplane.CommandEvidence{
+		ArgvDigest:   digestBytes([]byte(strings.Join(argv, "\x00"))),
+		ExitCode:     exitCode,
+		StartedAt:    runs[0].StartedAt,
+		FinishedAt:   runs[len(runs)-1].FinishedAt,
+		StdoutDigest: digestBytes([]byte(strings.Join(out, "\x00"))),
+		StderrDigest: digestBytes([]byte(strings.Join(errs, "\x00"))),
+	}
+	evidence.CommandID = commandID(evidence)
+	return evidence
+}
+
+// filesMatchingGlob resolves a `**`-aware repository glob to the repository-
+// relative paths it selects, skipping version-control internals and vendored
+// trees. It is how a pathGlob is scoped to concrete files before ast-grep runs.
+func filesMatchingGlob(repository, glob string) ([]string, error) {
+	matched := make([]string, 0)
+	walkErr := filepath.WalkDir(repository, func(current string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if _, skip := skippedDirectories[entry.Name()]; skip && current != repository {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		relative, err := filepath.Rel(repository, current)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		if matchTestPattern(glob, relative) {
+			matched = append(matched, filepath.FromSlash(relative))
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
+	}
+	sort.Strings(matched)
+	return matched, nil
 }
 
 // coveragePattern matches a percentage token like `83.3%` or `85%`. It is

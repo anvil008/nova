@@ -81,6 +81,21 @@ type DiffReview struct {
 	Findings   []string `json:"findings"`
 }
 
+// ArchReview is the executable architecture-conformance evidence a multi-file
+// or feature change carries beside its diff review. Structural design has to be
+// a check the machine ran, not prose the agent wrote (CodeSpec RQ3), so the
+// cited command must resolve to the arch-review run anvil-guard recorded: the
+// digest pins the assertion set, and the passed/assertions summary says how many
+// structural rules held.
+type ArchReview struct {
+	CheckID    string `json:"checkId"`
+	CommandID  string `json:"commandId"`
+	Digest     string `json:"digest"`
+	Assertions int    `json:"assertions"`
+	Passed     int    `json:"passed"`
+	Current    bool   `json:"current"`
+}
+
 // Pointer is what an exploration pass returns instead of file contents: where
 // to look, and one line of why it matters.
 type Pointer struct {
@@ -130,6 +145,7 @@ type WorkflowResult struct {
 	Files               []string            `json:"files"`
 	Pointers            []Pointer           `json:"pointers,omitempty"`
 	DiffReview          *DiffReview         `json:"diffReview,omitempty"`
+	ArchReview          *ArchReview         `json:"archReview,omitempty"`
 	Symbols             []SymbolClaim       `json:"symbols"`
 	Mutations           []MutationEvidence  `json:"mutations"`
 	Commands            []CommandEvidence   `json:"commands"`
@@ -268,6 +284,14 @@ func ValidateWorkflowResult(result WorkflowResult, expected ResultExpectation) e
 			return err
 		}
 	}
+	if result.ArchReview != nil {
+		// The arch check passes only when every assertion held; the guard's
+		// aggregate run exits non-zero otherwise, so pass/fail must agree.
+		passed := result.ArchReview.Passed == result.ArchReview.Assertions
+		if err := RequireGuardRecord(expected.Guard, "arch review", result.ArchReview.CommandID, passed, GuardRecordArchReview); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -338,6 +362,11 @@ func validateWorkflowResultShape(result WorkflowResult) error {
 	}
 	if result.DiffReview != nil {
 		if err := validateDiffReview(*result.DiffReview, commandIDs); err != nil {
+			return err
+		}
+	}
+	if result.ArchReview != nil {
+		if err := validateArchReview(*result.ArchReview, commandIDs); err != nil {
 			return err
 		}
 	}
@@ -481,6 +510,28 @@ func validateDiffReview(review DiffReview, commandIDs map[string]struct{}) error
 	}
 	if review.Findings == nil {
 		return fmt.Errorf("%w: diff review findings must be explicit", ErrInvalidContract)
+	}
+	return nil
+}
+
+func validateArchReview(review ArchReview, commandIDs map[string]struct{}) error {
+	if err := ValidateIdentifier(review.CheckID); err != nil {
+		return err
+	}
+	if err := ValidateIdentifier(review.CommandID); err != nil {
+		return err
+	}
+	if _, ok := commandIDs[review.CommandID]; !ok {
+		return fmt.Errorf("%w: arch review references unknown command %q", ErrInvalidContract, review.CommandID)
+	}
+	if err := ValidateDigest(review.Digest); err != nil {
+		return err
+	}
+	if review.Assertions < 1 {
+		return fmt.Errorf("%w: arch review must check at least one structural assertion", ErrInvalidContract)
+	}
+	if review.Passed < 0 || review.Passed > review.Assertions {
+		return fmt.Errorf("%w: arch review reports %d of %d assertions passing", ErrInvalidContract, review.Passed, review.Assertions)
 	}
 	return nil
 }

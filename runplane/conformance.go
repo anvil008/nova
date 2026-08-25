@@ -77,7 +77,7 @@ func RunConformanceFixture(fixture ConformanceFixture, seam AdapterSeam) (Normal
 		result.Disposition, result.RejectionStage = "rejected", "admission"
 		return sealNormalizedConformance(fixture, result)
 	}
-	if fixture.Scenario == "diff-review-continuity" || fixture.Scenario == "unverified-assurance" || fixture.Scenario == "forged-command-id" {
+	if fixture.Scenario == "diff-review-continuity" || fixture.Scenario == "unverified-assurance" || fixture.Scenario == "forged-command-id" || fixture.Scenario == "arch-review-record" {
 		disposition, stage, err := runResultContractProbe(fixture.Scenario)
 		if err != nil {
 			return result, err
@@ -296,6 +296,8 @@ func runResultContractProbe(scenario string) (string, string, error) {
 		return string(controlplane.DispositionUnverified), "", nil
 	case "forged-command-id":
 		return runForgedCommandIDProbe()
+	case "arch-review-record":
+		return runArchReviewProbe()
 	}
 	return "", "", fmt.Errorf("unknown result contract probe %q", scenario)
 }
@@ -358,6 +360,80 @@ func runForgedCommandIDProbe() (string, string, error) {
 		return "", "", errors.New("a fabricated handoff commandId was reconciled")
 	}
 	return "rejected", "guard-record", nil
+}
+
+// runArchReviewProbe exercises the executable architecture-conformance amendment
+// (CodeSpec RQ3): the structural check a change carries must resolve to an
+// arch-review run anvil-guard recorded, not to prose the agent authored. The
+// forged id is self-consistent across the result's own text; only the guard
+// snapshot, produced by a different process, disagrees.
+func runArchReviewProbe() (string, string, error) {
+	archCommand := controlplane.CommandEvidence{
+		CommandID: "command-arch", ArgvDigest: factoryDigest([]byte("arch-argv")), ExitCode: 0,
+		StartedAt: "2026-08-23T20:02:00Z", FinishedAt: "2026-08-23T20:02:05Z",
+		StdoutDigest: factoryDigest([]byte("arch-out")), StderrDigest: factoryDigest([]byte("arch-err")),
+	}
+	snapshot := &controlplane.GuardSnapshot{
+		APIVersion: controlplane.GuardSnapshotAPIVersion, Repository: "/conformance/repository",
+		Records: []controlplane.GuardRecord{{
+			Kind: controlplane.GuardRecordArchReview, CommandID: archCommand.CommandID, Evidence: archCommand,
+		}},
+	}
+	build := func(command controlplane.CommandEvidence) (controlplane.WorkflowResult, error) {
+		result := controlplane.WorkflowResult{
+			APIVersion: controlplane.WorkflowResultAPIVersion, ResultID: "result-arch", GoalID: "goal-conformance",
+			AssignmentID: "assignment-conformance", GenerationID: "generation-conformance", DispatchID: "dispatch-conformance",
+			ParentDispatchID: "dispatch-root", Cycle: 1, Pass: 1, RoleID: "workflow-code-review", Lane: "assurance",
+			RouteDigest: factoryDigest([]byte("route")), AuthorityDigest: factoryDigest([]byte("authority")),
+			SelectionDigest: factoryDigest([]byte("selection")), RoleDigest: factoryDigest([]byte("role")),
+			CatalogDigest: factoryDigest([]byte("catalog")), RepositoryBefore: factoryDigest([]byte("repo-before")),
+			RepositoryAfter: factoryDigest([]byte("repo-after")), CapabilityDigest: factoryDigest([]byte("capability")),
+			SpecialistChoices: []controlplane.SpecialistChoice{}, Files: []string{}, Symbols: []controlplane.SymbolClaim{},
+			Mutations: []controlplane.MutationEvidence{}, Commands: []controlplane.CommandEvidence{command},
+			ArchReview: &controlplane.ArchReview{
+				CheckID: "arch", CommandID: command.CommandID, Digest: factoryDigest([]byte("arch-assertions")),
+				Assertions: 2, Passed: 2, Current: true,
+			},
+			Checks: []controlplane.CheckEvidence{}, Artifacts: []controlplane.ArtifactEvidence{},
+			Findings: []controlplane.FindingEvidence{}, Uncertainty: []string{}, Decisions: []string{"structural design conformance"},
+			Errors: []string{}, Assumptions: []string{}, MissingEvidence: []string{}, ChildResultDigests: []string{},
+			StartedAt: "2026-08-23T20:00:00Z", FinishedAt: "2026-08-23T20:03:00Z", Disposition: controlplane.DispositionSucceeded,
+		}
+		if err := controlplane.SealWorkflowResult(&result); err != nil {
+			return controlplane.WorkflowResult{}, err
+		}
+		return result, nil
+	}
+	expectation := func(result controlplane.WorkflowResult) controlplane.ResultExpectation {
+		return controlplane.ResultExpectation{
+			GoalID: result.GoalID, AssignmentID: result.AssignmentID, GenerationID: result.GenerationID,
+			DispatchID: result.DispatchID, ParentDispatchID: result.ParentDispatchID, RoleID: result.RoleID,
+			Lane: result.Lane, RouteDigest: result.RouteDigest, AuthorityDigest: result.AuthorityDigest,
+			SelectionDigest: result.SelectionDigest, RoleDigest: result.RoleDigest, CatalogDigest: result.CatalogDigest,
+			RepositoryBefore: result.RepositoryBefore, CurrentRepositoryDigest: result.RepositoryAfter,
+			CapabilityDigest: result.CapabilityDigest, RequiredChecks: []string{}, RequiredArtifacts: []string{},
+			Guard: snapshot,
+		}
+	}
+	honest, err := build(archCommand)
+	if err != nil {
+		return "", "", err
+	}
+	if err := controlplane.ValidateWorkflowResult(honest, expectation(honest)); err != nil {
+		return "", "", fmt.Errorf("guard-backed arch review rejected: %w", err)
+	}
+	forged, err := build(controlplane.CommandEvidence{
+		CommandID: "command-fabricated", ArgvDigest: factoryDigest([]byte("arch-argv")), ExitCode: 0,
+		StartedAt: "2026-08-23T20:02:00Z", FinishedAt: "2026-08-23T20:02:05Z",
+		StdoutDigest: factoryDigest([]byte("arch-out")), StderrDigest: factoryDigest([]byte("arch-err")),
+	})
+	if err != nil {
+		return "", "", err
+	}
+	if err := controlplane.ValidateWorkflowResult(forged, expectation(forged)); err == nil {
+		return "", "", errors.New("an arch review citing a commandId no guard record backs was accepted")
+	}
+	return "rejected", "arch-review", nil
 }
 
 func runAdmissionRejectionProbe(scenario string) error {

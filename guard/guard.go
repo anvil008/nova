@@ -25,10 +25,15 @@ const (
 	StateEnv = "ANVIL_GUARD_STATE"
 	// ConfigPath is the repository-relative test-glob override.
 	ConfigPath = ".anvil/guard.json"
+	// AstGrepEnv overrides the ast-grep binary the arch-check resolves. It exists
+	// so the structural verifier can be pinned or, in tests, replaced by a
+	// stand-in; when unset the check resolves the default `ast-grep` on PATH.
+	AstGrepEnv = "ANVIL_GUARD_ASTGREP"
 
 	sealFileName       = "seal.json"
 	greenFileName      = "green.json"
 	diffReviewFileName = "diff-review.json"
+	archReviewFileName = "arch-review.json"
 )
 
 // DefaultTestPatterns is the fleet-wide test surface. A repository narrows or
@@ -88,6 +93,42 @@ type DiffReview struct {
 	Findings   []string                     `json:"findings"`
 }
 
+// ArchAssertion is one structural design rule the arch-check evaluates with
+// ast-grep: which module must call or import what, which boundary must hold.
+// Expect is "present" (at least one match required) or "absent" (no match
+// allowed); PathGlob narrows the files searched to a `**`-aware glob.
+type ArchAssertion struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
+	Pattern     string `json:"astGrepPattern"`
+	Expect      string `json:"expect"`
+	PathGlob    string `json:"pathGlob,omitempty"`
+}
+
+// ArchAssertionResult records how one assertion fared: the match count ast-grep
+// reported and whether that satisfied the expectation.
+type ArchAssertionResult struct {
+	ArchAssertion
+	MatchCount int  `json:"matchCount"`
+	Passed     bool `json:"passed"`
+}
+
+// ArchReview is the executable architecture-conformance record: the structural
+// assertions checked with ast-grep and whether each held. When ast-grep is not
+// installed the review is Verified=false -- unverified, never passed -- mirroring
+// the missing-verifier convention that a tool that never ran proves nothing, so
+// an unverified review carries no command evidence and is not a citeable record.
+type ArchReview struct {
+	ReviewedAt string                        `json:"reviewedAt"`
+	Verified   bool                          `json:"verified"`
+	Passed     bool                          `json:"passed"`
+	CommandID  string                        `json:"commandId,omitempty"`
+	Command    *controlplane.CommandEvidence `json:"command,omitempty"`
+	Results    []ArchAssertionResult         `json:"results"`
+	Digest     string                        `json:"digest"`
+	Base       Base                          `json:"base"`
+}
+
 // Status is the machine-readable state the orchestrator reconciles.
 type Status struct {
 	APIVersion   string                        `json:"apiVersion"`
@@ -97,8 +138,10 @@ type Status struct {
 	Seal         *Seal                         `json:"seal,omitempty"`
 	Green        *Green                        `json:"green,omitempty"`
 	DiffReview   *DiffReview                   `json:"diffReview,omitempty"`
+	ArchReview   *ArchReview                   `json:"archReview,omitempty"`
 	ChangedTests []string                      `json:"changedTests"`
 	DiffStale    bool                          `json:"diffStale"`
+	ArchStale    bool                          `json:"archStale"`
 	Ready        bool                          `json:"ready"`
 	// Records is the stable list of runs anvil-guard itself performed. It is
 	// what the control plane resolves an agent-cited commandId against.
@@ -218,6 +261,7 @@ type state struct {
 	seal       *Seal
 	green      *Green
 	diffReview *DiffReview
+	archReview *ArchReview
 }
 
 func loadState(workingDirectory string) (*state, error) {
@@ -244,6 +288,9 @@ func loadRepositoryState(repository string) (*state, error) {
 		return nil, err
 	}
 	if loaded.diffReview, err = readJSON[DiffReview](filepath.Join(directory, diffReviewFileName)); err != nil {
+		return nil, err
+	}
+	if loaded.archReview, err = readJSON[ArchReview](filepath.Join(directory, archReviewFileName)); err != nil {
 		return nil, err
 	}
 	return loaded, nil
@@ -300,9 +347,17 @@ func (s *state) records() []controlplane.GuardRecord {
 			Kind: controlplane.GuardRecordDiffReview, CommandID: s.diffReview.CommandID, Evidence: s.diffReview.Command,
 		})
 	}
+	// An unverified arch review (ast-grep absent) records no command, so it never
+	// becomes a citeable record: a tool that never ran cannot back a claim.
+	if s.archReview != nil && s.archReview.CommandID != "" && s.archReview.Command != nil {
+		collected = append(collected, controlplane.GuardRecord{
+			Kind: controlplane.GuardRecordArchReview, CommandID: s.archReview.CommandID, Evidence: *s.archReview.Command,
+		})
+	}
 	return collected
 }
 
 func (s *state) sealPath() string       { return filepath.Join(s.directory, sealFileName) }
 func (s *state) greenPath() string      { return filepath.Join(s.directory, greenFileName) }
 func (s *state) diffReviewPath() string { return filepath.Join(s.directory, diffReviewFileName) }
+func (s *state) archReviewPath() string { return filepath.Join(s.directory, archReviewFileName) }

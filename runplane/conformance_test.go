@@ -14,8 +14,8 @@ func TestConformanceFixturesHaveCrossHarnessParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fixtures) != 14 {
-		t.Fatalf("fixtures=%d, want 14", len(fixtures))
+	if len(fixtures) != 15 {
+		t.Fatalf("fixtures=%d, want 15", len(fixtures))
 	}
 	for _, fixture := range fixtures {
 		var reference *NormalizedConformance
@@ -54,7 +54,7 @@ func TestOfflineConformanceReadsOnlyCurrentDefinitions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Fixtures != 14 || len(report.ProjectionDigests) != document.Counts.Total*3 {
+	if report.Fixtures != 15 || len(report.ProjectionDigests) != document.Counts.Total*3 {
 		t.Fatalf("report=%+v", report)
 	}
 }
@@ -70,10 +70,13 @@ func TestConformanceFixturesCoverTheSealDiffReviewAndUnverifiedContracts(t *test
 	for _, fixture := range fixtures {
 		scenarios[fixture.Scenario] = fixture
 	}
-	for _, want := range []string{"sealed-green", "sealed-test-drift", "diff-review-continuity", "unverified-assurance", "forged-command-id"} {
+	for _, want := range []string{"sealed-green", "sealed-test-drift", "diff-review-continuity", "unverified-assurance", "forged-command-id", "arch-review-record"} {
 		if _, ok := scenarios[want]; !ok {
 			t.Errorf("no conformance fixture exercises %q", want)
 		}
+	}
+	if got := scenarios["arch-review-record"].ExpectedDisposition; got != "rejected" {
+		t.Errorf("arch-review-record disposition = %q", got)
 	}
 	if got := scenarios["unverified-assurance"].ExpectedDisposition; got != "unverified" {
 		t.Errorf("unverified-assurance disposition = %q", got)

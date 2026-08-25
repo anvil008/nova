@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/anvil008/swarm-coder/controlplane"
 )
 
 // seal records the RED baseline. The red command must actually fail, otherwise
@@ -190,6 +193,149 @@ func recordDiffReview(loaded *state, findingsPath string) error {
 	})
 }
 
+// archCheck evaluates the structural architecture-conformance assertions with
+// ast-grep and records the result. Structural design has to be a check the
+// machine ran, not prose (CodeSpec RQ3), so each assertion is an ast-grep
+// pattern that must be present or absent. When ast-grep is not installed the
+// review is recorded as unverified -- never a pass -- mirroring the coverage
+// tool's missing-verifier convention. The returned code is 0 when every
+// assertion held (or the tool was absent), 2 when a structural rule is violated.
+func archCheck(loaded *state, assertionsPath string, stderr io.Writer) (int, error) {
+	if strings.TrimSpace(assertionsPath) == "" {
+		return 1, fmt.Errorf("arch-check requires --assertions <file>")
+	}
+	target := assertionsPath
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(loaded.repository, filepath.FromSlash(assertionsPath))
+	}
+	raw, err := os.ReadFile(target)
+	if err != nil {
+		return 1, err
+	}
+	var document struct {
+		Assertions []ArchAssertion `json:"assertions"`
+	}
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return 1, fmt.Errorf("decode arch assertions %s: %w", assertionsPath, err)
+	}
+	if len(document.Assertions) == 0 {
+		return 1, fmt.Errorf("arch assertions file %s declares no assertions", assertionsPath)
+	}
+	seen := make(map[string]struct{}, len(document.Assertions))
+	for _, assertion := range document.Assertions {
+		if strings.TrimSpace(assertion.ID) == "" {
+			return 1, fmt.Errorf("every arch assertion needs an id")
+		}
+		if _, duplicate := seen[assertion.ID]; duplicate {
+			return 1, fmt.Errorf("arch assertion id %q is listed more than once", assertion.ID)
+		}
+		seen[assertion.ID] = struct{}{}
+		if strings.TrimSpace(assertion.Pattern) == "" {
+			return 1, fmt.Errorf("arch assertion %q needs an astGrepPattern", assertion.ID)
+		}
+		if assertion.Expect != "present" && assertion.Expect != "absent" {
+			return 1, fmt.Errorf("arch assertion %q expect must be \"present\" or \"absent\", got %q", assertion.ID, assertion.Expect)
+		}
+	}
+	base, _, err := currentBase(loaded.repository)
+	if err != nil {
+		return 1, err
+	}
+	review := ArchReview{
+		ReviewedAt: time.Now().UTC().Format(time.RFC3339Nano),
+		Base:       base,
+		Results:    make([]ArchAssertionResult, 0, len(document.Assertions)),
+	}
+	// A missing verifier is unverified, never a pass: record what would be
+	// checked, but attach no command evidence so it is not a citeable record.
+	if !astGrepInstalled() {
+		for _, assertion := range document.Assertions {
+			review.Results = append(review.Results, ArchAssertionResult{ArchAssertion: assertion})
+		}
+		review.Digest = archAssertionsDigest(review.Results)
+		if err := writeJSON(loaded.archReviewPath(), review); err != nil {
+			return 1, err
+		}
+		fmt.Fprintln(stderr, "anvil-guard: ast-grep is not installed; architecture conformance recorded as unverified")
+		return 0, nil
+	}
+	runs := make([]controlplane.CommandEvidence, 0, len(document.Assertions))
+	allPassed := true
+	violations := make([]string, 0)
+	for _, assertion := range document.Assertions {
+		paths := []string{"."}
+		if strings.TrimSpace(assertion.PathGlob) != "" {
+			paths, err = filesMatchingGlob(loaded.repository, assertion.PathGlob)
+			if err != nil {
+				return 1, err
+			}
+		}
+		count := 0
+		if len(paths) > 0 {
+			matchCount, evidence, runErr := runAstGrepPattern(loaded.repository, assertion.Pattern, paths)
+			if runErr != nil {
+				return 1, runErr
+			}
+			count = matchCount
+			runs = append(runs, evidence)
+		}
+		passed := (assertion.Expect == "present" && count > 0) || (assertion.Expect == "absent" && count == 0)
+		if !passed {
+			allPassed = false
+			violations = append(violations, assertion.ID)
+		}
+		review.Results = append(review.Results, ArchAssertionResult{ArchAssertion: assertion, MatchCount: count, Passed: passed})
+	}
+	review.Verified = true
+	review.Passed = allPassed
+	review.Digest = archAssertionsDigest(review.Results)
+	// Every assertion may resolve to zero scanned files, leaving no run to
+	// aggregate; synthesize one so the verified review is still a citeable record.
+	if len(runs) == 0 {
+		runs = append(runs, controlplane.CommandEvidence{
+			ArgvDigest:   digestBytes([]byte(review.Digest)),
+			StartedAt:    review.ReviewedAt,
+			FinishedAt:   review.ReviewedAt,
+			StdoutDigest: digestBytes(nil),
+			StderrDigest: digestBytes(nil),
+		})
+	}
+	evidence := aggregateArchEvidence(runs, allPassed)
+	review.CommandID = evidence.CommandID
+	review.Command = &evidence
+	if err := writeJSON(loaded.archReviewPath(), review); err != nil {
+		return 1, err
+	}
+	if !allPassed {
+		fmt.Fprintf(stderr, "anvil-guard: architecture conformance failed: %s\n", strings.Join(violations, ", "))
+		return 2, nil
+	}
+	return 0, nil
+}
+
+// archAssertionsDigest pins the assertion set and its outcomes so a reader can
+// tell whether two arch reviews checked the same structural rules.
+func archAssertionsDigest(results []ArchAssertionResult) string {
+	encoded, err := json.Marshal(results)
+	if err != nil {
+		return digestBytes(nil)
+	}
+	return digestBytes(encoded)
+}
+
+// archReviewStale reports whether a recorded arch review was taken over a
+// different working tree than the one on disk now.
+func archReviewStale(loaded *state) (bool, error) {
+	if loaded.archReview == nil {
+		return false, nil
+	}
+	_, digest, err := currentBase(loaded.repository)
+	if err != nil {
+		return false, err
+	}
+	return digest != loaded.archReview.Base.TreeDigest, nil
+}
+
 // stopBlockers lists every reason the writer may not finish yet.
 func stopBlockers(loaded *state) ([]string, error) {
 	blockers := make([]string, 0, 3)
@@ -230,8 +376,15 @@ func status(loaded *state) (Status, error) {
 	report := Status{
 		APIVersion: APIVersion, Repository: loaded.repository, StateDir: loaded.directory,
 		Sealed: loaded.seal != nil, Seal: loaded.seal, Green: loaded.green, DiffReview: loaded.diffReview,
-		ChangedTests: []string{}, Records: loaded.records(),
+		ArchReview: loaded.archReview, ChangedTests: []string{}, Records: loaded.records(),
 	}
+	// The arch review is independent of the test seal, so its staleness is
+	// reported whether or not the repository is sealed.
+	stale, err := archReviewStale(loaded)
+	if err != nil {
+		return Status{}, err
+	}
+	report.ArchStale = stale
 	if loaded.seal == nil {
 		return report, nil
 	}
