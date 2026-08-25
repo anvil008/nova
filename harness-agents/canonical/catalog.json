@@ -349,7 +349,7 @@
       "class": "domain",
       "summary": "Integrates with Proxmox, Unraid, UniFi, Tailscale, Home Assistant, and media automation with read-only/dry-run safety.",
       "status": "definition-ready",
-      "instructions": "Implement homelab integrations with API-first discovery, bounded timeouts, partial-failure reporting, and strict safety limits. Read-only/dry-run probes only; live mutations are forbidden.",
+      "instructions": "Implement homelab integrations with API-first discovery, bounded timeouts, partial-failure reporting, and strict safety limits. Read-only/dry-run probes only; live mutations are forbidden. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -488,7 +488,7 @@
       "class": "domain",
       "summary": "Builds bounded robotics and drone-control software with simulator-first safety.",
       "status": "definition-ready",
-      "instructions": "Implement robotics and drone features behind backend-neutral commands, physical safety limits, deterministic state transitions, emergency stops, and simulator-first testing; hardware is never commanded during coding or verification.",
+      "instructions": "Implement robotics and drone features behind backend-neutral commands, physical safety limits, deterministic state transitions, emergency stops, and simulator-first testing; hardware is never commanded during coding or verification. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -548,7 +548,7 @@
       "class": "technical",
       "summary": "Verifies running web interfaces across interaction states, viewports, and accessibility requirements.",
       "status": "definition-ready",
-      "instructions": "Verify running web applications across interaction states, viewports, and keyboard navigation. Run and satisfy verifiers: Playwright + axe against a running app; states and viewports must actually be exercised.",
+      "instructions": "Verify running web applications across interaction states, viewports, and keyboard navigation. Run and satisfy verifiers: Playwright + axe against a running app; states and viewports must actually be exercised. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -613,7 +613,7 @@
       "class": "technical",
       "summary": "Reviews security posture, dependencies, API contracts, and trust boundaries.",
       "status": "definition-ready",
-      "instructions": "Review authentication, authorization, secret handling, dependency vulnerabilities, and API schemas. Run and satisfy verifiers: gitleaks, semgrep/gosec, govulncheck, and npm/pip/cargo audit.",
+      "instructions": "Review authentication, authorization, secret handling, dependency vulnerabilities, and API schemas. Run and satisfy verifiers: gitleaks, semgrep/gosec, govulncheck, and npm/pip/cargo audit. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -684,7 +684,7 @@
       "class": "technical",
       "summary": "Implements schema designs, migrations, analytical queries, and storage safety.",
       "status": "definition-ready",
-      "instructions": "Implement database schemas and data migrations with explicit rollback strategy and invariant checks. Run and satisfy verifiers: migration up/down/up on a scratch instance, PRAGMA integrity_check; never a live DB.",
+      "instructions": "Implement database schemas and data migrations with explicit rollback strategy and invariant checks. Run and satisfy verifiers: migration up/down/up on a scratch instance, PRAGMA integrity_check; never a live DB. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -774,7 +774,7 @@
       "class": "technical",
       "summary": "Implements idiomatic Go services, libraries, CLIs, and integrations with standard Go toolchain verification.",
       "status": "definition-ready",
-      "instructions": "Implement idiomatic Go with small interfaces, explicit error handling, context propagation, bounded concurrency, and deterministic tests. Run and satisfy verifiers: gofmt -l, go vet, go build, go test -race, golangci-lint (if present), and govulncheck.",
+      "instructions": "Implement idiomatic Go with small interfaces, explicit error handling, context propagation, bounded concurrency, and deterministic tests. Run and satisfy verifiers: gofmt -l, go vet, go build, go test -race, golangci-lint (if present), and govulncheck. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -841,7 +841,7 @@
       "class": "technical",
       "summary": "Implements Linux service units, CI workflows, and operational automation.",
       "status": "definition-ready",
-      "instructions": "Implement hardened Linux systemd units and GitHub Actions workflows with least privilege and reproducible local equivalents. Run and satisfy verifiers: systemd-analyze verify, actionlint, and shellcheck.",
+      "instructions": "Implement hardened Linux systemd units and GitHub Actions workflows with least privilege and reproducible local equivalents. Run and satisfy verifiers: systemd-analyze verify, actionlint, and shellcheck. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -908,7 +908,7 @@
       "class": "technical",
       "summary": "Implements typed Python services, tools, and knowledge ingestion pipelines.",
       "status": "definition-ready",
-      "instructions": "Implement typed Python with explicit Pydantic boundary models, predictable lifecycle, and async-aware I/O. Run and satisfy verifiers: ruff check, ruff format --check, pyright, and pytest -q.",
+      "instructions": "Implement typed Python with explicit Pydantic boundary models, predictable lifecycle, and async-aware I/O. Run and satisfy verifiers: ruff check, ruff format --check, pyright, and pytest -q. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -979,7 +979,7 @@
       "class": "technical",
       "summary": "Implements idiomatic Rust services, libraries, and high-performance computing components.",
       "status": "definition-ready",
-      "instructions": "Implement idiomatic Rust with explicit ownership, typed errors, bounded async tasks, and deterministic numerical behavior. Run and satisfy verifiers: cargo fmt --check, cargo clippy --all-targets -D warnings, and cargo test; include CUDA parity tests when present.",
+      "instructions": "Implement idiomatic Rust with explicit ownership, typed errors, bounded async tasks, and deterministic numerical behavior. Run and satisfy verifiers: cargo fmt --check, cargo clippy --all-targets -D warnings, and cargo test; include CUDA parity tests when present. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
@@ -1050,7 +1050,7 @@
       "class": "technical",
       "summary": "Implements responsive web applications, design systems, and data visualizations.",
       "status": "definition-ready",
-      "instructions": "Implement accessible, responsive web interfaces with TypeScript, component libraries, and robust state management. Run and satisfy verifiers: tsc --noEmit, eslint (including jsx-a11y), vitest run, and vite build.",
+      "instructions": "Implement accessible, responsive web interfaces with TypeScript, component libraries, and robust state management. Run and satisfy verifiers: tsc --noEmit, eslint (including jsx-a11y), vitest run, and vite build. Use symbol resolution for navigation and impact analysis — LSP go-to-definition and find-references where the harness provides it, otherwise the verifier type-checkers give the same ground truth — and prefer ast-grep for multi-site structural rewrites over per-file edits.",
       "activation": {
         "threshold": 7,
         "files": [
