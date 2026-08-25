@@ -86,8 +86,7 @@ and are overridable per repository via `.anvil/guard.json`.
 5. RETURN — handoff `tests[]` entries cite `commandId`s; result carries the
    seal, green, and diff-review records.
 
-Amending a sealed test is allowed only via `reseal --reason`; the
-amendment is evidence the Code Review pass must look at.
+Refining a sealed test is a normal dual-track move via `reseal --reason` (TDD-Agent Table 4: frozen tests are the losing arm); it is audited, not exceptional. The reseal must record a test that failed for the intended reason before the fix, and Code Review verifies it strengthened rather than weakened coverage. Do not unfreeze tests in-loop without a reseal — that reopens reward hacking.
 
 ### 3.3 Control plane (`controlplane/`, `codingfleet/handoff.go`)
 
