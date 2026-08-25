@@ -1,0 +1,125 @@
+{
+  "dagr": 3,
+  "run": {
+    "id": "run-herdr-agent-visibility-v01",
+    "title": "Expose live Swarm agent work in Herdr",
+    "started_at": "2026-08-24T22:47:00Z",
+    "orchestrator": {"pane": "w1C:p2"}
+  },
+  "generated_at": "2026-08-24T23:37:05Z",
+  "projects": [
+    {"id": "VISIBILITY", "title": "Herdr agent visibility"},
+    {"id": "ASSURANCE", "title": "Independent assurance"}
+  ],
+  "tasks": [
+    {
+      "id": "DISCOVER",
+      "title": "research: map Herdr and Swarm visibility contracts",
+      "kind": "research",
+      "owner": "research-herdr-visibility",
+      "project": "VISIBILITY",
+      "state": "done",
+      "deps": [],
+      "attempts": [{
+        "id": "DISCOVER·a1",
+        "n": 1,
+        "cause": {"type": "initial"},
+        "actor": "research-herdr-visibility",
+        "model": "sol5.6·high",
+        "locator": {"pane": "w1C:p2"},
+        "state": "done",
+        "started_at": "2026-08-24T22:47:00Z",
+        "ended_at": "2026-08-24T22:56:00Z",
+        "outcome": {
+          "result": "done",
+          "evidence": "reported",
+          "receipt": "anvil.agent-handoff/v1 research-herdr-visibility: contracts, overlap, risks, and verification matrix reported"
+        }
+      }]
+    },
+    {
+      "id": "PLAN",
+      "title": "plan: reconcile pane ownership and metadata bridge",
+      "kind": "plan",
+      "owner": "plan-herdr-visibility",
+      "project": "VISIBILITY",
+      "state": "done",
+      "deps": ["DISCOVER"],
+      "attempts": [{
+        "id": "PLAN·a1",
+        "n": 1,
+        "cause": {"type": "initial"},
+        "actor": "plan-herdr-visibility",
+        "model": "sol5.6·high",
+        "locator": {"pane": "w1C:p2"},
+        "state": "done",
+        "started_at": "2026-08-24T22:56:05Z",
+        "ended_at": "2026-08-24T23:07:00Z",
+        "outcome": {
+          "result": "done",
+          "evidence": "reported",
+          "receipt": "anvil.agent-handoff/v1 plan-herdr-visibility-01a035f5: bounded foreign-runplane slice and verification contract reported"
+        }
+      }]
+    },
+    {
+      "id": "IMPLEMENT",
+      "title": "impl: publish task context to independently watchable panes",
+      "kind": "impl",
+      "owner": "executor",
+      "project": "VISIBILITY",
+      "state": "failed",
+      "deps": ["PLAN"],
+      "attempts": [{
+        "id": "IMPLEMENT·a1",
+        "n": 1,
+        "cause": {"type": "initial"},
+        "actor": "execute-herdr-visibility",
+        "model": "sol5.6·high",
+        "locator": {"pane": "w1C:p2"},
+        "state": "failed",
+        "started_at": "2026-08-24T23:07:05Z",
+        "ended_at": "2026-08-24T23:34:00Z",
+        "outcome": {
+          "result": "failed",
+          "evidence": "reported",
+          "reason": "typed Executor handoff reported needs-repair: live worker socket redial/replay is not integrated"
+        }
+      }]
+    },
+    {
+      "id": "REVIEW",
+      "title": "review: verify authority separation and failure behavior",
+      "kind": "review",
+      "owner": "code-review",
+      "project": "ASSURANCE",
+      "state": "canceled",
+      "deps": ["IMPLEMENT"],
+      "attempts": [],
+      "note": "Exact Agy gemini-3.7-flash-high review dispatch could not be admitted; no substitution authorized"
+    },
+    {
+      "id": "ACCEPT",
+      "title": "gate: live visibility accepted",
+      "kind": "gate",
+      "owner": "coding-orchestrator",
+      "project": "ASSURANCE",
+      "criteria": "Each supported agent is independently watchable; safe task metadata is visible; durable task truth remains authoritative; focused and regression checks pass",
+      "state": "canceled",
+      "deps": ["REVIEW"],
+      "attempts": [],
+      "note": "Acceptance withdrawn because implementation needs repair and independent exact-route review did not run"
+    }
+  ],
+  "events": [
+    {"at": "2026-08-24T22:47:00Z", "type": "attempt_started", "task": "DISCOVER", "attempt": "DISCOVER·a1", "actor": "research-herdr-visibility"},
+    {"at": "2026-08-24T22:56:00Z", "type": "attempt_settled", "task": "DISCOVER", "attempt": "DISCOVER·a1", "detail": "typed research handoff mapped current Herdr, run-plane, native-dispatch, and test contracts"},
+    {"at": "2026-08-24T22:56:05Z", "type": "promoted", "task": "PLAN", "detail": "research complete; design reconciliation unblocked"},
+    {"at": "2026-08-24T22:56:05Z", "type": "attempt_started", "task": "PLAN", "attempt": "PLAN·a1", "actor": "plan-herdr-visibility"},
+    {"at": "2026-08-24T23:07:00Z", "type": "attempt_settled", "task": "PLAN", "attempt": "PLAN·a1", "detail": "typed planner handoff defined the foreign-runplane first slice, authority boundary, and exact verification"},
+    {"at": "2026-08-24T23:07:05Z", "type": "promoted", "task": "IMPLEMENT", "detail": "planning complete; independent bridge, worker transport, and documentation lanes unblocked"},
+    {"at": "2026-08-24T23:07:05Z", "type": "attempt_started", "task": "IMPLEMENT", "attempt": "IMPLEMENT·a1", "actor": "execute-herdr-visibility"},
+    {"at": "2026-08-24T23:34:00Z", "type": "attempt_settled", "task": "IMPLEMENT", "attempt": "IMPLEMENT·a1", "detail": "Executor handoff reported core tests green but required live reconnect/redial repair remains"},
+    {"at": "2026-08-24T23:37:05Z", "type": "note", "task": "REVIEW", "detail": "exact Agy Gemini 3.7 Flash high route was allowlisted, but two supervisor admission attempts returned empty job envelopes and no job records"}
+  ]
+}

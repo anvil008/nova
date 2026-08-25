@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "solution-plan",
+  "generatedAt": "2026-08-24T23:10:14Z",
+  "report": "docs/plans/solution-plan.html",
+  "target": {
+    "repository": "/home/anvil/repos/foundry-zero/swarm-coder",
+    "app": "Swarm run plane",
+    "branch": "main",
+    "commit": "d97da9befefa4ccce8fc8ad79999640713109662"
+  },
+  "headline": {"label": "Delivery stages", "value": "4"},
+  "metrics": [
+    {"label": "Requirements", "value": "9"},
+    {"label": "Decisions", "value": "6"},
+    {"label": "Implementation tasks", "value": "8"},
+    {"label": "Herdr version", "value": "0.8.2"},
+    {"label": "First slice", "value": "Foreign jobs"},
+    {"label": "Board import", "value": "Not performed"}
+  ],
+  "chips": ["repository-only", "provider-free tests", "no deployment", "native adapter deferred"],
+  "phases": [
+    {"id": "ROAD-001", "title": "Contracts and characterization", "risk": "medium", "effort": "medium"},
+    {"id": "ROAD-002", "title": "Herdr bridge and worker transport", "risk": "high", "effort": "large"},
+    {"id": "ROAD-003", "title": "Supervisor visibility integration", "risk": "high", "effort": "large"},
+    {"id": "ROAD-004", "title": "Operator surface and conformance", "risk": "medium", "effort": "medium"}
+  ]
+}

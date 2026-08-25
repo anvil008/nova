@@ -1,0 +1,1866 @@
+{
+  "schema_version": "2.0",
+  "plan_id": "swarm-control-plane-hardening",
+  "plan_kind": "solution",
+  "status": "in_progress",
+  "generated_at": "2026-08-24T02:26:43Z",
+  "repository": "/home/anvil/repos/foundry-zero/swarm",
+  "planning_commit": "d97da9befefa4ccce8fc8ad79999640713109662",
+  "source_artifact": {
+    "kind": "solution-plan",
+    "path": "docs/plans/solution-plan.html",
+    "sha256": "61af73eb420ff637818db5385ace424c95ec55775fecc0348bd926b45911e896",
+    "commit": "d97da9befefa4ccce8fc8ad79999640713109662"
+  },
+  "target_state_summary": "A versioned, fail-closed Swarm coding-fleet control plane whose parent/child authority can only narrow, whose workflow units own specialist refinement and invocation, whose exact routes and workflow evidence are machine validated, whose supervisor fences generations, budgets, cancellation and file/symbol ownership, whose Factory mutations are transactional and catalog-confined, whose Claude and Antigravity orchestrators receive only a typed lifecycle tool, and whose bounded two-pass verification behavior is proven locally and on LXC 135 without model, benchmark, scorer, gold, hidden, history, or issue-web access.",
+  "success_measures": [
+    "Authority expansion, direct orchestrator-to-leaf invocation, ambiguous or unavailable routes, stale generations, forged results, missing proof, budget oversubscription, and ownership conflicts all reject deterministically.",
+    "Canonical catalog, runtime admission, Claude, Codex, and Antigravity projections express identical authority, selection, route, and evidence semantics.",
+    "A workflow-result envelope is accepted only when its current generation, route, authority, repository snapshot, artifacts, commands, checks, and evidence obligations reconcile; process exit zero alone is never success.",
+    "Cancellation durably fences admission, cascades through descendants, drains processes and events, releases reservations and leases, and records late output as audit-only.",
+    "Factory can modify only the canonical specialist catalog, generated projections, and installer-owned harness state, with byte-and-metadata preimages, validation, rollback, and fresh-session proof.",
+    "The default verification policy performs two total independent verification passes with at most one targeted repair and terminates as accepted, exhausted, cancelled, blocked, or no-progress.",
+    "Provider-free local adapter conformance and remote LXC 135 compile, import, projection, and conformance checks pass without a model call or benchmark attempt.",
+    "Remote model, thinking, and message settings remain exactly google/gemini-3.7-flash, THINKING_BUDGET=65535, and message_limit=100.",
+    "Final independent Code Review and Coding Evaluation produce valid current-generation evidence envelopes with no unresolved high-severity finding."
+  ],
+  "delivery": {
+    "json_path": "implementation-plan.json",
+    "html_path": "docs/plans/implementation-plan.html",
+    "tasks_board": {
+      "project": "swarm",
+      "import_status": "imported",
+      "imported_at": "2026-08-24T03:51:49Z",
+      "imported_count": 21,
+      "skipped_count": 0
+    }
+  },
+  "assumptions": [
+    "The authoritative sidecar is docs/plans/solution-plan.json, SHA-256 b9fc7439413aa7c41344246706c4ff1e60ac4ab306bb806e7a0fd641c4c6eaa2, size 5,223 bytes.",
+    "The implementation baseline is the current 119-entry working tree: 82 tracked modifications and 37 untracked files, status digest eda32a1a4e8a2042bfe5e621f44322d1ea6139a15c45ae7110283ef5de9b352f.",
+    "All current runplane/ and cmd/swarm-runplane/ files are untracked user work and must be patched in place, never replaced from Git or the recovery backup.",
+    "controlplane/ is the selected shared-contract package; placing these contracts in runplane would invert the existing dependency from runplane to codingfleet.",
+    "The initial supported verification range is one or two total passes, default two. Increasing the hard maximum requires a later reviewed contract version.",
+    "Installed-version discovery must prove exact Claude and Antigravity MCP registration and tool names before projections are enabled. Unsupported registration blocks that adapter; it never triggers a shell fallback.",
+    "Nexus task import remains pending and every board_task_ref remains null until the CLI is reachable and [I###] titles are reconciled.",
+    "LXC mutation, promotion, and any cold reload execute only under the goal's explicit remote-operation authority and after a fresh backup manifest.",
+    "Every implementation, review, evaluation, and remote-operation assignment uses gpt-5.6-sol at max; no isolated task is low-risk enough to justify Terra for this scope."
+  ],
+  "global_invariants": [
+    "Preserve HEAD and every unrelated dirty-worktree byte; reconcile overlapping files before editing.",
+    "Coding Orchestrator invokes only the seven peer workflow units. Workflow units alone refine and invoke technical/domain leaves.",
+    "No specialist pool is mandatory; an empty selected set is valid when reasons and evidence support it.",
+    "Research, Planner, Code Review, Debugger, and Coding Evaluation remain read-only; Executor owns target-project writes; Factory owns only fleet catalog/projection/install surfaces.",
+    "Authority is parent intersection canonical ceiling intersection requested narrowing intersection observed harness capability; missing or incomparable dimensions deny.",
+    "Provider, family, exact model, and effort never silently substitute.",
+    "Unknown contract fields and incompatible major versions reject.",
+    "Exit code zero, narrative claims, or writer-owned tests cannot independently establish completion.",
+    "No unrestricted shell, arbitrary executable, argv, URL, or filesystem path is accepted through the structured lifecycle tool.",
+    "No model or paid-provider calls, benchmark execution, scorer calls, gold patches, hidden tests/results, scorer metadata, prior solutions, history, or issue-web searches.",
+    "Do not touch port 8888.",
+    "Generated projections are changed only through codingfleet.Render/SyncRendered.",
+    "Remote /opt/evals/benchmarks/swe_bench_fleet.py is validation-only and must preserve t.message_limit = 100."
+  ],
+  "out_of_scope": [
+    "Product-agent feature work, GitHub App/code-review implementation, registry redesign, UI work, cloud deployment, paid evaluation, benchmark scoring, merge/push/commit, and unrelated cleanup.",
+    "Restoring /tmp/swarm-fixed-pipeline-backup-20260823-yfKdwZ.",
+    "Changing the remote model, thinking budget, message limit, benchmark data, scorer, or port 8888 service.",
+    "Broadening Factory into a generic target-project writer.",
+    "Supporting more than two verification passes in this contract version."
+  ],
+  "phases": [
+    {
+      "id": "phase-1",
+      "title": "Freeze shared control-plane contracts",
+      "goal": "Add strict versioned contract types, semantic validators, canonical digests, and positive/negative fixtures without enabling runtime behavior.",
+      "rationale": "Every later renderer, supervisor, adapter, Factory, and verification change needs one dependency-neutral contract source.",
+      "risk": "medium",
+      "status": "in_progress",
+      "depends_on": [],
+      "entry_criteria": [
+        "Stage 1 hashes and planning commit match the plan metadata.",
+        "The 119-entry dirty snapshot is inventoried and preserved."
+      ],
+      "exit_criteria": [
+        "Authority, selection, route, lifecycle, budget, ownership, and workflow-result fixtures validate deterministically.",
+        "Unknown fields, incompatible versions, invalid digests, broken cross-references, and forbidden expansion cases reject."
+      ],
+      "rollback_strategy": [
+        "Remove only the additive controlplane package and fixtures; no runtime caller has switched behavior."
+      ],
+      "commit_boundary": "Shared contracts and fixtures only; no automatic commit.",
+      "changes": [
+        {
+          "id": "I401",
+          "title": "Authority and specialist-selection contracts",
+          "type": "foundation",
+          "description": "Add common strict codec/digest primitives plus anvil.authority/v1 and anvil.selection/v1 envelopes.",
+          "status": "in_progress",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [],
+          "source_refs": [
+            "REQ-001",
+            "REQ-002",
+            "DEC-001",
+            "DEC-002",
+            "ROAD-001"
+          ],
+          "preconditions": [
+            "Route Executor and review lanes to gpt-5.6-sol/max.",
+            "Confirm no existing controlplane package or conflicting untracked paths."
+          ],
+          "steps": [
+            "Implement bounded canonical JSON decoding with duplicate-key, unknown-field, trailing-data, size, version, identifier, timestamp, and digest validation.",
+            "Model parent grant, canonical role ceiling, requested narrowing, observed harness capability, effective grant, denial reasons, tools, filesystem scopes, process/network rights, invocable roles, route constraints, budgets, and evidence obligations.",
+            "Implement set-wise authority intersection with empty meaning none and missing/incomparable dimensions rejecting.",
+            "Model proposed workflow/lenses, add/remove/retain refinements, evidence-backed reasons, selected leaves, workflow ownership, graph parentage, and catalog/role digests.",
+            "Add valid narrowing, authority expansion, zero-selected-pool, direct-root-to-leaf, wrong-owner, digest, and unknown-field fixtures."
+          ],
+          "files_to_modify": [],
+          "files_to_add": [
+            "controlplane/codec.go",
+            "controlplane/authority.go",
+            "controlplane/selection.go",
+            "controlplane/authority_test.go",
+            "controlplane/selection_test.go",
+            "controlplane/testdata/authority/valid.json",
+            "controlplane/testdata/authority/invalid-expansion.json",
+            "controlplane/testdata/selection/valid.json",
+            "controlplane/testdata/selection/valid-zero-leaves.json",
+            "controlplane/testdata/selection/invalid-root-to-leaf.json"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "controlplane.AuthorityEnvelope",
+            "controlplane.AuthorityGrant",
+            "controlplane.IntersectAuthority",
+            "controlplane.SelectionEnvelope",
+            "controlplane.ValidateSelection"
+          ],
+          "acceptance_criteria": [
+            "Effective authority is exactly the four-way intersection and cannot expand on any dimension.",
+            "Orchestrator proposal visibility does not grant leaf invocation.",
+            "A workflow may validly select zero leaves when its recorded evidence and reasons justify that result.",
+            "Direct orchestrator-to-specialist and specialist-to-workflow edges reject deterministically."
+          ],
+          "behavior_to_preserve": [
+            "Existing codingfleet catalog loading and runplane behavior remain unchanged until later tasks integrate the package."
+          ],
+          "tests_required": [
+            "Table/property tests for set intersection and missing dimensions.",
+            "Closed-codec, digest, graph-parentage, zero-pool, expansion, and direct-leaf negative fixtures."
+          ],
+          "validation_commands": [
+            "go test ./controlplane -run 'Authority|Selection|Codec'",
+            "go vet ./controlplane"
+          ],
+          "definition_of_done": [
+            "Every REQ-001/REQ-002 acceptance path has a machine fixture.",
+            "Fixtures are provider-free and contain no commands, secrets, or real repository content."
+          ],
+          "rollback": [
+            "Delete only the files added by I401."
+          ],
+          "commit_boundary": "Authority, selection, common codec, and their fixtures are one additive contract review.",
+          "board_task_ref": "SWM-63"
+        },
+        {
+          "id": "I402",
+          "title": "Exact route and lifecycle records",
+          "type": "foundation",
+          "description": "Define anvil.route/v1 plus goal, assignment, generation, budget, ownership, and cancellation records.",
+          "status": "in_progress",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [],
+          "source_refs": [
+            "REQ-004",
+            "REQ-007",
+            "DEC-004",
+            "DEC-007",
+            "ROAD-001"
+          ],
+          "preconditions": [
+            "Route all work to gpt-5.6-sol/max.",
+            "Use provider/family/model/effort as four distinct required fields."
+          ],
+          "steps": [
+            "Define route identity, source/target harness, exact tuple, role/digest, selection/authority refs, repository snapshot, generation lineage, ownership, budget, evidence contract, capability snapshot, expiry, digest, and onUnavailable=reject.",
+            "Implement inherit, authorized refine, and reject decisions; refinement requires workflow authority, exact discovered capability, budget fit, parent route, and a non-empty reason.",
+            "Define immutable goalId, assignmentId, generationId, dispatchId, and parentDispatchId records.",
+            "Define aggregate budget dimensions and file/language-qualified-symbol ownership claims.",
+            "Define durable cancellation fence, cascade/drain state, late-event disposition, and monotonic generation validation.",
+            "Add ambiguous alias, missing tuple, silent downgrade, stale discovery, over-budget, ownership, and generation fixtures."
+          ],
+          "files_to_modify": [],
+          "files_to_add": [
+            "controlplane/route.go",
+            "controlplane/lifecycle.go",
+            "controlplane/route_test.go",
+            "controlplane/lifecycle_test.go",
+            "controlplane/testdata/route/valid-inherited.json",
+            "controlplane/testdata/route/valid-refined.json",
+            "controlplane/testdata/route/invalid-ambiguous.json",
+            "controlplane/testdata/route/invalid-unavailable.json",
+            "controlplane/testdata/lifecycle/valid-generation.json",
+            "controlplane/testdata/lifecycle/invalid-stale.json"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "controlplane.RouteEnvelope",
+            "controlplane.RouteDecision",
+            "controlplane.ResolveRoute",
+            "controlplane.GoalRecord",
+            "controlplane.AssignmentRecord",
+            "controlplane.GenerationRecord",
+            "controlplane.BudgetReservation",
+            "controlplane.OwnershipClaim",
+            "controlplane.CancellationFence"
+          ],
+          "acceptance_criteria": [
+            "Exact route inheritance copies provider, family, model, and effort unchanged.",
+            "Unauthorized refinement, ambiguity, absence, staleness, or budget overflow rejects before process creation.",
+            "Generation IDs are monotonic within a goal and every dispatch has unambiguous parentage.",
+            "Ownership syntax supports repository-relative paths and language-qualified symbols without traversal."
+          ],
+          "behavior_to_preserve": [
+            "Existing model discovery remains authoritative rather than being replaced by static fixture inventories."
+          ],
+          "tests_required": [
+            "Inherit/refine/reject matrix.",
+            "Generation monotonicity, stale dispatch, aggregate budget, path traversal, and symbol grammar tests."
+          ],
+          "validation_commands": [
+            "go test ./controlplane -run 'Route|Lifecycle|Budget|Ownership|Generation'"
+          ],
+          "definition_of_done": [
+            "REQ-004 and REQ-007 have versioned executable fixtures.",
+            "No fixture permits provider/model/effort substitution."
+          ],
+          "rollback": [
+            "Delete only the files added by I402."
+          ],
+          "commit_boundary": "Route and durable lifecycle record contracts only.",
+          "board_task_ref": "SWM-64"
+        },
+        {
+          "id": "I403",
+          "title": "Workflow-result and evidence envelope",
+          "type": "foundation",
+          "description": "Define anvil.workflow-result/v1 and semantic reconciliation inputs so exit zero or narrative success cannot satisfy completion.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [],
+          "source_refs": [
+            "REQ-005",
+            "REQ-009",
+            "DEC-005",
+            "DEC-009",
+            "ROAD-001"
+          ],
+          "preconditions": [
+            "Route all work to gpt-5.6-sol/max.",
+            "Preserve separate workflow completion and overall-goal completion authority."
+          ],
+          "steps": [
+            "Define result, goal, assignment, generation, dispatch and parent IDs; cycles/passes; role/lane; route, authority, selection, role, catalog, repository and capability digests.",
+            "Record specialist proposals, choices, refinements and reasons; missing-specialist details and Factory handoff requests.",
+            "Record files/symbols, mutations with pre/post digests, commands with exit codes/timing/output digests, checks, artifacts and digests, findings, uncertainty, decisions, errors, assumptions, missing evidence and child-result digests.",
+            "Record budget reserved/consumed/released, cancellation/stale markers, suggested next action, timestamps, disposition and envelope digest.",
+            "Implement semantic validation against the dispatch contract and required evidence; exit zero without required proof becomes uncertain or failed.",
+            "Add valid, forged, stale, missing-proof, changed-repository, failed-command, unsupported-completion, missing-specialist, and uncertain fixtures."
+          ],
+          "files_to_modify": [],
+          "files_to_add": [
+            "controlplane/result.go",
+            "controlplane/result_test.go",
+            "controlplane/testdata/result/valid.json",
+            "controlplane/testdata/result/valid-missing-specialist.json",
+            "controlplane/testdata/result/invalid-forged.json",
+            "controlplane/testdata/result/invalid-stale.json",
+            "controlplane/testdata/result/uncertain-missing-proof.json"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "controlplane.WorkflowResult",
+            "controlplane.CommandEvidence",
+            "controlplane.CheckEvidence",
+            "controlplane.ArtifactEvidence",
+            "controlplane.MutationEvidence",
+            "controlplane.ValidateWorkflowResult"
+          ],
+          "acceptance_criteria": [
+            "Every required evidence category from REQ-005 is represented and bounded.",
+            "A successful process exit is insufficient without valid current required checks and artifacts.",
+            "Unknown current state or missing proof yields uncertain, never complete.",
+            "Only the orchestrator may translate workflow disposition into an overall terminal goal result."
+          ],
+          "behavior_to_preserve": [
+            "Optional provider-backed behavior scoring remains separate and cannot become correctness evidence."
+          ],
+          "tests_required": [
+            "Closed schema, digest, cross-reference, stale generation, changed snapshot, missing proof, failed check, missing specialist, and truthful disposition tests."
+          ],
+          "validation_commands": [
+            "go test ./controlplane -run 'WorkflowResult|Evidence|Disposition'"
+          ],
+          "definition_of_done": [
+            "The complete result envelope round-trips canonically.",
+            "Every invalid fixture rejects with a stable field-level reason."
+          ],
+          "rollback": [
+            "Delete only the files added by I403."
+          ],
+          "commit_boundary": "Workflow-result contract and semantic fixtures only.",
+          "board_task_ref": "SWM-65"
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "title": "Enforce authority, selection, route, and projection parity",
+      "goal": "Integrate the shared contracts into the canonical catalog, dispatch admission, renderer, catalog consumer, and generated definitions.",
+      "rationale": "Catalog visibility, invocation edges, runtime admission, and rendered tools must agree before lifecycle execution is trusted.",
+      "risk": "high",
+      "status": "planned",
+      "depends_on": [
+        "phase-1"
+      ],
+      "entry_criteria": [
+        "I401-I403 are validator-clean."
+      ],
+      "exit_criteria": [
+        "Orchestrator proposes workflows and lenses but invokes only peer workflows.",
+        "Workflows alone refine/invoke technical and domain specialists, including a valid zero-leaf decision.",
+        "Runtime and all projections express the same effective authority and route semantics."
+      ],
+      "rollback_strategy": [
+        "Restore the prior catalog version and regenerate all 153 projections from the restored canonical catalog."
+      ],
+      "commit_boundary": "Catalog, admission, and generated-projection enforcement.",
+      "changes": [
+        {
+          "id": "I404",
+          "title": "Catalog authority ceilings and proposal/invocation split",
+          "type": "feature",
+          "description": "Extend the canonical coding-fleet schema with composable authority ceilings and explicit proposable versus invocable role/pool sets.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "large",
+          "depends_on": [
+            "I401"
+          ],
+          "source_refs": [
+            "REQ-001",
+            "REQ-002",
+            "DEC-001",
+            "DEC-002",
+            "ROAD-002"
+          ],
+          "preconditions": [
+            "Route Executor and reviewers to gpt-5.6-sol/max.",
+            "Reconcile existing dirty catalog.go, catalog_test.go, and catalog.json before editing."
+          ],
+          "steps": [
+            "Add Role.AuthorityCeiling and separate WorkflowSpec proposal/invocation access records.",
+            "Give the orchestrator proposal visibility over workflows and technical/domain lenses while limiting invocation to exactly seven peer workflows.",
+            "Give workflow units evidence-driven technical/domain proposal and invocation access; do not require any leaf to be selected.",
+            "Preserve Factory as one peer workflow with a distinct catalog/projection/install ceiling.",
+            "Advance the catalog version and enforce strict topology, capability, scope, and class validation.",
+            "Add catalog fixtures proving expansion, direct-root-to-leaf, workflow-to-workflow, and Factory target-write denial."
+          ],
+          "files_to_modify": [
+            "codingfleet/catalog.go",
+            "codingfleet/catalog_test.go",
+            "harness-agents/canonical/catalog.json",
+            "cmd/swarm/server_test.go"
+          ],
+          "files_to_add": [],
+          "files_to_delete": [],
+          "symbols": [
+            "codingfleet.Role.AuthorityCeiling",
+            "codingfleet.WorkflowSpec.Proposable",
+            "codingfleet.WorkflowSpec.Invocable",
+            "codingfleet.SpecialistAccess",
+            "codingfleet.validateFleetTopology",
+            "codingfleet.validateRole"
+          ],
+          "acceptance_criteria": [
+            "Catalog contains exactly 51 roles: 8 workflow, 29 technical, 14 domain.",
+            "Orchestrator has exactly seven invocable workflow IDs and no invocable specialist pool.",
+            "Orchestrator can propose technical/domain lenses without receiving leaf invocation authority.",
+            "Each workflow may select zero or more justified leaves and cannot invoke another workflow.",
+            "Served catalog remains strict and reflects the new version."
+          ],
+          "behavior_to_preserve": [
+            "Existing role IDs, peer workflow count, specialist inventory, activation rules, and three harness targets.",
+            "technical-code-review remains a read-only leaf distinct from workflow-code-review."
+          ],
+          "tests_required": [
+            "Catalog decoding, counts, topology, authority ceiling, proposal/invocation, zero-leaf, and served-catalog compatibility tests."
+          ],
+          "validation_commands": [
+            "go test ./codingfleet ./cmd/swarm -run 'Catalog|Topology|Authority|Selection'"
+          ],
+          "definition_of_done": [
+            "Catalog alone can answer what a role may propose and what it may invoke.",
+            "No existing specialist or workflow identity is removed or renamed."
+          ],
+          "rollback": [
+            "Restore the previous catalog version and schema fields; leave I401 contracts additive and unused."
+          ],
+          "commit_boundary": "Canonical catalog schema and topology enforcement only.",
+          "board_task_ref": "SWM-66"
+        },
+        {
+          "id": "I405",
+          "title": "Runtime authority, selection, and exact-route admission",
+          "type": "integration",
+          "description": "Bind codingfleet selection and runplane admission to the shared authority/selection/route validators.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "large",
+          "depends_on": [
+            "I401",
+            "I402",
+            "I404"
+          ],
+          "source_refs": [
+            "REQ-001",
+            "REQ-002",
+            "REQ-004",
+            "DEC-001",
+            "DEC-002",
+            "DEC-004",
+            "ROAD-002"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Adopt current untracked runplane files in place."
+          ],
+          "steps": [
+            "Add codingfleet proposal/refinement APIs that record candidate workflow, proposed lenses, evidence, retain/add/drop reasons, and selected leaves.",
+            "Make runtime graph admission validate the recorded parent and invocable set.",
+            "Extend runplane Route with provider, family, exact model, effort, selection/authority refs and digests, lineage, snapshot, budget, symbol ownership and capability snapshot.",
+            "Replace capability-mode equality with the shared narrowing intersection.",
+            "Require live exact capability discovery and reject stale, ambiguous, missing, or substituted tuples before process creation.",
+            "Include canonical route/authority/selection digests in the bounded brief."
+          ],
+          "files_to_modify": [
+            "codingfleet/catalog.go",
+            "runplane/types.go",
+            "runplane/catalog.go",
+            "runplane/catalog_bridge.go",
+            "runplane/route.go",
+            "runplane/route_test.go",
+            "runplane/discovery.go",
+            "runplane/discovery_test.go"
+          ],
+          "files_to_add": [
+            "codingfleet/selection.go",
+            "codingfleet/selection_test.go"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "codingfleet.ProposeWorkflow",
+            "codingfleet.RefineSelection",
+            "codingfleet.CanInvoke",
+            "runplane.Route",
+            "runplane.admitRoute",
+            "runplane.admittedRoute"
+          ],
+          "acceptance_criteria": [
+            "Root-to-workflow and workflow-to-specialist dispatches validate; root-to-specialist and workflow-to-workflow dispatches reject.",
+            "Effective authority matches the four-way intersection.",
+            "Exact provider/family/model/effort inheritance and authorized refinement behave identically for native and foreign routes.",
+            "Invalid routes start zero processes and reserve no budget or ownership."
+          ],
+          "behavior_to_preserve": [
+            "Byte-for-byte installed role verification.",
+            "Prompt remains excluded from argv.",
+            "Current repository-root and symlink escape protection."
+          ],
+          "tests_required": [
+            "Proposal/refinement audit, direct-leaf denial, narrowing/expansion, exact route, stale discovery, role-definition drift, and zero-process rejection tests."
+          ],
+          "validation_commands": [
+            "go test ./codingfleet ./runplane -run 'Selection|Invoke|Route|Authority|Discovery'"
+          ],
+          "definition_of_done": [
+            "Runtime admission consumes only validated versioned envelopes.",
+            "Every rejection records a stable typed reason and capability snapshot digest."
+          ],
+          "rollback": [
+            "Revert runtime integration to existing equality admission while leaving contract and catalog versions available behind a disabled gate."
+          ],
+          "commit_boundary": "Selection and route admission integration; no supervisor lifecycle changes.",
+          "board_task_ref": "SWM-67"
+        },
+        {
+          "id": "I406",
+          "title": "Deterministic renderer and projection parity",
+          "type": "integration",
+          "description": "Render authority, proposal, invocation, route and evidence obligations consistently into all three harness projections.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "large",
+          "depends_on": [
+            "I404",
+            "I405"
+          ],
+          "source_refs": [
+            "REQ-001",
+            "REQ-002",
+            "REQ-004",
+            "REQ-005",
+            "DEC-001",
+            "DEC-002",
+            "DEC-004",
+            "DEC-005",
+            "ROAD-002"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Capture a digest inventory of all 153 current generated projections before regeneration."
+          ],
+          "steps": [
+            "Make agentPrompt describe proposable lenses separately from invocable targets.",
+            "Render effective role ceilings and required result/evidence contract without implying runtime capability.",
+            "Preserve orchestrator-only root, seven peer workflows, workflow-owned leaves, and zero mandatory specialists.",
+            "Regenerate all Claude, Codex, and Antigravity projections only through the renderer.",
+            "Update fleet documentation and server compatibility assertions.",
+            "Diff the regenerated inventory and explain every changed digest."
+          ],
+          "files_to_modify": [
+            "codingfleet/render.go",
+            "codingfleet/render_test.go",
+            "harness-agents/README.md",
+            "harness-agents/workflows.md",
+            "harness-agents/rendered/codex/**",
+            "harness-agents/rendered/claude/**",
+            "harness-agents/rendered/antigravity/**",
+            "cmd/swarm/server_test.go"
+          ],
+          "files_to_add": [],
+          "files_to_delete": [],
+          "symbols": [
+            "codingfleet.renderCodexRole",
+            "codingfleet.renderClaudeRole",
+            "codingfleet.renderAntigravityRole",
+            "codingfleet.agentPrompt",
+            "codingfleet.SyncRendered"
+          ],
+          "acceptance_criteria": [
+            "Repeated rendering is byte-deterministic and reports no drift.",
+            "Each harness exposes identical role graph and authority semantics.",
+            "Rendered proposal metadata does not broaden native tool or invocation access.",
+            "Exactly 51 projections per harness remain present."
+          ],
+          "behavior_to_preserve": [
+            "Existing model defaults, native names, escaping, generated headers, managed path checks, and unrelated role prose."
+          ],
+          "tests_required": [
+            "Deterministic render, role count, tool ceiling, proposal/invocation parity, escaping, and generated-drift tests."
+          ],
+          "validation_commands": [
+            "go test ./codingfleet ./cmd/codingfleet ./cmd/swarm -run 'Render|Catalog'",
+            "go run ./cmd/codingfleet render --check"
+          ],
+          "definition_of_done": [
+            "Canonical catalog, runtime, served catalog, and all projections agree.",
+            "No generated path outside the three managed roots changes."
+          ],
+          "rollback": [
+            "Restore I404 catalog state and rerun the canonical renderer; never hand-edit projections."
+          ],
+          "commit_boundary": "Renderer and complete generated projection refresh.",
+          "board_task_ref": "SWM-68"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "title": "Add generation-safe durable supervision",
+      "goal": "Persist goal/generation lineage, atomic budgets and leases, cancellation fencing, descendant draining, stale rejection, and semantic result acceptance.",
+      "rationale": "These controls jointly decide whether a process or result remains authorized.",
+      "risk": "high",
+      "status": "planned",
+      "depends_on": [
+        "phase-2"
+      ],
+      "entry_criteria": [
+        "Phase 2 route and authority admission is green.",
+        "Existing runplane untracked work has a current digest inventory."
+      ],
+      "exit_criteria": [
+        "Concurrent and restart tests prove ledger conservation, deterministic lease winners, zero live descendants after cancellation, and audit-only stale output.",
+        "Exit zero cannot produce succeeded without a valid workflow result."
+      ],
+      "rollback_strategy": [
+        "Back up state before migration, refuse unsupported old/new readers, stop admission, and restore the prior executable plus state preimage."
+      ],
+      "commit_boundary": "Durable lifecycle and result engine.",
+      "changes": [
+        {
+          "id": "I407",
+          "title": "State version and durable goal/generation tree",
+          "type": "data",
+          "description": "Version the on-disk runplane state and persist goals, assignments, generations, dispatch parentage, fences and restart reconciliation.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "large",
+          "depends_on": [
+            "I402",
+            "I405"
+          ],
+          "source_refs": [
+            "REQ-004",
+            "REQ-007",
+            "DEC-004",
+            "DEC-007",
+            "ROAD-003"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Record current state layout and migration preconditions."
+          ],
+          "steps": [
+            "Add an explicit durable state manifest/version separate from HTTP API version.",
+            "Persist goal, assignment, generation and dispatch records atomically before launch.",
+            "Make generation increments monotonic and close prior generation admission.",
+            "Migrate compatible v1 job state into fenced recovery records; reject corrupt or incompatible state.",
+            "Reconcile restart state before permitting new processes.",
+            "Add crash-at-each-write and old/new-reader fixtures."
+          ],
+          "files_to_modify": [
+            "runplane/types.go",
+            "runplane/store.go",
+            "runplane/supervisor.go",
+            "runplane/supervisor_test.go"
+          ],
+          "files_to_add": [
+            "runplane/generation.go",
+            "runplane/generation_test.go",
+            "runplane/store_test.go",
+            "runplane/testdata/state/v1/job.json",
+            "runplane/testdata/state/v2/goal.json"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "runplane.StateVersion",
+            "runplane.Goal",
+            "runplane.Assignment",
+            "runplane.Generation",
+            "runplane.Dispatch",
+            "stateStore.loadState",
+            "stateStore.saveGeneration",
+            "Supervisor.reconcile"
+          ],
+          "acceptance_criteria": [
+            "Every job belongs to one durable goal, assignment, generation and parent dispatch.",
+            "Restart cannot treat an unknown process or generation as current.",
+            "Partial/corrupt migration blocks admission without deleting evidence."
+          ],
+          "behavior_to_preserve": [
+            "Existing bounded JSONL event storage, state-owner flock, auth token handling, and process identity checks."
+          ],
+          "tests_required": [
+            "Fresh state, compatible migration, corrupt migration, crash/restart, monotonic generation, and old-reader refusal tests."
+          ],
+          "validation_commands": [
+            "go test ./runplane -run 'State|Store|Goal|Assignment|Generation|Migration|Restart'"
+          ],
+          "definition_of_done": [
+            "Current generation is durably decidable before launch, mutation, cancellation, and result acceptance."
+          ],
+          "rollback": [
+            "Stop the supervisor, restore the dated state-directory backup and prior binary, then prove the restored reader can load it before restart."
+          ],
+          "commit_boundary": "State schema, migration, and goal tree only.",
+          "board_task_ref": "SWM-69"
+        },
+        {
+          "id": "I408",
+          "title": "Aggregate budget ledger and atomic admission",
+          "type": "feature",
+          "description": "Reserve, debit, release, and reconcile goal-wide descendant budgets atomically.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I407"
+          ],
+          "source_refs": [
+            "REQ-004",
+            "REQ-007",
+            "REQ-009",
+            "DEC-007",
+            "DEC-009",
+            "ROAD-003"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Durable goal/generation writes from I407 are green."
+          ],
+          "steps": [
+            "Implement wall time, turns/messages, tool calls, input/output tokens when observed, child count/concurrency, and optional cost ceilings.",
+            "Reserve parent-covered descendant slices atomically before launch.",
+            "Debit observed usage and conservatively account for unknown usage.",
+            "Release unused reservations on failure, cancellation, stale rejection and terminal acceptance.",
+            "Persist ledger events and reconcile conservation after restart."
+          ],
+          "files_to_modify": [
+            "runplane/types.go",
+            "runplane/store.go",
+            "runplane/supervisor.go",
+            "runplane/supervisor_test.go"
+          ],
+          "files_to_add": [
+            "runplane/budget.go",
+            "runplane/budget_test.go"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "runplane.BudgetLedger",
+            "runplane.BudgetReservation",
+            "BudgetLedger.Reserve",
+            "BudgetLedger.Debit",
+            "BudgetLedger.Release"
+          ],
+          "acceptance_criteria": [
+            "Concurrent children cannot reserve more than the parent aggregate.",
+            "Unknown usage is not treated as zero.",
+            "Reserved equals consumed plus released plus active for every persisted goal."
+          ],
+          "behavior_to_preserve": [
+            "Existing global concurrency cap remains an additional ceiling."
+          ],
+          "tests_required": [
+            "Race-enabled reserve/debit/release, over-budget, cancellation, unknown usage, restart and conservation tests."
+          ],
+          "validation_commands": [
+            "go test -race ./runplane -run 'Budget|Ledger|Admission'"
+          ],
+          "definition_of_done": [
+            "Over-budget work rejects before process creation and names the exhausted dimension."
+          ],
+          "rollback": [
+            "Disable new admissions, reconcile all active reservations, restore the previous state/binary pair, and retain budget events for audit."
+          ],
+          "commit_boundary": "Aggregate budget ledger and admission integration.",
+          "board_task_ref": "SWM-70"
+        },
+        {
+          "id": "I409",
+          "title": "Shared file and symbol ownership registry",
+          "type": "feature",
+          "description": "Add durable canonical path and language-qualified symbol leases with deterministic conflict resolution.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I407"
+          ],
+          "source_refs": [
+            "REQ-007",
+            "DEC-007",
+            "ROAD-003"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Preserve existing path canonicalization and symlink rejection tests."
+          ],
+          "steps": [
+            "Define repository-relative exact/prefix path leases and language-qualified symbol leases such as go://runplane.Supervisor.Cancel.",
+            "Resolve symlinks and reject traversal/root escape before admission.",
+            "Detect identical, prefix/containing path, and identical/containing symbol conflicts.",
+            "Use earlier admitted current-generation dispatch as the deterministic winner.",
+            "Fall back conservatively to the containing file when symbol resolution is unavailable.",
+            "Persist and release leases on all terminal, cancellation and recovery paths."
+          ],
+          "files_to_modify": [
+            "runplane/route.go",
+            "runplane/route_test.go",
+            "runplane/store.go",
+            "runplane/supervisor.go",
+            "runplane/supervisor_test.go"
+          ],
+          "files_to_add": [
+            "runplane/ownership.go",
+            "runplane/ownership_test.go"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "runplane.OwnershipRegistry",
+            "runplane.FileLease",
+            "runplane.SymbolLease",
+            "OwnershipRegistry.Acquire",
+            "OwnershipRegistry.Release"
+          ],
+          "acceptance_criteria": [
+            "Read-only work and disjoint writers coexist.",
+            "Overlapping writers resolve deterministically under concurrent admission.",
+            "Traversal, symlink escape and ambiguous symbols reject."
+          ],
+          "behavior_to_preserve": [
+            "Existing path-only conflict cases remain rejected."
+          ],
+          "tests_required": [
+            "Race-enabled exact/prefix path, symbol containment, conservative fallback, symlink, traversal, release and restart tests."
+          ],
+          "validation_commands": [
+            "go test -race ./runplane -run 'Ownership|Lease|Conflict|Symlink'"
+          ],
+          "definition_of_done": [
+            "Every mutation-capable dispatch owns explicit conflict-free files or symbols before launch."
+          ],
+          "rollback": [
+            "Stop new writers, drain active leases, restore prior state/binary, and serialize all writers at file scope until the registry returns."
+          ],
+          "commit_boundary": "Ownership grammar, registry, and conflict tests.",
+          "board_task_ref": "SWM-71"
+        },
+        {
+          "id": "I410",
+          "title": "Cancel cascade, stale fencing, and semantic results",
+          "type": "integration",
+          "description": "Complete descendant cancellation/drain and accept terminal success only through a current valid workflow-result envelope.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "large",
+          "depends_on": [
+            "I403",
+            "I407",
+            "I408",
+            "I409"
+          ],
+          "source_refs": [
+            "REQ-005",
+            "REQ-007",
+            "DEC-005",
+            "DEC-007",
+            "ROAD-003"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Generation, budget and lease state are durable."
+          ],
+          "steps": [
+            "Persist the cancellation fence before signaling any process.",
+            "Close admission, cascade through descendants, TERM then policy-bounded KILL, drain streams/events, and release budget/leases.",
+            "Tag late output and results rejected_stale; keep them audit-only without mutation or accepted debit.",
+            "Parse one terminal workflow-result envelope from provider output and validate it against dispatch, route, authority, generation, repository and evidence obligations.",
+            "Make exit zero plus missing/invalid result uncertain or failed rather than succeeded.",
+            "Extend evidence/status APIs with validated result, missing proof and rejection reason."
+          ],
+          "files_to_modify": [
+            "runplane/types.go",
+            "runplane/store.go",
+            "runplane/supervisor.go",
+            "runplane/supervisor_test.go",
+            "runplane/http.go",
+            "runplane/http_test.go",
+            "runplane/redact.go"
+          ],
+          "files_to_add": [
+            "runplane/result.go",
+            "runplane/result_test.go"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "Supervisor.Cancel",
+            "Supervisor.Evidence",
+            "Supervisor.acceptResult",
+            "runplane.WorkflowResultState",
+            "runplane.rejectedStale"
+          ],
+          "acceptance_criteria": [
+            "Cancellation leaves zero live descendants, active leases and unused reservations.",
+            "Late events remain readable but cannot mutate or satisfy completion.",
+            "Exit zero is never sufficient without a valid current result and required evidence.",
+            "Secrets and raw prompts remain redacted from evidence."
+          ],
+          "behavior_to_preserve": [
+            "Existing stream ordering, bounded payloads, process-group cleanup, resume single-flight and durability-failure behavior."
+          ],
+          "tests_required": [
+            "Cancel cascade/drain, TERM/KILL, stale output/result, forged result, exit-zero-without-proof, persistence failure and restart tests."
+          ],
+          "validation_commands": [
+            "go test -race ./runplane -run 'Cancel|Cascade|Drain|Stale|Result|Evidence|Durability'"
+          ],
+          "definition_of_done": [
+            "No stale generation can start, mutate, consume accepted budget, or complete."
+          ],
+          "rollback": [
+            "Disable admission, cancel/drain current generations, restore the state/binary preimage, and retain late-result audit evidence."
+          ],
+          "commit_boundary": "Cancellation and semantic result acceptance.",
+          "board_task_ref": "SWM-72"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "title": "Ship narrow lifecycle adapters and shared conformance",
+      "goal": "Give only Claude and Antigravity orchestrators a typed supervisor lifecycle tool and prove identical provider-free semantics across all harness seams.",
+      "rationale": "Foreign orchestrators currently receive only prose and must not gain shell to make it executable.",
+      "risk": "high",
+      "status": "planned",
+      "depends_on": [
+        "phase-3"
+      ],
+      "entry_criteria": [
+        "Phases 2-3 are green.",
+        "Installed harness versions and MCP registration schemas have been freshly discovered."
+      ],
+      "exit_criteria": [
+        "Claude and Antigravity orchestrators expose only the allowlisted lifecycle tool; workflows/leaves do not.",
+        "Codex native and both foreign adapters pass the same positive and negative conformance fixtures."
+      ],
+      "rollback_strategy": [
+        "Remove the MCP registration/projection, restore prior generated definitions, and retain native-only control."
+      ],
+      "commit_boundary": "Structured adapter, projections, and conformance.",
+      "changes": [
+        {
+          "id": "I411",
+          "title": "Typed stdio supervisor lifecycle MCP adapter",
+          "type": "feature",
+          "description": "Add one fixed-operation stdio MCP adapter backed by the authenticated loopback supervisor.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I402",
+            "I410"
+          ],
+          "source_refs": [
+            "REQ-003",
+            "REQ-007",
+            "DEC-003",
+            "DEC-007",
+            "ROAD-004"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Verify modelcontextprotocol/go-sdk v1.4.1 stdio APIs from local types and official docs."
+          ],
+          "steps": [
+            "Add a typed supervisor client with fixed loopback URL/state/token configuration supplied only by trusted process configuration.",
+            "Expose one supervisor_lifecycle tool with operation enum health, capabilities, start, list, status, events, send, resume, cancel and evidence.",
+            "Use typed inline start envelopes and bounded text/cursors/IDs; accept no executable, argv, URL or filesystem path.",
+            "Add cmd/swarm-runplane mcp-stdio using mcp.StdioTransport.",
+            "Bound request/response bytes, redact errors, enforce auth, and reject unknown fields/operations.",
+            "Test against an in-memory/fake supervisor without launching a harness or model."
+          ],
+          "files_to_modify": [
+            "cmd/swarm-runplane/main.go",
+            "cmd/swarm-runplane/main_test.go",
+            "runplane/http.go",
+            "runplane/http_test.go"
+          ],
+          "files_to_add": [
+            "runplane/client.go",
+            "runplane/client_test.go",
+            "runplane/mcp.go",
+            "runplane/mcp_test.go"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "runplane.SupervisorClient",
+            "runplane.LifecycleOperation",
+            "runplane.NewMCPServer",
+            "runplane.RunMCPStdio"
+          ],
+          "acceptance_criteria": [
+            "Tool schema contains only the ten lifecycle operations and bounded typed fields.",
+            "Arbitrary command, argv, URL, path, oversized input and unauthenticated calls reject.",
+            "The adapter never invokes a shell."
+          ],
+          "behavior_to_preserve": [
+            "Existing HTTP/CLI lifecycle remains available to trusted operators.",
+            "Default supervisor endpoint remains authenticated loopback 127.0.0.1:8083."
+          ],
+          "tests_required": [
+            "MCP discovery, every operation, malformed input, auth, overflow, arbitrary-command/path/URL and redaction tests."
+          ],
+          "validation_commands": [
+            "go test ./runplane ./cmd/swarm-runplane -run 'MCP|Lifecycle|Client|Auth'"
+          ],
+          "definition_of_done": [
+            "A clean stdio MCP session can perform all lifecycle operations against a fake supervisor and nothing else."
+          ],
+          "rollback": [
+            "Remove mcp-stdio and its package files; existing native HTTP/CLI behavior remains."
+          ],
+          "commit_boundary": "Typed MCP lifecycle adapter only.",
+          "board_task_ref": "SWM-73"
+        },
+        {
+          "id": "I412",
+          "title": "Orchestrator-only Claude and Antigravity registration",
+          "type": "integration",
+          "description": "Render and install inline lifecycle MCP registration only for the foreign-harness orchestrator projections.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "large",
+          "depends_on": [
+            "I406",
+            "I411"
+          ],
+          "source_refs": [
+            "REQ-001",
+            "REQ-003",
+            "REQ-004",
+            "DEC-001",
+            "DEC-003",
+            "DEC-004",
+            "ROAD-004"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Verify installed Claude and Antigravity agent/MCP syntax and resulting fully qualified tool names."
+          ],
+          "steps": [
+            "Extend SupervisorRunplaneSpec with the fixed mcp-stdio command and expected tool identity.",
+            "Render inline MCP server configuration and the single lifecycle tool only into anvil-coding-orchestrator for Claude and Antigravity.",
+            "Preserve no Bash for Claude orchestrator and no run_command for Antigravity orchestrator.",
+            "Ensure every workflow and specialist projection excludes the lifecycle tool/server.",
+            "Extend Claude canonical-definition parsing to support the exact additional metadata without weakening strictness.",
+            "Regenerate, install in a temporary harness home, cold-start a fresh parser/session fixture, and verify tool inventories."
+          ],
+          "files_to_modify": [
+            "codingfleet/catalog.go",
+            "codingfleet/catalog_test.go",
+            "codingfleet/render.go",
+            "codingfleet/render_test.go",
+            "codingfleet/install.go",
+            "codingfleet/install_test.go",
+            "runplane/command.go",
+            "runplane/command_test.go",
+            "harness-agents/canonical/catalog.json",
+            "harness-agents/rendered/claude/**",
+            "harness-agents/rendered/antigravity/**",
+            "harness-agents/rendered/codex/**"
+          ],
+          "files_to_add": [],
+          "files_to_delete": [],
+          "symbols": [
+            "codingfleet.SupervisorRunplaneSpec",
+            "codingfleet.renderClaudeRole",
+            "codingfleet.renderAntigravityRole",
+            "runplane.canonicalClaudeAgent",
+            "runplane.parseCanonicalClaudeAgent"
+          ],
+          "acceptance_criteria": [
+            "Only the Claude/Antigravity orchestrator receives the lifecycle MCP tool.",
+            "No workflow or leaf receives it; Codex retains native orchestration.",
+            "Claude orchestrator lacks Bash and Antigravity orchestrator lacks run_command.",
+            "Unsupported installed registration blocks activation without shell fallback."
+          ],
+          "behavior_to_preserve": [
+            "Existing exact role override, model/effort routing, peer topology and all non-orchestrator tool lists."
+          ],
+          "tests_required": [
+            "Projection syntax, tool inventory, shell absence, role scope, installed digest, cold-load and canonical parser tests."
+          ],
+          "validation_commands": [
+            "go test ./codingfleet ./runplane -run 'Render|Install|Claude|Antigravity|LifecycleTool'",
+            "go run ./cmd/codingfleet render --check"
+          ],
+          "definition_of_done": [
+            "Fresh foreign orchestrator sessions expose exactly one structured supervisor tool and no generic process tool."
+          ],
+          "rollback": [
+            "Restore prior catalog/projections with the renderer and remove only the managed MCP server registration."
+          ],
+          "commit_boundary": "Foreign orchestrator registration and regenerated projections.",
+          "board_task_ref": "SWM-74"
+        },
+        {
+          "id": "I413",
+          "title": "Shared benchmark-independent adapter conformance",
+          "type": "validation",
+          "description": "Add one provider-free fixture driver that tests Codex native, Claude MCP and Antigravity MCP adapter semantics identically.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I410",
+            "I412"
+          ],
+          "source_refs": [
+            "REQ-001",
+            "REQ-002",
+            "REQ-003",
+            "REQ-004",
+            "REQ-005",
+            "REQ-007",
+            "REQ-008",
+            "DEC-001",
+            "DEC-002",
+            "DEC-003",
+            "DEC-004",
+            "DEC-005",
+            "DEC-007",
+            "DEC-008",
+            "ROAD-004"
+          ],
+          "preconditions": [
+            "Route implementation and verification to gpt-5.6-sol/max.",
+            "All fixtures use fake processes, synthetic paths and zero provider credentials."
+          ],
+          "steps": [
+            "Define a harness-neutral fixture format for capability, authority, selection, route, lifecycle request, provider output, result and expected disposition.",
+            "Drive the same fixtures through native and foreign translation seams.",
+            "Cover allow/narrow, expansion, direct leaf, unavailable route, malformed lifecycle, stale generation, cancel, forged/missing result and zero-leaf selection.",
+            "Emit stable correlated evidence keyed by goal, generation, dispatch, role, route digest and adapter.",
+            "Add an offline conformance CLI that reads only managed definitions and built-in fixtures."
+          ],
+          "files_to_modify": [
+            "cmd/swarm-runplane/main.go",
+            "cmd/swarm-runplane/main_test.go",
+            "runplane/README.md"
+          ],
+          "files_to_add": [
+            "runplane/conformance.go",
+            "runplane/conformance_test.go",
+            "runplane/testdata/conformance/valid.json",
+            "runplane/testdata/conformance/authority-expansion.json",
+            "runplane/testdata/conformance/direct-leaf.json",
+            "runplane/testdata/conformance/unavailable-route.json",
+            "runplane/testdata/conformance/stale-result.json",
+            "runplane/testdata/conformance/missing-proof.json"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "runplane.ConformanceCase",
+            "runplane.RunConformance",
+            "runplane.AdapterObservation"
+          ],
+          "acceptance_criteria": [
+            "All three seams produce identical normalized dispositions and evidence digests.",
+            "Fixture execution starts no model, benchmark or scorer process.",
+            "Negative cases prove zero unauthorized process starts or mutations."
+          ],
+          "behavior_to_preserve": [
+            "Provider-specific streaming/session behavior remains behind its adapter."
+          ],
+          "tests_required": [
+            "Cross-harness parity and every negative case listed above."
+          ],
+          "validation_commands": [
+            "go test ./controlplane ./runplane -run 'Conformance|Adapter'",
+            "go run ./cmd/swarm-runplane conformance --offline --definitions harness-agents/rendered"
+          ],
+          "definition_of_done": [
+            "Control-plane correctness is demonstrable without a provider or benchmark."
+          ],
+          "rollback": [
+            "Remove only the conformance driver/fixtures; adapter runtime remains independently testable."
+          ],
+          "commit_boundary": "Shared conformance suite and offline CLI.",
+          "board_task_ref": "SWM-75"
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "title": "Constrain Factory to one recoverable transaction",
+      "goal": "Enforce Factory ownership and make catalog, projection, installation and cold-load behavior one rollback-capable transaction.",
+      "rationale": "Current installer rollback does not cover canonical catalog mutation and complete metadata restoration.",
+      "risk": "high",
+      "status": "planned",
+      "depends_on": [
+        "phase-4"
+      ],
+      "entry_criteria": [
+        "Shared contracts and projection/install behavior are stable."
+      ],
+      "exit_criteria": [
+        "Factory cannot address a target repository and restores exact bytes and metadata after every injected failure.",
+        "A fresh process proves the installed definition."
+      ],
+      "rollback_strategy": [
+        "Restore all recorded preimages in reverse order and retain the transaction manifest and failure evidence."
+      ],
+      "commit_boundary": "Factory policy and transaction engine.",
+      "changes": [
+        {
+          "id": "I414",
+          "title": "Factory ownership manifest and policy",
+          "type": "foundation",
+          "description": "Define the only paths and operations Factory may own and deny generic target-project mutation.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I401",
+            "I403",
+            "I405",
+            "I413"
+          ],
+          "source_refs": [
+            "REQ-006",
+            "DEC-006",
+            "ROAD-005"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Treat the Swarm fleet root and the target-project root as distinct identities."
+          ],
+          "steps": [
+            "Define a Factory manifest for canonical technical/domain entries, generated projection roots and installer-owned harness paths.",
+            "Reject workflow/orchestrator creation and any target-project path.",
+            "Require transaction ID, requested specialist identity, rationale, preimage manifest, validation plan and result-envelope evidence.",
+            "Require Factory to return control without invoking or resuming another workflow.",
+            "Update the canonical Factory role to reference the machine policy."
+          ],
+          "files_to_modify": [
+            "codingfleet/catalog.go",
+            "codingfleet/catalog_test.go",
+            "harness-agents/canonical/catalog.json"
+          ],
+          "files_to_add": [
+            "codingfleet/factory_policy.go",
+            "codingfleet/factory_policy_test.go"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "codingfleet.FactoryManifest",
+            "codingfleet.FactoryOperation",
+            "codingfleet.ValidateFactoryManifest"
+          ],
+          "acceptance_criteria": [
+            "Only technical/domain catalog entries, managed projections and installer-owned global paths are permitted.",
+            "Target project, workflow role, orchestrator role and arbitrary path requests reject.",
+            "Factory result validates through anvil.workflow-result/v1."
+          ],
+          "behavior_to_preserve": [
+            "Factory remains one orchestrator-dispatched peer workflow and the only specialist-definition writer."
+          ],
+          "tests_required": [
+            "Allowed manifest, target denial, workflow/orchestrator denial, path escape and return-control tests."
+          ],
+          "validation_commands": [
+            "go test ./codingfleet -run 'FactoryPolicy|FactoryManifest|Catalog'"
+          ],
+          "definition_of_done": [
+            "Factory authority is machine-decidable before any mutation."
+          ],
+          "rollback": [
+            "Remove the additive policy gate and restore the prior Factory catalog entry; do not broaden its prose."
+          ],
+          "commit_boundary": "Factory authorization policy only.",
+          "board_task_ref": "SWM-76"
+        },
+        {
+          "id": "I415",
+          "title": "Atomic Factory catalog/render/install/cold-load transaction",
+          "type": "feature",
+          "description": "Stage, validate, promote, install and cold-load a Factory change as one transaction with complete preimages.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "large",
+          "depends_on": [
+            "I406",
+            "I414"
+          ],
+          "source_refs": [
+            "REQ-006",
+            "DEC-006",
+            "ROAD-005"
+          ],
+          "preconditions": [
+            "Route work and independent review to gpt-5.6-sol/max.",
+            "Factory manifest validates before staging."
+          ],
+          "steps": [
+            "Capture bytes, mode, UID, GID, timestamps, symlink target and absence for every owned path.",
+            "Stage catalog changes and all projections outside live destinations.",
+            "Load, validate, render twice, compare deterministic digests and run projection checks.",
+            "Atomically promote the complete set, run managed installation, and verify installed digests.",
+            "Start a fresh process/session fixture to prove cold reload and role discovery.",
+            "Inject failure at capture, render, validate, promote, install and reload; restore every preimage exactly."
+          ],
+          "files_to_modify": [
+            "codingfleet/render.go",
+            "codingfleet/render_test.go",
+            "codingfleet/install.go",
+            "codingfleet/install_test.go",
+            "cmd/codingfleet/main.go",
+            "cmd/codingfleet/main_test.go",
+            "harness-agents/rendered/**"
+          ],
+          "files_to_add": [
+            "codingfleet/factory_transaction.go",
+            "codingfleet/factory_transaction_test.go"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "codingfleet.FactoryTransaction",
+            "codingfleet.FactoryPreimage",
+            "FactoryTransaction.Stage",
+            "FactoryTransaction.Validate",
+            "FactoryTransaction.Promote",
+            "FactoryTransaction.Rollback"
+          ],
+          "acceptance_criteria": [
+            "Successful transaction makes catalog, all projections and installed definitions agree.",
+            "Every injected failure restores bytes and metadata exactly.",
+            "The transaction cannot mutate outside the Factory manifest.",
+            "Fresh-session proof is required; hot-loaded current-process state is insufficient."
+          ],
+          "behavior_to_preserve": [
+            "Existing install flock, non-symlink refusal, managed markers, dry-run/check/uninstall behavior and generated ownership."
+          ],
+          "tests_required": [
+            "Failure injection at every phase, metadata equality, deterministic render, target denial, installed digest and cold-load tests."
+          ],
+          "validation_commands": [
+            "go test ./codingfleet ./cmd/codingfleet -run 'Factory|Install|Render|Rollback|Cold'",
+            "go run ./cmd/codingfleet render --check"
+          ],
+          "definition_of_done": [
+            "Factory either installs one valid specialist completely or leaves all owned surfaces exactly unchanged."
+          ],
+          "rollback": [
+            "Invoke FactoryTransaction.Rollback, verify the preimage manifest byte-for-byte, and block further Factory admission on any mismatch."
+          ],
+          "commit_boundary": "Complete Factory transaction and generated refresh.",
+          "board_task_ref": "SWM-77"
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "title": "Implement bounded independent verification",
+      "goal": "Add deterministic orchestrator policy and one-pass adapter semantics for plan/execute, independent verify/evaluate, reconcile, targeted repair, and reverify.",
+      "rationale": "Existing code-agent repair count is not the required two-total-verification-pass control-plane policy.",
+      "risk": "high",
+      "status": "planned",
+      "depends_on": [
+        "phase-5"
+      ],
+      "entry_criteria": [
+        "Machine results, lifecycle and conformance are green."
+      ],
+      "exit_criteria": [
+        "Default two total passes, at most one repair and all five terminal states are proven.",
+        "The adapter emits one final answer/patch and has no scorer or forbidden-data edge."
+      ],
+      "rollback_strategy": [
+        "Disable the new loop policy or lower configuration to one verification pass; never fall back to unbounded repair."
+      ],
+      "commit_boundary": "Verification policy, adapter boundary, and integrated local evidence.",
+      "changes": [
+        {
+          "id": "I416",
+          "title": "Two-total-pass verification state machine",
+          "type": "feature",
+          "description": "Implement the orchestrator-owned bounded verification/reconciliation state machine.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I403",
+            "I410",
+            "I415"
+          ],
+          "source_refs": [
+            "REQ-005",
+            "REQ-009",
+            "DEC-005",
+            "DEC-009",
+            "ROAD-006"
+          ],
+          "preconditions": [
+            "Route work to gpt-5.6-sol/max.",
+            "Do not reuse code-agent maxRepairAttempts=2 as the new policy."
+          ],
+          "steps": [
+            "Define policy default maxVerificationPasses=2 with supported range 1..2.",
+            "Model plan/execute, independent verify/evaluate, reconcile, targeted repair, independent reverify and terminal states.",
+            "Require separate write and verification authority/result IDs.",
+            "Require fresh repository/evidence digests and material progress before repair/reverify.",
+            "Stop exactly as accepted, exhausted, cancelled, blocked or no-progress.",
+            "Treat uncertainty as non-accepting and make a third default pass impossible."
+          ],
+          "files_to_modify": [],
+          "files_to_add": [
+            "controlplane/verification.go",
+            "controlplane/verification_test.go",
+            "controlplane/testdata/verification/accept-first-pass.json",
+            "controlplane/testdata/verification/repair-accept.json",
+            "controlplane/testdata/verification/exhausted.json",
+            "controlplane/testdata/verification/cancelled.json",
+            "controlplane/testdata/verification/blocked.json",
+            "controlplane/testdata/verification/no-progress.json"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "controlplane.VerificationPolicy",
+            "controlplane.VerificationCycle",
+            "controlplane.TerminalOutcome",
+            "controlplane.ReconcileVerification"
+          ],
+          "acceptance_criteria": [
+            "Default behavior is initial independent verification plus at most one repair/reverify.",
+            "Every path terminates within policy and aggregate budget.",
+            "Same repository/evidence digest yields no-progress without another model cycle.",
+            "Writer-owned success cannot self-certify acceptance."
+          ],
+          "behavior_to_preserve": [
+            "Existing code-agent workflow remains unchanged and continues using its own contract."
+          ],
+          "tests_required": [
+            "First-pass accept, repair/accept, exhausted, cancelled, blocked, no-progress, uncertainty, self-certification and third-pass denial tests."
+          ],
+          "validation_commands": [
+            "go test ./controlplane -run 'Verification|Reconcile|Terminal|Progress'"
+          ],
+          "definition_of_done": [
+            "Only current independently proven evidence reaches accepted."
+          ],
+          "rollback": [
+            "Disable the new policy or configure one pass; do not increase or unbound the loop."
+          ],
+          "commit_boundary": "Generic verification state machine only.",
+          "board_task_ref": "SWM-78"
+        },
+        {
+          "id": "I417",
+          "title": "One-attempt adapter and forbidden-data boundary",
+          "type": "integration",
+          "description": "Define adapter behavior that keeps verification cycles internal while yielding one final answer/patch and never calling an external scorer.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I413",
+            "I416"
+          ],
+          "source_refs": [
+            "REQ-008",
+            "REQ-009",
+            "DEC-008",
+            "DEC-009",
+            "ROAD-006"
+          ],
+          "preconditions": [
+            "Route work and review to gpt-5.6-sol/max.",
+            "Fixtures contain only synthetic task text, repository state and deterministic outputs."
+          ],
+          "steps": [
+            "Define one adapter invocation, internal cycle transcript and one final response/patch contract.",
+            "Deny benchmark gold patch, hidden tests/results, scorer output/metadata, prior solutions, history, issue-web results and external score.",
+            "Deny an external scorer call between cycles or after finalization.",
+            "Require truthful non-success when required verification is unavailable.",
+            "Extend conformance fixtures for one final patch, no scorer, forbidden inputs and unverified output."
+          ],
+          "files_to_modify": [
+            "runplane/conformance.go",
+            "runplane/conformance_test.go"
+          ],
+          "files_to_add": [
+            "runplane/adapter.go",
+            "runplane/adapter_test.go",
+            "runplane/testdata/conformance/one-final-patch.json",
+            "runplane/testdata/conformance/forbidden-scorer.json",
+            "runplane/testdata/conformance/unverified-non-success.json"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "runplane.AdapterAttempt",
+            "runplane.AdapterCycle",
+            "runplane.AdapterFinalResult",
+            "runplane.ValidateAdapterBoundary"
+          ],
+          "acceptance_criteria": [
+            "One outer attempt contains at most two internal verification passes and one repair.",
+            "Exactly one final answer/patch is emitted.",
+            "Any forbidden input or scorer edge rejects before work begins.",
+            "Missing proof produces truthful non-success."
+          ],
+          "behavior_to_preserve": [
+            "Optional code-agent behavior scoring remains separately operator/cost authorized and outside this adapter."
+          ],
+          "tests_required": [
+            "One-output, internal-cycle, no-scorer, forbidden-input, missing-proof and repeated-digest tests."
+          ],
+          "validation_commands": [
+            "go test ./runplane -run 'Adapter|OneFinal|Forbidden|Scorer'"
+          ],
+          "definition_of_done": [
+            "Adapter conformance cannot access or infer benchmark scoring data."
+          ],
+          "rollback": [
+            "Disable the adapter integration while retaining the generic loop policy."
+          ],
+          "commit_boundary": "One-attempt adapter contract and denial fixtures.",
+          "board_task_ref": "SWM-79"
+        },
+        {
+          "id": "I418",
+          "title": "Integrated local no-model verification",
+          "type": "validation",
+          "description": "Run the complete local contract, catalog, lifecycle, Factory, adapter and projection suite without model access.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I415",
+            "I417"
+          ],
+          "source_refs": [
+            "REQ-001",
+            "REQ-002",
+            "REQ-003",
+            "REQ-004",
+            "REQ-005",
+            "REQ-006",
+            "REQ-007",
+            "REQ-008",
+            "REQ-009",
+            "DEC-001",
+            "DEC-002",
+            "DEC-003",
+            "DEC-004",
+            "DEC-005",
+            "DEC-006",
+            "DEC-007",
+            "DEC-008",
+            "DEC-009",
+            "ROAD-006"
+          ],
+          "preconditions": [
+            "Route verification to gpt-5.6-sol/max.",
+            "Remove provider credentials from the test environment and use temporary state/home directories."
+          ],
+          "steps": [
+            "Add integrated tests spanning catalog proposal, route admission, lifecycle, result, loop, adapter and Factory boundaries.",
+            "Assert no subprocess name can resolve to codex, claude, agy, benchmark or scorer.",
+            "Run race tests for supervisor, budget, leases and cancellation.",
+            "Run deterministic render and temporary-home install/cold-load tests.",
+            "Record command exits, artifact digests and projection inventory in workflow-result evidence."
+          ],
+          "files_to_modify": [
+            "runplane/README.md",
+            "harness-agents/README.md"
+          ],
+          "files_to_add": [
+            "runplane/controlplane_integration_test.go",
+            "codingfleet/controlplane_integration_test.go"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "TestControlPlaneIntegratedNoModel",
+            "TestCodingFleetRuntimeProjectionParity"
+          ],
+          "acceptance_criteria": [
+            "Full focused suites, race tests, vet, render check and offline conformance pass.",
+            "Test evidence proves zero provider/model/scorer invocation.",
+            "Projection inventory remains 51 per harness."
+          ],
+          "behavior_to_preserve": [
+            "Unrelated package tests and dirty user changes."
+          ],
+          "tests_required": [
+            "Integrated happy path and all material negative paths from REQ-001-009."
+          ],
+          "validation_commands": [
+            "go test ./controlplane ./codingfleet ./runplane ./cmd/codingfleet ./cmd/swarm-runplane",
+            "go test -race ./runplane",
+            "go vet ./controlplane ./codingfleet ./runplane ./cmd/codingfleet ./cmd/swarm-runplane",
+            "go run ./cmd/codingfleet render --check",
+            "go run ./cmd/swarm-runplane conformance --offline --definitions harness-agents/rendered"
+          ],
+          "definition_of_done": [
+            "Local Stage 3 evidence is green, digest-addressed and provider-free."
+          ],
+          "rollback": [
+            "Revert only the integrated tests/docs if they expose a design flaw; repair runtime through a new bounded task rather than weakening assertions."
+          ],
+          "commit_boundary": "Integrated local verification evidence.",
+          "board_task_ref": "SWM-80"
+        }
+      ]
+    },
+    {
+      "id": "phase-7",
+      "title": "Backup-first LXC synchronization and independent assurance",
+      "goal": "Inventory, back up, synchronize, rollback-test and independently verify the LXC 135 adapter and eight workflow projections without a model call.",
+      "rationale": "Remote correctness and setting preservation are operational gates distinct from local implementation.",
+      "risk": "high",
+      "status": "planned",
+      "depends_on": [
+        "phase-6"
+      ],
+      "entry_criteria": [
+        "I418 is green.",
+        "Explicit remote mutation authority is present.",
+        "Fresh preflight proves host, paths, settings and current file inventory."
+      ],
+      "exit_criteria": [
+        "Remote compile/import/offline conformance passes.",
+        "Exact settings and checksums are preserved, rollback is proven, and final independent review/evaluation accepts current evidence."
+      ],
+      "rollback_strategy": [
+        "Restore every remote preimage from the dated manifest, verify hashes/settings, and leave the prior adapter active."
+      ],
+      "commit_boundary": "Remote operation and final assurance remain separate from product-code commits.",
+      "changes": [
+        {
+          "id": "I419",
+          "title": "Fresh LXC inventory and dated backup",
+          "type": "rollout",
+          "description": "Resolve the exact LXC 135 adapter/projection inventory, verify invariants and create a complete dated backup before promotion.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I418"
+          ],
+          "source_refs": [
+            "REQ-008",
+            "DEC-008",
+            "ROAD-007"
+          ],
+          "preconditions": [
+            "Route operation and independent checking to gpt-5.6-sol/max.",
+            "Explicit authority covers root@10.0.20.135 backup and later synchronization.",
+            "Do not access port 8888 or run a model/benchmark."
+          ],
+          "steps": [
+            "Verify SSH identity and resolve exact files beneath /opt/evals/agents plus engine.py and swe_bench_fleet.py.",
+            "Record bytes, SHA-256, mode, UID, GID, timestamps and symlink targets.",
+            "Verify google/gemini-3.7-flash, THINKING_BUDGET=65535 and t.message_limit = 100 from current effective configuration/source.",
+            "Run Python compile/import checks without starting an evaluation.",
+            "Create /opt/evals/backups/swarm-control-plane-${UTC_TIMESTAMP}/ using cp -a and write an immutable manifest.",
+            "Re-hash the backup and require equality before allowing I420."
+          ],
+          "files_to_modify": [],
+          "files_to_add": [
+            "docs/operations/lxc135-control-plane-sync.md",
+            "docs/operations/lxc135-control-plane-evidence.schema.json",
+            "root@10.0.20.135:/opt/evals/backups/swarm-control-plane-${UTC_TIMESTAMP}/manifest.json",
+            "root@10.0.20.135:/opt/evals/backups/swarm-control-plane-${UTC_TIMESTAMP}/preimages/**"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "remote:/opt/evals/swarm/engine.py",
+            "remote:/opt/evals/benchmarks/swe_bench_fleet.py",
+            "remote:/opt/evals/agents"
+          ],
+          "acceptance_criteria": [
+            "Manifest covers the adapter, benchmark invariant file and exactly eight orchestrator/workflow projections.",
+            "Backup bytes and metadata equal their live preimages.",
+            "All three required settings are freshly observed and exact.",
+            "No model, benchmark, scorer, service restart or port 8888 access occurs."
+          ],
+          "behavior_to_preserve": [
+            "All remote files and effective settings remain unchanged by preflight except the new backup directory."
+          ],
+          "tests_required": [
+            "Manifest schema, checksum parity, metadata parity, compile/import and invariant assertions."
+          ],
+          "validation_commands": [
+            "ssh root@10.0.20.135 'sha256sum /opt/evals/swarm/engine.py /opt/evals/benchmarks/swe_bench_fleet.py; find /opt/evals/agents -maxdepth 2 -type f -print -exec sha256sum {} \\;'",
+            "ssh root@10.0.20.135 'python3 -m py_compile /opt/evals/swarm/engine.py /opt/evals/benchmarks/swe_bench_fleet.py'",
+            "ssh root@10.0.20.135 'cd /opt/evals && PYTHONPATH=/opt/evals python3 -c \"import swarm.engine; import benchmarks.swe_bench_fleet\"'"
+          ],
+          "definition_of_done": [
+            "I420 has one verified rollback source and exact current-state inventory."
+          ],
+          "rollback": [
+            "Leave a valid backup intact for audit; if backup creation is partial, do not promote and create a new timestamped backup rather than overwriting evidence."
+          ],
+          "commit_boundary": "Runbook, evidence schema and remote preflight/backup only.",
+          "board_task_ref": "SWM-81"
+        },
+        {
+          "id": "I420",
+          "title": "Atomic remote sync, rollback drill, and offline conformance",
+          "type": "rollout",
+          "description": "Stage and atomically synchronize engine.py and the eight workflow projections, prove rollback, then run remote offline conformance.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "large",
+          "depends_on": [
+            "I419"
+          ],
+          "source_refs": [
+            "REQ-003",
+            "REQ-004",
+            "REQ-005",
+            "REQ-007",
+            "REQ-008",
+            "REQ-009",
+            "DEC-003",
+            "DEC-004",
+            "DEC-005",
+            "DEC-007",
+            "DEC-008",
+            "DEC-009",
+            "ROAD-007"
+          ],
+          "preconditions": [
+            "Route operation and independent verification to gpt-5.6-sol/max.",
+            "I419 manifest and backup hashes are valid.",
+            "No service restart, model invocation, benchmark, scorer or port 8888 access."
+          ],
+          "steps": [
+            "Stage engine.py and exactly the eight current orchestrator/workflow projections under /opt/evals/.swarm-control-plane-stage-${UTC_TIMESTAMP}.",
+            "Validate staged schemas, digests, role inventory, exact route propagation, authority, result, loop and forbidden-data behavior.",
+            "Inject a staged failure and prove it cannot promote.",
+            "Atomically promote only after all stage checks pass.",
+            "Induce the documented post-promotion validation failure, restore every live preimage, and prove restored hashes/settings equal I419.",
+            "Repeat the clean atomic promotion and run compile, import and --control-plane-conformance --offline.",
+            "Verify one final result/patch, internal cycles, truthful non-success, and exact preserved settings."
+          ],
+          "files_to_modify": [
+            "root@10.0.20.135:/opt/evals/swarm/engine.py",
+            "root@10.0.20.135:/opt/evals/agents/anvil-coding-orchestrator*",
+            "root@10.0.20.135:/opt/evals/agents/anvil-wf-research*",
+            "root@10.0.20.135:/opt/evals/agents/anvil-wf-planner*",
+            "root@10.0.20.135:/opt/evals/agents/anvil-wf-executor*",
+            "root@10.0.20.135:/opt/evals/agents/anvil-wf-code-review*",
+            "root@10.0.20.135:/opt/evals/agents/anvil-wf-debugger*",
+            "root@10.0.20.135:/opt/evals/agents/anvil-wf-coding-evaluator*",
+            "root@10.0.20.135:/opt/evals/agents/anvil-wf-agent-factory*"
+          ],
+          "files_to_add": [
+            "root@10.0.20.135:/opt/evals/.swarm-control-plane-stage-${UTC_TIMESTAMP}/**"
+          ],
+          "files_to_delete": [],
+          "symbols": [
+            "remote:swarm.engine control-plane adapter",
+            "remote:swarm.engine --control-plane-conformance",
+            "remote:benchmark task message_limit"
+          ],
+          "acceptance_criteria": [
+            "Remote engine and eight projections match the approved local adapter/projection digests or documented deterministic translations.",
+            "Rollback restores exact preimage bytes and metadata after induced failure.",
+            "Compile, import and offline conformance pass without model or benchmark execution.",
+            "google/gemini-3.7-flash, THINKING_BUDGET=65535 and message_limit=100 remain exact.",
+            "Adapter emits one final answer/patch and never calls or consumes scorer/gold/hidden/history/issue-web data."
+          ],
+          "behavior_to_preserve": [
+            "/opt/evals/benchmarks/swe_bench_fleet.py remains byte-identical.",
+            "Existing model, thinking, message and unrelated agent settings remain unchanged."
+          ],
+          "tests_required": [
+            "Stage rejection, rollback drill, compile/import, role inventory, settings, exact route, result evidence, cancel/stale and one-pass adapter conformance."
+          ],
+          "validation_commands": [
+            "ssh root@10.0.20.135 'python3 -m py_compile /opt/evals/swarm/engine.py /opt/evals/benchmarks/swe_bench_fleet.py'",
+            "ssh root@10.0.20.135 'cd /opt/evals && PYTHONPATH=/opt/evals python3 -c \"import swarm.engine; import benchmarks.swe_bench_fleet\"'",
+            "ssh root@10.0.20.135 'cd /opt/evals && PYTHONPATH=/opt/evals python3 -m swarm.engine --control-plane-conformance --offline'",
+            "ssh root@10.0.20.135 'sha256sum /opt/evals/swarm/engine.py /opt/evals/benchmarks/swe_bench_fleet.py; find /opt/evals/agents -maxdepth 2 -type f -print -exec sha256sum {} \\;'"
+          ],
+          "definition_of_done": [
+            "Remote state is synchronized, independently measurable, rollback-proven and model-free."
+          ],
+          "rollback": [
+            "Restore all I419 preimages with metadata, verify manifest hashes and three setting invariants, and stop; do not retry promotion automatically after a rollback mismatch."
+          ],
+          "commit_boundary": "Separately authorized remote synchronization and rollback evidence.",
+          "board_task_ref": "SWM-82"
+        },
+        {
+          "id": "I421",
+          "title": "Canonical validation and independent final assurance",
+          "type": "validation",
+          "description": "Validate canonical artifacts, rerun local and remote evidence, and obtain independent Code Review plus Coding Evaluation before orchestrator reconciliation.",
+          "status": "planned",
+          "risk": "high",
+          "scope": "medium",
+          "depends_on": [
+            "I420"
+          ],
+          "source_refs": [
+            "REQ-001",
+            "REQ-002",
+            "REQ-003",
+            "REQ-004",
+            "REQ-005",
+            "REQ-006",
+            "REQ-007",
+            "REQ-008",
+            "REQ-009",
+            "DEC-001",
+            "DEC-002",
+            "DEC-003",
+            "DEC-004",
+            "DEC-005",
+            "DEC-006",
+            "DEC-007",
+            "DEC-008",
+            "DEC-009",
+            "ROAD-007"
+          ],
+          "preconditions": [
+            "Route Code Review and Coding Evaluation independently to gpt-5.6-sol/max.",
+            "Reviewers are read-only and receive current hashes, not writer summaries alone."
+          ],
+          "steps": [
+            "Revalidate implementation-plan.json and regenerate its HTML projection.",
+            "Run deterministic catalog render/install checks, focused package tests, race tests, vet and offline adapter conformance.",
+            "Recompute local source, binary, catalog and 153 projection hashes.",
+            "Recompute remote inventory, adapter/projection hashes and invariant evidence without a model call.",
+            "Dispatch independent Code Review Agent and Coding Evaluation Agent as peer workflows; each may choose justified security, contracts, harness, testing and Linux specialists.",
+            "Require both returns to validate as current workflow-result envelopes.",
+            "Orchestrator reconciles current state and reports accepted only with no unresolved material finding or missing proof."
+          ],
+          "files_to_modify": [
+            "implementation-plan.json",
+            "docs/plans/implementation-plan.html"
+          ],
+          "files_to_add": [],
+          "files_to_delete": [],
+          "symbols": [
+            "Stage3 final evidence inventory",
+            "Code Review workflow result",
+            "Coding Evaluation workflow result"
+          ],
+          "acceptance_criteria": [
+            "Canonical plan validation and projection rendering are clean.",
+            "Required local and remote checks pass with recorded commands, exit codes and digests.",
+            "Code Review and Coding Evaluation are current-generation, independent and machine-valid.",
+            "No high/critical finding, uncertainty or missing required proof remains.",
+            "Only Coding Orchestrator declares the terminal outcome."
+          ],
+          "behavior_to_preserve": [
+            "Nexus import remains pending with null refs until reachable; no raw API workaround.",
+            "No commit, push, benchmark, scorer, model call or port 8888 access."
+          ],
+          "tests_required": [
+            "Complete Stage 3 command matrix and independent workflow-result validation."
+          ],
+          "validation_commands": [
+            "python3 /home/anvil/.codex/skills/anvil-implementation-plan/scripts/validate_plan.py /home/anvil/repos/foundry-zero/swarm/implementation-plan.json",
+            "python3 /home/anvil/.codex/skills/anvil-implementation-plan/scripts/render_plan.py /home/anvil/repos/foundry-zero/swarm/implementation-plan.json /home/anvil/repos/foundry-zero/swarm/docs/plans/implementation-plan.html --force",
+            "go test ./controlplane ./codingfleet ./runplane ./cmd/codingfleet ./cmd/swarm-runplane",
+            "go test -race ./runplane",
+            "go vet ./controlplane ./codingfleet ./runplane ./cmd/codingfleet ./cmd/swarm-runplane",
+            "go run ./cmd/codingfleet render --check",
+            "go run ./cmd/swarm-runplane conformance --offline --definitions harness-agents/rendered",
+            "ssh root@10.0.20.135 'cd /opt/evals && PYTHONPATH=/opt/evals python3 -m swarm.engine --control-plane-conformance --offline'"
+          ],
+          "definition_of_done": [
+            "All local, projection, remote, rollback, invariant, review and evaluation evidence is current and digest-addressed.",
+            "The orchestrator can truthfully reconcile the goal to accepted; otherwise it returns the exact non-success disposition."
+          ],
+          "rollback": [
+            "Route verified findings through one bounded Executor repair assignment, then independently reverify within the configured pass budget; if exhausted, report non-success rather than weakening gates."
+          ],
+          "commit_boundary": "Final plan projection and independent assurance evidence; no automatic commit.",
+          "board_task_ref": "SWM-83"
+        }
+      ]
+    }
+  ]
+}

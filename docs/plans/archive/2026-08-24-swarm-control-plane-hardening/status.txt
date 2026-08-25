@@ -1,0 +1,7 @@
+Archived at: 2026-08-24T23:10:14Z
+Repository: /home/anvil/repos/foundry-zero/swarm
+Branch: main
+HEAD: d97da9befefa4ccce8fc8ad79999640713109662
+Pre-archive git status --porcelain=v1 entry count: 190
+Pre-archive git status --porcelain=v1 SHA-256: 64fe567a4fc30f30ff29331dededd62d7bbea784caea9ff2786c67e2a625e5c7
+State: dirty working tree; all bytes were adopted in place and none were restored from Git.
