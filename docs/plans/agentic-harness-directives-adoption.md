@@ -227,3 +227,61 @@ Generalize the existing `routingTier` (advanced/standard) into named tiers resol
 - Workhorse — Opus 5 medium | Sol medium | Gemini 3.7 Flash high (Builder, execution)
 - Quick — Opus 5 low | Luna high | Gemini 3.7 Flash medium (mechanical/quick specialist verification)
 Tier→role assignment validated on the eval suite; the table updates as models change. Lesson from Phase 2: the run-plane binary embeds the catalog at build time, so it must be rebuilt whenever the catalog/tiers change or foreign dispatch silently drops changed roles.
+
+## Phase 4 — research-paper roadmap (authorized 2026-08-25)
+
+Source: `docs/plans/research-papers-harness-feedback.md`. All seven items authorized.
+Two lanes: **swarm-coder repo** (this repo) and **external eval process** (LXC 135,
+separate). Sequenced by (impact×confidence)/effort and by containment.
+
+Resolved inputs: Codex Quick-tier slug `gpt-5.6-luna` confirmed present; the model
+tier file already exists (Phase-4 item 6's "named tier file" is built — remaining
+item-6 work is scaffolding-by-tier + non-additivity measurement).
+
+### Lane A — swarm-coder repo
+- **P4.2 reseal reframe (do first, contained).** Stop framing sealed-test amendment
+  as a suspect exception. Make `reseal` a first-class dual-track move: keep the
+  red-property (the amended test must have failed before the fix) and the audit
+  trail (`TestSeal.Amendments`, Code Review inspects), but reword the Builder/Code
+  Review contracts + adoption §3.2 so refining tests *with* code is normal, not a
+  smell. Do NOT allow in-loop unfreezing (that reopens reward-hacking). TDD-Agent
+  Table 4.
+- **P4.3 retain raw traces (repo half).** The runplane already writes raw
+  `provider.event` frames per job; make them durable (don't prune) and expose a
+  read path for Code Review / Debugger-in-Builder / the external improver. Keep
+  control-plane digests for anti-forgery; add raw-trace retention beside them.
+  Meta-Harness Table 3.
+- **P4.5 executable architecture-conformance check.** New `GuardRecord` kind +
+  `controlplane/result.go` evidence type beside `DiffReview`/`TestSeal`; a
+  structural assertion checked via `ast-grep`/LSP (finally gating on the tooling we
+  install but never gate on — closes G10). Planner emits these for multi-file
+  feature work. CodeSpec RQ3.
+- **P4.7 test-strength signal (repo half).** Optional coverage/mutation check in
+  `anvil-guard verify` so GREEN can be qualified; Builder prompted to strengthen
+  tests before finishing. TDD-Agent §4.3/Fig 6.
+- **P4.4 structural-over-prose (direction, low code).** Keep catalog prose lean;
+  route new behavior into guard/hooks/skills/verifiers rather than role text.
+  Validated by AHE Table 3; mostly a standing rule + review of any prose growth.
+
+### Lane B — external eval process (LXC 135) + infra
+- **P4.1 held-out non-regression acceptance loop (highest value).** Implement the
+  Self-Harness rule on the external process: promote a catalog/tier/guard change
+  only if `Δheld-in ≥ 0 ∧ Δheld-out ≥ 0 ∧ max(Δ) > 0`, evaluated on the LXC 135
+  holdout the proposer never sees. Turns "externalized eval" from "score+eyeball"
+  into a real propose→validate→accept loop. Fixes AHE regression blindness.
+- **P4.6 tier-aware scaffolding + non-additivity measurement.** Give cheaper tiers
+  more guard/middleware structure and a tighter holdout weight; measure whether
+  guard Pre/Post/Stop + Code Review + 2-pass overlap (AHE non-additivity). The
+  benchmark smoke run already showed the symptom: 193/200 messages spent on
+  delegation, empty patch.
+- **P4.1b weakness-mining.** Cluster guard-record + raw-trace failures by a
+  verifier-grounded signature φ = (verifier cause, agent-behavior causal status,
+  mechanism); feed patterns to the improver and to Code Review. Self-Harness §3.
+- **Infra: Langfuse as eval trace explorer.** Reinstall Langfuse (heavy, ~2CPU/8GiB)
+  pointed at existing ClickHouse, for human debugging of eval-failure trajectories.
+  The improvement loop itself reads raw trace FILES (Meta-Harness), not Langfuse's
+  API. Optional operator convenience, not a loop dependency.
+
+Sequencing: P4.2 → P4.3(repo) → P4.7(repo) → P4.5, then Lane B (P4.1 loop, P4.6,
+weakness-mining, Langfuse). Each repo change ships through the same gate
+(build/vet/test -race, render --check, conformance) and commits to the branch.
