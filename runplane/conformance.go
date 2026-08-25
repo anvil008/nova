@@ -77,11 +77,25 @@ func RunConformanceFixture(fixture ConformanceFixture, seam AdapterSeam) (Normal
 		result.Disposition, result.RejectionStage = "rejected", "admission"
 		return sealNormalizedConformance(fixture, result)
 	}
+	if fixture.Scenario == "diff-review-continuity" || fixture.Scenario == "unverified-assurance" || fixture.Scenario == "forged-command-id" {
+		disposition, stage, err := runResultContractProbe(fixture.Scenario)
+		if err != nil {
+			return result, err
+		}
+		result.Disposition, result.RejectionStage = disposition, stage
+		return sealNormalizedConformance(fixture, result)
+	}
 	request := adapterRequestForFixture(fixture)
 	state, err := StartAdapter(request, "2026-08-23T20:00:00Z")
 	if err != nil {
 		result.Disposition, result.RejectionStage = "rejected", "boundary"
 		return sealNormalizedConformance(fixture, result)
+	}
+	if fixture.Scenario == "sealed-green" || fixture.Scenario == "sealed-test-drift" {
+		state, err = AttachAdapterTestSeal(state, conformanceTestSeal(), nil)
+		if err != nil {
+			return result, err
+		}
 	}
 	switch fixture.Scenario {
 	case "valid", "one-final-patch":
@@ -108,6 +122,20 @@ func RunConformanceFixture(fixture ConformanceFixture, seam AdapterSeam) (Normal
 			VerifierRoleID: "workflow-code-review", Decision: controlplane.VerificationAccept,
 			RepositoryDigest: state.Verification.RepositoryDigest, ResultDigest: factoryDigest([]byte("result")), Reason: "missing proof", At: "2026-08-23T20:01:00Z",
 		})
+	case "sealed-green", "sealed-test-drift":
+		observation := conformanceTestObservation()
+		if fixture.Scenario == "sealed-test-drift" {
+			// The writer moved a sealed test without recording an amendment.
+			observation.Tests = []controlplane.TestSealTest{{Path: "guard/guard_test.go", Digest: factoryDigest([]byte("weakened-test"))}}
+		}
+		state, err = ApplyAdapterVerification(state, controlplane.VerificationObservation{
+			VerifierRoleID: "workflow-code-review", Decision: controlplane.VerificationAccept,
+			RepositoryDigest: state.Verification.RepositoryDigest, EvidenceDigest: factoryDigest([]byte(fixture.Name + "-review")), ResultDigest: factoryDigest([]byte(fixture.Name + "-review-result")),
+			Reason: "sealed tests reconciled against the RED baseline", At: "2026-08-23T20:01:00Z", Tests: observation,
+		})
+		if err == nil {
+			state, err = EmitAdapterFinal(state, "diff --git a/a b/a\n", "sealed conformance patch", "2026-08-23T20:02:00Z")
+		}
 	case "unverified-non-success":
 		state, err = ApplyAdapterVerification(state, controlplane.VerificationObservation{
 			VerifierRoleID: "workflow-code-review", Decision: controlplane.VerificationReject,
@@ -155,6 +183,183 @@ func adapterRequestForFixture(fixture ConformanceFixture) AdapterRequest {
 	}
 }
 
+// conformanceTestSeal is the RED baseline the sealed fixtures reconcile against.
+func conformanceTestSeal() controlplane.TestSeal {
+	return controlplane.TestSeal{
+		SealedAt:     "2026-08-23T20:00:30Z",
+		Tests:        []controlplane.TestSealTest{{Path: "guard/guard_test.go", Digest: factoryDigest([]byte("red-test"))}},
+		RedCommandID: "command-red",
+		Amendments:   []controlplane.TestSealAmendment{},
+	}
+}
+
+func conformanceTestObservation() *controlplane.TestObservation {
+	command := controlplane.CommandEvidence{
+		CommandID: "command-green", ArgvDigest: factoryDigest([]byte("green-argv")), ExitCode: 0,
+		StartedAt: "2026-08-23T20:00:45Z", FinishedAt: "2026-08-23T20:00:50Z",
+		StdoutDigest: factoryDigest([]byte("green-out")), StderrDigest: factoryDigest([]byte("green-err")),
+	}
+	return &controlplane.TestObservation{
+		Tests:   conformanceTestSeal().Tests,
+		Green:   controlplane.CheckEvidence{CheckID: "green", CommandID: command.CommandID, Passed: true, Current: true, EvidenceDigest: factoryDigest([]byte("green-proof"))},
+		Command: command,
+	}
+}
+
+// conformanceWorkflowResult is a sealed execution result carrying the diff
+// review the assurance lane must certify the same change against.
+func conformanceWorkflowResult(lane, diffDigest string, disposition controlplane.WorkflowDisposition, withCommands bool) (controlplane.WorkflowResult, error) {
+	command := controlplane.CommandEvidence{
+		CommandID: "command-diff", ArgvDigest: factoryDigest([]byte("diff-argv")), ExitCode: 0,
+		StartedAt: "2026-08-23T20:00:02Z", FinishedAt: "2026-08-23T20:00:03Z",
+		StdoutDigest: factoryDigest([]byte("diff-out")), StderrDigest: factoryDigest([]byte("diff-err")),
+	}
+	result := controlplane.WorkflowResult{
+		APIVersion: controlplane.WorkflowResultAPIVersion, ResultID: "result-conformance", GoalID: "goal-conformance",
+		AssignmentID: "assignment-conformance", GenerationID: "generation-conformance", DispatchID: "dispatch-conformance",
+		ParentDispatchID: "dispatch-root", Cycle: 1, Pass: 1, RoleID: "workflow-executor", Lane: lane,
+		RouteDigest: factoryDigest([]byte("route")), AuthorityDigest: factoryDigest([]byte("authority")),
+		SelectionDigest: factoryDigest([]byte("selection")), RoleDigest: factoryDigest([]byte("role")),
+		CatalogDigest: factoryDigest([]byte("catalog")), RepositoryBefore: factoryDigest([]byte("repo-before")),
+		RepositoryAfter: factoryDigest([]byte("repo-after")), CapabilityDigest: factoryDigest([]byte("capability")),
+		SpecialistChoices: []controlplane.SpecialistChoice{}, Files: []string{}, Symbols: []controlplane.SymbolClaim{},
+		Mutations: []controlplane.MutationEvidence{}, Commands: []controlplane.CommandEvidence{},
+		Checks: []controlplane.CheckEvidence{}, Artifacts: []controlplane.ArtifactEvidence{},
+		Findings: []controlplane.FindingEvidence{}, Uncertainty: []string{}, Decisions: []string{"conformance probe"},
+		Errors: []string{}, Assumptions: []string{}, MissingEvidence: []string{}, ChildResultDigests: []string{},
+		StartedAt: "2026-08-23T20:00:00Z", FinishedAt: "2026-08-23T20:01:00Z", Disposition: disposition,
+	}
+	if withCommands {
+		result.Commands = []controlplane.CommandEvidence{command}
+		result.DiffReview = &controlplane.DiffReview{
+			CommandID: command.CommandID, DiffDigest: diffDigest, ReviewedAt: "2026-08-23T20:00:04Z",
+			Findings: []string{"read the real diff, not the handoff summary"},
+		}
+	}
+	if err := controlplane.SealWorkflowResult(&result); err != nil {
+		return controlplane.WorkflowResult{}, err
+	}
+	return result, nil
+}
+
+// runResultContractProbe exercises the §3.3 result contracts that have no
+// adapter state machine of their own.
+func runResultContractProbe(scenario string) (string, string, error) {
+	switch scenario {
+	case "diff-review-continuity":
+		execution, err := conformanceWorkflowResult("execution", factoryDigest([]byte("the-change")), controlplane.DispositionSucceeded, true)
+		if err != nil {
+			return "", "", err
+		}
+		assurance, err := conformanceWorkflowResult("assurance", factoryDigest([]byte("the-change")), controlplane.DispositionSucceeded, true)
+		if err != nil {
+			return "", "", err
+		}
+		if err := controlplane.RequireDiffReviewContinuity(execution, assurance); err != nil {
+			return "", "", fmt.Errorf("continuity probe rejected a matching review: %w", err)
+		}
+		other, err := conformanceWorkflowResult("assurance", factoryDigest([]byte("a-different-change")), controlplane.DispositionSucceeded, true)
+		if err != nil {
+			return "", "", err
+		}
+		if err := controlplane.RequireDiffReviewContinuity(execution, other); err == nil {
+			return "", "", errors.New("continuity probe accepted a review of a different change")
+		}
+		return "rejected", "diff-review", nil
+	case "unverified-assurance":
+		expectation := func(result controlplane.WorkflowResult) controlplane.ResultExpectation {
+			return controlplane.ResultExpectation{
+				GoalID: result.GoalID, AssignmentID: result.AssignmentID, GenerationID: result.GenerationID,
+				DispatchID: result.DispatchID, ParentDispatchID: result.ParentDispatchID, RoleID: result.RoleID,
+				Lane: result.Lane, RouteDigest: result.RouteDigest, AuthorityDigest: result.AuthorityDigest,
+				SelectionDigest: result.SelectionDigest, RoleDigest: result.RoleDigest, CatalogDigest: result.CatalogDigest,
+				RepositoryBefore: result.RepositoryBefore, CurrentRepositoryDigest: result.RepositoryAfter,
+				CapabilityDigest: result.CapabilityDigest, RequiredChecks: []string{}, RequiredArtifacts: []string{},
+			}
+		}
+		for _, claimed := range []controlplane.WorkflowDisposition{controlplane.DispositionSucceeded, controlplane.DispositionUncertain} {
+			result, err := conformanceWorkflowResult("assurance", "", claimed, false)
+			if err != nil {
+				return "", "", err
+			}
+			if err := controlplane.ValidateWorkflowResult(result, expectation(result)); err == nil {
+				return "", "", fmt.Errorf("assurance result with no executed command carried %q", claimed)
+			}
+		}
+		honest, err := conformanceWorkflowResult("assurance", "", controlplane.DispositionUnverified, false)
+		if err != nil {
+			return "", "", err
+		}
+		if err := controlplane.ValidateWorkflowResult(honest, expectation(honest)); err != nil {
+			return "", "", fmt.Errorf("unverified assurance result rejected: %w", err)
+		}
+		return string(controlplane.DispositionUnverified), "", nil
+	case "forged-command-id":
+		return runForgedCommandIDProbe()
+	}
+	return "", "", fmt.Errorf("unknown result contract probe %q", scenario)
+}
+
+// runForgedCommandIDProbe exercises the amendment that evidence must resolve to
+// records anvil-guard produced. The forged id is internally consistent across
+// the handoff and the result because one author wrote both; only the guard
+// snapshot, produced by a different process, disagrees.
+func runForgedCommandIDProbe() (string, string, error) {
+	snapshot := &controlplane.GuardSnapshot{
+		APIVersion: controlplane.GuardSnapshotAPIVersion, Repository: "/conformance/repository",
+		Records: []controlplane.GuardRecord{{
+			Kind: controlplane.GuardRecordDiffReview, CommandID: "command-diff",
+			Evidence: controlplane.CommandEvidence{
+				CommandID: "command-diff", ArgvDigest: factoryDigest([]byte("diff-argv")), ExitCode: 0,
+				StartedAt: "2026-08-23T20:00:02Z", FinishedAt: "2026-08-23T20:00:03Z",
+				StdoutDigest: factoryDigest([]byte("diff-out")), StderrDigest: factoryDigest([]byte("diff-err")),
+			},
+		}},
+	}
+	expectation := func(result controlplane.WorkflowResult) controlplane.ResultExpectation {
+		return controlplane.ResultExpectation{
+			GoalID: result.GoalID, AssignmentID: result.AssignmentID, GenerationID: result.GenerationID,
+			DispatchID: result.DispatchID, ParentDispatchID: result.ParentDispatchID, RoleID: result.RoleID,
+			Lane: result.Lane, RouteDigest: result.RouteDigest, AuthorityDigest: result.AuthorityDigest,
+			SelectionDigest: result.SelectionDigest, RoleDigest: result.RoleDigest, CatalogDigest: result.CatalogDigest,
+			RepositoryBefore: result.RepositoryBefore, CurrentRepositoryDigest: result.RepositoryAfter,
+			CapabilityDigest: result.CapabilityDigest, RequiredChecks: []string{}, RequiredArtifacts: []string{},
+			Guard: snapshot,
+		}
+	}
+	honest, err := conformanceWorkflowResult("execution", factoryDigest([]byte("the-change")), controlplane.DispositionSucceeded, true)
+	if err != nil {
+		return "", "", err
+	}
+	if err := controlplane.ValidateWorkflowResult(honest, expectation(honest)); err != nil {
+		return "", "", fmt.Errorf("guard-backed diff review rejected: %w", err)
+	}
+
+	forged := honest
+	forged.Commands = []controlplane.CommandEvidence{{
+		CommandID: "command-fabricated", ArgvDigest: factoryDigest([]byte("diff-argv")), ExitCode: 0,
+		StartedAt: "2026-08-23T20:00:02Z", FinishedAt: "2026-08-23T20:00:03Z",
+		StdoutDigest: factoryDigest([]byte("diff-out")), StderrDigest: factoryDigest([]byte("diff-err")),
+	}}
+	review := *honest.DiffReview
+	review.CommandID = "command-fabricated"
+	forged.DiffReview = &review
+	if err := controlplane.SealWorkflowResult(&forged); err != nil {
+		return "", "", err
+	}
+	if err := controlplane.ValidateWorkflowResult(forged, expectation(forged)); err == nil {
+		return "", "", errors.New("a commandId no guard record backs was accepted")
+	}
+
+	handoff := codingfleet.AgentHandoff{Tests: []codingfleet.AgentHandoffTest{{
+		Name: "diff review", Passed: true, CommandID: "command-fabricated",
+	}}}
+	if err := codingfleet.ReconcileHandoffTests(handoff, forged, snapshot); err == nil {
+		return "", "", errors.New("a fabricated handoff commandId was reconciled")
+	}
+	return "rejected", "guard-record", nil
+}
+
 func runAdmissionRejectionProbe(scenario string) error {
 	switch scenario {
 	case "authority-expansion":
@@ -178,8 +383,8 @@ func runAdmissionRejectionProbe(scenario string) error {
 	case "direct-leaf":
 		envelope := controlplane.SelectionEnvelope{
 			APIVersion: controlplane.SelectionAPIVersion, SelectionID: "selection-conformance", GoalID: "goal-conformance", GenerationID: "generation-conformance", DispatchID: "dispatch-conformance",
-			ProposedWorkflowID: "workflow-executor", WorkflowOwnerID: "workflow-executor", ProposedLenses: []controlplane.LensProposal{{RoleID: "technical-go", Kind: controlplane.RoleKindTechnical, Reason: "probe"}},
-			Refinements: []controlplane.SelectionRefinement{}, SelectedLeafIDs: []string{"technical-go"}, Invocations: []controlplane.InvocationEdge{{ParentRoleID: "workflow-coding-orchestrator", ParentKind: controlplane.RoleKindOrchestrator, ChildRoleID: "technical-go", ChildKind: controlplane.RoleKindTechnical}},
+			ProposedWorkflowID: "workflow-executor", WorkflowOwnerID: "workflow-executor", ProposedLenses: []controlplane.LensProposal{{RoleID: "toolchain-go", Kind: controlplane.RoleKindTechnical, Reason: "probe"}},
+			Refinements: []controlplane.SelectionRefinement{}, SelectedLeafIDs: []string{"toolchain-go"}, Invocations: []controlplane.InvocationEdge{{ParentRoleID: "workflow-coding-orchestrator", ParentKind: controlplane.RoleKindOrchestrator, ChildRoleID: "toolchain-go", ChildKind: controlplane.RoleKindTechnical}},
 			CatalogDigest: factoryDigest([]byte("catalog")), RoleDigest: factoryDigest([]byte("role")), IssuedAt: "2026-08-23T20:00:00Z",
 		}
 		if err := controlplane.SealSelection(&envelope); err != nil {
@@ -251,7 +456,9 @@ func RunOfflineConformance(ctx context.Context, definitionsRoot string) (Conform
 		if !reflect.DeepEqual(data, file.Content) {
 			return report, fmt.Errorf("conformance definition drift: %s", file.Path)
 		}
-		report.ProjectionDigests[file.Path] = factoryDigest(data)
+		if !strings.HasPrefix(file.Path, "knowledge/") {
+			report.ProjectionDigests[file.Path] = factoryDigest(data)
+		}
 	}
 	fixtures, err := LoadConformanceFixtures()
 	if err != nil {

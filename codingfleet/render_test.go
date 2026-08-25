@@ -24,7 +24,7 @@ func TestRenderProjectsEveryRoleDeterministically(t *testing.T) {
 	if !reflect.DeepEqual(first, second) {
 		t.Fatal("Render() is not deterministic")
 	}
-	if got, want := len(first.Files), len(document.Roles)*3; got != want {
+	if got, want := len(first.Files), len(document.Roles)*3+4; got != want {
 		t.Fatalf("rendered files = %d, want %d", got, want)
 	}
 
@@ -46,6 +46,9 @@ func TestRenderProjectsEveryRoleDeterministically(t *testing.T) {
 			t.Errorf("%s files = %d, want %d", provider, got, want)
 		}
 	}
+	if got, want := counts["knowledge"], 4; got != want {
+		t.Errorf("knowledge files = %d, want %d", got, want)
+	}
 	if got := bytes.Count(first.CodexConfigBlock, []byte("[agents.")); got != len(document.Roles) {
 		t.Fatalf("Codex declarations = %d, want %d", got, len(document.Roles))
 	}
@@ -62,7 +65,7 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 	}
 	files := renderedMap(rendered)
 
-	readOnlyClaude := string(files["claude/anvil-cf-technical-browser-ui-qa.md"])
+	readOnlyClaude := string(files["claude/anvil-cf-lens-browser.md"])
 	assertContains(t, readOnlyClaude,
 		"tools: Read, Grep, Glob\n",
 		"model: \"sonnet\"\n",
@@ -71,16 +74,16 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 	)
 	assertNotContains(t, readOnlyClaude, "Edit", "Write", "Bash", "commandExecutionPolicy")
 
-	writeClaude := string(files["claude/anvil-cf-technical-go.md"])
+	writeClaude := string(files["claude/anvil-cf-toolchain-go.md"])
 	assertContains(t, writeClaude,
 		"tools: Read, Grep, Glob, Edit, Write, Bash\n",
 		"permissionMode: default\n",
 	)
 
-	advancedClaude := string(files["claude/anvil-cf-technical-code-review.md"])
+	advancedClaude := string(files["claude/anvil-cf-env-homelab.md"])
 	assertContains(t, advancedClaude, "model: \"opus\"\n", "effort: high\n")
 
-	readOnlyAntigravity := string(files["antigravity/anvil-cf-technical-browser-ui-qa/agent.md"])
+	readOnlyAntigravity := string(files["antigravity/anvil-cf-lens-browser/agent.md"])
 	assertContains(t, readOnlyAntigravity,
 		"  - view_file\n",
 		"  - grep_search\n",
@@ -91,7 +94,7 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 	)
 	assertNotContains(t, readOnlyAntigravity, "replace_file_content", "run_command", "permissionMode", "effort:")
 
-	writeAntigravity := string(files["antigravity/anvil-cf-domain-proxmox/agent.md"])
+	writeAntigravity := string(files["antigravity/anvil-cf-env-homelab/agent.md"])
 	assertContains(t, writeAntigravity,
 		"  - replace_file_content\n",
 		"  - run_command\n",
@@ -99,7 +102,7 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 		"commandExecutionPolicy: sandbox\n",
 	)
 
-	readOnlyCodex := string(files["codex/anvil-cf-technical-browser-ui-qa.toml"])
+	readOnlyCodex := string(files["codex/anvil-cf-lens-browser.toml"])
 	assertContains(t, readOnlyCodex,
 		"model = \"gpt-5.6-terra\"\n",
 		"model_reasoning_effort = \"medium\"\n",
@@ -108,11 +111,11 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 	)
 	assertNotContains(t, readOnlyCodex, "name =", "description =", "permissionMode")
 
-	advancedCodex := string(files["codex/anvil-cf-technical-code-review.toml"])
+	advancedCodex := string(files["codex/anvil-cf-env-homelab.toml"])
 	assertContains(t, advancedCodex,
 		"model = \"gpt-5.6-sol\"\n",
 		"model_reasoning_effort = \"high\"\n",
-		"sandbox_mode = \"read-only\"\n",
+		"sandbox_mode = \"workspace-write\"\n",
 	)
 }
 
@@ -134,12 +137,17 @@ func TestRenderFlatOrchestratorAndWorkflowUnits(t *testing.T) {
 		"anvil-wf-planner",
 		"anvil-wf-executor",
 		"anvil-wf-code-review",
-		"anvil-wf-debugger",
-		"anvil-wf-coding-evaluator",
-		"anvil-wf-agent-factory",
 		"Durable goal and scheduling contract:\n",
 		"Goal mode: native-durable.",
-		"Checkpoint policy: native-session.",
+		"Checkpoint policy: file-and-native-session.",
+		"`checkpoint.json` plus a short `plan.md` under `~/.local/state/swarm-runplane/goals/<goalId>/`",
+		// The orchestrator holds no filesystem write authority, so the only
+		// executable way to persist a checkpoint is the lifecycle goal verb.
+		"only through the `goal` verb",
+		"swarm-runplane goal checkpoint",
+		"never through a file tool",
+		"Tools allowed: `cancel`, `dispatch`, `evidence`, `goal`, `message`, `monitor`, `resume`. Tools denied: `edit`, `shell`, `test`, `write`. Filesystem read: `.`. Filesystem write: none.",
+		"system of record and native session state is only a cache",
 		"Scheduling policy: dependency-aware.",
 		"Proactive delegation is enabled",
 		"Completion authority is exclusive to Coding Orchestrator Agent",
@@ -159,22 +167,14 @@ func TestRenderFlatOrchestratorAndWorkflowUnits(t *testing.T) {
 		"Common handoff boundary: `anvil.agent-handoff/v1`",
 		"runId, parentRunId, canonicalRole (the canonical catalog role ID), provider, model, effort, mode, ownedFiles, limits, changedFiles, tests, result, and disposition",
 		"two total verification passes",
-		"/home/anvil/.local/bin/swarm-runplane serve",
-		"http://127.0.0.1:8083",
-		"~/.local/state/swarm-runplane/auth.token",
-		"SWARM_RUNPLANE_STATE",
-		"SWARM_RUNPLANE_URL",
-		"SWARM_RUNPLANE_TOKEN",
-		"SWARM_RUNPLANE_TOKEN_FILE",
 		"capability-first-fail-closed",
 		"/home/anvil/.local/bin/swarm-runplane health",
 		"/home/anvil/.local/bin/swarm-runplane capabilities",
 		"/home/anvil/.local/bin/swarm-runplane start --request route.json",
-		"/home/anvil/.local/bin/swarm-runplane events --after N JOB_ID",
-		"/home/anvil/.local/bin/swarm-runplane send JOB_ID` via stdin",
-		"/home/anvil/.local/bin/swarm-runplane resume JOB_ID` via stdin",
-		"/home/anvil/.local/bin/swarm-runplane evidence JOB_ID",
-		"send follow-up or resume input through stdin, never argv",
+		"request-file-and-stdin",
+		"follow-up and resumed input always travel on stdin, never argv",
+		"/home/anvil/.local/share/anvil-coding-fleet/swarm-runplane-foreign-dispatch.md",
+		"Read that absolute path only when a foreign dispatch is actually required",
 		"retains monitor, resume, message, cancel, evidence reconciliation, integration, and completion authority",
 		"Execution boundary: orchestrate only.",
 		"Proactively use up to 25 independent workflow units",
@@ -182,7 +182,12 @@ func TestRenderFlatOrchestratorAndWorkflowUnits(t *testing.T) {
 		"the orchestrator does not bypass the workflow layer",
 		"This agent is orchestration-only.",
 	)
-	assertNotContains(t, orchestratorClaude, "Shared specialist pools:", "anvil.workflow-result/v1", "anvil.authority/v1", "Edit", "Write", "Bash")
+	// The full run-plane lifecycle reference lives in the foreign-dispatch skill,
+	// not in every orchestrator turn.
+	assertNotContains(t, orchestratorClaude, "Shared specialist pools:", "anvil.workflow-result/v1", "anvil.authority/v1", "Edit", "Write", "Bash",
+		"swarm-runplane serve", "http://127.0.0.1:8083", "auth.token",
+		"SWARM_RUNPLANE_STATE", "SWARM_RUNPLANE_URL", "SWARM_RUNPLANE_TOKEN", "SWARM_RUNPLANE_TOKEN_FILE",
+		"events --after N JOB_ID", "send JOB_ID", "resume JOB_ID", "cancel JOB_ID", "evidence JOB_ID")
 
 	orchestratorAntigravity := string(files["antigravity/anvil-coding-orchestrator/agent.md"])
 	assertContains(t, orchestratorAntigravity,
@@ -359,68 +364,6 @@ func TestRenderCodeReviewWorkflowProjections(t *testing.T) {
 	assertNotContains(t, antigravity, "replace_file_content")
 }
 
-func TestRenderFactoryAndDynamicDebuggerProjections(t *testing.T) {
-	document := mustLoad(t)
-	rendered, err := Render(filepath.Join(string(filepath.Separator), "repo"), document)
-	if err != nil {
-		t.Fatal(err)
-	}
-	files := renderedMap(rendered)
-
-	factoryClaude := string(files["claude/anvil-wf-agent-factory.md"])
-	assertContains(t, factoryClaude,
-		"tools: Agent, Skill, Read, Grep, Glob, Edit, Write, Bash\n",
-		"permissionMode: bypassPermissions\n",
-		"Shared specialist pools:",
-		"Factory is the orchestrator-dispatched response to a confirmed specialist gap.",
-		"let the orchestrator resume the original workflow unit",
-		"sole writer for agent creation",
-		"directly mutate the canonical Swarm Coder catalog",
-		"Run no more than 10 independent specialist delegates concurrently.",
-	)
-	assertNotContains(t, factoryClaude, "Preferred delegates", "so it can dispatch Factory Agent")
-
-	factoryCodex := string(files["codex/anvil-wf-agent-factory.toml"])
-	assertContains(t, factoryCodex,
-		"sandbox_mode = \"danger-full-access\"\n",
-		"You are Factory Agent, a peer factory workflow unit",
-		"Lane: factory.",
-	)
-	factoryAntigravity := string(files["antigravity/anvil-wf-agent-factory/agent.md"])
-	assertContains(t, factoryAntigravity,
-		"commandExecutionPolicy: auto\n",
-		"  - invoke_subagent\n",
-		"  - replace_file_content\n",
-		"  - run_command\n",
-		"mainAgent: true\n",
-		"subagent: true\n",
-	)
-	assertNotContains(t, factoryAntigravity, "commandExecutionPolicy: always-proceed\n", "commandExecutionPolicy: eager\n")
-
-	debugger := string(files["claude/anvil-wf-debugger.md"])
-	assertContains(t, debugger,
-		"no leaf specialist is mandatory by default",
-		"report the missing capability",
-		"This workflow is read-only",
-	)
-	assertNotContains(t, debugger,
-		"anvil-wf-agent-factory",
-		"anvil-cf-technical-repository-cartography",
-		"anvil-cf-technical-observability",
-		"anvil-cf-technical-performance",
-		"anvil-cf-technical-integration",
-	)
-
-	evaluator := string(files["claude/anvil-wf-coding-evaluator.md"])
-	assertContains(t, evaluator,
-		"name: anvil-wf-coding-evaluator\n",
-		"permissionMode: plan\n",
-		"a peer evaluation workflow unit",
-		"Lane: evaluation.",
-		"0-100 scorecard",
-		"never invent it or repair the evaluated work",
-	)
-}
 
 func TestRenderFrontmatterHasOnlyProviderNativeKeys(t *testing.T) {
 	document := mustLoad(t)
@@ -434,6 +377,8 @@ func TestRenderFrontmatterHasOnlyProviderNativeKeys(t *testing.T) {
 		"name": true, "description": true, "tools": true, "model": true,
 		"effort": true, "permissionMode": true, "mcpServers": true,
 	}
+	// Only roles that can write carry guard hooks.
+	claudeOptional := map[string]bool{"hooks": true}
 	antigravityAllowed := map[string]bool{
 		"name": true, "description": true, "tools": true, "mainAgent": true,
 		"subagent": true, "model": true, "commandExecutionPolicy": true,
@@ -441,9 +386,9 @@ func TestRenderFrontmatterHasOnlyProviderNativeKeys(t *testing.T) {
 	for path, content := range files {
 		switch {
 		case strings.HasPrefix(path, "claude/"):
-			assertFrontmatterKeys(t, path, content, claudeAllowed)
+			assertFrontmatterKeys(t, path, content, claudeAllowed, claudeOptional)
 		case strings.HasPrefix(path, "antigravity/"):
-			keys := assertFrontmatterKeys(t, path, content, antigravityAllowed)
+			keys := assertFrontmatterKeys(t, path, content, antigravityAllowed, nil)
 			model := keys["model"]
 			if model != "\"flash\"" && model != "\"pro\"" {
 				t.Errorf("%s model = %s, want documented flash or pro tier", path, model)
@@ -527,7 +472,7 @@ func TestSyncRenderedRejectsSymlinkedManagedPaths(t *testing.T) {
 		{
 			name: "role directory",
 			linkPath: func(root string, _ RenderResult) string {
-				return filepath.Join(root, "harness-agents", "rendered", "antigravity", "anvil-cf-domain-proxmox")
+				return filepath.Join(root, "harness-agents", "rendered", "antigravity", "anvil-cf-env-homelab")
 			},
 		},
 		{
@@ -597,7 +542,7 @@ func assertNotContains(t *testing.T, value string, fragments ...string) {
 	}
 }
 
-func assertFrontmatterKeys(t *testing.T, path string, content []byte, allowed map[string]bool) map[string]string {
+func assertFrontmatterKeys(t *testing.T, path string, content []byte, allowed, optional map[string]bool) map[string]string {
 	t.Helper()
 	lines := strings.Split(string(content), "\n")
 	if len(lines) < 3 || lines[0] != "---" {
@@ -613,7 +558,7 @@ func assertFrontmatterKeys(t *testing.T, path string, content []byte, allowed ma
 			continue
 		}
 		key, value, ok := strings.Cut(line, ":")
-		if !ok || !allowed[key] {
+		if !ok || (!allowed[key] && !optional[key]) {
 			t.Errorf("%s has unsupported frontmatter line %q", path, line)
 			continue
 		}
@@ -628,4 +573,124 @@ func assertFrontmatterKeys(t *testing.T, path string, content []byte, allowed ma
 		}
 	}
 	return keys
+}
+
+func TestRenderGivesEveryWritingRoleClaudeGuardHooks(t *testing.T) {
+	document := mustLoad(t)
+	rendered, err := Render(filepath.Join(string(filepath.Separator), "repo"), document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := renderedMap(rendered)
+	for _, role := range document.Roles {
+		claude := string(files["claude/"+nativeAgentName(role)+".md"])
+		writes := role.CapabilityMode == CapabilityWorkspaceWrite || role.CapabilityMode == CapabilityFactoryWrite
+		hasHooks := strings.Contains(claude, "\nhooks: {")
+		if writes != hasHooks {
+			t.Errorf("%s writes=%v but frontmatter hooks=%v", role.ID, writes, hasHooks)
+		}
+		if writes {
+			assertContains(t, claude,
+				`"matcher":"Edit|Write|MultiEdit|NotebookEdit"`,
+				`"matcher":"Bash"`,
+				`"Stop":[{"hooks":[{"type":"command","command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event Stop"}]}]`,
+				`"command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event PreToolUse"`,
+				`"command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event PostToolUse"`,
+			)
+		}
+		// Codex and Antigravity expose no per-agent hook surface; they rely on
+		// the installer's global registrations.
+		assertNotContains(t, string(files["codex/"+nativeAgentName(role)+".toml"]), "hook --harness")
+		assertNotContains(t, string(files["antigravity/"+nativeAgentName(role)+"/agent.md"]), "hook --harness")
+	}
+}
+
+func TestRenderCarriesOutputHygieneInEveryDefinition(t *testing.T) {
+	document := mustLoad(t)
+	rendered, err := Render(filepath.Join(string(filepath.Separator), "repo"), document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range rendered.Files {
+		if strings.HasPrefix(file.Path, "knowledge/") {
+			continue
+		}
+		assertContains(t, string(file.Content),
+			"Output hygiene:",
+			"Read by line range whenever you already know the target",
+			"Filter test, build, and lint output down to failures",
+			"Never list a repository tree recursively into the context window.",
+			"Return search results as `path:line` references",
+		)
+	}
+}
+
+func TestRenderCitesTheInstalledRunplaneSkillPath(t *testing.T) {
+	rendered, err := Render(filepath.Join(string(filepath.Separator), "repo"), mustLoad(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := renderedMap(rendered)
+	installed := skillInstalledPath(canonicalHomeDirectory)
+	for _, providerPath := range []string{
+		"antigravity/anvil-coding-orchestrator/agent.md",
+		"claude/anvil-coding-orchestrator.md",
+		"codex/anvil-coding-orchestrator.toml",
+	} {
+		content := string(files[providerPath])
+		if content == "" {
+			t.Fatalf("%s was not rendered", providerPath)
+		}
+		assertContains(t, content, installed)
+		// A repository-relative path is unreachable: the orchestrator runs with
+		// the target project as its working directory.
+		if strings.Contains(content, supervisorRunplaneSkillSource) {
+			t.Fatalf("%s still cites the repository-relative skill path", providerPath)
+		}
+	}
+}
+
+func TestRenderKnowledgeProjections(t *testing.T) {
+	rendered, err := Render(filepath.Join(string(filepath.Separator), "repo"), mustLoad(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := renderedMap(rendered)
+
+	for _, repo := range []string{"biofeed", "ledger", "nexus", "swarm"} {
+		path := "knowledge/" + repo + ".md"
+		content := string(files[path])
+		if content == "" {
+			t.Fatalf("%s was not rendered", path)
+		}
+		assertContains(t, content, "<!-- Generated by go run ./cmd/codingfleet render; DO NOT EDIT. -->")
+	}
+
+	ledger := string(files["knowledge/ledger.md"])
+	assertContains(t, ledger,
+		"## Finance and Plaid",
+		"Builds bounded personal-finance, transaction, account-linking, and reconciliation features.",
+		"## Markets and IBKR",
+		"Builds market-data, brokerage-import, research, and trading-analysis software.",
+	)
+
+	biofeed := string(files["knowledge/biofeed.md"])
+	assertContains(t, biofeed,
+		"## Health Telemetry",
+		"Builds health-ingestion and biological telemetry features with cautious interpretation.",
+	)
+
+	nexus := string(files["knowledge/nexus.md"])
+	assertContains(t, nexus,
+		"## Nexus Operations",
+		"Builds Nexus mission-control, Tasks board, fleet, approval, and operational data features.",
+	)
+
+	swarm := string(files["knowledge/swarm.md"])
+	assertContains(t, swarm,
+		"## Markets and IBKR",
+		"Builds market-data, brokerage-import, research, and trading-analysis software.",
+		"## Swarm Orchestration",
+		"Builds Swarm agent definitions, workflow graphs, registry contracts, and guarded run-plane behavior.",
+	)
 }

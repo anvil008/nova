@@ -224,7 +224,7 @@ func (c *Client) request(ctx context.Context, method, path string, input, output
 	if len(data) > maxClientResponseSize {
 		return fmt.Errorf("run-plane response exceeds %d bytes", maxClientResponseSize)
 	}
-	if response.StatusCode >= http.StatusMultipleChoices {
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		var envelope struct {
 			Error string `json:"error"`
 		}

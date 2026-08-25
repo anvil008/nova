@@ -18,6 +18,17 @@ const (
 	DispositionCancelled         WorkflowDisposition = "cancelled"
 	DispositionStale             WorkflowDisposition = "stale"
 	DispositionMissingSpecialist WorkflowDisposition = "missing-specialist"
+	// DispositionUnverified is the only honest outcome for an assurance or
+	// evaluation pass that executed nothing.
+	DispositionUnverified WorkflowDisposition = "unverified"
+)
+
+// These are the lanes whose evidence contract differs from the default.
+const (
+	laneExecution  = "execution"
+	laneAssurance  = "assurance"
+	laneEvaluation = "evaluation"
+	laneDiscovery  = "discovery"
 )
 
 // CommandEvidence stores proof digests, never raw commands, prompts, or output.
@@ -60,6 +71,26 @@ type FindingEvidence struct {
 	EvidenceDigest string `json:"evidenceDigest"`
 }
 
+// DiffReview proves the real `git diff HEAD` was read before returning, and
+// pins which change was reviewed so a later assurance pass cannot silently
+// certify a different one.
+type DiffReview struct {
+	CommandID  string   `json:"commandId"`
+	DiffDigest string   `json:"diffDigest"`
+	ReviewedAt string   `json:"reviewedAt"`
+	Findings   []string `json:"findings"`
+}
+
+// Pointer is what an exploration pass returns instead of file contents: where
+// to look, and one line of why it matters.
+type Pointer struct {
+	Path      string `json:"path"`
+	StartLine int    `json:"startLine"`
+	EndLine   int    `json:"endLine"`
+	Symbol    string `json:"symbol"`
+	Why       string `json:"why"`
+}
+
 type SpecialistChoice struct {
 	RoleID         string `json:"roleId"`
 	Action         string `json:"action"`
@@ -97,6 +128,8 @@ type WorkflowResult struct {
 	SpecialistChoices   []SpecialistChoice  `json:"specialistChoices"`
 	MissingSpecialist   *MissingSpecialist  `json:"missingSpecialist"`
 	Files               []string            `json:"files"`
+	Pointers            []Pointer           `json:"pointers,omitempty"`
+	DiffReview          *DiffReview         `json:"diffReview,omitempty"`
 	Symbols             []SymbolClaim       `json:"symbols"`
 	Mutations           []MutationEvidence  `json:"mutations"`
 	Commands            []CommandEvidence   `json:"commands"`
@@ -141,6 +174,9 @@ type ResultExpectation struct {
 	CapabilityDigest        string
 	RequiredChecks          []string
 	RequiredArtifacts       []string
+	// Guard is the record set anvil-guard produced for this repository. When
+	// present, every cited commandId must resolve inside it.
+	Guard *GuardSnapshot
 }
 
 func SealWorkflowResult(result *WorkflowResult) error {
@@ -154,6 +190,7 @@ func SealWorkflowResult(result *WorkflowResult) error {
 	result.Assumptions = sortedUnique(result.Assumptions)
 	result.MissingEvidence = sortedUnique(result.MissingEvidence)
 	result.ChildResultDigests = sortedUnique(result.ChildResultDigests)
+	sort.Slice(result.Pointers, func(i, j int) bool { return pointerKey(result.Pointers[i]) < pointerKey(result.Pointers[j]) })
 	sort.Slice(result.Symbols, func(i, j int) bool { return symbolKey(result.Symbols[i]) < symbolKey(result.Symbols[j]) })
 	sort.Slice(result.Checks, func(i, j int) bool { return result.Checks[i].CheckID < result.Checks[j].CheckID })
 	sort.Slice(result.Artifacts, func(i, j int) bool { return result.Artifacts[i].ArtifactID < result.Artifacts[j].ArtifactID })
@@ -192,7 +229,19 @@ func ValidateWorkflowResult(result WorkflowResult, expected ResultExpectation) e
 	if result.Stale || result.Disposition == DispositionStale {
 		return fmt.Errorf("%w: stale workflow result cannot satisfy a current dispatch", ErrInvalidContract)
 	}
+	// A review that executed nothing interpreted the change rather than
+	// checking it, so it cannot carry a pass (succeeded) or a warn (uncertain).
+	if (result.Lane == laneAssurance || result.Lane == laneEvaluation) && len(result.Commands) == 0 &&
+		(result.Disposition == DispositionSucceeded || result.Disposition == DispositionUncertain) {
+		return fmt.Errorf("%w: %s result executed no command and must be unverified", ErrInvalidContract, result.Lane)
+	}
 	if result.Disposition == DispositionSucceeded {
+		if result.Lane == laneExecution && result.DiffReview == nil {
+			return fmt.Errorf("%w: execution result lacks a recorded diff review", ErrInvalidContract)
+		}
+		if result.Lane == laneDiscovery && len(result.Files) > 0 && len(result.Pointers) == 0 {
+			return fmt.Errorf("%w: discovery result must return pointers, not file payloads", ErrInvalidContract)
+		}
 		if result.MissingSpecialist != nil || len(result.Uncertainty) > 0 || len(result.Errors) > 0 || len(result.MissingEvidence) > 0 {
 			return fmt.Errorf("%w: successful disposition contains unresolved state", ErrInvalidContract)
 		}
@@ -213,6 +262,11 @@ func ValidateWorkflowResult(result WorkflowResult, expected ResultExpectation) e
 	}
 	if result.Disposition != DispositionMissingSpecialist && result.MissingSpecialist != nil {
 		return fmt.Errorf("%w: specialist gap present under disposition %q", ErrInvalidContract, result.Disposition)
+	}
+	if result.DiffReview != nil {
+		if err := RequireGuardRecord(expected.Guard, "diff review", result.DiffReview.CommandID, true, GuardRecordDiffReview); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -281,6 +335,16 @@ func validateWorkflowResultShape(result WorkflowResult) error {
 			return fmt.Errorf("%w: duplicate command evidence %q", ErrInvalidContract, command.CommandID)
 		}
 		commandIDs[command.CommandID] = struct{}{}
+	}
+	if result.DiffReview != nil {
+		if err := validateDiffReview(*result.DiffReview, commandIDs); err != nil {
+			return err
+		}
+	}
+	for _, pointer := range result.Pointers {
+		if err := validatePointer(pointer); err != nil {
+			return err
+		}
 	}
 	checkIDs := map[string]struct{}{}
 	for _, check := range result.Checks {
@@ -395,11 +459,58 @@ func validateWorkflowResultShape(result WorkflowResult) error {
 		return fmt.Errorf("%w: invalid result finishedAt", ErrInvalidContract)
 	}
 	switch result.Disposition {
-	case DispositionSucceeded, DispositionFailed, DispositionUncertain, DispositionBlocked, DispositionCancelled, DispositionStale, DispositionMissingSpecialist:
+	case DispositionSucceeded, DispositionFailed, DispositionUncertain, DispositionBlocked, DispositionCancelled, DispositionStale, DispositionMissingSpecialist, DispositionUnverified:
 	default:
 		return fmt.Errorf("%w: invalid workflow disposition %q", ErrInvalidContract, result.Disposition)
 	}
 	return validateSelfDigest(result, result.Digest)
+}
+
+func validateDiffReview(review DiffReview, commandIDs map[string]struct{}) error {
+	if err := ValidateIdentifier(review.CommandID); err != nil {
+		return err
+	}
+	if _, ok := commandIDs[review.CommandID]; !ok {
+		return fmt.Errorf("%w: diff review references unknown command %q", ErrInvalidContract, review.CommandID)
+	}
+	if err := ValidateDigest(review.DiffDigest); err != nil {
+		return err
+	}
+	if err := ValidateTimestamp(review.ReviewedAt); err != nil {
+		return err
+	}
+	if review.Findings == nil {
+		return fmt.Errorf("%w: diff review findings must be explicit", ErrInvalidContract)
+	}
+	return nil
+}
+
+func validatePointer(pointer Pointer) error {
+	if !validRelativeScope(pointer.Path) || pointer.Path == "." {
+		return fmt.Errorf("%w: invalid pointer path %q", ErrInvalidContract, pointer.Path)
+	}
+	if pointer.StartLine < 1 || pointer.EndLine < pointer.StartLine {
+		return fmt.Errorf("%w: pointer %q has an invalid line range", ErrInvalidContract, pointer.Path)
+	}
+	if pointer.Symbol != "" && !qualifiedSymbolPattern.MatchString(pointer.Symbol) {
+		return fmt.Errorf("%w: invalid pointer symbol %q", ErrInvalidContract, pointer.Symbol)
+	}
+	if pointer.Why == "" {
+		return fmt.Errorf("%w: pointer %q lacks the one line explaining why it matters", ErrInvalidContract, pointer.Path)
+	}
+	return nil
+}
+
+// RequireDiffReviewContinuity rejects an assurance pass that reviewed a
+// different change than the execution result it certifies.
+func RequireDiffReviewContinuity(execution, assurance WorkflowResult) error {
+	if execution.DiffReview == nil || assurance.DiffReview == nil {
+		return fmt.Errorf("%w: diff-review continuity requires a recorded review on both results", ErrInvalidContract)
+	}
+	if execution.DiffReview.DiffDigest != assurance.DiffReview.DiffDigest {
+		return fmt.Errorf("%w: assurance reviewed a different change than the execution result", ErrInvalidContract)
+	}
+	return nil
 }
 
 func requireChecks(checks []CheckEvidence, required []string) error {
@@ -460,8 +571,12 @@ func validateResultSymbol(symbol SymbolClaim) error {
 	return nil
 }
 
+func pointerKey(pointer Pointer) string {
+	return fmt.Sprintf("%s:%09d:%09d:%s", pointer.Path, pointer.StartLine, pointer.EndLine, pointer.Symbol)
+}
+
 func resultCollectionSize(result WorkflowResult) int {
-	return len(result.SpecialistChoices) + len(result.Files) + len(result.Symbols) + len(result.Mutations) + len(result.Commands) + len(result.Checks) + len(result.Artifacts) + len(result.Findings) + len(result.Uncertainty) + len(result.Decisions) + len(result.Errors) + len(result.Assumptions) + len(result.MissingEvidence) + len(result.ChildResultDigests)
+	return len(result.Pointers) + len(result.SpecialistChoices) + len(result.Files) + len(result.Symbols) + len(result.Mutations) + len(result.Commands) + len(result.Checks) + len(result.Artifacts) + len(result.Findings) + len(result.Uncertainty) + len(result.Decisions) + len(result.Errors) + len(result.Assumptions) + len(result.MissingEvidence) + len(result.ChildResultDigests)
 }
 
 func isNilSlice(value any) bool {

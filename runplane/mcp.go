@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"path/filepath"
+
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -24,7 +26,14 @@ const (
 	OperationResume       LifecycleOperation = "resume"
 	OperationCancel       LifecycleOperation = "cancel"
 	OperationEvidence     LifecycleOperation = "evidence"
+	// OperationGoal implements the orchestrator's existing `goal` authority. It
+	// is served from local state, so it works with no service running.
+	OperationGoal LifecycleOperation = "goal"
 )
+
+// MCPToolDescription must enumerate exactly the operations the enum carries;
+// an orchestrator that reads one and calls the other has no way to recover.
+const MCPToolDescription = "Operate the authenticated loopback Swarm supervisor through exactly health, capabilities, start, list, status, events, send, resume, cancel, evidence, or goal. The goal operation reads and writes the durable goal record on local disk and needs no running service; this tool cannot execute commands or select arbitrary URLs."
 
 var lifecycleOperations = []LifecycleOperation{
 	OperationHealth,
@@ -37,17 +46,19 @@ var lifecycleOperations = []LifecycleOperation{
 	OperationResume,
 	OperationCancel,
 	OperationEvidence,
+	OperationGoal,
 }
 
 // LifecycleInput is deliberately closed over the supervisor lifecycle. It has
 // no command, executable, URL, path, environment, or arbitrary argument field.
 type LifecycleInput struct {
-	Operation LifecycleOperation `json:"operation" jsonschema:"one of the ten bounded supervisor lifecycle operations"`
+	Operation LifecycleOperation `json:"operation" jsonschema:"one of the eleven bounded supervisor lifecycle operations"`
 	JobID     string             `json:"jobId,omitempty" jsonschema:"the exact supervisor job identifier for job-scoped operations"`
 	After     uint64             `json:"after,omitempty" jsonschema:"the last event sequence already observed"`
 	Start     *StartRequest      `json:"start,omitempty" jsonschema:"the complete fail-closed start admission envelope"`
 	Message   string             `json:"message,omitempty" jsonschema:"a bounded message for a live job"`
 	Brief     string             `json:"brief,omitempty" jsonschema:"a bounded continuation brief for a terminal job"`
+	Goal      *GoalRequest       `json:"goal,omitempty" jsonschema:"the durable goal checkpoint or show envelope"`
 }
 
 type LifecycleOutput struct {
@@ -58,15 +69,19 @@ type LifecycleOutput struct {
 	Jobs         []Job              `json:"jobs,omitempty"`
 	Events       []Event            `json:"events,omitempty"`
 	Evidence     *Evidence          `json:"evidence,omitempty"`
+	Goal         *GoalRecord        `json:"goal,omitempty"`
 	Accepted     bool               `json:"accepted,omitempty"`
 }
 
 // NewMCPServer exposes exactly one constrained tool backed by the authenticated
 // loopback client. The typed SDK binding performs JSON Schema validation before
 // the operation-specific validation below.
-func NewMCPServer(client *Client) (*mcp.Server, error) {
+func NewMCPServer(client *Client, stateDir string) (*mcp.Server, error) {
 	if client == nil {
 		return nil, errors.New("run-plane client is required")
+	}
+	if stateDir == "" || !filepath.IsAbs(stateDir) {
+		return nil, errors.New("an absolute run-plane state directory is required for the goal operation")
 	}
 	inputSchema, err := jsonschema.For[LifecycleInput](nil)
 	if err != nil {
@@ -98,16 +113,16 @@ func NewMCPServer(client *Client) (*mcp.Server, error) {
 	server := mcp.NewServer(&mcp.Implementation{Name: "anvil-swarm-runplane", Version: APIVersion}, nil)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        MCPToolName,
-		Description: "Operate the authenticated loopback Swarm supervisor through exactly health, capabilities, start, list, status, events, send, resume, cancel, or evidence. This tool cannot execute commands or select arbitrary URLs.",
+		Description: MCPToolDescription,
 		InputSchema: inputSchema,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input LifecycleInput) (*mcp.CallToolResult, LifecycleOutput, error) {
-		output, err := executeLifecycle(ctx, client, input)
+		output, err := executeLifecycle(ctx, client, stateDir, input)
 		return nil, output, err
 	})
 	return server, nil
 }
 
-func executeLifecycle(ctx context.Context, client *Client, input LifecycleInput) (LifecycleOutput, error) {
+func executeLifecycle(ctx context.Context, client *Client, stateDir string, input LifecycleInput) (LifecycleOutput, error) {
 	if err := validateLifecycleInput(input); err != nil {
 		return LifecycleOutput{}, err
 	}
@@ -153,6 +168,13 @@ func executeLifecycle(ctx context.Context, client *Client, input LifecycleInput)
 		value, err := client.Evidence(ctx, input.JobID)
 		output.Evidence = &value
 		return output, err
+	case OperationGoal:
+		value, err := ApplyGoal(stateDir, *input.Goal)
+		if err != nil {
+			return LifecycleOutput{}, err
+		}
+		output.Goal = &value
+		return output, nil
 	default:
 		return LifecycleOutput{}, fmt.Errorf("unsupported lifecycle operation %q", input.Operation)
 	}
@@ -202,6 +224,12 @@ func validateLifecycleInput(input LifecycleInput) error {
 	}
 	if len(input.Brief) > maxBriefSize {
 		return fmt.Errorf("brief exceeds %d bytes", maxBriefSize)
+	}
+	if (input.Operation == OperationGoal) != (input.Goal != nil) {
+		if input.Operation == OperationGoal {
+			return errors.New("goal envelope is required for goal")
+		}
+		return errors.New("goal envelope is forbidden for the selected operation")
 	}
 	if input.Operation != OperationEvents && input.After != 0 {
 		return errors.New("after is allowed only for events")

@@ -55,7 +55,7 @@ func TestInstallAntigravityLifecycleMCPIsManagedAndScoped(t *testing.T) {
 	if !bytes.Contains(orchestrator, []byte("  - "+supervisorMCPToolName+"\n")) {
 		t.Fatal("Antigravity orchestrator lacks lifecycle MCP tool")
 	}
-	leaf, err := os.ReadFile(filepath.Join(home, ".gemini", "config", "agents", "anvil-cf-technical-go", "agent.md"))
+	leaf, err := os.ReadFile(filepath.Join(home, ".gemini", "config", "agents", "anvil-cf-toolchain-go", "agent.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,21 +173,22 @@ func TestInstallFirstRepeatCheckAndUnownedPreservation(t *testing.T) {
 			[]byte("never use the shared launcher for same-provider work"),
 			[]byte("anvil.agent-handoff/v1"),
 			[]byte("two total verification passes"),
-			[]byte("/home/anvil/.local/bin/swarm-runplane serve"),
-			[]byte("http://127.0.0.1:8083"),
-			[]byte("~/.local/state/swarm-runplane/auth.token"),
-			[]byte("SWARM_RUNPLANE_STATE"),
-			[]byte("SWARM_RUNPLANE_URL"),
-			[]byte("SWARM_RUNPLANE_TOKEN"),
-			[]byte("SWARM_RUNPLANE_TOKEN_FILE"),
+			// The run-plane service bootstrap, environment overrides, and the
+			// rest of the lifecycle live in the foreign-dispatch document, not
+			// in a block loaded into every session; TestGlobalRoutingBlockDoes
+			// NotCarryTheRunplaneCLIReference pins their absence, mirroring the
+			// rendered orchestrator.
+			[]byte("/home/anvil/.local/bin/swarm-runplane health"),
+			[]byte("/home/anvil/.local/bin/swarm-runplane capabilities"),
 			[]byte("exact canonical role and requested provider/family/model/effort capability"),
 			[]byte("/home/anvil/.local/bin/swarm-runplane start --request route.json"),
-			[]byte("events --after N JOB_ID"),
-			[]byte("send JOB_ID` via stdin"),
-			[]byte("resume JOB_ID` via stdin"),
-			[]byte("cancel JOB_ID"),
-			[]byte("evidence JOB_ID"),
+			[]byte("/home/anvil/.local/share/anvil-coding-fleet/swarm-runplane-foreign-dispatch.md"),
 			[]byte("never argv"),
+			[]byte("Checkpoints persist through the `goal` verb"),
+			[]byte("swarm_runplane_lifecycle"),
+			[]byte("/home/anvil/.local/bin/swarm-runplane goal checkpoint|show"),
+			[]byte("~/.local/state/swarm-runplane/goals/<goalId>/"),
+			[]byte("never through a file tool"),
 			[]byte("parent keeps monitor, resume, message, cancel, evidence, integration, and completion authority"),
 			[]byte("Coding Orchestrator Agent orchestrates only"),
 			[]byte("The peer workflow layer is exactly Research Agent, Planner Agent, Executor Agent, Code Review Agent, Debugger Agent, Coding Evaluation Agent, and Factory Agent"),
@@ -230,6 +231,9 @@ func TestInstallCheckAcceptsRepositoryCompatibilityShim(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(compatibilityTarget, filepath.Join(previousRoot, "harness-agents")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(currentRoot, "bin"), filepath.Join(previousRoot, "bin")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -543,7 +547,7 @@ func TestInstallRejectsConflictingNonSymlinkTargets(t *testing.T) {
 			return filepath.Join(home, ".codex", "anvil-wf-executor.config.toml")
 		}},
 		{name: "Antigravity role", path: func(home string) string {
-			return filepath.Join(home, ".gemini", "config", "agents", "anvil-cf-domain-finance-plaid")
+			return filepath.Join(home, ".gemini", "config", "agents", "anvil-cf-toolchain-go")
 		}},
 	}
 	for _, test := range tests {
@@ -725,7 +729,34 @@ func installerFixture(t *testing.T) (string, string) {
 	if err := SyncRendered(repositoryRoot, rendered, false); err != nil {
 		t.Fatal(err)
 	}
+	writeGuardBinary(t, repositoryRoot)
+	writeRunplaneSkill(t, repositoryRoot)
 	return home, repositoryRoot
+}
+
+// writeRunplaneSkill stands in for the authored foreign-dispatch document that
+// ships in the repository.
+func writeRunplaneSkill(t *testing.T, repositoryRoot string) {
+	t.Helper()
+	target := filepath.Join(repositoryRoot, filepath.FromSlash(supervisorRunplaneSkillSource))
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("# swarm-runplane foreign dispatch\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// writeGuardBinary stands in for `go build -o bin/anvil-guard ./cmd/anvil-guard`.
+func writeGuardBinary(t *testing.T, repositoryRoot string) {
+	t.Helper()
+	target := filepath.Join(repositoryRoot, filepath.FromSlash(guardRepositoryBinary))
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func renderInstallerRepository(t *testing.T) string {
@@ -738,6 +769,8 @@ func renderInstallerRepository(t *testing.T) string {
 	if err := SyncRendered(repositoryRoot, rendered, false); err != nil {
 		t.Fatal(err)
 	}
+	writeGuardBinary(t, repositoryRoot)
+	writeRunplaneSkill(t, repositoryRoot)
 	return repositoryRoot
 }
 

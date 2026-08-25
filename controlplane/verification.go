@@ -1,6 +1,9 @@
 package controlplane
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 const VerificationAPIVersion = "anvil.verification/v1"
 
@@ -65,6 +68,50 @@ type VerificationEvent struct {
 	At               string               `json:"at"`
 }
 
+// TestSealTest pins one sealed test file to the content that failed in RED.
+type TestSealTest struct {
+	Path   string `json:"path"`
+	Digest string `json:"digest"`
+}
+
+// TestSealAmendment is the explicit, recorded permission to move a sealed
+// test. It is the evidence the assurance pass must inspect.
+type TestSealAmendment struct {
+	At     string         `json:"at"`
+	Reason string         `json:"reason"`
+	Before []TestSealTest `json:"before"`
+	After  []TestSealTest `json:"after"`
+}
+
+// TestSeal is the RED baseline a writer committed to before implementing.
+type TestSeal struct {
+	SealedAt     string              `json:"sealedAt"`
+	Tests        []TestSealTest      `json:"tests"`
+	RedCommandID string              `json:"redCommandId"`
+	Amendments   []TestSealAmendment `json:"amendments"`
+}
+
+// CurrentTests returns the digests in force: the original seal, or the most
+// recent amendment when the writer explicitly resealed.
+func (seal TestSeal) CurrentTests() []TestSealTest {
+	if count := len(seal.Amendments); count > 0 {
+		return seal.Amendments[count-1].After
+	}
+	return seal.Tests
+}
+
+// TestObservation is what an independent verifier actually saw: the sealed test
+// digests on disk plus the green check and the command that produced it.
+type TestObservation struct {
+	Tests   []TestSealTest
+	Green   CheckEvidence
+	Command CommandEvidence
+	// Guard is the record set anvil-guard produced. When present, the green
+	// command must be one of those records rather than an id the verifier
+	// simply wrote down.
+	Guard *GuardSnapshot
+}
+
 type VerificationState struct {
 	APIVersion          string              `json:"apiVersion"`
 	VerificationID      string              `json:"verificationId"`
@@ -84,6 +131,7 @@ type VerificationState struct {
 	Events              []VerificationEvent `json:"events"`
 	StartedAt           string              `json:"startedAt"`
 	FinishedAt          string              `json:"finishedAt"`
+	TestSeal            *TestSeal           `json:"testSeal,omitempty"`
 	Digest              string              `json:"digest"`
 }
 
@@ -97,6 +145,9 @@ type VerificationObservation struct {
 	Repairable       bool
 	Usage            VerificationUsage
 	At               string
+	// Tests is required once a TestSeal is attached: the verifier must report
+	// the sealed-test digests it observed and the green run it saw.
+	Tests *TestObservation
 }
 
 type RepairObservation struct {
@@ -149,6 +200,9 @@ func ApplyVerification(state VerificationState, observation VerificationObservat
 	}
 	if observation.Reason == "" {
 		return VerificationState{}, fmt.Errorf("%w: verification decision lacks reason", ErrInvalidContract)
+	}
+	if err := reconcileTestSeal(state.TestSeal, observation.Tests, observation.Decision); err != nil {
+		return VerificationState{}, err
 	}
 	if err := addVerificationUsage(&state.Budget, observation.Usage); err != nil {
 		return VerificationState{}, err
@@ -229,6 +283,131 @@ func ApplyRepair(state VerificationState, observation RepairObservation) (Verifi
 		return VerificationState{}, err
 	}
 	return state, nil
+}
+
+// AttachTestSeal records the RED baseline the writer sealed before
+// implementing. Every later verification pass is reconciled against it.
+func AttachTestSeal(state VerificationState, seal TestSeal, guard *GuardSnapshot) (VerificationState, error) {
+	if err := ValidateVerification(state); err != nil {
+		return VerificationState{}, err
+	}
+	if err := validateTestSeal(seal); err != nil {
+		return VerificationState{}, err
+	}
+	// The red run failed by construction, so the seal is only real if the guard
+	// recorded a non-zero exit under that exact id.
+	if err := RequireGuardRecord(guard, "test seal red run", seal.RedCommandID, false, GuardRecordSealRed); err != nil {
+		return VerificationState{}, err
+	}
+	state.TestSeal = &seal
+	if err := SealVerification(&state); err != nil {
+		return VerificationState{}, err
+	}
+	return state, nil
+}
+
+func validateTestSeal(seal TestSeal) error {
+	if err := ValidateTimestamp(seal.SealedAt); err != nil {
+		return err
+	}
+	if err := ValidateIdentifier(seal.RedCommandID); err != nil {
+		return err
+	}
+	if len(seal.Tests) == 0 || seal.Amendments == nil {
+		return fmt.Errorf("%w: test seal requires sealed tests and an explicit amendment list", ErrInvalidContract)
+	}
+	groups := [][]TestSealTest{seal.Tests}
+	for _, amendment := range seal.Amendments {
+		if err := ValidateTimestamp(amendment.At); err != nil {
+			return err
+		}
+		if amendment.Reason == "" {
+			return fmt.Errorf("%w: sealed-test amendment lacks a reason", ErrInvalidContract)
+		}
+		groups = append(groups, amendment.Before, amendment.After)
+	}
+	for _, group := range groups {
+		// A repeated path would collapse in the reconciliation map and let a
+		// second, unchecked digest ride along under the same name.
+		seen := make(map[string]struct{}, len(group))
+		for _, test := range group {
+			if !validRelativeScope(test.Path) || test.Path == "." {
+				return fmt.Errorf("%w: invalid sealed test path %q", ErrInvalidContract, test.Path)
+			}
+			if _, duplicate := seen[test.Path]; duplicate {
+				return fmt.Errorf("%w: sealed test %q is listed more than once", ErrInvalidContract, test.Path)
+			}
+			seen[test.Path] = struct{}{}
+			if err := ValidateDigest(test.Digest); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// reconcileTestSeal rejects a verification pass whose observed sealed tests no
+// longer match the seal. Drift is only legitimate through a recorded
+// amendment, so it is never repairable by another implementation pass. Only an
+// acceptance needs green evidence; a rejection, cancellation, or block is
+// reporting that the work is not done.
+func reconcileTestSeal(seal *TestSeal, observation *TestObservation, decision VerificationDecision) error {
+	if seal == nil {
+		return nil
+	}
+	if observation == nil {
+		switch decision {
+		case VerificationAccept:
+			return fmt.Errorf("%w: sealed verification requires observed test digests and green evidence", ErrInvalidContract)
+		case VerificationReject:
+			// A rejection releases another implementation pass, so the seal has
+			// to be reconciled before the writer starts again. Block and cancel
+			// are terminal and may honestly report that the verifier could not
+			// run anything at all.
+			return fmt.Errorf("%w: sealed rejection requires the observed sealed-test digests", ErrInvalidContract)
+		}
+		return nil
+	}
+	expected := seal.CurrentTests()
+	digests := make(map[string]string, len(expected))
+	for _, test := range expected {
+		digests[test.Path] = test.Digest
+	}
+	observed := make(map[string]struct{}, len(observation.Tests))
+	for _, test := range observation.Tests {
+		sealed, known := digests[test.Path]
+		if !known || sealed != test.Digest {
+			return fmt.Errorf("%w: sealed test %q changed and no amendment is recorded", ErrInvalidContract, test.Path)
+		}
+		observed[test.Path] = struct{}{}
+	}
+	if len(observed) != len(digests) {
+		return fmt.Errorf("%w: observed sealed tests differ from the seal and no amendment is recorded", ErrInvalidContract)
+	}
+	if decision != VerificationAccept {
+		return nil
+	}
+	if !observation.Green.Passed || !observation.Green.Current || observation.Green.CommandID != observation.Command.CommandID {
+		return fmt.Errorf("%w: green check must be passing, current, and tied to its command", ErrInvalidContract)
+	}
+	if observation.Command.ExitCode != 0 {
+		return fmt.Errorf("%w: green command exited %d", ErrInvalidContract, observation.Command.ExitCode)
+	}
+	if _, err := RequireGuardEvidence(observation.Guard, "green run", observation.Command, true, GuardRecordGreen); err != nil {
+		return err
+	}
+	if err := validateCommandEvidence(observation.Command); err != nil {
+		return err
+	}
+	sealedAt, err := time.Parse(time.RFC3339Nano, seal.SealedAt)
+	if err != nil {
+		return fmt.Errorf("%w: invalid seal timestamp %q", ErrInvalidContract, seal.SealedAt)
+	}
+	started, err := time.Parse(time.RFC3339Nano, observation.Command.StartedAt)
+	if err != nil || started.Before(sealedAt) {
+		return fmt.Errorf("%w: no green command evidence postdates the test seal", ErrInvalidContract)
+	}
+	return nil
 }
 
 func SealVerification(state *VerificationState) error {
@@ -317,6 +496,11 @@ func ValidateVerification(state VerificationState) error {
 	}
 	if err := ValidateTimestamp(state.StartedAt); err != nil {
 		return err
+	}
+	if state.TestSeal != nil {
+		if err := validateTestSeal(*state.TestSeal); err != nil {
+			return err
+		}
 	}
 	if state.Phase == VerificationTerminal {
 		if state.Outcome == VerificationPending || state.FinishedAt == "" {

@@ -91,6 +91,31 @@ swarm-runplane evidence JOB_ID
 The provider command is always launched directly as an argv array, never
 through a shell, and assignment text is never added to provider argv.
 
+## Durable goal checkpoints
+
+```sh
+printf '%s' '{"goalId":"goal-1","checkpoint":{"objective":"…","nextAction":"…"},"plan":"# plan\n"}' \
+  | swarm-runplane goal checkpoint
+swarm-runplane goal show goal-1
+```
+
+The `goal` verb writes `checkpoint.json` and a short `plan.md` under
+`~/.local/state/swarm-runplane/goals/<goalId>/` (or `$SWARM_RUNPLANE_STATE`).
+It is served from local state with no HTTP service, no token, and no network:
+the orchestrator holds `Filesystem write: none`, so this verb -- also exposed as
+the `goal` operation of the `swarm_runplane_lifecycle` MCP tool -- is the only
+executable way for it to persist a checkpoint.
+
+The orchestrator prompt carries only `health`, `capabilities`, and the
+request-file rule. The full reference above is authored in
+[`harness-agents/skills/swarm-runplane-foreign-dispatch.md`](../harness-agents/skills/swarm-runplane-foreign-dispatch.md)
+and installed by `codingfleet install` at
+`~/.local/share/anvil-coding-fleet/swarm-runplane-foreign-dispatch.md`. Rendered
+prompts cite that absolute installed path, because the orchestrator runs with
+the target project as its working directory and a repository-relative reference
+would not resolve. The document is read only when a foreign dispatch is actually
+required.
+
 A terminal success is accepted only when the child returns the small
 `anvil.agent-handoff/v1` record; exit zero or narrative success alone is
 insufficient.
@@ -124,6 +149,12 @@ roles, same-provider routing, repository escapes, overlapping writer ownership,
 and unavailable or conflicting routes. Claude receives a CLI-scoped canonical
 `--agents` override with project settings excluded, so a target repository
 cannot shadow the verified role with a same-named local definition.
+
+Claude ignores subagent frontmatter `hooks:` under `--agents`, so the
+`anvil-guard` test seal reaches a foreign Claude run through the installer's
+`~/.claude/settings.json` registration together with `--setting-sources user`.
+Codex profile runs and Antigravity runs load the same global registrations.
+A foreign run in a repository with no seal is unaffected: every hook exits 0.
 
 Capability discovery labels provider aliases separately from exact concrete
 model IDs. The current Claude CLI exposes canonical `opus`/`sonnet` aliases but

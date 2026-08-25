@@ -1,0 +1,6 @@
+{"category":"guard","status":"verified","details":"guard/ and cmd/anvil-guard implement seal, verify, reseal, diff-review, status, and required/validated --event hook entrypoint across Claude, Codex, and Antigravity"}
+{"category":"controlplane","status":"verified","details":"controlplane verifies TestSeal, GuardSnapshot resolution, commandId evidence validation, test drift rejection, and diff review continuity"}
+{"category":"codingfleet","status":"verified","details":"codingfleet installer reconciles Claude, Codex, and Antigravity hook registrations, reports Codex trust state, renders frontmatter hooks, output hygiene, and runplane skill references"}
+{"category":"runplane","status":"verified","details":"runplane supervisor validates handoff test evidence against authoritative workflow results and guard snapshots; client surfaces non-2xx status and error messages"}
+{"category":"harness-agents","status":"verified","details":"harness-agents documentation and workflows reflect mechanical verification via anvil-guard and advisory status of Antigravity PostToolUse decode refusals"}
+{"category":"docs","status":"verified","details":"docs/plans/agentic-harness-directives-adoption.md sections 3 and 5-Phase-1 requirements complete"}

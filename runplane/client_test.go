@@ -120,3 +120,29 @@ func mustURL(t *testing.T, value string) *url.URL {
 	}
 	return parsed
 }
+
+func TestClientSurfacesNon2xxErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(http.StatusConflict)
+		_ = json.NewEncoder(writer).Encode(map[string]string{
+			"error": "provider and family must both be explicit",
+		})
+	}))
+	defer server.Close()
+
+	httpClient := server.Client()
+	httpClient.Timeout = time.Second
+	client, err := NewClient(ClientOptions{BaseURL: server.URL, Token: "secret-token", HTTPClient: httpClient})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Start(context.Background(), StartRequest{})
+	if err == nil {
+		t.Fatal("expected error on HTTP 409 Conflict response, got nil")
+	}
+	if !strings.Contains(err.Error(), "409") || !strings.Contains(err.Error(), "provider and family must both be explicit") {
+		t.Fatalf("error = %q, want status code 409 and server error text", err)
+	}
+}

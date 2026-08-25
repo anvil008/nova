@@ -115,3 +115,191 @@ func TestVerificationTerminatesBlockedCancelledAndExhausted(t *testing.T) {
 		}
 	}
 }
+
+func sealedVerification(t *testing.T) (VerificationState, TestSeal) {
+	t.Helper()
+	seal := TestSeal{
+		SealedAt:     "2026-08-23T20:00:30Z",
+		Tests:        []TestSealTest{{Path: "controlplane/result_test.go", Digest: testDigest("red-test")}},
+		RedCommandID: "command-red", Amendments: []TestSealAmendment{},
+	}
+	state, err := AttachTestSeal(newTestVerification(t), seal, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return state, seal
+}
+
+func greenObservation(seal TestSeal, startedAt string) *TestObservation {
+	command := CommandEvidence{
+		CommandID: "command-green", ArgvDigest: testDigest("green-argv"), ExitCode: 0,
+		StartedAt: startedAt, FinishedAt: startedAt, StdoutDigest: testDigest("green-out"), StderrDigest: testDigest("green-err"),
+	}
+	return &TestObservation{
+		Tests:   append([]TestSealTest(nil), seal.Tests...),
+		Green:   CheckEvidence{CheckID: "green", CommandID: command.CommandID, Passed: true, Current: true, EvidenceDigest: testDigest("green-proof")},
+		Command: command,
+	}
+}
+
+func acceptWithTests(state VerificationState, tests *TestObservation) (VerificationState, error) {
+	return ApplyVerification(state, VerificationObservation{
+		VerifierRoleID: "workflow-code-review", Decision: VerificationAccept,
+		RepositoryDigest: state.RepositoryDigest, EvidenceDigest: testDigest("review-1"), ResultDigest: testDigest("review-result-1"),
+		Reason: "sealed tests intact and green", Usage: VerificationUsage{Tokens: 1000, DurationSeconds: 30},
+		At: "2026-08-23T20:03:00Z", Tests: tests,
+	})
+}
+
+func TestVerificationAcceptsAnIntactSealWithGreenEvidence(t *testing.T) {
+	state, seal := sealedVerification(t)
+	next, err := acceptWithTests(state, greenObservation(seal, "2026-08-23T20:01:00Z"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.Outcome != VerificationAccepted || next.TestSeal == nil {
+		t.Fatalf("unexpected state: %+v", next)
+	}
+}
+
+func TestVerificationRejectsObservedTestDigestDrift(t *testing.T) {
+	state, seal := sealedVerification(t)
+	observation := greenObservation(seal, "2026-08-23T20:01:00Z")
+	observation.Tests[0].Digest = testDigest("weakened-test")
+	if _, err := acceptWithTests(state, observation); err == nil {
+		t.Fatal("verification accepted tests that no longer match the seal")
+	}
+}
+
+func TestVerificationAcceptsDriftCoveredByARecordedAmendment(t *testing.T) {
+	state, seal := sealedVerification(t)
+	amended := seal
+	amended.Amendments = []TestSealAmendment{{
+		At: "2026-08-23T20:00:45Z", Reason: "extend the reproduction case",
+		Before: seal.Tests, After: []TestSealTest{{Path: seal.Tests[0].Path, Digest: testDigest("amended-test")}},
+	}}
+	state, err := AttachTestSeal(newTestVerification(t), amended, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation := greenObservation(amended, "2026-08-23T20:01:00Z")
+	observation.Tests = amended.Amendments[0].After
+	if _, err := acceptWithTests(state, observation); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestVerificationRequiresGreenEvidenceThatPostdatesTheSeal(t *testing.T) {
+	state, seal := sealedVerification(t)
+	if _, err := acceptWithTests(state, greenObservation(seal, "2026-08-23T19:59:00Z")); err == nil {
+		t.Fatal("verification accepted green evidence recorded before the seal")
+	}
+	stale := greenObservation(seal, "2026-08-23T20:01:00Z")
+	stale.Green.Current = false
+	if _, err := acceptWithTests(state, stale); err == nil {
+		t.Fatal("verification accepted a stale green check")
+	}
+	failed := greenObservation(seal, "2026-08-23T20:01:00Z")
+	failed.Command.ExitCode = 1
+	if _, err := acceptWithTests(state, failed); err == nil {
+		t.Fatal("verification accepted a non-zero green command")
+	}
+}
+
+func TestVerificationRequiresATestObservationWhenSealed(t *testing.T) {
+	state, _ := sealedVerification(t)
+	if _, err := acceptWithTests(state, nil); err == nil {
+		t.Fatal("sealed verification accepted an observation with no sealed-test evidence")
+	}
+}
+
+func TestVerificationRejectsPartiallyObservedSealedTests(t *testing.T) {
+	seal := TestSeal{
+		SealedAt: "2026-08-23T20:00:30Z", RedCommandID: "command-red", Amendments: []TestSealAmendment{},
+		Tests: []TestSealTest{
+			{Path: "controlplane/result_test.go", Digest: testDigest("red-one")},
+			{Path: "controlplane/verification_test.go", Digest: testDigest("red-two")},
+		},
+	}
+	state, err := AttachTestSeal(newTestVerification(t), seal, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation := greenObservation(seal, "2026-08-23T20:01:00Z")
+	// Same cardinality, but one sealed file was never actually observed.
+	observation.Tests = []TestSealTest{seal.Tests[0], seal.Tests[0]}
+	if _, err := acceptWithTests(state, observation); err == nil {
+		t.Fatal("verification accepted an observation that skipped a sealed test")
+	}
+}
+
+func TestVerificationDoesNotDemandGreenForNonAcceptance(t *testing.T) {
+	state, _ := sealedVerification(t)
+	blocked, err := ApplyVerification(state, VerificationObservation{
+		VerifierRoleID: "workflow-code-review", Decision: VerificationBlock,
+		RepositoryDigest: state.RepositoryDigest, EvidenceDigest: testDigest("blocked"), ResultDigest: testDigest("blocked-result"),
+		Reason: "the verifier lacked authority to run the suite", At: "2026-08-23T20:03:00Z",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blocked.Outcome != VerificationBlocked {
+		t.Fatalf("outcome = %q", blocked.Outcome)
+	}
+}
+
+// A rejection releases another implementation pass, so the seal must be
+// reconciled before the writer starts again. Block and cancel are terminal and
+// may honestly report that nothing could be run.
+func TestVerificationRejectionUnderASealRequiresObservedDigests(t *testing.T) {
+	state, seal := sealedVerification(t)
+	reject := func(tests *TestObservation) error {
+		_, err := ApplyVerification(state, VerificationObservation{
+			VerifierRoleID: "workflow-code-review", Decision: VerificationReject,
+			RepositoryDigest: state.RepositoryDigest, EvidenceDigest: testDigest("rejected"), ResultDigest: testDigest("rejected-result"),
+			Reason: "the change does not satisfy the contract", Repairable: true,
+			Usage: VerificationUsage{Tokens: 1000, DurationSeconds: 30}, At: "2026-08-23T20:03:00Z", Tests: tests,
+		})
+		return err
+	}
+	if err := reject(nil); err == nil {
+		t.Fatal("a sealed rejection with no observed sealed-test digests was accepted")
+	}
+	observed := greenObservation(seal, "2026-08-23T20:01:00Z")
+	if err := reject(observed); err != nil {
+		t.Fatalf("a sealed rejection reporting intact digests was refused: %v", err)
+	}
+	drifted := greenObservation(seal, "2026-08-23T20:01:00Z")
+	drifted.Tests[0].Digest = testDigest("weakened-test")
+	if err := reject(drifted); err == nil {
+		t.Fatal("a sealed rejection over drifted tests was accepted")
+	}
+}
+
+func TestTestSealRejectsDuplicateSealedPaths(t *testing.T) {
+	duplicate := TestSeal{
+		SealedAt: "2026-08-23T20:00:30Z", RedCommandID: "command-red", Amendments: []TestSealAmendment{},
+		Tests: []TestSealTest{
+			{Path: "controlplane/result_test.go", Digest: testDigest("red-one")},
+			{Path: "controlplane/result_test.go", Digest: testDigest("red-two")},
+		},
+	}
+	if _, err := AttachTestSeal(newTestVerification(t), duplicate, nil); err == nil {
+		t.Fatal("a seal listing the same path twice was accepted")
+	}
+	amended := TestSeal{
+		SealedAt: "2026-08-23T20:00:30Z", RedCommandID: "command-red",
+		Tests: []TestSealTest{{Path: "controlplane/result_test.go", Digest: testDigest("red-one")}},
+		Amendments: []TestSealAmendment{{
+			At: "2026-08-23T20:00:45Z", Reason: "extend the reproduction case",
+			Before: []TestSealTest{{Path: "controlplane/result_test.go", Digest: testDigest("red-one")}},
+			After: []TestSealTest{
+				{Path: "controlplane/result_test.go", Digest: testDigest("amended-one")},
+				{Path: "controlplane/result_test.go", Digest: testDigest("amended-two")},
+			},
+		}},
+	}
+	if _, err := AttachTestSeal(newTestVerification(t), amended, nil); err == nil {
+		t.Fatal("an amendment listing the same path twice was accepted")
+	}
+}

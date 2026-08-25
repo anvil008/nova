@@ -132,8 +132,21 @@ func parseCanonicalClaudeAgent(definition []byte, expectedName string) (canonica
 	if len(tools) == 0 || tools[0] == "" || values["effort"] == "" || values["permissionMode"] == "" {
 		return canonicalClaudeAgent{}, fmt.Errorf("canonical Claude definition omits required agent metadata")
 	}
-	if len(values) != 7 {
-		return canonicalClaudeAgent{}, fmt.Errorf("canonical Claude definition has unexpected agent metadata")
+	// `hooks` is the one optional key, deliberately parsed and dropped: Claude
+	// ignores subagent frontmatter hooks under --agents, so a foreign run relies
+	// on the installer's user-settings registration instead. Every other key is
+	// required and no key outside this set is tolerated.
+	for key := range values {
+		switch key {
+		case "name", "description", "tools", "mcpServers", "model", "effort", "permissionMode", "hooks":
+		default:
+			return canonicalClaudeAgent{}, fmt.Errorf("canonical Claude definition has unexpected agent metadata %q", key)
+		}
+	}
+	for _, key := range []string{"name", "description", "tools", "mcpServers", "model", "effort", "permissionMode"} {
+		if _, present := values[key]; !present {
+			return canonicalClaudeAgent{}, fmt.Errorf("canonical Claude definition omits required agent metadata %q", key)
+		}
 	}
 	return canonicalClaudeAgent{
 		Description: description, Tools: tools, Prompt: strings.TrimSuffix(prompt, "\n"),

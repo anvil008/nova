@@ -15,16 +15,13 @@ func TestLoadCatalogInventoryAndDerivedCounts(t *testing.T) {
 	if got, want := document.APIVersion, APIVersion; got != want {
 		t.Fatalf("APIVersion = %q, want %q", got, want)
 	}
-	if got, want := document.Counts, (Counts{Total: 52, Workflow: 8, Technical: 30, Domain: 14, DefinitionReady: 52}); got != want {
+	if got, want := document.Counts, (Counts{Total: 15, Workflow: 5, Technical: 8, Domain: 2, DefinitionReady: 15}); got != want {
 		t.Fatalf("Counts = %+v, want %+v", got, want)
 	}
 
 	wantWorkflow := []string{
-		workflowAgentFactoryID,
 		workflowCodeReviewID,
-		workflowCodingEvaluatorID,
 		workflowCodingOrchestratorID,
-		workflowDebuggerID,
 		workflowExecutorID,
 		workflowPlannerID,
 		workflowResearchID,
@@ -73,7 +70,7 @@ func TestCanonicalFlatWorkflowTopology(t *testing.T) {
 	}
 	wantOrchestration := &OrchestrationSpec{
 		GoalMode:            GoalModeNativeDurable,
-		CheckpointPolicy:    CheckpointPolicyNativeSession,
+		CheckpointPolicy:    CheckpointPolicyFileAndNativeSession,
 		SchedulingPolicy:    SchedulingPolicyDependencyAware,
 		ProactiveDelegation: true,
 		CompletionAuthority: true,
@@ -96,13 +93,10 @@ func TestCanonicalFlatWorkflowTopology(t *testing.T) {
 
 	wantPools := []SpecialistPool{SpecialistPoolTechnical, SpecialistPoolDomain}
 	wantParallel := map[string]int{
-		workflowResearchID:        10,
-		workflowPlannerID:         10,
-		workflowExecutorID:        20,
-		workflowCodeReviewID:      10,
-		workflowDebuggerID:        10,
-		workflowCodingEvaluatorID: 10,
-		workflowAgentFactoryID:    10,
+		workflowResearchID:   10,
+		workflowPlannerID:    10,
+		workflowExecutorID:   20,
+		workflowCodeReviewID: 10,
 	}
 	for _, contract := range workflowUnitContracts {
 		if contract.MaxParallel != wantParallel[contract.RoleID] {
@@ -125,11 +119,6 @@ func TestCanonicalFlatWorkflowTopology(t *testing.T) {
 		if !workflowDelegatesTo(orchestrator, contract.RoleID) {
 			t.Errorf("orchestrator does not delegate to %q", contract.RoleID)
 		}
-	}
-
-	leaf := roleByID(document.Roles, technicalCodeReviewID)
-	if leaf.Name != "Code Review" || leaf.Class != ClassTechnical || leaf.CapabilityMode != CapabilityReadOnly {
-		t.Errorf("technical Code Review leaf = %+v", leaf)
 	}
 }
 
@@ -209,20 +198,6 @@ func TestFlatWorkflowTopologyRejectsDrift(t *testing.T) {
 			},
 			wantErrSub: "creation contract is invalid",
 		},
-		{
-			name: "factory loses creation authority",
-			mutate: func(roles []Role) {
-				roleByIDPtr(roles, workflowAgentFactoryID).Workflow.CreatesSpecialists = false
-			},
-			wantErrSub: "creation contract is invalid",
-		},
-		{
-			name: "factory delegates recursively",
-			mutate: func(roles []Role) {
-				roleByIDPtr(roles, workflowAgentFactoryID).Workflow.Delegates = []string{workflowAgentFactoryID}
-			},
-			wantErrSub: "must be a peer leaf",
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -258,7 +233,7 @@ func TestDecodeCatalogValidation(t *testing.T) {
 					Stages: []string{"Orchestrate"}, Delegates: []string{"workflow-missing"},
 					ProposableRoleClasses: []RoleClass{ClassTechnical, ClassDomain}, InvocableRoleIDs: []string{"workflow-missing"}, InvocableSpecialistPools: []SpecialistPool{},
 					Lane: WorkflowLaneOrchestration, MaxParallel: 1,
-					Orchestration: &OrchestrationSpec{GoalMode: GoalModeNativeDurable, CheckpointPolicy: CheckpointPolicyNativeSession, SchedulingPolicy: SchedulingPolicyDependencyAware},
+					Orchestration: &OrchestrationSpec{GoalMode: GoalModeNativeDurable, CheckpointPolicy: CheckpointPolicyFileAndNativeSession, SchedulingPolicy: SchedulingPolicyDependencyAware},
 				}
 			},
 			wantErrSub: "does not exist",
@@ -389,12 +364,12 @@ func TestSelectRepresentativeSignals(t *testing.T) {
 		wantID    string
 		wantScore int
 	}{
-		{name: "go files", signals: Signals{Files: []string{" ./GO.MOD ", `CMD\MAIN.GO`}}, wantID: "technical-go", wantScore: 7},
-		{name: "react files", signals: Signals{Files: []string{"package.json", "src/App.tsx"}}, wantID: "technical-react-typescript", wantScore: 7},
-		{name: "postgres dependency", signals: Signals{Dependencies: []string{"PSYCOPG"}}, wantID: "technical-postgresql", wantScore: 10},
-		{name: "proxmox keyword", signals: Signals{Keywords: []string{"Proxmox"}}, wantID: "domain-proxmox", wantScore: 10},
+		{name: "go files", signals: Signals{Files: []string{" ./GO.MOD ", `CMD\MAIN.GO`}}, wantID: "toolchain-go", wantScore: 12},
+		{name: "react files", signals: Signals{Files: []string{"package.json", "src/App.tsx"}}, wantID: "toolchain-web", wantScore: 12},
+		{name: "postgres dependency", signals: Signals{Dependencies: []string{"PSYCOPG"}}, wantID: "toolchain-database", wantScore: 9},
+		{name: "proxmox keyword", signals: Signals{Keywords: []string{"Proxmox"}}, wantID: "env-homelab", wantScore: 9},
 		{name: "coding orchestrator", signals: Signals{Keywords: []string{"coding orchestrator"}}, wantID: workflowCodingOrchestratorID, wantScore: 10},
-		{name: "realtime dependency", signals: Signals{Dependencies: []string{"github.com/gorilla/websocket"}}, wantID: "technical-realtime-streaming", wantScore: 10},
+		{name: "realtime dependency", signals: Signals{Dependencies: []string{"golang.org/x/net"}}, wantID: "toolchain-go", wantScore: 9},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -411,12 +386,12 @@ func TestSelectRepresentativeSignals(t *testing.T) {
 
 func TestSelectDeterministicScoreOrderAndReasons(t *testing.T) {
 	document := mustLoad(t)
-	first := Select(document, Signals{Files: []string{"Agents/Foo_Agent.go", "./GO.MOD"}, Dependencies: []string{" GOOGLE.GOLANG.ORG/ADK/V2 "}, Keywords: []string{" Go-ADK integration "}})
-	second := Select(document, Signals{Files: []string{"go.mod", "AGENTS\\FOO_AGENT.GO"}, Dependencies: []string{"google.golang.org/adk/v2"}, Keywords: []string{"go adk integration"}})
+	first := Select(document, Signals{Files: []string{"Agents/Foo_Agent.go", "./GO.MOD", "Cargo.toml"}, Dependencies: []string{" GOLANG.ORG/X/NET "}, Keywords: []string{" GOLANG "}})
+	second := Select(document, Signals{Files: []string{"go.mod", "AGENTS\\FOO_AGENT.GO", "Cargo.toml"}, Dependencies: []string{"golang.org/x/net"}, Keywords: []string{"golang"}})
 	if !reflect.DeepEqual(first, second) {
 		t.Fatalf("normalized results differ:\n%+v\n%+v", first, second)
 	}
-	if len(first) < 2 || first[0].RoleID != "technical-go-adk-v2" || first[0].Score != 27 || first[1].RoleID != "technical-go" || first[1].Score != 7 {
+	if len(first) < 2 || first[0].RoleID != "toolchain-go" || first[0].Score != 30 || first[1].RoleID != "toolchain-rust" || first[1].Score != 7 {
 		t.Fatalf("match ordering/scores = %+v", first)
 	}
 }
@@ -427,7 +402,7 @@ func TestSelectThresholdAndBroadSignals(t *testing.T) {
 		t.Fatalf("broad file globs crossed a threshold: %+v", matches)
 	}
 	strong := Select(document, Signals{Files: []string{"main.go", "src/app.tsx"}, Dependencies: []string{"react"}})
-	if len(strong) == 0 || strong[0].RoleID != "technical-react-typescript" || strong[0].Score != 12 {
+	if len(strong) == 0 || strong[0].RoleID != "toolchain-web" || strong[0].Score != 14 {
 		t.Fatalf("strong dependency did not outrank broad globs: %+v", strong)
 	}
 	for _, role := range document.Roles {

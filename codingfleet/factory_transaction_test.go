@@ -34,7 +34,7 @@ func TestFactoryTransactionUpdatesCatalogRenderInstallAndColdLoad(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !called || result.RolledBack || result.InstalledDigests != 53*3 || len(result.ProjectionDigests) != 3 {
+	if !called || result.RolledBack || result.InstalledDigests != 48 || len(result.ProjectionDigests) != 3 {
 		t.Fatalf("transaction result=%+v called=%v", result, called)
 	}
 	written, err := os.ReadFile(filepath.Join(manifest.FleetRoot, "harness-agents", "canonical", "catalog.json"))
@@ -119,6 +119,8 @@ func factoryTransactionFixture(t *testing.T) (FactoryManifest, []byte) {
 	if err := SyncRendered(repositoryRoot, rendered, false); err != nil {
 		t.Fatal(err)
 	}
+	writeGuardBinary(t, repositoryRoot)
+	writeRunplaneSkill(t, repositoryRoot)
 	if _, err := Install(InstallOptions{HomeDir: home, RepositoryRoot: repositoryRoot, Mode: InstallApply}); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +129,7 @@ func factoryTransactionFixture(t *testing.T) (FactoryManifest, []byte) {
 	candidate.CatalogVersion += ".factory-test"
 	var added Role
 	for _, role := range current.Roles {
-		if role.ID == "technical-go" {
+		if role.ID == "toolchain-go" {
 			added = role
 			break
 		}

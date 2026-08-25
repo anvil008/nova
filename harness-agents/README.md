@@ -35,6 +35,12 @@ repository under `docs/providers/anthropic-fable.md`.
   pools, durable orchestration and fail-closed model-routing metadata, routing tiers,
   and capability modes.
 - `workflows.md` — the shared workflow operating contract and ADK seam.
+- `skills/swarm-runplane-foreign-dispatch.md` — the full run-plane lifecycle
+  reference. It is deliberately kept out of the orchestrator prompt and read
+  only when a foreign-provider dispatch is actually required. `codingfleet
+  install` links it to `~/.local/share/anvil-coding-fleet/` and every rendered
+  prompt cites that absolute installed path, since a repository-relative
+  reference does not resolve from a target project's working directory.
 - `rendered/codex/*.toml` — Codex role configuration layers.
 - `rendered/claude/*.md` — Claude Code subagent definitions.
 - `rendered/antigravity/*/agent.md` — Antigravity orchestrator, workflow units, and
@@ -56,23 +62,94 @@ repairing it. Domain roles cover Foundry Zero systems such as Proxmox, Unraid,
 Home Assistant, Ubiquiti, finance, health telemetry, robotics, Nexus, and
 Swarm.
 
+## The `anvil-guard` test seal
+
+`anvil-guard` is the mechanical half of the fleet's verification contract: one
+harness-neutral binary with a `--harness claude|codex|agy` output dialect,
+installed at `~/.local/bin/anvil-guard` and registered as a hook in all three
+harnesses. Per-repository state lives under
+`~/.local/state/anvil-guard/<sha256(git toplevel)>/` and holds `seal.json`,
+`green.json`, and `diff-review.json`; `ANVIL_GUARD_STATE` overrides the base
+directory.
+
+| Command | Purpose |
+|---|---|
+| `seal --tests <globs\|paths> --red-command <argv...>` | Runs the red command, requires a non-zero exit, records test digests plus the red evidence |
+| `verify --green-command <argv...>` | Runs green, requires exit 0, re-digests the sealed tests, writes `green.json` |
+| `reseal --reason <text>` | The only sanctioned way to move a sealed test; the amendment is evidence Code Review must inspect |
+| `diff-review record --findings <file>` | Digests the real `git diff HEAD` plus the untracked list and stores the review |
+| `hook --harness <h>` | Reads the harness payload on stdin |
+| `status [--json]` | Prints the machine-readable state the orchestrator reconciles, including the `records` list |
+
+Hook behaviour: PreToolUse denies edits to sealed test paths, PostToolUse on a
+shell tool re-digests and reports, and Stop refuses to finish while sealed tests
+changed, no green evidence exists, or the recorded diff digest differs from the
+current one. The seal that governs a write is the seal of the repository that
+owns the **path being written**, not of the session's working directory: an
+absolute path, a `../` traversal, or a symlink into a sealed tree is denied from
+anywhere. Each session keeps a touch log (keyed on `session_id` or
+`conversationId`) of the sealed repositories it wrote to, and the shell and Stop
+checks cover the session's own repository plus every repository in that log.
+A path in no repository at all stays allowed. **With no seal for the repository
+every hook exits 0 immediately with empty stdout**, so non-fleet sessions are
+untouched; the one exception is a payload the guard cannot parse at all, which
+is refused whenever any repository on the machine is under seal, because then
+the guard cannot tell what the tool would write. Test globs default to
+`**/*_test.go **/*.spec.* **/*.test.* **/test_*.py **/tests/** **/testdata/**`
+and are overridable per repository through `.anvil/guard.json`. Every command
+the guard runs is launched as an argv array, never through a shell.
+
+On a decode refusal at PostToolUse, the Antigravity dialect emits `{"decision":"deny"}`. Whether Antigravity honours a deny at PostToolUse has not been observed against the live harness and must be treated as advisory until verified; the Stop gate remains the enforcing check.
+
+### Evidence resolves to guard records
+
+`anvil-guard status --json` publishes a stable `records` array: the seal's red
+run, the green run, and the diff review, each with its `commandId` and the full
+`CommandEvidence`. Control-plane validation takes that snapshot as input and
+rejects any `tests[].commandId`, `TestSeal.redCommandId`, green reference, or
+`DiffReview.commandId` that does not resolve to one of those records, or whose
+`passed` disagrees with the record's exit code. The run-plane supervisor reads
+the state directory itself after a foreign child exits, so the child never
+supplies the records its own claims are checked against.
+
+This is resolution, not a new trust boundary. Anything running as the same OS
+user can write the state directory, so **deliberate forgery of the guard state
+is explicitly out of scope**; that residual is what the LXC 135 holdout
+measures. What the check removes is the single-author problem for honest
+agents: the handoff and the workflow result are parsed from the same text, so
+only a record produced by a different process can corroborate either.
+
+Build it before installing:
+
+```sh
+go build -trimpath -o bin/anvil-guard ./cmd/anvil-guard
+```
+
+Verifier tools the toolchain checks call (`ast-grep`, `golangci-lint`, `ruff`,
+`pyright`, `tsc`, `actionlint`, `shellcheck`) are reported and optionally
+installed by `scripts/bootstrap-tools.sh`, which you run yourself. The installer
+never installs software, and a missing verifier makes its check unverified
+rather than passed.
+
 ## Durable native orchestration
 
 `workflow.orchestration` is present on Coding Orchestrator Agent only. It fixes `goalMode` to
-`native-durable`, `checkpointPolicy` to `native-session`, `schedulingPolicy` to
-`dependency-aware`, enables proactive delegation, and grants the sole overall
-completion authority. It does not add a daemon or a second session database.
-Codex uses native goals and resumable threads; Claude Code and the other native
-harnesses use their supported resumable session or conversation state. When a
-harness cannot persist that state, the generated definition requires an honest
-in-conversation checkpoint and forbids claiming durability.
+`native-durable`, `checkpointPolicy` to `file-and-native-session`,
+`schedulingPolicy` to `dependency-aware`, enables proactive delegation, and
+grants the sole overall completion authority. It does not add a daemon or a
+second session database. Codex uses native goals and resumable threads; Claude
+Code and the other native harnesses use their supported resumable session or
+conversation state.
 
 Coding Orchestrator Agent checkpoints at phase transitions, handoffs, context compaction,
 interruptions, and before yielding. A checkpoint records the objective,
 constraints, decisions, completed evidence, runnable and blocked queues, active
-delegate identities and file ownership, and the exact next action. On resume,
-the orchestrator reconciles the checkpoint with current repository and external state
-before releasing more work.
+delegate identities and file ownership, and the exact next action. It is
+persisted as `checkpoint.json` plus a short `plan.md` under
+`~/.local/state/swarm-runplane/goals/<goalId>/`. Those files are the system of
+record and native session state is only a cache of them: the orchestrator
+re-reads them on resume and reconciles them with current repository and
+external state before releasing more work.
 
 Coding Orchestrator Agent maintains a dependency-ready queue and proactively uses up to 25
 parallel workflow units when doing so materially reduces latency or improves
@@ -125,8 +202,11 @@ stdin, never argv. The complete remaining lifecycle is
 `/home/anvil/.local/bin/swarm-runplane list`,
 `/home/anvil/.local/bin/swarm-runplane status JOB_ID`,
 `/home/anvil/.local/bin/swarm-runplane events --after N JOB_ID`,
-`/home/anvil/.local/bin/swarm-runplane cancel JOB_ID`, and
-`/home/anvil/.local/bin/swarm-runplane evidence JOB_ID`.
+`/home/anvil/.local/bin/swarm-runplane cancel JOB_ID`,
+`/home/anvil/.local/bin/swarm-runplane evidence JOB_ID`, and
+`/home/anvil/.local/bin/swarm-runplane goal checkpoint|show`, which persists and
+re-reads the durable goal checkpoint under
+`~/.local/state/swarm-runplane/goals/<goalId>/` without a running service.
 
 Both native and foreign children return the small `anvil.agent-handoff/v1`
 boundary: run and parent IDs, canonical catalog role ID, provider, model, effort, mode,
@@ -184,6 +264,16 @@ The managed installation owns only:
 - `~/.codex/<role>.config.toml`, one direct headless profile symlink per
   canonical role. Start an exact role with `codex exec --profile <role>`;
   `[agents.<name>]` declarations remain available for native subagents.
+- `~/.local/bin/anvil-guard`, a symlink to the repository's `bin/anvil-guard`
+  build output.
+- The guard hook registrations: the `hooks` block in `~/.claude/settings.json`
+  (entries identified by the `anvil-guard` command path and merged JSON
+  semantically), appended matcher groups in `~/.codex/hooks.json`, and the
+  `anvil-coding-fleet` handler key in `~/.gemini/config/hooks.json`. Every
+  rendered Claude definition that can write also carries frontmatter `hooks:`.
+  Codex and Antigravity expose no per-agent hook surface and rely on these
+  global registrations, as does a foreign Claude run, because Claude ignores
+  subagent frontmatter hooks under `--agents`.
 - The block between `BEGIN ANVIL CODING FLEET ROUTING` and its matching end
   marker in `~/.agents/AGENTS.md`, `~/.codex/AGENTS.md`, and
   `~/.claude/CLAUDE.md`, plus Antigravity's native global rule file at
@@ -196,6 +286,14 @@ The managed installation owns only:
 Installation is idempotent. It refuses conflicting non-symlink targets and
 duplicate, partial, reversed, or inline Codex markers. Codex config replacement
 is atomic. Dry-run and check modes do not write.
+
+Codex records per-hook trust under index-based
+`[hooks.state."<hooks.json path>:<event_snake_case>:<group>:<index>"]` keys in
+`~/.codex/config.toml`, and that hash is not reproducible outside Codex. The
+installer therefore only ever appends Codex matcher groups and never reorders
+existing ones, and `install --check` reports each managed entry that still
+lacks a trust record. Approve them once with `/hooks` inside Codex; until then
+the Codex hooks are registered but do not run.
 
 Factory alone directly owns its specialist catalog/render/install lifecycle;
 that does not bypass harness policy.
@@ -210,6 +308,7 @@ the focused tests, and repeat install/check:
 
 ```sh
 go test ./codingfleet ./cmd/codingfleet
+go build -trimpath -o bin/anvil-guard ./cmd/anvil-guard
 go run ./cmd/codingfleet render
 go run ./cmd/codingfleet install
 go run ./cmd/codingfleet install --check
@@ -221,7 +320,8 @@ To roll back discovery without deleting auditable generated files:
 go run ./cmd/codingfleet install --uninstall
 ```
 
-Uninstall removes only the managed Claude, Codex-profile, and Antigravity
-symlinks plus the managed Codex-config and global-routing blocks. It refuses
+Uninstall removes only the managed Claude, Codex-profile, Antigravity, and
+guard symlinks plus the managed Codex-config, global-routing, and guard-hook
+registrations. It refuses
 non-symlink agent targets rather than deleting them and preserves all bytes
 outside its marked blocks.

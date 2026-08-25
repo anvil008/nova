@@ -14,7 +14,7 @@ func fullTestGrant() AuthorityGrant {
 		Network:            true,
 		Process:            true,
 		InvocableRoleKinds: []string{"technical", "domain"},
-		InvocableRoleIDs:   []string{"technical-go", "domain-swarm"},
+		InvocableRoleIDs:   []string{"toolchain-go", "env-homelab"},
 		Routes: RouteConstraint{
 			Providers: []string{"openai"}, Families: []string{"gpt"},
 			Models: []string{"gpt-5.6-sol"}, Efforts: []string{"high", "max"},
@@ -34,7 +34,7 @@ func validAuthorityEnvelope(t *testing.T) AuthorityEnvelope {
 	requested.ToolAllow = []string{"read", "write"}
 	requested.FilesystemRead = []string{"controlplane"}
 	requested.InvocableRoleKinds = []string{"technical"}
-	requested.InvocableRoleIDs = []string{"technical-go"}
+	requested.InvocableRoleIDs = []string{"toolchain-go"}
 	requested.Routes.Efforts = []string{"max"}
 	requested.Budget = BudgetLimit{MaxDelegates: 1, MaxWriters: 1, MaxTokens: 10_000, MaxDurationSeconds: 300}
 	observed := fullTestGrant()

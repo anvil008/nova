@@ -15,6 +15,13 @@ import (
 
 	"github.com/anvil008/swarm-coder/codingfleet"
 	"github.com/anvil008/swarm-coder/controlplane"
+	"github.com/anvil008/swarm-coder/guard"
+)
+
+// Lanes whose evidence contract the supervisor enforces across jobs.
+const (
+	laneExecution = "execution"
+	laneAssurance = "assurance"
 )
 
 // recordAgentHandoff accepts the small native/foreign integration boundary.
@@ -49,6 +56,7 @@ func (s *Supervisor) recordAgentHandoff(jobID, text string) bool {
 		return true
 	}
 	route := job.Route
+	authoritative := job.WorkflowResult
 	s.mu.Unlock()
 
 	wantMode := codingfleet.CapabilityMode(route.CapabilityMode)
@@ -69,15 +77,9 @@ func (s *Supervisor) recordAgentHandoff(jobID, text string) bool {
 			return true
 		}
 	}
-	checks := make(map[string]bool, len(handoff.Tests))
-	for _, check := range handoff.Tests {
-		checks[check.Name] = check.Passed
-	}
-	for _, required := range route.Evidence.RequiredChecks {
-		if !checks[required] {
-			s.recordHandoffFailure(jobID, fmt.Errorf("required test %q is missing or failed", required))
-			return true
-		}
+	if err := requireHandoffTestEvidence(handoff, route, authoritative, guardSnapshot(route)); err != nil {
+		s.recordHandoffFailure(jobID, err)
+		return true
 	}
 
 	s.mu.Lock()
@@ -100,9 +102,89 @@ func (s *Supervisor) recordAgentHandoff(jobID, text string) bool {
 	return true
 }
 
+// requireHandoffTestEvidence is the only place a required check may be marked
+// satisfied. A `passed: true` boolean is a claim, not evidence: it counts only
+// when the handoff cites a commandId that the authoritative workflow result
+// records as an exit-zero run with a current passing check.
+func requireHandoffTestEvidence(handoff codingfleet.AgentHandoff, route Route, authoritative *controlplane.WorkflowResult, snapshot *controlplane.GuardSnapshot) error {
+	if authoritative != nil {
+		if err := codingfleet.ReconcileHandoffTests(handoff, *authoritative, snapshot); err != nil {
+			return err
+		}
+	}
+	if len(route.Evidence.RequiredChecks) == 0 {
+		return nil
+	}
+	if authoritative == nil {
+		return fmt.Errorf("required test evidence needs the workflow result that records the command run")
+	}
+	passed := make(map[string]struct{}, len(handoff.Tests))
+	for _, test := range handoff.Tests {
+		if test.Passed {
+			passed[test.Name] = struct{}{}
+		}
+	}
+	for _, required := range route.Evidence.RequiredChecks {
+		if _, ok := passed[required]; !ok {
+			return fmt.Errorf("required test %q is missing or failed", required)
+		}
+	}
+	return nil
+}
+
+// reconcileHandoffEvidenceLocked re-checks a stored handoff once the
+// authoritative workflow result exists. The two records arrive independently
+// and in either order, so the reconciliation runs on both edges.
+func (s *Supervisor) reconcileHandoffEvidenceLocked(job *Job) error {
+	if job.Handoff == nil {
+		return nil
+	}
+	return requireHandoffTestEvidence(*job.Handoff, job.Route, job.WorkflowResult, guardSnapshot(job.Route))
+}
+
+// guardSnapshot reads the repository's anvil-guard state directly off disk once
+// a child has exited. It is a read-only parse of local state: no new network
+// surface, no cooperation from the child, and no way for the child's own prose
+// to supply the records its claims are resolved against.
+func guardSnapshot(route Route) *controlplane.GuardSnapshot {
+	if route.RepositoryRoot == "" {
+		return nil
+	}
+	snapshot, err := guard.Snapshot(route.RepositoryRoot)
+	if err != nil {
+		return nil
+	}
+	return snapshot
+}
+
+// requireDiffReviewContinuityLocked rejects an assurance result that reviewed a
+// different change than the execution result it certifies.
+func (s *Supervisor) requireDiffReviewContinuityLocked(job *Job) error {
+	if job.WorkflowResult == nil || job.WorkflowResult.Lane != laneAssurance || job.ControlPlane == nil {
+		return nil
+	}
+	goalID := job.ControlPlane.Goal.GoalID
+	for _, candidate := range s.jobs {
+		if candidate.ID == job.ID || candidate.ControlPlane == nil || candidate.ControlPlane.Goal.GoalID != goalID {
+			continue
+		}
+		if candidate.WorkflowResult == nil || candidate.WorkflowResult.Lane != laneExecution || candidate.WorkflowResult.DiffReview == nil {
+			continue
+		}
+		if err := controlplane.RequireDiffReviewContinuity(*candidate.WorkflowResult, *job.WorkflowResult); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Supervisor) recordHandoffFailure(jobID string, cause error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.markHandoffFailureLocked(jobID, cause)
+}
+
+func (s *Supervisor) markHandoffFailureLocked(jobID string, cause error) {
 	job := s.jobs[jobID]
 	if job == nil {
 		return
@@ -188,6 +270,7 @@ func (s *Supervisor) recordWorkflowResult(jobID, text string) {
 		RepositoryBefore: admission.Goal.RepositoryDigest, CurrentRepositoryDigest: currentRepository,
 		CapabilityDigest: admission.Route.Capability.Digest,
 		RequiredChecks:   admission.Route.Evidence.RequiredChecks, RequiredArtifacts: admission.Route.Evidence.RequiredArtifacts,
+		Guard: guardSnapshot(jobCopy.Route),
 	}
 	if err := controlplane.ValidateWorkflowResult(result, expected); err != nil {
 		s.recordWorkflowFailure(jobID, err)
@@ -204,6 +287,14 @@ func (s *Supervisor) recordWorkflowResult(jobID, text string) {
 	job.WorkflowDisposition = result.Disposition
 	job.WorkflowFailure = ""
 	job.UpdatedAt = time.Now().UTC()
+	if err := s.requireDiffReviewContinuityLocked(job); err != nil {
+		s.markWorkflowFailureLocked(jobID, err)
+		return
+	}
+	if err := s.reconcileHandoffEvidenceLocked(job); err != nil {
+		s.markHandoffFailureLocked(jobID, err)
+		return
+	}
 	if err := s.persistJob(*job); err != nil {
 		s.markDurabilityFailureLocked(jobID, "workflow result", err)
 		return
@@ -216,6 +307,10 @@ func (s *Supervisor) recordWorkflowResult(jobID, text string) {
 func (s *Supervisor) recordWorkflowFailure(jobID string, cause error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.markWorkflowFailureLocked(jobID, cause)
+}
+
+func (s *Supervisor) markWorkflowFailureLocked(jobID string, cause error) {
 	job := s.jobs[jobID]
 	if job == nil {
 		return

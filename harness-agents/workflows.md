@@ -23,8 +23,10 @@ through the appropriate unit. This keeps the front door focused on long-running
 goal ownership instead of duplicating worker responsibilities.
 
 For work that spans turns, handoffs, interruption, or context compaction, the
-orchestrator binds these fields to the harness's observable native goal,
-session, thread, or resume state:
+orchestrator persists `checkpoint.json` plus a short `plan.md` under
+`~/.local/state/swarm-runplane/goals/<goalId>/` and mirrors the same fields into
+the harness's observable native goal, session, thread, or resume state. The
+files are the system of record; native session state is only a cache of them:
 
 - objective and acceptance criteria;
 - constraints, granted authority, and stop conditions;
@@ -33,8 +35,9 @@ session, thread, or resume state:
 - active unit identities and mutation ownership;
 - exact next action.
 
-On resume, observed repository and external state outrank stale checkpoints or
-delegate claims. Only the orchestrator may declare the overall goal complete.
+On resume the orchestrator re-reads those files first. Observed repository and
+external state outrank stale checkpoints or delegate claims. Only the
+orchestrator may declare the overall goal complete.
 
 ### User-directed model routing
 
@@ -66,28 +69,22 @@ retains monitor, resume, message, cancel, evidence reconciliation, integration,
 and completion authority.
 
 The supervisor is an explicit authenticated loopback service, not a magic tool
-or a hot-loaded daemon. The parent starts or uses it with
-`/home/anvil/.local/bin/swarm-runplane serve`; it defaults to
-`http://127.0.0.1:8083`, stores state in `~/.local/state/swarm-runplane`, and
-reads its bearer token from `~/.local/state/swarm-runplane/auth.token`.
-`SWARM_RUNPLANE_STATE`, `SWARM_RUNPLANE_URL`, `SWARM_RUNPLANE_TOKEN`, and
-`SWARM_RUNPLANE_TOKEN_FILE` are the supported overrides.
-
-Before starting a foreign run, the parent runs
+or a hot-loaded daemon. Before starting a foreign run the parent runs
 `/home/anvil/.local/bin/swarm-runplane health` and
-`/home/anvil/.local/bin/swarm-runplane capabilities` and fails closed unless
-the exact canonical role and requested provider, family, model, and effort
-capability are present. It starts with
-`/home/anvil/.local/bin/swarm-runplane start --request route.json`;
-the bounded role and task brief travels in that request file. Follow-up input
-uses `/home/anvil/.local/bin/swarm-runplane send JOB_ID` via stdin and resumed
-input uses `/home/anvil/.local/bin/swarm-runplane resume JOB_ID` via stdin,
-never argv. The remaining lifecycle is
-`/home/anvil/.local/bin/swarm-runplane list`,
-`/home/anvil/.local/bin/swarm-runplane status JOB_ID`,
-`/home/anvil/.local/bin/swarm-runplane events --after N JOB_ID`,
-`/home/anvil/.local/bin/swarm-runplane cancel JOB_ID`, and
-`/home/anvil/.local/bin/swarm-runplane evidence JOB_ID`.
+`/home/anvil/.local/bin/swarm-runplane capabilities` and fails closed unless the
+exact canonical role and requested provider, family, model, and effort
+capability are present. The bounded role and task brief always travels in the
+`start --request route.json` file; follow-up and resumed input always travel on
+stdin, never argv.
+
+The rest of the lifecycle, the service bootstrap, and the environment overrides
+are authored in
+[`skills/swarm-runplane-foreign-dispatch.md`](skills/swarm-runplane-foreign-dispatch.md)
+and installed at
+`~/.local/share/anvil-coding-fleet/swarm-runplane-foreign-dispatch.md`, which is
+the absolute path every rendered prompt cites. That document is read only when a
+foreign dispatch is actually required, so it does not consume context in
+ordinary turns.
 
 Native and foreign children share only the small
 `anvil.agent-handoff/v1` integration record: `runId`, `parentRunId`,
@@ -107,18 +104,31 @@ The second layer contains exactly seven units:
 
 - **Research Agent** owns repository, runtime, UI, and current official-doc
   evidence. UI review is research work that selects browser UI, Foundary UI,
-  accessibility, and visualization specialists as needed.
+  accessibility, and visualization specialists as needed. Its delegates are
+  one-shot localization passes capped at about eight files each, and they return
+  `Pointer` records — path, line range, symbol, and one line of why it matters —
+  never file contents. Semantic questions about how a subsystem behaves stay in
+  the parent, which re-reads only the identified line ranges.
 - **Planner Agent** owns solution, refactor, migration, and implementation
   planning. It selects specialists for the actual architecture, API, data,
   security, UI, provider, and domain surfaces.
 - **Executor Agent** owns authorized target-project mutations, integration,
-  repair, and proportional verification. It is the ordinary code-writing unit.
+  repair, and proportional verification. It is the ordinary code-writing unit,
+  and it works test-first: RED (`anvil-guard seal`), IMPLEMENT with sealed test
+  paths read-only, GREEN (`anvil-guard verify`), FINAL DIFF REVIEW over the real
+  `git diff HEAD` (`anvil-guard diff-review record`), then RETURN. Moving a
+  sealed test requires `anvil-guard reseal --reason <text>`, and that amendment
+  is evidence Code Review must inspect.
 - **Code Review Agent** owns read-only correctness, security, contract, test,
-  UI, migration, compatibility, and release assurance.
+  UI, migration, compatibility, and release assurance. A review that executed no
+  command is `unverified`, never pass or warn, and it must reference the same
+  diff digest the execution result recorded.
 - **Debugger Agent** owns read-only diagnosis, competing hypotheses,
   reproduction, causal evidence, and the remediation contract.
 - **Coding Evaluation Agent** owns read-only evaluation of the coding run,
-  routing quality, evidence, verification, safety, and final communication.
+  routing quality, evidence, verification, safety, and final communication. Its
+  own verdict is execution grounded: a scorecard with no executed command is
+  `unverified`.
 - **Factory Agent** creates one missing technical or domain specialist in the
   canonical Swarm Coder catalog, renders every native projection, and installs the
   generated definitions globally. It never edits a target project.
@@ -129,6 +139,53 @@ it. Research, Planner, Code Review, Debugger, and Coding Evaluation are
 read-only. Executor owns ordinary target-project writes. Factory has narrowly
 scoped write authority over the canonical specialist catalog, generated
 projections, and installer-owned global harness state.
+
+## Mechanical verification
+
+Prompt-level instructions are not a gate. `anvil-guard` enforces the test seal
+in all three harnesses through registered hooks:
+
+- **PreToolUse** on the harness's edit tools denies writes to sealed test paths.
+- **PostToolUse** on the harness's shell tool re-digests the sealed tests and
+  reports any that moved.
+- **Stop** (and Claude's `SubagentStop`) refuses to finish while sealed tests
+  changed without a recorded amendment, no green evidence postdates the seal, or
+  the recorded diff digest differs from the current one.
+
+A repository with no seal is untouched: every hook exits 0 immediately with
+empty stdout, so ordinary non-fleet sessions see nothing.
+
+The control plane enforces the same contract on the records themselves, and it
+resolves every claim against the records `anvil-guard` produced rather than
+against the reporting agent's own text. The handoff and the workflow result are
+parsed from the same prose, so agreement between them proves only internal
+consistency; a guard snapshot (`anvil-guard status --json`, or the state
+directory read directly by the run-plane supervisor after a foreign child exits)
+is the corroborating record written by a different process.
+
+- A `commandId` cited by `tests[]`, `TestSeal.RedCommandID`, or `DiffReview` must
+  name a record `anvil-guard` itself wrote, and that record's **kind** must be
+  the kind of run being claimed. `green` and `diff-review` both exit 0, so on
+  exit code alone the `git diff HEAD` run would stand in as proof that the test
+  suite passed. A handoff test resolves to `green` or `seal-red`,
+  `TestSeal.RedCommandID` to `seal-red`, and `DiffReview.CommandID` to
+  `diff-review`.
+- The agent's own `CommandEvidence` for a cited `commandId` must match the guard
+  record's argv and stdout digests and its exit code, and the exit code that
+  decides pass or fail is read from the guard record. Otherwise one honest run
+  backs any number of invented named checks.
+- One guard record backs one named check. A second `tests[]` entry citing the
+  same `commandId` under a different name is rejected, so N required checks need
+  N real runs.
+- `ApplyVerification` rejects observed test digests that differ from the seal
+  unless an amendment is recorded, and rejects a pass with no green check
+  postdating the seal. An execution-lane result must carry a `DiffReview`, and
+  the assurance pass must reference the same `DiffDigest` or it is reviewing a
+  different change. Assurance and evaluation results with zero `CommandEvidence`
+  cannot carry pass or warn; their disposition is `unverified`.
+
+Without guard state for the repository there is nothing to resolve against, so
+the older self-consistency contracts still apply on their own.
 
 ## Shared specialist pools
 

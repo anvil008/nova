@@ -21,7 +21,6 @@ const (
 	// APIVersion identifies the public catalog document contract.
 	APIVersion = "anvil.coding-fleet/v4"
 
-	technicalCodeReviewID        = "technical-code-review"
 	workflowCodingOrchestratorID = "workflow-coding-orchestrator"
 	workflowResearchID           = "workflow-research"
 	workflowPlannerID            = "workflow-planner"
@@ -57,24 +56,38 @@ const (
 	SpecialistPoolTechnical SpecialistPool = "technical"
 	SpecialistPoolDomain    SpecialistPool = "domain"
 
-	GoalModeNativeDurable           GoalMode         = "native-durable"
-	CheckpointPolicyNativeSession   CheckpointPolicy = "native-session"
-	SchedulingPolicyDependencyAware SchedulingPolicy = "dependency-aware"
+	GoalModeNativeDurable GoalMode = "native-durable"
+	// CheckpointPolicyFileAndNativeSession makes the on-disk goal directory the
+	// system of record; native session state is only a cache of it.
+	CheckpointPolicyFileAndNativeSession CheckpointPolicy = "file-and-native-session"
+	SchedulingPolicyDependencyAware      SchedulingPolicy = "dependency-aware"
 
 	ModelResolutionDiscoveredAllowlistedFailClosed ModelResolutionPolicy = "discovered-allowlisted-fail-closed"
 	SameProviderNativeSubagentExplicitOverride     ModelDispatchPolicy   = "native-subagent-explicit-model-effort"
 	CrossProviderSupervisorExactRoleHeadless       ModelDispatchPolicy   = "supervisor-exact-role-headless"
 	AgentHandoffAPIVersion                                               = "anvil.agent-handoff/v1"
 
-	supervisorRunplaneBinary           = "/home/anvil/.local/bin/swarm-runplane"
+	// canonicalHomeDirectory is the fleet home the committed projections cite.
+	// Generated definitions must be byte identical everywhere `render --check`
+	// runs, so they name one fixed home; the installer derives the same layout
+	// from the real home through guardInstalledPath and skillInstalledPath.
+	canonicalHomeDirectory = "/home/anvil"
+
 	supervisorRunplaneDefaultURL       = "http://127.0.0.1:8083"
 	supervisorRunplaneDefaultState     = "~/.local/state/swarm-runplane"
 	supervisorRunplaneDefaultTokenFile = "~/.local/state/swarm-runplane/auth.token"
 	supervisorRunplaneCapabilityPolicy = "capability-first-fail-closed"
 	supervisorRunplaneBriefTransport   = "request-file-and-stdin"
-	supervisorMCPServerName            = "anvil-swarm-runplane"
-	supervisorMCPToolName              = "swarm_runplane_lifecycle"
-	supervisorClaudeMCPToolName        = "mcp__anvil-swarm-runplane__swarm_runplane_lifecycle"
+	// supervisorRunplaneSkillSource is the authored document the installer
+	// links; it holds the full lifecycle reference outside the orchestrator
+	// prompt so it is loaded only when a foreign dispatch actually happens.
+	supervisorRunplaneSkillFile   = "swarm-runplane-foreign-dispatch.md"
+	supervisorRunplaneSkillSource = "harness-agents/skills/" + supervisorRunplaneSkillFile
+	// checkpointGoalDirectory is where the durable goal record lives.
+	checkpointGoalDirectory     = "~/.local/state/swarm-runplane/goals/<goalId>/"
+	supervisorMCPServerName     = "anvil-swarm-runplane"
+	supervisorMCPToolName       = "swarm_runplane_lifecycle"
+	supervisorClaudeMCPToolName = "mcp__anvil-swarm-runplane__swarm_runplane_lifecycle"
 
 	codingOrchestratorMaxParallel = 25
 	workflowUnitMaxParallel       = 10
@@ -83,6 +96,14 @@ const (
 	HarnessAntigravity HarnessTarget = "antigravity"
 	HarnessClaude      HarnessTarget = "claude"
 	HarnessCodex       HarnessTarget = "codex"
+)
+
+// Installed artifact paths the rendered prompts cite, all derived from the one
+// canonical home so a prompt can never name a location the installer does not
+// use.
+var (
+	supervisorRunplaneBinary = path.Join(canonicalHomeDirectory, ".local", "bin", "swarm-runplane")
+	supervisorRunplaneSkill  = skillInstalledPath(canonicalHomeDirectory)
 )
 
 var stableIDPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
@@ -104,9 +125,6 @@ var workflowUnitContracts = []workflowUnitContract{
 	{RoleID: workflowPlannerID, Name: "Planner Agent", Lane: WorkflowLanePlanning, CapabilityMode: CapabilityReadOnly, MaxParallel: workflowUnitMaxParallel},
 	{RoleID: workflowExecutorID, Name: "Executor Agent", Lane: WorkflowLaneExecution, CapabilityMode: CapabilityWorkspaceWrite, MaxParallel: workflowExecutorMaxParallel},
 	{RoleID: workflowCodeReviewID, Name: "Code Review Agent", Lane: WorkflowLaneAssurance, CapabilityMode: CapabilityReadOnly, MaxParallel: workflowUnitMaxParallel},
-	{RoleID: workflowDebuggerID, Name: "Debugger Agent", Lane: WorkflowLaneDiagnosis, CapabilityMode: CapabilityReadOnly, MaxParallel: workflowUnitMaxParallel},
-	{RoleID: workflowCodingEvaluatorID, Name: "Coding Evaluation Agent", Lane: WorkflowLaneEvaluation, CapabilityMode: CapabilityReadOnly, MaxParallel: workflowUnitMaxParallel},
-	{RoleID: workflowAgentFactoryID, Name: "Factory Agent", Lane: WorkflowLaneFactory, CapabilityMode: CapabilityFactoryWrite, MaxParallel: workflowUnitMaxParallel, CreatesSpecialists: true},
 }
 
 // Document is the versioned, provider-neutral coding-fleet contract.
@@ -120,6 +138,7 @@ type Document struct {
 	AuthorityProfiles []AuthorityProfile `json:"authorityProfiles"`
 	Counts            Counts             `json:"counts"`
 	Roles             []Role             `json:"roles"`
+	KnowledgeRoles    []KnowledgeRole    `json:"knowledgeRoles,omitempty"`
 }
 
 // AuthorityProfile is a reusable, closed role ceiling. A role selects exactly
@@ -234,6 +253,7 @@ type SupervisorRunplaneSpec struct {
 	TokenFileEnv     string `json:"tokenFileEnv"`
 	CapabilityPolicy string `json:"capabilityPolicy"`
 	BriefTransport   string `json:"briefTransport"`
+	SkillDocument    string `json:"skillDocument"`
 }
 
 func canonicalSupervisorRunplaneSpec() SupervisorRunplaneSpec {
@@ -248,6 +268,7 @@ func canonicalSupervisorRunplaneSpec() SupervisorRunplaneSpec {
 		TokenFileEnv:     "SWARM_RUNPLANE_TOKEN_FILE",
 		CapabilityPolicy: supervisorRunplaneCapabilityPolicy,
 		BriefTransport:   supervisorRunplaneBriefTransport,
+		SkillDocument:    supervisorRunplaneSkill,
 	}
 }
 
@@ -324,6 +345,17 @@ type Match struct {
 	Reasons []string `json:"reasons"`
 }
 
+// KnowledgeRole captures preserved product-domain context projected into
+// repository documentation rather than live agent definitions.
+type KnowledgeRole struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Summary      string   `json:"summary"`
+	Instructions string   `json:"instructions"`
+	Boundaries   []string `json:"boundaries"`
+	Repositories []string `json:"repositories"`
+}
+
 // sourceDocument deliberately omits Counts: aggregates in the public Document
 // must always be derived from role definitions by Load.
 type sourceDocument struct {
@@ -333,6 +365,7 @@ type sourceDocument struct {
 	Source            SourceMetadata     `json:"source"`
 	AuthorityProfiles []AuthorityProfile `json:"authorityProfiles"`
 	Roles             []Role             `json:"roles"`
+	KnowledgeRoles    []KnowledgeRole    `json:"knowledgeRoles,omitempty"`
 }
 
 // Load decodes, validates, canonicalizes, and counts the embedded catalog.
@@ -366,6 +399,7 @@ func decodeCatalog(data []byte) (Document, error) {
 		Source:            source.Source,
 		AuthorityProfiles: source.AuthorityProfiles,
 		Roles:             source.Roles,
+		KnowledgeRoles:    source.KnowledgeRoles,
 	}
 	if err := validateDocument(document); err != nil {
 		return Document{}, fmt.Errorf("validate coding-fleet catalog: %w", err)
@@ -407,8 +441,8 @@ func validateDocument(document Document) error {
 		return err
 	}
 
-	ids := make(map[string]struct{}, len(document.Roles))
-	names := make(map[string]struct{}, len(document.Roles))
+	ids := make(map[string]struct{}, len(document.Roles)+len(document.KnowledgeRoles))
+	names := make(map[string]struct{}, len(document.Roles)+len(document.KnowledgeRoles))
 	for index := range document.Roles {
 		role := document.Roles[index]
 		if err := validateRole(role); err != nil {
@@ -421,6 +455,20 @@ func validateDocument(document Document) error {
 		nameKey := normalizeText(role.Name)
 		if _, exists := names[nameKey]; exists {
 			return fmt.Errorf("role[%d] %q: duplicate name %q", index, role.ID, role.Name)
+		}
+		names[nameKey] = struct{}{}
+	}
+	for index, kr := range document.KnowledgeRoles {
+		if err := validateKnowledgeRole(kr); err != nil {
+			return fmt.Errorf("knowledgeRole[%d] %q: %w", index, kr.ID, err)
+		}
+		if _, exists := ids[kr.ID]; exists {
+			return fmt.Errorf("knowledgeRole[%d] %q: duplicate id or conflicts with role id", index, kr.ID)
+		}
+		ids[kr.ID] = struct{}{}
+		nameKey := normalizeText(kr.Name)
+		if _, exists := names[nameKey]; exists {
+			return fmt.Errorf("knowledgeRole[%d] %q: duplicate name %q", index, kr.ID, kr.Name)
 		}
 		names[nameKey] = struct{}{}
 	}
@@ -490,14 +538,13 @@ func validateWorkflowGraph(roles []Role) error {
 }
 
 func validateAuthorityProfiles(profiles []AuthorityProfile) error {
-	if len(profiles) != 6 {
-		return fmt.Errorf("authorityProfiles must contain exactly six class/capability ceilings")
+	if len(profiles) != 5 {
+		return fmt.Errorf("authorityProfiles must contain exactly five class/capability ceilings")
 	}
 	wanted := map[string]struct{}{
 		authorityProfileKey(ClassWorkflow, CapabilityOrchestration):   {},
 		authorityProfileKey(ClassWorkflow, CapabilityReadOnly):        {},
 		authorityProfileKey(ClassWorkflow, CapabilityWorkspaceWrite):  {},
-		authorityProfileKey(ClassWorkflow, CapabilityFactoryWrite):    {},
 		authorityProfileKey(ClassTechnical, CapabilityReadOnly):       {},
 		authorityProfileKey(ClassTechnical, CapabilityWorkspaceWrite): {},
 	}
@@ -590,17 +637,17 @@ func validateFleetTopology(roles []Role) error {
 		return fmt.Errorf("coding orchestrator must be named Coding Orchestrator Agent and use orchestration-only capability")
 	}
 	if orchestrator.Workflow.Lane != WorkflowLaneOrchestration || len(orchestrator.Workflow.SpecialistPools) != 0 || orchestrator.Workflow.CreatesSpecialists || orchestrator.Workflow.MaxParallel != codingOrchestratorMaxParallel {
-		return fmt.Errorf("coding orchestrator must own only the orchestration lane, seven workflow delegates, and maxParallel %d", codingOrchestratorMaxParallel)
+		return fmt.Errorf("coding orchestrator must own only the orchestration lane, four workflow delegates, and maxParallel %d", codingOrchestratorMaxParallel)
 	}
 	if !roleClassesEqual(orchestrator.Workflow.ProposableRoleClasses, []RoleClass{ClassTechnical, ClassDomain}) {
 		return fmt.Errorf("coding orchestrator must be able to propose technical and domain lenses")
 	}
 	if !stringSetsEqual(orchestrator.Workflow.InvocableRoleIDs, orchestrator.Workflow.Delegates) || len(orchestrator.Workflow.InvocableSpecialistPools) != 0 {
-		return fmt.Errorf("coding orchestrator may invoke exactly the seven workflow units and no specialist pool")
+		return fmt.Errorf("coding orchestrator may invoke exactly the four workflow units and no specialist pool")
 	}
 	wantOrchestration := OrchestrationSpec{
 		GoalMode:            GoalModeNativeDurable,
-		CheckpointPolicy:    CheckpointPolicyNativeSession,
+		CheckpointPolicy:    CheckpointPolicyFileAndNativeSession,
 		SchedulingPolicy:    SchedulingPolicyDependencyAware,
 		ProactiveDelegation: true,
 		CompletionAuthority: true,
@@ -673,10 +720,6 @@ func validateFleetTopology(roles []Role) error {
 		}
 	}
 
-	technicalReviewer, exists := byID[technicalCodeReviewID]
-	if !exists || technicalReviewer.Class != ClassTechnical || technicalReviewer.Name != "Code Review" || technicalReviewer.CapabilityMode != CapabilityReadOnly {
-		return fmt.Errorf("technical code-review leaf must remain the Code Review technical specialist")
-	}
 	return nil
 }
 
@@ -730,7 +773,7 @@ func validateRole(role Role) error {
 			if spec.GoalMode != GoalModeNativeDurable {
 				return fmt.Errorf("workflow orchestration goalMode %q is not allowed", spec.GoalMode)
 			}
-			if spec.CheckpointPolicy != CheckpointPolicyNativeSession {
+			if spec.CheckpointPolicy != CheckpointPolicyFileAndNativeSession {
 				return fmt.Errorf("workflow orchestration checkpointPolicy %q is not allowed", spec.CheckpointPolicy)
 			}
 			if spec.SchedulingPolicy != SchedulingPolicyDependencyAware {
@@ -875,6 +918,32 @@ func validateRole(role Role) error {
 			return fmt.Errorf("harness target %q is duplicated", target)
 		}
 		targets[target] = struct{}{}
+	}
+	return nil
+}
+
+func validateKnowledgeRole(role KnowledgeRole) error {
+	if !stableIDPattern.MatchString(role.ID) {
+		return fmt.Errorf("id must be a stable kebab-case identifier")
+	}
+	if strings.TrimSpace(role.Name) == "" || strings.TrimSpace(role.Summary) == "" || strings.TrimSpace(role.Instructions) == "" {
+		return fmt.Errorf("name, summary, and instructions are required")
+	}
+	if len(role.Repositories) == 0 {
+		return fmt.Errorf("at least one repository is required")
+	}
+	if err := validateStrings("repository", role.Repositories, false); err != nil {
+		return err
+	}
+	for index, repo := range role.Repositories {
+		if !stableIDPattern.MatchString(repo) {
+			return fmt.Errorf("repository[%d] %q must be a stable identifier", index, repo)
+		}
+	}
+	if len(role.Boundaries) > 0 {
+		if err := validateStrings("boundary", role.Boundaries, false); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1079,6 +1148,25 @@ func normalizeDocument(document *Document) {
 			return leftName < rightName
 		}
 		return a.ID < b.ID
+	})
+
+	for index := range document.KnowledgeRoles {
+		kr := &document.KnowledgeRoles[index]
+		kr.ID = strings.TrimSpace(kr.ID)
+		kr.Name = strings.TrimSpace(kr.Name)
+		kr.Summary = strings.TrimSpace(kr.Summary)
+		kr.Instructions = strings.TrimSpace(kr.Instructions)
+		for item := range kr.Boundaries {
+			kr.Boundaries[item] = strings.TrimSpace(kr.Boundaries[item])
+		}
+		sort.Strings(kr.Boundaries)
+		for item := range kr.Repositories {
+			kr.Repositories[item] = strings.TrimSpace(kr.Repositories[item])
+		}
+		sort.Strings(kr.Repositories)
+	}
+	sort.Slice(document.KnowledgeRoles, func(left, right int) bool {
+		return document.KnowledgeRoles[left].ID < document.KnowledgeRoles[right].ID
 	})
 
 	document.Counts = Counts{Total: len(document.Roles)}

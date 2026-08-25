@@ -80,7 +80,7 @@ func TestCodexModelCacheDiscoversExplicitTerraMaxPair(t *testing.T) {
 func TestClaudeDiscoveryReportsOnlyCanonicalAliasPairsAndFailsClosed(t *testing.T) {
 	roots := testDefinitionRoots(t)
 	writeDefinition(t, roots, HarnessClaude, "workflow-executor", "", "")
-	writeDefinition(t, roots, HarnessClaude, "technical-go", "", "")
+	writeDefinition(t, roots, HarnessClaude, "toolchain-go", "", "")
 	discoverer := Discoverer{Roots: roots, Runner: fakeCommandRunner{outputs: map[string]string{
 		"claude --version": "2.1.test",
 		"claude --help":    "--agent --agents --setting-sources --model --effort <level> (low, medium, high) --input-format stream-json --output-format --resume",

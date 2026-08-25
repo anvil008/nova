@@ -117,3 +117,88 @@ func TestClaudeInvocationOverridesConflictingProjectAgentWithCanonicalDefinition
 		t.Fatalf("project settings not excluded: %q", spec.Args)
 	}
 }
+
+// Claude ignores subagent frontmatter hooks under --agents, so a foreign run
+// carries the guard through user settings rather than the CLI payload.
+func TestClaudeAgentsOverrideDropsFrontmatterHooks(t *testing.T) {
+	definition, err := expectedDefinition(HarnessClaude, "anvil-wf-executor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(definition), "\nhooks: {") {
+		t.Fatal("the canonical writing role no longer declares frontmatter hooks")
+	}
+	agent, err := parseCanonicalClaudeAgent(definition, "anvil-wf-executor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(agent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "hook --harness claude") || strings.Contains(string(encoded), "PreToolUse") {
+		t.Fatalf("--agents payload carried an ignored hook registration: %s", encoded)
+	}
+}
+
+// TestParseCanonicalClaudeAgentRequiresEveryMetadataKey pins exactness: the
+// optional `hooks` key must not let a definition omit a required one.
+func TestParseCanonicalClaudeAgentRequiresEveryMetadataKey(t *testing.T) {
+	metadata := map[string]string{
+		"name":           "anvil-wf-executor",
+		"description":    `"Owns implementation."`,
+		"tools":          "Read, Write",
+		"mcpServers":     "[]",
+		"model":          `"opus"`,
+		"effort":         "high",
+		"permissionMode": "acceptEdits",
+		"hooks":          `{"Stop":[]}`,
+	}
+	ordered := []string{"name", "description", "tools", "mcpServers", "model", "effort", "permissionMode", "hooks"}
+	build := func(values map[string]string) []byte {
+		frontmatter := ""
+		emitted := map[string]struct{}{}
+		for _, key := range ordered {
+			if value, ok := values[key]; ok {
+				frontmatter += key + ": " + value + "\n"
+				emitted[key] = struct{}{}
+			}
+		}
+		for key, value := range values {
+			if _, done := emitted[key]; !done {
+				frontmatter += key + ": " + value + "\n"
+			}
+		}
+		return []byte("---\n" + strings.TrimSuffix(frontmatter, "\n") + "\n---\n\nprompt\n")
+	}
+	if _, err := parseCanonicalClaudeAgent(build(metadata), "anvil-wf-executor"); err != nil {
+		t.Fatalf("complete definition rejected: %v", err)
+	}
+	for _, required := range []string{"name", "description", "tools", "mcpServers", "model", "effort", "permissionMode"} {
+		reduced := map[string]string{}
+		for key, value := range metadata {
+			if key != required {
+				reduced[key] = value
+			}
+		}
+		if _, err := parseCanonicalClaudeAgent(build(reduced), "anvil-wf-executor"); err == nil {
+			t.Errorf("definition without %q was accepted", required)
+		}
+	}
+	withoutHooks := map[string]string{}
+	for key, value := range metadata {
+		if key != "hooks" {
+			withoutHooks[key] = value
+		}
+	}
+	if _, err := parseCanonicalClaudeAgent(build(withoutHooks), "anvil-wf-executor"); err != nil {
+		t.Fatalf("hooks must stay optional: %v", err)
+	}
+	extra := map[string]string{"unexpected": "1"}
+	for key, value := range metadata {
+		extra[key] = value
+	}
+	if _, err := parseCanonicalClaudeAgent(build(extra), "anvil-wf-executor"); err == nil {
+		t.Error("unexpected metadata key was accepted")
+	}
+}

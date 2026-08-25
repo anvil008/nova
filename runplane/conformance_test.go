@@ -14,8 +14,8 @@ func TestConformanceFixturesHaveCrossHarnessParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fixtures) != 9 {
-		t.Fatalf("fixtures=%d, want 9", len(fixtures))
+	if len(fixtures) != 14 {
+		t.Fatalf("fixtures=%d, want 14", len(fixtures))
 	}
 	for _, fixture := range fixtures {
 		var reference *NormalizedConformance
@@ -54,7 +54,37 @@ func TestOfflineConformanceReadsOnlyCurrentDefinitions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Fixtures != 9 || len(report.ProjectionDigests) != document.Counts.Total*3 {
+	if report.Fixtures != 14 || len(report.ProjectionDigests) != document.Counts.Total*3 {
 		t.Fatalf("report=%+v", report)
+	}
+}
+
+// The seal, diff-review, and unverified contracts are the Phase 1 additions to
+// the control plane, so the adapter-level fixture set must exercise them.
+func TestConformanceFixturesCoverTheSealDiffReviewAndUnverifiedContracts(t *testing.T) {
+	fixtures, err := LoadConformanceFixtures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenarios := make(map[string]ConformanceFixture, len(fixtures))
+	for _, fixture := range fixtures {
+		scenarios[fixture.Scenario] = fixture
+	}
+	for _, want := range []string{"sealed-green", "sealed-test-drift", "diff-review-continuity", "unverified-assurance", "forged-command-id"} {
+		if _, ok := scenarios[want]; !ok {
+			t.Errorf("no conformance fixture exercises %q", want)
+		}
+	}
+	if got := scenarios["unverified-assurance"].ExpectedDisposition; got != "unverified" {
+		t.Errorf("unverified-assurance disposition = %q", got)
+	}
+	if got := scenarios["sealed-green"].ExpectedDisposition; got != "succeeded" {
+		t.Errorf("sealed-green disposition = %q", got)
+	}
+	if got := scenarios["sealed-test-drift"].ExpectedDisposition; got != "rejected" {
+		t.Errorf("sealed-test-drift disposition = %q", got)
+	}
+	if got := scenarios["forged-command-id"].ExpectedDisposition; got != "rejected" {
+		t.Errorf("forged-command-id disposition = %q", got)
 	}
 }

@@ -51,6 +51,12 @@ Every child returns one small `anvil.agent-handoff/v1` record containing runId, 
 This workflow is read-only. You may run inspection and verification commands, but neither you nor any delegate may modify files. A delegate's broader default capability does not expand this workflow's authority.
 
 
+Output hygiene:
+- Read by line range whenever you already know the target; do not read a whole file to reach one symbol.
+- Filter test, build, and lint output down to failures and the lines that explain them.
+- Never list a repository tree recursively into the context window.
+- Return search results as `path:line` references rather than surrounding blocks.
+
 Boundaries:
 - Do not implement product code or collapse unresolved product decisions into silent assumptions.
 - Do not produce tasks without evidence, dependencies, observable completion criteria, exact ownership, and runnable validation.

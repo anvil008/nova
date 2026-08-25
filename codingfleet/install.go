@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -29,11 +30,12 @@ var globalCodingRoutingBlock = []byte(routingBeginMarker + "\n" +
 	"- Coding Orchestrator Agent parses explicit natural-language model routes before scheduling, including whole-goal requests such as `use Terra Max for all subagents` and lane-specific requests such as `use Gemini 3.7 Flash for execution and Opus for planning`. Explicit user routes override fleet defaults and remain attached to matching dispatches across checkpoints.\n" +
 	"- Resolve provider, family, model, and effort aliases only against currently discovered and allowlisted capabilities. Fail closed on ambiguous, conflicting, or unavailable requests and report the unresolved route; never silently substitute another model, family, provider, or effort.\n" +
 	"- Use native in-harness agents whenever the requested model belongs to the current provider: Agy/Antigravity uses native Gemini agents, Claude uses native Anthropic agents, and Codex uses native OpenAI agents. Use the shared supervisor launcher only when the requested provider differs from the current harness provider. Pass exact model and effort overrides, never silently substitute, and never use the shared launcher for same-provider work. Foreign runs load the exact canonical workflow or specialist definition plus a bounded brief; the parent keeps monitor, resume, message, cancel, evidence, integration, and completion authority.\n" +
-	"- The parent starts or uses the authenticated loopback service with `/home/anvil/.local/bin/swarm-runplane serve` (default URL `http://127.0.0.1:8083`, state `~/.local/state/swarm-runplane`, token file `~/.local/state/swarm-runplane/auth.token`; overrides `SWARM_RUNPLANE_STATE`, `SWARM_RUNPLANE_URL`, `SWARM_RUNPLANE_TOKEN`, and `SWARM_RUNPLANE_TOKEN_FILE`). Run `health` and then `capabilities`; fail closed unless the exact canonical role and requested provider/family/model/effort capability are present.\n" +
-	"- Use `/home/anvil/.local/bin/swarm-runplane start --request route.json`; put the bounded foreign role/task brief in the request file and use stdin for `send JOB_ID` and `resume JOB_ID`, never argv. Supported lifecycle commands are `health`, `capabilities`, `start --request route.json`, `list`, `status JOB_ID`, `events --after N JOB_ID`, `send JOB_ID` via stdin, `resume JOB_ID` via stdin, `cancel JOB_ID`, and `evidence JOB_ID`.\n" +
+	"- Before foreign dispatch, run `/home/anvil/.local/bin/swarm-runplane health` and then `/home/anvil/.local/bin/swarm-runplane capabilities`; fail closed unless the exact canonical role and requested provider/family/model/effort capability are present.\n" +
+	"- The bounded foreign role and task brief always travels in the `/home/anvil/.local/bin/swarm-runplane start --request route.json` request file; follow-up and resumed input always travel on stdin, never argv. The rest of the run-plane lifecycle, service bootstrap, start-document schema, and environment overrides live in the installed document `/home/anvil/.local/share/anvil-coding-fleet/swarm-runplane-foreign-dispatch.md`. Read that absolute path only when a foreign dispatch is actually required; do not carry it in ordinary turns.\n" +
 	"- Every native or foreign child returns the small `anvil.agent-handoff/v1` boundary: runId, parentRunId, canonicalRole, provider, model, effort, mode, ownedFiles, limits, changedFiles, tests, result, and disposition. Keep harness-native session/process state inside its owning harness.\n" +
 	"- For implementation outcomes, use one independent verification pass plus at most one focused repair and one re-verification (two total verification passes). Stop on acceptance, cancellation, blockage, exhaustion, or no material change.\n" +
 	"- Coding Orchestrator Agent orchestrates only: it binds and checkpoints the goal, maintains a dependency-ready queue, dispatches workflow units, reconciles their evidence with current state, and alone declares the terminal outcome. It does not directly research, inspect, edit, test, or implement target-project code.\n" +
+	"- Checkpoints persist through the `goal` verb and nothing else: the `goal` operation of the `swarm_runplane_lifecycle` MCP tool, or `/home/anvil/.local/bin/swarm-runplane goal checkpoint|show`. It writes `checkpoint.json` plus a short `plan.md` under `~/.local/state/swarm-runplane/goals/<goalId>/` against local state, so it needs no running service, and it is re-read on resume; never through a file tool, because the orchestrator holds no filesystem write authority.\n" +
 	"- The peer workflow layer is exactly Research Agent, Planner Agent, Executor Agent, Code Review Agent, Debugger Agent, Coding Evaluation Agent, and Factory Agent. Dispatch only the minimum units justified by the task; they are capabilities, not a mandatory serial pipeline, and no unit owns another unit.\n" +
 	"- Every workflow unit selects technical and domain specialists dynamically from the shared pools at the point evidence requires them. Workflow units do not call one another; each returns evidence and control to the orchestrator. When Research, Planner, Executor, Code Review, Debugger, or Coding Evaluation reports a missing-specialist gap, the orchestrator dispatches Factory and then resumes the original unit. Factory returns the new definition to the orchestrator; it never redispatches itself or invokes another workflow unit.\n" +
 	"- Coding Orchestrator Agent may run up to 25 materially independent workflow units in parallel. Each unit may parallelize independent specialist work up to its own declared logical limit: 20 for Executor and 10 for Research, Planner, Code Review, Debugger, Coding Evaluation, and Factory. These fleet ceilings do not override lower hard harness, provider, or runtime caps; keep excess work queued and report the residual constraint. Preserve explicit ownership, prefer read-heavy or disjoint-file parallelism, and serialize overlapping mutations unless a harness-native worktree isolates them.\n" +
@@ -157,6 +159,18 @@ func Install(options InstallOptions) (InstallResult, error) {
 			file:   true,
 		})
 	}
+	operations = append(operations, linkOperation{
+		path:       guardInstalledPath(home),
+		target:     filepath.Join(repositoryRoot, filepath.FromSlash(guardRepositoryBinary)),
+		file:       true,
+		sourceRoot: filepath.Join(repositoryRoot, "bin"),
+		remedy:     "go build -trimpath -o " + guardRepositoryBinary + " ./cmd/anvil-guard",
+	}, linkOperation{
+		path:       skillInstalledPath(home),
+		target:     filepath.Join(repositoryRoot, filepath.FromSlash(supervisorRunplaneSkillSource)),
+		file:       true,
+		sourceRoot: filepath.Join(repositoryRoot, filepath.FromSlash(path.Dir(supervisorRunplaneSkillSource))),
+	})
 	if err := preflightInstall(repositoryRoot, home, operations, rendered.CodexConfigBlock, options.Mode); err != nil {
 		return InstallResult{}, err
 	}
@@ -193,6 +207,9 @@ func Install(options InstallOptions) (InstallResult, error) {
 	if err := reconcileAntigravityMCP(home, options.Mode, &result, transaction); err != nil {
 		return fail(err)
 	}
+	if err := reconcileHookConfigs(home, options.Mode, &result, transaction); err != nil {
+		return fail(err)
+	}
 	if options.Mode == InstallApply || options.Mode == InstallCheck {
 		verified, err := verifyInstalledDigests(home, rendered)
 		if err != nil {
@@ -225,6 +242,9 @@ func preflightInstall(repositoryRoot, home string, operations []linkOperation, b
 	if mode != InstallUninstall {
 		for _, operation := range operations {
 			if err := requireManagedSource(repositoryRoot, operation); err != nil {
+				if operation.remedy != "" {
+					return fmt.Errorf("link source %s: %w; rebuild it with `%s`", operation.target, err, operation.remedy)
+				}
 				return fmt.Errorf("link source %s: %w", operation.target, err)
 			}
 			if _, err := linkMatches(operation.path, operation.target); err != nil {
@@ -289,7 +309,7 @@ func preflightInstall(repositoryRoot, home string, operations []linkOperation, b
 	if _, _, err := updateAntigravityMCPConfig(home, mode); err != nil {
 		return err
 	}
-	return nil
+	return preflightHookConfigs(home, mode)
 }
 
 func managedLinkPaths(home string, operations []linkOperation) ([]string, error) {
@@ -358,6 +378,12 @@ type linkOperation struct {
 	path   string
 	target string
 	file   bool
+	// sourceRoot bounds the managed source; it defaults to the generated tree.
+	sourceRoot string
+	// remedy names the command that recreates an absent source. `bin/` is
+	// gitignored, so a `git clean` or a repository move can remove the guard
+	// binary out from under an already-installed link.
+	remedy string
 }
 
 type installPathSnapshot struct {
@@ -384,6 +410,9 @@ func beginInstallTransaction(home string, operations []linkOperation, options In
 	paths = append(paths, filepath.Join(home, ".codex", "config.toml"))
 	paths = append(paths, globalInstructionPaths(home)...)
 	paths = append(paths, antigravityMCPConfigPath(home))
+	for _, registration := range hookRegistrations(home) {
+		paths = append(paths, registration.path)
+	}
 	sort.Strings(paths)
 	paths = compactStrings(paths)
 
@@ -813,10 +842,13 @@ func compactStrings(values []string) []string {
 
 func requireManagedSource(repositoryRoot string, operation linkOperation) error {
 	pathname := operation.target
-	generatedRoot := filepath.Join(repositoryRoot, "harness-agents", "rendered")
-	relative, err := filepath.Rel(generatedRoot, filepath.Clean(pathname))
+	sourceRoot := operation.sourceRoot
+	if sourceRoot == "" {
+		sourceRoot = filepath.Join(repositoryRoot, "harness-agents", "rendered")
+	}
+	relative, err := filepath.Rel(sourceRoot, filepath.Clean(pathname))
 	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
-		return fmt.Errorf("path is outside generated coding-fleet tree")
+		return fmt.Errorf("path is outside the managed source tree")
 	}
 	if operation.file {
 		if err := rejectSymlinkComponents(repositoryRoot, filepath.Dir(pathname)); err != nil {
@@ -1125,6 +1157,9 @@ func reconcileAntigravityMCP(home string, mode InstallMode, result *InstallResul
 func verifyInstalledDigests(home string, rendered RenderResult) (int, error) {
 	verified := 0
 	for _, file := range rendered.Files {
+		if strings.HasPrefix(filepath.ToSlash(file.Path), "knowledge/") {
+			continue
+		}
 		installedPath, err := installedProjectionPath(home, file.Path)
 		if err != nil {
 			return verified, err

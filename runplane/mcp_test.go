@@ -25,7 +25,7 @@ func TestMCPExposesOneClosedLifecycleTool(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server, err := NewMCPServer(client)
+	server, err := NewMCPServer(client, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestLifecycleRejectsCrossOperationAndArbitraryInputs(t *testing.T) {
 		{Operation: OperationCancel, JobID: "0123456789abcdef0123456789abcdef", After: 1},
 	}
 	for _, input := range invalid {
-		if _, err := executeLifecycle(context.Background(), client, input); err == nil {
+		if _, err := executeLifecycle(context.Background(), client, t.TempDir(), input); err == nil {
 			t.Fatalf("executeLifecycle(%+v) succeeded", input)
 		}
 	}

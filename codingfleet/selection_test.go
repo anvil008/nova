@@ -11,8 +11,8 @@ func TestBuildSelectionKeepsWorkflowOwnership(t *testing.T) {
 	envelope, err := BuildSelection(document, SelectionRequest{
 		SelectionID: "selection-1", GoalID: "goal-1", GenerationID: "generation-1", DispatchID: "dispatch-1",
 		WorkflowID:     workflowExecutorID,
-		ProposedLenses: []controlplane.LensProposal{{RoleID: "technical-go", Kind: controlplane.RoleKindTechnical, Reason: "Go implementation"}},
-		Refinements:    []controlplane.SelectionRefinement{}, SelectedLeafIDs: []string{"technical-go"}, IssuedAt: "2026-08-23T20:00:00Z",
+		ProposedLenses: []controlplane.LensProposal{{RoleID: "toolchain-go", Kind: controlplane.RoleKindTechnical, Reason: "Go implementation"}},
+		Refinements:    []controlplane.SelectionRefinement{}, SelectedLeafIDs: []string{"toolchain-go"}, IssuedAt: "2026-08-23T20:00:00Z",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -45,8 +45,8 @@ func TestCatalogSelectionRejectsRootToLeafAndStaleCatalog(t *testing.T) {
 	envelope, err := BuildSelection(document, SelectionRequest{
 		SelectionID: "selection-1", GoalID: "goal-1", GenerationID: "generation-1", DispatchID: "dispatch-1",
 		WorkflowID:     workflowExecutorID,
-		ProposedLenses: []controlplane.LensProposal{{RoleID: "technical-go", Kind: controlplane.RoleKindTechnical, Reason: "Go implementation"}},
-		Refinements:    []controlplane.SelectionRefinement{}, SelectedLeafIDs: []string{"technical-go"}, IssuedAt: "2026-08-23T20:00:00Z",
+		ProposedLenses: []controlplane.LensProposal{{RoleID: "toolchain-go", Kind: controlplane.RoleKindTechnical, Reason: "Go implementation"}},
+		Refinements:    []controlplane.SelectionRefinement{}, SelectedLeafIDs: []string{"toolchain-go"}, IssuedAt: "2026-08-23T20:00:00Z",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestAuthorityProfilesSeparateWorkflowAndLeafInvocation(t *testing.T) {
 	if len(orchestrator.Grant.InvocableRoleKinds) != 1 || orchestrator.Grant.InvocableRoleKinds[0] != "workflow" {
 		t.Fatalf("orchestrator invocation ceiling = %+v", orchestrator.Grant)
 	}
-	leaf, err := AuthorityForRole(document, "technical-go")
+	leaf, err := AuthorityForRole(document, "toolchain-go")
 	if err != nil {
 		t.Fatal(err)
 	}

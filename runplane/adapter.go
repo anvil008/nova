@@ -126,6 +126,25 @@ func StartAdapter(request AdapterRequest, startedAt string) (AdapterState, error
 	return AdapterState{APIVersion: AdapterAPIVersion, AttemptID: request.AttemptID, OuterAttempt: 1, BoundaryDigest: boundaryDigest, Verification: verification}, nil
 }
 
+// AttachAdapterTestSeal records the RED baseline the writer sealed before
+// implementing. Every later verification pass through this adapter is
+// reconciled against it, so a sealed attempt cannot be accepted on a green run
+// that never executed the sealed tests.
+func AttachAdapterTestSeal(state AdapterState, seal controlplane.TestSeal, guard *controlplane.GuardSnapshot) (AdapterState, error) {
+	if err := validateAdapterState(state); err != nil {
+		return AdapterState{}, err
+	}
+	if state.FinalEmissions != 0 {
+		return AdapterState{}, errors.New("adapter already emitted its final output")
+	}
+	sealed, err := controlplane.AttachTestSeal(state.Verification, seal, guard)
+	if err != nil {
+		return AdapterState{}, err
+	}
+	state.Verification = sealed
+	return state, nil
+}
+
 func ApplyAdapterVerification(state AdapterState, observation controlplane.VerificationObservation) (AdapterState, error) {
 	if err := validateAdapterState(state); err != nil {
 		return AdapterState{}, err

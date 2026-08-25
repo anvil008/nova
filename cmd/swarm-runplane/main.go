@@ -25,7 +25,7 @@ func main() {
 
 func run(arguments []string, stdin io.Reader, stdout, _ io.Writer) error {
 	if len(arguments) == 0 {
-		return errors.New("usage: swarm-runplane <serve|worker|mcp|conformance|health|capabilities|start|list|status|events|send|resume|cancel|evidence>")
+		return errors.New("usage: swarm-runplane <serve|worker|mcp|conformance|goal|health|capabilities|start|list|status|events|send|resume|cancel|evidence>")
 	}
 	if arguments[0] == "serve" {
 		return runServe(arguments[1:], stdout)
@@ -44,6 +44,12 @@ func run(arguments []string, stdin io.Reader, stdout, _ io.Writer) error {
 	}
 	if arguments[0] == "conformance" {
 		return runConformance(arguments[1:], stdout)
+	}
+	// The goal verb is served from local state, so it deliberately runs before
+	// any client credentials are resolved: an orchestrator must be able to
+	// checkpoint with no service running.
+	if arguments[0] == "goal" {
+		return runGoal(arguments[1:], stdin, stdout)
 	}
 	return runClient(arguments, stdin, stdout)
 }
@@ -70,6 +76,48 @@ func runConformance(arguments []string, stdout io.Writer) error {
 	return err
 }
 
+func runGoal(arguments []string, stdin io.Reader, stdout io.Writer) error {
+	if len(arguments) == 0 {
+		return errors.New("goal usage: goal checkpoint (JSON on stdin) | goal show <goal-id>")
+	}
+	var request runplane.GoalRequest
+	switch arguments[0] {
+	case "checkpoint":
+		if len(arguments) != 1 {
+			return errors.New("goal checkpoint reads its JSON envelope from stdin and takes no arguments")
+		}
+		data, err := io.ReadAll(io.LimitReader(stdin, 512<<10))
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(data, &request); err != nil {
+			return fmt.Errorf("decode goal checkpoint: %w", err)
+		}
+		request.Action = runplane.GoalCheckpointAction
+	case "show":
+		if len(arguments) != 2 {
+			return errors.New("goal show requires exactly one goal ID")
+		}
+		request = runplane.GoalRequest{GoalID: arguments[1], Action: runplane.GoalShowAction}
+	default:
+		return fmt.Errorf("unknown goal action %q; use checkpoint or show", arguments[0])
+	}
+	stateDir, err := filepath.Abs(defaultStateDir())
+	if err != nil {
+		return err
+	}
+	record, err := runplane.ApplyGoal(stateDir, request)
+	if err != nil {
+		return err
+	}
+	pretty, err := json.MarshalIndent(record, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(stdout, string(pretty))
+	return err
+}
+
 func runMCP(ctx context.Context) error {
 	base, token, err := clientCredentials()
 	if err != nil {
@@ -79,7 +127,11 @@ func runMCP(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	server, err := runplane.NewMCPServer(client)
+	stateDir, err := filepath.Abs(defaultStateDir())
+	if err != nil {
+		return err
+	}
+	server, err := runplane.NewMCPServer(client, stateDir)
 	if err != nil {
 		return err
 	}
@@ -168,9 +220,9 @@ func runClient(arguments []string, stdin io.Reader, stdout io.Writer) error {
 		if err := flags.Parse(args); err != nil || flags.NArg() != 0 {
 			return errors.New("start usage: start --request <path|->")
 		}
-		data, err := readInput(*requestPath, stdin)
-		if err != nil {
-			return err
+		data, readErr := readInput(*requestPath, stdin)
+		if readErr != nil {
+			return readErr
 		}
 		var input runplane.StartRequest
 		if err := json.Unmarshal(data, &input); err != nil {
