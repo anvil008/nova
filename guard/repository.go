@@ -11,7 +11,9 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,6 +53,43 @@ func runArgv(workingDirectory string, argv []string) (controlplane.CommandEviden
 	}
 	evidence.CommandID = commandID(evidence)
 	return evidence, nil
+}
+
+// coveragePattern matches a percentage token like `83.3%` or `85%`. It is
+// deliberately loose so it catches the shapes coverage tools actually print,
+// e.g. `coverage: 83.3% of statements` or `total: (statements) 85.0%`.
+var coveragePattern = regexp.MustCompile(`([0-9]+(?:\.[0-9]+)?)\s*%`)
+
+// measureCoverage runs an optional strength tool after a green run and extracts
+// a single coverage number. It returns ok=false — and the caller records no
+// strength — whenever the tool cannot be run, exits non-zero, or emits nothing
+// parseable, so this can never turn a passing green into a failure.
+func measureCoverage(workingDirectory string, argv []string) (float64, bool) {
+	if len(argv) == 0 {
+		return 0, false
+	}
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	command := exec.Command(argv[0], argv[1:]...)
+	command.Dir = workingDirectory
+	command.Stdout, command.Stderr = stdout, stderr
+	if err := command.Run(); err != nil {
+		return 0, false
+	}
+	return parseCoverage(stdout.String() + "\n" + stderr.String())
+}
+
+// parseCoverage takes the last percentage token in the output, which is where
+// summary tools print the total after any per-file lines.
+func parseCoverage(output string) (float64, bool) {
+	matches := coveragePattern.FindAllStringSubmatch(output, -1)
+	if len(matches) == 0 {
+		return 0, false
+	}
+	value, err := strconv.ParseFloat(matches[len(matches)-1][1], 64)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
 }
 
 // captureArgv runs a command that must succeed and returns its stdout.

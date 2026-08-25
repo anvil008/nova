@@ -67,6 +67,15 @@ type Seal struct {
 	Amendments []Amendment                  `json:"amendments"`
 }
 
+// Green is the passing run recorded at verify time. It carries the full command
+// evidence plus an optional test-strength signal. CoveragePercent is advisory:
+// it is captured when `verify --coverage-command` is given and the tool emits a
+// parseable percentage, and it never gates verification.
+type Green struct {
+	controlplane.CommandEvidence
+	CoveragePercent *float64 `json:"coveragePercent,omitempty"`
+}
+
 // DiffReview records that the real `git diff HEAD` was read, not summarized.
 // Command is the full evidence of that read; CommandID is the same identifier
 // hoisted out so a reader does not have to reach into the evidence for it.
@@ -86,7 +95,7 @@ type Status struct {
 	StateDir     string                        `json:"stateDir"`
 	Sealed       bool                          `json:"sealed"`
 	Seal         *Seal                         `json:"seal,omitempty"`
-	Green        *controlplane.CommandEvidence `json:"green,omitempty"`
+	Green        *Green                        `json:"green,omitempty"`
 	DiffReview   *DiffReview                   `json:"diffReview,omitempty"`
 	ChangedTests []string                      `json:"changedTests"`
 	DiffStale    bool                          `json:"diffStale"`
@@ -207,7 +216,7 @@ type state struct {
 	repository string
 	directory  string
 	seal       *Seal
-	green      *controlplane.CommandEvidence
+	green      *Green
 	diffReview *DiffReview
 }
 
@@ -231,7 +240,7 @@ func loadRepositoryState(repository string) (*state, error) {
 	if loaded.seal, err = readJSON[Seal](filepath.Join(directory, sealFileName)); err != nil {
 		return nil, err
 	}
-	if loaded.green, err = readJSON[controlplane.CommandEvidence](filepath.Join(directory, greenFileName)); err != nil {
+	if loaded.green, err = readJSON[Green](filepath.Join(directory, greenFileName)); err != nil {
 		return nil, err
 	}
 	if loaded.diffReview, err = readJSON[DiffReview](filepath.Join(directory, diffReviewFileName)); err != nil {
@@ -283,7 +292,7 @@ func (s *state) records() []controlplane.GuardRecord {
 	}
 	if s.green != nil && s.green.CommandID != "" {
 		collected = append(collected, controlplane.GuardRecord{
-			Kind: controlplane.GuardRecordGreen, CommandID: s.green.CommandID, Evidence: *s.green,
+			Kind: controlplane.GuardRecordGreen, CommandID: s.green.CommandID, Evidence: s.green.CommandEvidence,
 		})
 	}
 	if s.diffReview != nil && s.diffReview.CommandID != "" {

@@ -3,6 +3,7 @@ package guard
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -69,8 +70,11 @@ func dropSupersededEvidence(loaded *state) error {
 }
 
 // verify records GREEN. The passing run must postdate the seal and the sealed
-// tests must still be exactly what failed.
-func verify(loaded *state, greenCommand []string) error {
+// tests must still be exactly what failed. When a coverage command is supplied
+// it is run after green succeeds and its strength number is recorded, but a
+// coverage that errors, parses to nothing, or falls short of --min-coverage
+// never blocks: test strength is a signal, not a new gate.
+func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage float64, stderr io.Writer) error {
 	if loaded.seal == nil {
 		return fmt.Errorf("no seal for %s; run `anvil-guard seal` first", loaded.repository)
 	}
@@ -94,7 +98,16 @@ func verify(loaded *state, greenCommand []string) error {
 	if !isAfter(evidence.StartedAt, loaded.seal.SealedAt) {
 		return fmt.Errorf("green evidence %s does not postdate the seal %s", evidence.StartedAt, loaded.seal.SealedAt)
 	}
-	return writeJSON(loaded.greenPath(), evidence)
+	green := Green{CommandEvidence: evidence}
+	if len(coverageCommand) > 0 {
+		if coverage, ok := measureCoverage(loaded.repository, coverageCommand); ok {
+			green.CoveragePercent = &coverage
+			if minCoverage > 0 && coverage < minCoverage {
+				fmt.Fprintf(stderr, "anvil-guard: coverage %.1f%% is below --min-coverage %.1f%% (advisory, not a gate)\n", coverage, minCoverage)
+			}
+		}
+	}
+	return writeJSON(loaded.greenPath(), green)
 }
 
 // reseal is the only sanctioned way to move a sealed test. The amendment stays

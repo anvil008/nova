@@ -283,6 +283,89 @@ func TestVerifyRequiresGreenAndRecordsEvidence(t *testing.T) {
 	}
 }
 
+// greenRecord reads the raw green.json so a test can assert on fields the typed
+// status may not yet expose.
+func (h *harness) greenRecord() map[string]any {
+	h.t.Helper()
+	raw, err := os.ReadFile(filepath.Join(h.stateDirectory(), greenFileName))
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(raw, &record); err != nil {
+		h.t.Fatal(err)
+	}
+	return record
+}
+
+func TestVerifyRecordsCoverageWhenToolPresent(t *testing.T) {
+	h := newHarness(t)
+	h.seal()
+	code, _, stderr := h.run("verify", "--green-command", "true",
+		"--coverage-command", "echo", "coverage:", "83.3%", "of", "statements")
+	if code != 0 {
+		t.Fatalf("verify exit %d: %s", code, stderr)
+	}
+	record := h.greenRecord()
+	got, ok := record["coveragePercent"].(float64)
+	if !ok {
+		t.Fatalf("coveragePercent not recorded: %v", record["coveragePercent"])
+	}
+	if got != 83.3 {
+		t.Fatalf("coveragePercent = %v, want 83.3", got)
+	}
+}
+
+func TestVerifySkipsCoverageSilentlyWhenAbsentOrUnparseable(t *testing.T) {
+	// No coverage flag: green is still recorded, with no strength signal.
+	absent := newHarness(t)
+	absent.seal()
+	if code, _, stderr := absent.run("verify", "--green-command", "true"); code != 0 {
+		t.Fatalf("verify without coverage exit %d: %s", code, stderr)
+	}
+	if v, present := absent.greenRecord()["coveragePercent"]; present {
+		t.Fatalf("coveragePercent must be absent without the flag, got %v", v)
+	}
+
+	// Coverage tool errors (non-zero exit): skip silently, green still passes.
+	erroring := newHarness(t)
+	erroring.seal()
+	if code, _, stderr := erroring.run("verify", "--green-command", "true", "--coverage-command", "false"); code != 0 {
+		t.Fatalf("erroring coverage tool must not block verify: exit %d: %s", code, stderr)
+	}
+	if v, present := erroring.greenRecord()["coveragePercent"]; present {
+		t.Fatalf("erroring coverage tool must not record a strength, got %v", v)
+	}
+
+	// Coverage tool prints no percentage: skip silently, green still passes.
+	unparseable := newHarness(t)
+	unparseable.seal()
+	if code, _, stderr := unparseable.run("verify", "--green-command", "true",
+		"--coverage-command", "echo", "no", "number", "here"); code != 0 {
+		t.Fatalf("unparseable coverage must not block verify: exit %d: %s", code, stderr)
+	}
+	if v, present := unparseable.greenRecord()["coveragePercent"]; present {
+		t.Fatalf("unparseable coverage must not record a strength, got %v", v)
+	}
+}
+
+func TestVerifyMinCoverageIsAdvisoryOnly(t *testing.T) {
+	h := newHarness(t)
+	h.seal()
+	code, _, stderr := h.run("verify", "--min-coverage", "90", "--green-command", "true",
+		"--coverage-command", "echo", "coverage:", "50.0%")
+	if code != 0 {
+		t.Fatalf("--min-coverage must not gate verification: exit %d: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "below") || !strings.Contains(stderr, "advisory") {
+		t.Fatalf("expected a non-blocking advisory note on stderr, got %q", stderr)
+	}
+	got, ok := h.greenRecord()["coveragePercent"].(float64)
+	if !ok || got != 50.0 {
+		t.Fatalf("coveragePercent = %v, want 50.0", h.greenRecord()["coveragePercent"])
+	}
+}
+
 func TestVerifyRejectsAnEditedSealedTest(t *testing.T) {
 	h := newHarness(t)
 	h.seal()

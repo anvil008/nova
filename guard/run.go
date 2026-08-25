@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -12,7 +13,7 @@ import (
 const usage = `usage: anvil-guard <command> [options]
 
   seal --tests <globs|paths> --red-command <argv...>
-  verify --green-command <argv...>
+  verify --green-command <argv...> [--coverage-command <argv...>] [--min-coverage <float>]
   reseal --reason <text>
   diff-review record --findings <file>
   hook --harness claude|codex|agy --event PreToolUse|PostToolUse|Stop|SubagentStop
@@ -84,11 +85,18 @@ func dispatch(options Options, args []string) (int, error) {
 	}
 	switch command {
 	case "verify":
-		flags, err := parseFlags(rest, map[string]bool{"--green-command": false})
+		flags, err := parseFlags(rest, map[string]bool{"--green-command": false, "--coverage-command": false, "--min-coverage": true})
 		if err != nil {
 			return 1, err
 		}
-		return 0, verify(loaded, flags.argv["--green-command"])
+		minCoverage := 0.0
+		if raw, ok := flags.values["--min-coverage"]; ok {
+			minCoverage, err = strconv.ParseFloat(raw, 64)
+			if err != nil {
+				return 1, fmt.Errorf("--min-coverage %q is not a number: %w", raw, err)
+			}
+		}
+		return 0, verify(loaded, flags.argv["--green-command"], flags.argv["--coverage-command"], minCoverage, options.Stderr)
 	case "reseal":
 		flags, err := parseFlags(rest, map[string]bool{"--reason": true})
 		if err != nil {
@@ -136,7 +144,9 @@ type parsedFlags struct {
 }
 
 // parseFlags reads `--flag value` pairs; a flag declared as non-scalar consumes
-// every remaining argument as one argv array.
+// the arguments up to the next known flag as one argv array. Stopping at the
+// next known flag rather than at the end is what lets two argv arrays coexist,
+// e.g. `verify --green-command <argv...> --coverage-command <argv...>`.
 func parseFlags(args []string, scalar map[string]bool) (parsedFlags, error) {
 	parsed := parsedFlags{values: map[string]string{}, lists: map[string][]string{}, argv: map[string][]string{}}
 	for index := 0; index < len(args); index++ {
@@ -146,11 +156,19 @@ func parseFlags(args []string, scalar map[string]bool) (parsedFlags, error) {
 			return parsed, fmt.Errorf("unexpected argument %q", name)
 		}
 		if !isScalar {
-			if index+1 >= len(args) {
+			end := index + 1
+			for end < len(args) {
+				if _, isFlag := scalar[args[end]]; isFlag {
+					break
+				}
+				end++
+			}
+			if end == index+1 {
 				return parsed, fmt.Errorf("%s requires an argv array", name)
 			}
-			parsed.argv[name] = args[index+1:]
-			return parsed, nil
+			parsed.argv[name] = args[index+1 : end]
+			index = end - 1
+			continue
 		}
 		if index+1 >= len(args) {
 			return parsed, fmt.Errorf("%s requires a value", name)
