@@ -4,7 +4,7 @@
   "generatedAt": "2026-08-24T23:10:14Z",
   "report": "docs/plans/solution-plan.html",
   "target": {
-    "repository": "/home/anvil/repos/foundry-zero/swarm-coder",
+    "repository": "/home/anvil/repos/foundry-zero/swarm",
     "app": "Swarm run plane",
     "branch": "main",
     "commit": "d97da9befefa4ccce8fc8ad79999640713109662"

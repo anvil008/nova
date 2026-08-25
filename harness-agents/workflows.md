@@ -120,7 +120,7 @@ The second layer contains exactly seven units:
 - **Coding Evaluation Agent** owns read-only evaluation of the coding run,
   routing quality, evidence, verification, safety, and final communication.
 - **Factory Agent** creates one missing technical or domain specialist in the
-  canonical Swarm catalog, renders every native projection, and installs the
+  canonical Swarm Coder catalog, renders every native projection, and installs the
   generated definitions globally. It never edits a target project.
 
 No workflow unit owns or invokes another workflow unit. Each receives one

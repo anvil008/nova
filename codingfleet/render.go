@@ -371,7 +371,7 @@ func agentPrompt(role Role, authority AuthorityProfile) string {
 			builder.WriteString("- Dispatch specialists only through one of these workflow units; the orchestrator does not bypass the workflow layer.\n")
 		}
 		if role.Workflow.CreatesSpecialists {
-			builder.WriteString("\nYou are the sole writer for agent creation. Specialist delegates may gather or review evidence, but you directly mutate the canonical Swarm catalog, render every native projection, and run the managed global installer.\n")
+			builder.WriteString("\nYou are the sole writer for agent creation. Specialist delegates may gather or review evidence, but you directly mutate the canonical Swarm Coder catalog, render every native projection, and run the managed global installer.\n")
 		}
 		if role.Workflow.Orchestration != nil && role.Workflow.Orchestration.ProactiveDelegation {
 			fmt.Fprintf(&builder, "\nProactively use up to %d independent workflow units when the dependency queue and ownership boundaries make parallel work useful. Preserve explicit ownership and integrate every result in this parent context.\n", role.Workflow.MaxParallel)

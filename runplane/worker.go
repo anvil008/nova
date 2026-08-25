@@ -170,13 +170,17 @@ func workerRunProvider(ctx context.Context, claim WorkerClaim, transport *Worker
 
 	acknowledgements := make(chan uint64, 8)
 	inputs := make(chan []byte, 8)
+	receiverContext, stopReceiver := context.WithCancel(ctx)
+	var receiver sync.WaitGroup
+	receiver.Add(1)
 	go func() {
+		defer receiver.Done()
 		var lastControlAccepted uint64
 		for {
 			generation := transport.ConnectionGeneration()
 			frame, err := transport.Receive()
 			if err != nil {
-				if reconnectErr := reconnectWorker(ctx, claim, transport, &replay, &reconnectMu, generation); reconnectErr == nil {
+				if reconnectErr := reconnectWorker(receiverContext, claim, transport, &replay, &reconnectMu, generation); reconnectErr == nil {
 					continue
 				} else {
 					select {
@@ -239,6 +243,11 @@ func workerRunProvider(ctx context.Context, claim WorkerClaim, transport *Worker
 				cancel()
 			}
 		}
+	}()
+	defer func() {
+		stopReceiver()
+		_ = transport.Close()
+		receiver.Wait()
 	}()
 
 	workerDone := make(chan error, 1)

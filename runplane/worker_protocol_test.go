@@ -2,6 +2,8 @@ package runplane
 
 import (
 	"context"
+	"errors"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -133,6 +135,23 @@ func TestRunWorkerForwardsExactStreamsAndWaitsForLifecycleAcks(t *testing.T) {
 					return
 				}
 				if frame.Type == "exit" {
+					if err := transport.conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+						serverDone <- struct {
+							stdout, stderr string
+							err            error
+						}{stdout, stderr, err}
+						return
+					}
+					if _, closeErr := transport.Receive(); !errors.Is(closeErr, io.EOF) {
+						if closeErr == nil {
+							closeErr = errors.New("worker transport remained readable after exit acknowledgement")
+						}
+						serverDone <- struct {
+							stdout, stderr string
+							err            error
+						}{stdout, stderr, closeErr}
+						return
+					}
 					serverDone <- struct {
 						stdout, stderr string
 						err            error

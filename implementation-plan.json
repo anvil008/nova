@@ -5,11 +5,11 @@
   "status": "in_progress",
   "generated_at": "2026-08-24T23:10:14Z",
   "repository": "/home/anvil/repos/foundry-zero/swarm-coder",
-  "planning_commit": "d97da9befefa4ccce8fc8ad79999640713109662",
+  "planning_commit": "14322e8aca0a6a5a504aa42821b7b7cf0f4b9a5f",
   "source_artifact": {
     "kind": "solution-plan",
     "path": "docs/plans/solution-plan.html",
-    "sha256": "a2fd758f0b1f43f86f26d374cf37b3b7a336247f5985ebc2addfcea94676a1f0",
+    "sha256": "f125a06b013b065780e866edc2856fc40309ffc0732106a9db47dae2b7f603e8",
     "commit": "d97da9befefa4ccce8fc8ad79999640713109662"
   },
   "target_state_summary": "Foreign-provider swarm-runplane jobs can run in one dedicated non-focused Herdr 0.8.2 tab/root pane with safe task context, authenticated bounded worker control, exact provider streams, deterministic visibility replay, and unchanged validated handoff/workflow-result authority; same-provider native harness agents remain explicitly unsupported.",
@@ -33,6 +33,7 @@
   },
   "assumptions": [
     "Herdr 0.8.2 is the supported contract for this repository-only slice.",
+    "The source solution plan was authored in the sibling Swarm repository at d97da9befefa4ccce8fc8ad79999640713109662; this implementation plan targets Swarm Coder at its reachable baseline 14322e8aca0a6a5a504aa42821b7b7cf0f4b9a5f.",
     "The pre-existing dirty worktree is user-owned and all overlapping bytes must be adopted in place rather than restored from Git.",
     "Nexus board import is intentionally not authorized in this execution lane, so every board_task_ref remains null and delivery import_status remains pending.",
     "The public run-plane API remains additive anvil.run-plane/v2 while on-disk state migrates from schema 2 to schema 3."

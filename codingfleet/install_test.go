@@ -199,7 +199,7 @@ func TestInstallFirstRepeatCheckAndUnownedPreservation(t *testing.T) {
 			[]byte("20 for Executor and 10 for Research, Planner, Code Review, Debugger, Coding Evaluation, and Factory"),
 			[]byte("do not override lower hard harness, provider, or runtime caps"),
 			[]byte("Executor Agent is the ordinary target-project writer"),
-			[]byte("Factory writes only the canonical Swarm technical/domain catalog, generated projections, and installer-owned global harness state"),
+			[]byte("Factory writes only the canonical Swarm Coder technical/domain catalog, generated projections, and installer-owned global harness state"),
 			[]byte("Only Coding Orchestrator Agent declares the overall goal complete"),
 		} {
 			if !bytes.Contains(got, contract) {

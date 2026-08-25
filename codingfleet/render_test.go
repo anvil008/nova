@@ -375,7 +375,7 @@ func TestRenderFactoryAndDynamicDebuggerProjections(t *testing.T) {
 		"Factory is the orchestrator-dispatched response to a confirmed specialist gap.",
 		"let the orchestrator resume the original workflow unit",
 		"sole writer for agent creation",
-		"directly mutate the canonical Swarm catalog",
+		"directly mutate the canonical Swarm Coder catalog",
 		"Run no more than 10 independent specialist delegates concurrently.",
 	)
 	assertNotContains(t, factoryClaude, "Preferred delegates", "so it can dispatch Factory Agent")

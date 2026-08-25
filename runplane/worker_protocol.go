@@ -214,6 +214,7 @@ type WorkerTransport struct {
 	jobID      string
 	nonce      string
 	reader     *bufio.Reader
+	stateMu    sync.RWMutex
 	writeMu    sync.Mutex
 	readMu     sync.Mutex
 	nextSeq    uint64
@@ -232,7 +233,10 @@ func NewWorkerTransport(conn net.Conn, jobID, nonce string) (*WorkerTransport, e
 func (t *WorkerTransport) Send(frame WorkerFrame) (WorkerFrame, error) {
 	t.writeMu.Lock()
 	defer t.writeMu.Unlock()
-	if t.closed {
+	t.stateMu.RLock()
+	conn, closed := t.conn, t.closed
+	t.stateMu.RUnlock()
+	if closed || conn == nil {
 		return WorkerFrame{}, net.ErrClosed
 	}
 	if !workerFrameKinds[frame.Type] || frame.JobID != "" && frame.JobID != t.jobID {
@@ -247,7 +251,7 @@ func (t *WorkerTransport) Send(frame WorkerFrame) (WorkerFrame, error) {
 	if len(data)+1 > maxWorkerFrameBytes {
 		return WorkerFrame{}, errors.New("worker frame exceeds bound")
 	}
-	if _, err := t.conn.Write(append(data, '\n')); err != nil {
+	if _, err := conn.Write(append(data, '\n')); err != nil {
 		return frame, fmt.Errorf("write worker frame: %w", err)
 	}
 	return frame, nil
@@ -279,13 +283,17 @@ func (t *WorkerTransport) ReplaceConnection(conn net.Conn) error {
 		return errors.New("replacement worker connection is required")
 	}
 	t.writeMu.Lock()
-	t.readMu.Lock()
+	t.stateMu.Lock()
+	if t.closed {
+		t.stateMu.Unlock()
+		t.writeMu.Unlock()
+		return net.ErrClosed
+	}
 	old := t.conn
 	t.conn = conn
 	t.reader = bufio.NewReaderSize(conn, maxWorkerFrameBytes)
-	t.closed = false
 	t.generation++
-	t.readMu.Unlock()
+	t.stateMu.Unlock()
 	t.writeMu.Unlock()
 	if old != nil {
 		_ = old.Close()
@@ -294,15 +302,21 @@ func (t *WorkerTransport) ReplaceConnection(conn net.Conn) error {
 }
 
 func (t *WorkerTransport) ConnectionGeneration() uint64 {
-	t.writeMu.Lock()
-	defer t.writeMu.Unlock()
+	t.stateMu.RLock()
+	defer t.stateMu.RUnlock()
 	return t.generation
 }
 
 func (t *WorkerTransport) Receive() (WorkerFrame, error) {
 	t.readMu.Lock()
 	defer t.readMu.Unlock()
-	line, err := t.reader.ReadSlice('\n')
+	t.stateMu.RLock()
+	reader, closed := t.reader, t.closed
+	t.stateMu.RUnlock()
+	if closed || reader == nil {
+		return WorkerFrame{}, net.ErrClosed
+	}
+	line, err := reader.ReadSlice('\n')
 	if err != nil {
 		if errors.Is(err, bufio.ErrBufferFull) {
 			return WorkerFrame{}, errors.New("worker frame exceeds bound")
@@ -359,9 +373,22 @@ func (t *WorkerTransport) Acknowledge(sequence uint64) error {
 
 func (t *WorkerTransport) Close() error {
 	t.writeMu.Lock()
+	t.stateMu.Lock()
+	if t.closed {
+		t.stateMu.Unlock()
+		t.writeMu.Unlock()
+		return nil
+	}
 	t.closed = true
+	conn := t.conn
+	t.conn = nil
+	t.reader = nil
+	t.stateMu.Unlock()
 	t.writeMu.Unlock()
-	return t.conn.Close()
+	if conn == nil {
+		return nil
+	}
+	return conn.Close()
 }
 
 // WorkerListener owns a mode-0700 Unix socket directory and accepts one
