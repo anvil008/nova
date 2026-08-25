@@ -432,7 +432,7 @@ func validTestSource() sourceDocument {
 			Instructions: "Validate the fixture.",
 			Activation:   Activation{Threshold: 7, Files: []WeightedSignal{{Value: "**/*.go", Weight: 2}}, Keywords: []WeightedSignal{{Value: "test fixture", Weight: 8}}},
 			Boundaries:   []string{"Do not escape the fixture."}, Evidence: []Evidence{{Repository: "swarm", Path: "go.mod", Detail: "Test evidence."}}, Tags: []string{"test"},
-			RoutingTier: RoutingStandard, CapabilityMode: CapabilityWorkspaceWrite, HarnessTargets: []HarnessTarget{HarnessAntigravity, HarnessClaude, HarnessCodex},
+			RoutingTier: RoutingWorkhorse, CapabilityMode: CapabilityWorkspaceWrite, HarnessTargets: []HarnessTarget{HarnessAntigravity, HarnessClaude, HarnessCodex},
 		}},
 	}
 }

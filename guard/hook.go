@@ -469,11 +469,26 @@ func emit(options Options, harnessName Harness, event string, decision response)
 	if !decision.deny && !decision.notify {
 		return 0
 	}
-	if decision.notify || (decision.deny && event == EventPostToolUse && harnessName != HarnessAntigravity) {
-		fmt.Fprintln(options.Stderr, decision.reason)
-		if harnessName == HarnessAntigravity {
-			return 0
+	if decision.notify {
+		// notify is visible-but-non-blocking. At PostToolUse exit 2 shows the
+		// message without blocking (the tool already ran); at Stop exit 2 would
+		// BLOCK, so surface it through a non-blocking channel instead.
+		if event == EventPostToolUse {
+			fmt.Fprintln(options.Stderr, decision.reason)
+			if harnessName == HarnessAntigravity {
+				return 0
+			}
+			return 2
 		}
+		if harnessName == HarnessAntigravity {
+			writeJSONLine(options, map[string]any{"decision": "continue", "reason": decision.reason})
+		} else {
+			writeJSONLine(options, map[string]any{"systemMessage": decision.reason})
+		}
+		return 0
+	}
+	if decision.deny && event == EventPostToolUse && harnessName != HarnessAntigravity {
+		fmt.Fprintln(options.Stderr, decision.reason)
 		return 2
 	}
 	switch {

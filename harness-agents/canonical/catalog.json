@@ -298,6 +298,50 @@
       }
     }
   ],
+  "modelTiers": {
+    "powerhorse": {
+      "claude": {
+        "model": "fable",
+        "effort": "high"
+      },
+      "codex": {
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh"
+      },
+      "antigravity": {
+        "model": "gemini-3.1-pro-high",
+        "effort": "high"
+      }
+    },
+    "workhorse": {
+      "claude": {
+        "model": "opus",
+        "effort": "medium"
+      },
+      "codex": {
+        "model": "gpt-5.6-sol",
+        "effort": "medium"
+      },
+      "antigravity": {
+        "model": "gemini-3.7-flash-high",
+        "effort": "high"
+      }
+    },
+    "quick": {
+      "claude": {
+        "model": "opus",
+        "effort": "low"
+      },
+      "codex": {
+        "model": "gpt-5.6-luna",
+        "effort": "high"
+      },
+      "antigravity": {
+        "model": "gemini-3.7-flash-medium",
+        "effort": "medium"
+      }
+    }
+  },
   "roles": [
     {
       "id": "env-homelab",
@@ -430,7 +474,7 @@
         "unifi",
         "unraid"
       ],
-      "routingTier": "advanced",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -490,7 +534,7 @@
         "robotics",
         "safety"
       ],
-      "routingTier": "advanced",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -555,7 +599,7 @@
         "playwright",
         "qa"
       ],
-      "routingTier": "standard",
+      "routingTier": "workhorse",
       "capabilityMode": "read-only",
       "harnessTargets": [
         "antigravity",
@@ -626,7 +670,7 @@
         "review",
         "security"
       ],
-      "routingTier": "standard",
+      "routingTier": "workhorse",
       "capabilityMode": "read-only",
       "harnessTargets": [
         "antigravity",
@@ -716,7 +760,7 @@
         "sql",
         "sqlite"
       ],
-      "routingTier": "standard",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -783,7 +827,7 @@
         "golang",
         "toolchain"
       ],
-      "routingTier": "standard",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -850,7 +894,7 @@
         "operations",
         "systemd"
       ],
-      "routingTier": "standard",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -921,7 +965,7 @@
         "python",
         "toolchain"
       ],
-      "routingTier": "standard",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -992,7 +1036,7 @@
         "tokio",
         "toolchain"
       ],
-      "routingTier": "standard",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -1064,7 +1108,7 @@
         "typescript",
         "ui"
       ],
-      "routingTier": "standard",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -1125,7 +1169,7 @@
         "orchestration",
         "swarm"
       ],
-      "routingTier": "advanced",
+      "routingTier": "powerhorse",
       "capabilityMode": "orchestration-only",
       "harnessTargets": [
         "antigravity",
@@ -1251,7 +1295,7 @@
         "pull request",
         "verification"
       ],
-      "routingTier": "advanced",
+      "routingTier": "powerhorse",
       "capabilityMode": "read-only",
       "harnessTargets": [
         "antigravity",
@@ -1339,7 +1383,7 @@
         "integration",
         "verification"
       ],
-      "routingTier": "advanced",
+      "routingTier": "workhorse",
       "capabilityMode": "workspace-write",
       "harnessTargets": [
         "antigravity",
@@ -1429,7 +1473,7 @@
         "implementation plan",
         "planning"
       ],
-      "routingTier": "advanced",
+      "routingTier": "powerhorse",
       "capabilityMode": "read-only",
       "harnessTargets": [
         "antigravity",
@@ -1519,7 +1563,7 @@
         "prototype",
         "research"
       ],
-      "routingTier": "advanced",
+      "routingTier": "powerhorse",
       "capabilityMode": "read-only",
       "harnessTargets": [
         "antigravity",

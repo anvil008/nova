@@ -3,7 +3,7 @@ name: anvil-cf-lens-browser
 description: "Verifies running web interfaces across interaction states, viewports, and accessibility requirements."
 tools: Read, Grep, Glob
 mcpServers: []
-model: "sonnet"
+model: "opus"
 effort: medium
 permissionMode: plan
 ---

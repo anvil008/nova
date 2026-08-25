@@ -65,10 +65,12 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 	}
 	files := renderedMap(rendered)
 
+	// lens-browser and env-homelab are both workhorse leaves; they differ by
+	// capability mode (read-only vs workspace-write), not by tier/model.
 	readOnlyClaude := string(files["claude/anvil-cf-lens-browser.md"])
 	assertContains(t, readOnlyClaude,
 		"tools: Read, Grep, Glob\n",
-		"model: \"sonnet\"\n",
+		"model: \"opus\"\n",
 		"effort: medium\n",
 		"permissionMode: plan\n",
 	)
@@ -80,8 +82,8 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 		"permissionMode: default\n",
 	)
 
-	advancedClaude := string(files["claude/anvil-cf-env-homelab.md"])
-	assertContains(t, advancedClaude, "model: \"opus\"\n", "effort: high\n")
+	writeClaudeEnv := string(files["claude/anvil-cf-env-homelab.md"])
+	assertContains(t, writeClaudeEnv, "model: \"opus\"\n", "effort: medium\n")
 
 	readOnlyAntigravity := string(files["antigravity/anvil-cf-lens-browser/agent.md"])
 	assertContains(t, readOnlyAntigravity,
@@ -89,7 +91,7 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 		"  - grep_search\n",
 		"mainAgent: true\n",
 		"subagent: true\n",
-		"model: \"flash\"\n",
+		"model: \"gemini-3.7-flash-high\"\n",
 		"commandExecutionPolicy: off\n",
 	)
 	assertNotContains(t, readOnlyAntigravity, "replace_file_content", "run_command", "permissionMode", "effort:")
@@ -98,23 +100,23 @@ func TestRenderNativeMappingsByCapabilityAndTier(t *testing.T) {
 	assertContains(t, writeAntigravity,
 		"  - replace_file_content\n",
 		"  - run_command\n",
-		"model: \"pro\"\n",
+		"model: \"gemini-3.7-flash-high\"\n",
 		"commandExecutionPolicy: sandbox\n",
 	)
 
 	readOnlyCodex := string(files["codex/anvil-cf-lens-browser.toml"])
 	assertContains(t, readOnlyCodex,
-		"model = \"gpt-5.6-terra\"\n",
+		"model = \"gpt-5.6-sol\"\n",
 		"model_reasoning_effort = \"medium\"\n",
 		"sandbox_mode = \"read-only\"\n",
 		"developer_instructions = ",
 	)
 	assertNotContains(t, readOnlyCodex, "name =", "description =", "permissionMode")
 
-	advancedCodex := string(files["codex/anvil-cf-env-homelab.toml"])
-	assertContains(t, advancedCodex,
+	writeCodexEnv := string(files["codex/anvil-cf-env-homelab.toml"])
+	assertContains(t, writeCodexEnv,
 		"model = \"gpt-5.6-sol\"\n",
-		"model_reasoning_effort = \"high\"\n",
+		"model_reasoning_effort = \"medium\"\n",
 		"sandbox_mode = \"workspace-write\"\n",
 	)
 }
@@ -195,7 +197,7 @@ func TestRenderFlatOrchestratorAndWorkflowUnits(t *testing.T) {
 		"  - swarm_runplane_lifecycle\n",
 		"mainAgent: true\n",
 		"subagent: true\n",
-		"model: \"pro\"\n",
+		"model: \"gemini-3.1-pro-high\"\n",
 		"User-directed model routing contract:",
 	)
 	assertNotContains(t, orchestratorAntigravity, "replace_file_content", "run_command")
@@ -326,7 +328,7 @@ func TestRenderCodeReviewWorkflowProjections(t *testing.T) {
 	assertContains(t, claude,
 		"name: anvil-wf-code-review\n",
 		"tools: Agent, Skill, Read, Grep, Glob, Bash\n",
-		"model: \"opus\"\n",
+		"model: \"fable\"\n",
 		"permissionMode: plan\n",
 		"You are Code Review Agent, a peer assurance workflow unit",
 		"dispatched by Coding Orchestrator Agent",
@@ -342,7 +344,7 @@ func TestRenderCodeReviewWorkflowProjections(t *testing.T) {
 	codex := string(files["codex/anvil-wf-code-review.toml"])
 	assertContains(t, codex,
 		"model = \"gpt-5.6-sol\"\n",
-		"model_reasoning_effort = \"high\"\n",
+		"model_reasoning_effort = \"xhigh\"\n",
 		"sandbox_mode = \"read-only\"\n",
 		"You are Code Review Agent, a peer assurance workflow unit",
 		"Shared specialist pools:",
@@ -357,7 +359,7 @@ func TestRenderCodeReviewWorkflowProjections(t *testing.T) {
 		"  - run_command\n",
 		"mainAgent: true\n",
 		"subagent: true\n",
-		"model: \"pro\"\n",
+		"model: \"gemini-3.1-pro-high\"\n",
 		"commandExecutionPolicy: sandbox\n",
 		"This workflow is read-only.",
 	)
@@ -390,8 +392,8 @@ func TestRenderFrontmatterHasOnlyProviderNativeKeys(t *testing.T) {
 		case strings.HasPrefix(path, "antigravity/"):
 			keys := assertFrontmatterKeys(t, path, content, antigravityAllowed, nil)
 			model := keys["model"]
-			if model != "\"flash\"" && model != "\"pro\"" {
-				t.Errorf("%s model = %s, want documented flash or pro tier", path, model)
+			if model != "\"gemini-3.7-flash-high\"" && model != "\"gemini-3.1-pro-high\"" {
+				t.Errorf("%s model = %s, want documented workhorse or powerhorse antigravity tier", path, model)
 			}
 		}
 	}

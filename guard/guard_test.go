@@ -163,22 +163,53 @@ func TestStopWarnsOnUnsealedSourceChanges(t *testing.T) {
 		}
 	}
 
+	// only a *_test.go changed -> silent
+	h.write("pkg/thing_test.go", "package pkg\n\nfunc TestThing(t *testing.T) {}\n// new test line\n")
+	for harnessName, payload := range payloads {
+		code, stdout, stderr := h.runStdin(payload, "hook", "--harness", harnessName, "--event", "Stop")
+		if code != 0 || stdout != "" || stderr != "" {
+			t.Fatalf("%s only *_test.go changed: exit %d stdout %q stderr %q", harnessName, code, stdout, stderr)
+		}
+	}
+
 	// (a) a changed .go file at Stop -> warning emitted, stop allowed
 	h.write("pkg/thing.go", "package pkg\n\n// modified\n")
 	for harnessName, payload := range payloads {
 		code, stdout, stderr := h.runStdin(payload, "hook", "--harness", harnessName, "--event", "Stop")
-		wantCode := 2
-		if harnessName == "agy" {
-			wantCode = 0
+		if code != 0 {
+			t.Fatalf("%s with changed source: exit %d, want 0", harnessName, code)
 		}
-		if code != wantCode {
-			t.Fatalf("%s with changed source: exit %d, want %d", harnessName, code, wantCode)
-		}
-		if stdout != "" {
-			t.Fatalf("%s with changed source: unexpected stdout %q", harnessName, stdout)
-		}
-		if !strings.Contains(stderr, "pkg/thing.go") || !strings.Contains(stderr, "seal") {
+		if stderr != "" {
 			t.Fatalf("%s with changed source: unexpected stderr %q", harnessName, stderr)
+		}
+		if !strings.Contains(stdout, "pkg/thing.go") || !strings.Contains(stdout, "seal") {
+			t.Fatalf("%s with changed source: stdout %q missing expected warning content", harnessName, stdout)
+		}
+		switch harnessName {
+		case "claude", "codex":
+			var decoded struct {
+				SystemMessage string `json:"systemMessage"`
+			}
+			if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
+				t.Fatalf("%s with changed source: invalid JSON stdout %q: %v", harnessName, stdout, err)
+			}
+			if !strings.Contains(decoded.SystemMessage, "pkg/thing.go") || !strings.Contains(decoded.SystemMessage, "seal") {
+				t.Fatalf("%s systemMessage %q missing expected warning content", harnessName, decoded.SystemMessage)
+			}
+		case "agy":
+			var decoded struct {
+				Decision string `json:"decision"`
+				Reason   string `json:"reason"`
+			}
+			if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
+				t.Fatalf("%s with changed source: invalid JSON stdout %q: %v", harnessName, stdout, err)
+			}
+			if decoded.Decision != "continue" {
+				t.Fatalf("%s decision %q, want continue", harnessName, decoded.Decision)
+			}
+			if !strings.Contains(decoded.Reason, "pkg/thing.go") || !strings.Contains(decoded.Reason, "seal") {
+				t.Fatalf("%s reason %q missing expected warning content", harnessName, decoded.Reason)
+			}
 		}
 	}
 }

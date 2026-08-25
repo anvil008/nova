@@ -3,7 +3,7 @@ name: anvil-wf-code-review
 description: "Owns read-only code assurance and dynamically selects technical and domain review specialists by risk."
 tools: Agent, Skill, Read, Grep, Glob, Bash
 mcpServers: []
-model: "opus"
+model: "fable"
 effort: high
 permissionMode: plan
 ---

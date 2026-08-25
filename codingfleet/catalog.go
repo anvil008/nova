@@ -36,8 +36,9 @@ const (
 
 	StatusDefinitionReady RoleStatus = "definition-ready"
 
-	RoutingStandard RoutingTier = "standard"
-	RoutingAdvanced RoutingTier = "advanced"
+	RoutingPowerhorse RoutingTier = "powerhorse"
+	RoutingWorkhorse  RoutingTier = "workhorse"
+	RoutingQuick      RoutingTier = "quick"
 
 	CapabilityReadOnly       CapabilityMode = "read-only"
 	CapabilityWorkspaceWrite CapabilityMode = "workspace-write"
@@ -137,8 +138,9 @@ type Document struct {
 	Source            SourceMetadata     `json:"source"`
 	AuthorityProfiles []AuthorityProfile `json:"authorityProfiles"`
 	Counts            Counts             `json:"counts"`
-	Roles             []Role             `json:"roles"`
-	KnowledgeRoles    []KnowledgeRole    `json:"knowledgeRoles,omitempty"`
+	Roles             []Role               `json:"roles"`
+	KnowledgeRoles    []KnowledgeRole      `json:"knowledgeRoles,omitempty"`
+	ModelTiers        map[string]ModelTier `json:"modelTiers,omitempty"`
 }
 
 // AuthorityProfile is a reusable, closed role ceiling. A role selects exactly
@@ -356,16 +358,28 @@ type KnowledgeRole struct {
 	Repositories []string `json:"repositories"`
 }
 
+type TierModel struct {
+	Model  string `json:"model"`
+	Effort string `json:"effort"`
+}
+
+type ModelTier struct {
+	Claude      TierModel `json:"claude"`
+	Codex       TierModel `json:"codex"`
+	Antigravity TierModel `json:"antigravity"`
+}
+
 // sourceDocument deliberately omits Counts: aggregates in the public Document
 // must always be derived from role definitions by Load.
 type sourceDocument struct {
-	APIVersion        string             `json:"apiVersion"`
-	CatalogVersion    string             `json:"catalogVersion"`
-	GeneratedAt       string             `json:"generatedAt"`
-	Source            SourceMetadata     `json:"source"`
-	AuthorityProfiles []AuthorityProfile `json:"authorityProfiles"`
-	Roles             []Role             `json:"roles"`
-	KnowledgeRoles    []KnowledgeRole    `json:"knowledgeRoles,omitempty"`
+	APIVersion        string               `json:"apiVersion"`
+	CatalogVersion    string               `json:"catalogVersion"`
+	GeneratedAt       string               `json:"generatedAt"`
+	Source            SourceMetadata       `json:"source"`
+	AuthorityProfiles []AuthorityProfile   `json:"authorityProfiles"`
+	Roles             []Role               `json:"roles"`
+	KnowledgeRoles    []KnowledgeRole      `json:"knowledgeRoles,omitempty"`
+	ModelTiers        map[string]ModelTier `json:"modelTiers,omitempty"`
 }
 
 // Load decodes, validates, canonicalizes, and counts the embedded catalog.
@@ -400,6 +414,7 @@ func decodeCatalog(data []byte) (Document, error) {
 		AuthorityProfiles: source.AuthorityProfiles,
 		Roles:             source.Roles,
 		KnowledgeRoles:    source.KnowledgeRoles,
+		ModelTiers:        source.ModelTiers,
 	}
 	if err := validateDocument(document); err != nil {
 		return Document{}, fmt.Errorf("validate coding-fleet catalog: %w", err)
@@ -830,7 +845,7 @@ func validateRole(role Role) error {
 	if role.Status != StatusDefinitionReady {
 		return fmt.Errorf("status %q is not allowed", role.Status)
 	}
-	if role.RoutingTier != RoutingStandard && role.RoutingTier != RoutingAdvanced {
+	if role.RoutingTier != RoutingPowerhorse && role.RoutingTier != RoutingWorkhorse && role.RoutingTier != RoutingQuick {
 		return fmt.Errorf("routingTier %q is not allowed", role.RoutingTier)
 	}
 	if role.CapabilityMode != CapabilityReadOnly && role.CapabilityMode != CapabilityWorkspaceWrite && role.CapabilityMode != CapabilityFactoryWrite && role.CapabilityMode != CapabilityOrchestration {

@@ -3,7 +3,7 @@ name: anvil-wf-research
 description: "Owns repository, runtime, UI, and official-documentation research through dynamically selected specialists."
 tools: Agent, Skill, Read, Grep, Glob, Bash
 mcpServers: []
-model: "opus"
+model: "fable"
 effort: high
 permissionMode: plan
 ---

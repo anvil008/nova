@@ -4,7 +4,7 @@ description: "Owns all authorized target-project implementation and verification
 tools: Agent, Skill, Read, Grep, Glob, Edit, Write, Bash
 mcpServers: []
 model: "opus"
-effort: high
+effort: medium
 permissionMode: default
 hooks: {"PreToolUse":[{"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event PreToolUse"}]}],"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event PostToolUse"}]}],"Stop":[{"hooks":[{"type":"command","command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event Stop"}]}]}
 ---

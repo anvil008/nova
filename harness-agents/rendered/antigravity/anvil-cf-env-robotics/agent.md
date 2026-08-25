@@ -8,7 +8,7 @@ tools:
   - run_command
 mainAgent: true
 subagent: true
-model: "pro"
+model: "gemini-3.7-flash-high"
 commandExecutionPolicy: sandbox
 ---
 

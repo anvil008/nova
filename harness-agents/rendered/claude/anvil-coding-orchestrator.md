@@ -3,7 +3,7 @@ name: anvil-coding-orchestrator
 description: "Owns a durable coding goal and orchestrates seven peer workflow units without directly implementing target-project changes."
 tools: Agent, Skill, Read, Grep, Glob, mcp__anvil-swarm-runplane__swarm_runplane_lifecycle
 mcpServers: [{"anvil-swarm-runplane":{"type":"stdio","command":"/home/anvil/.local/bin/swarm-runplane","args":["mcp"]}}]
-model: "opus"
+model: "fable"
 effort: high
 permissionMode: plan
 ---

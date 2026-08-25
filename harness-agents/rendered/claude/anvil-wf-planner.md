@@ -3,7 +3,7 @@ name: anvil-wf-planner
 description: "Owns evidence-backed solution, refactor, migration, and implementation planning through dynamically selected specialists."
 tools: Agent, Skill, Read, Grep, Glob, Bash
 mcpServers: []
-model: "opus"
+model: "fable"
 effort: high
 permissionMode: plan
 ---

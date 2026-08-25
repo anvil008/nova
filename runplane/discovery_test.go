@@ -80,7 +80,7 @@ func TestCodexModelCacheDiscoversExplicitTerraMaxPair(t *testing.T) {
 func TestClaudeDiscoveryReportsOnlyCanonicalAliasPairsAndFailsClosed(t *testing.T) {
 	roots := testDefinitionRoots(t)
 	writeDefinition(t, roots, HarnessClaude, "workflow-executor", "", "")
-	writeDefinition(t, roots, HarnessClaude, "toolchain-go", "", "")
+	writeDefinition(t, roots, HarnessClaude, "workflow-code-review", "", "")
 	discoverer := Discoverer{Roots: roots, Runner: fakeCommandRunner{outputs: map[string]string{
 		"claude --version": "2.1.test",
 		"claude --help":    "--agent --agents --setting-sources --model --effort <level> (low, medium, high) --input-format stream-json --output-format --resume",
@@ -93,7 +93,7 @@ func TestClaudeDiscoveryReportsOnlyCanonicalAliasPairsAndFailsClosed(t *testing.
 		t.Fatalf("canonical role pairs = %+v, want exactly two non-Cartesian pairs", capability.ModelEfforts)
 	}
 	for _, pair := range capability.ModelEfforts {
-		if pair.Reference != "alias" || (pair.Model == "opus" && pair.Effort != "high") || (pair.Model == "sonnet" && pair.Effort != "medium") {
+		if pair.Reference != "alias" || (pair.Model == "opus" && pair.Effort != "medium") || (pair.Model == "fable" && pair.Effort != "high") {
 			t.Fatalf("misrepresented Claude pair = %+v", pair)
 		}
 	}

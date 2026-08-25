@@ -145,7 +145,7 @@ func factoryTransactionFixture(t *testing.T) (FactoryManifest, []byte) {
 	candidate.Roles = append(append([]Role(nil), current.Roles...), added)
 	source := sourceDocument{
 		APIVersion: candidate.APIVersion, CatalogVersion: candidate.CatalogVersion, GeneratedAt: candidate.GeneratedAt,
-		Source: candidate.Source, AuthorityProfiles: candidate.AuthorityProfiles, Roles: candidate.Roles,
+		Source: candidate.Source, AuthorityProfiles: candidate.AuthorityProfiles, Roles: candidate.Roles, KnowledgeRoles: candidate.KnowledgeRoles, ModelTiers: candidate.ModelTiers,
 	}
 	candidateJSON, err := json.MarshalIndent(source, "", "  ")
 	if err != nil {

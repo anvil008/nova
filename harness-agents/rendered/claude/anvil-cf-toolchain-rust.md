@@ -3,7 +3,7 @@ name: anvil-cf-toolchain-rust
 description: "Implements idiomatic Rust services, libraries, and high-performance computing components."
 tools: Read, Grep, Glob, Edit, Write, Bash
 mcpServers: []
-model: "sonnet"
+model: "opus"
 effort: medium
 permissionMode: default
 hooks: {"PreToolUse":[{"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event PreToolUse"}]}],"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event PostToolUse"}]}],"Stop":[{"hooks":[{"type":"command","command":"/home/anvil/.local/bin/anvil-guard hook --harness claude --event Stop"}]}]}

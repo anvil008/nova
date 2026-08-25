@@ -92,18 +92,22 @@ func RenderWithConfig(repositoryRoot string, document Document, config RenderCon
 			return RenderResult{}, fmt.Errorf("roles %q and %q map to duplicate native name %q", previous, role.ID, name)
 		}
 		nativeNames[name] = role.ID
+		tier, ok := document.ModelTiers[string(role.RoutingTier)]
+		if !ok {
+			return RenderResult{}, fmt.Errorf("role %q references routingTier %q absent from modelTiers", role.ID, role.RoutingTier)
+		}
 		result.Files = append(result.Files,
 			RenderedFile{
 				Path:    filepath.ToSlash(filepath.Join("codex", name+".toml")),
-				Content: renderCodexRole(role, authority, config),
+				Content: renderCodexRole(role, authority, tier.Codex),
 			},
 			RenderedFile{
 				Path:    filepath.ToSlash(filepath.Join("claude", name+".md")),
-				Content: renderClaudeRole(role, authority, config),
+				Content: renderClaudeRole(role, authority, tier.Claude),
 			},
 			RenderedFile{
 				Path:    filepath.ToSlash(filepath.Join("antigravity", name, "agent.md")),
-				Content: renderAntigravityRole(role, authority, config),
+				Content: renderAntigravityRole(role, authority, tier.Antigravity),
 			},
 		)
 	}
@@ -170,14 +174,10 @@ func isManagedAgentName(name string) bool {
 	return name == codingOrchestratorAgentName || name == retiredDeepCodeAgentName || strings.HasPrefix(name, managedAgentPrefix) || strings.HasPrefix(name, managedWorkflowPrefix)
 }
 
-func renderCodexRole(role Role, authority AuthorityProfile, config RenderConfig) []byte {
-	model := config.CodexStandardModel
-	effort := "medium"
+func renderCodexRole(role Role, authority AuthorityProfile, tier TierModel) []byte {
+	model := tier.Model
+	effort := tier.Effort
 	sandboxMode := string(role.CapabilityMode)
-	if role.RoutingTier == RoutingAdvanced {
-		model = config.CodexAdvancedModel
-		effort = "high"
-	}
 	if role.CapabilityMode == CapabilityFactoryWrite {
 		sandboxMode = "danger-full-access"
 	} else if role.CapabilityMode == CapabilityOrchestration {
@@ -193,15 +193,11 @@ func renderCodexRole(role Role, authority AuthorityProfile, config RenderConfig)
 	return []byte(builder.String())
 }
 
-func renderClaudeRole(role Role, authority AuthorityProfile, config RenderConfig) []byte {
-	model := config.ClaudeStandardModel
-	effort := "medium"
+func renderClaudeRole(role Role, authority AuthorityProfile, tier TierModel) []byte {
+	model := tier.Model
+	effort := tier.Effort
 	tools := "Read, Grep, Glob"
 	permissionMode := "plan"
-	if role.RoutingTier == RoutingAdvanced {
-		model = config.ClaudeAdvancedModel
-		effort = "high"
-	}
 	if role.CapabilityMode == CapabilityWorkspaceWrite || role.CapabilityMode == CapabilityFactoryWrite {
 		tools = "Read, Grep, Glob, Edit, Write, Bash"
 		permissionMode = "default"
@@ -246,13 +242,10 @@ func renderClaudeRole(role Role, authority AuthorityProfile, config RenderConfig
 	return []byte(builder.String())
 }
 
-func renderAntigravityRole(role Role, authority AuthorityProfile, config RenderConfig) []byte {
-	model := config.AntigravityStandardModel
+func renderAntigravityRole(role Role, authority AuthorityProfile, tier TierModel) []byte {
+	model := tier.Model
 	tools := []string{"view_file", "grep_search"}
 	commandPolicy := "off"
-	if role.RoutingTier == RoutingAdvanced {
-		model = config.AntigravityAdvancedModel
-	}
 	switch role.CapabilityMode {
 	case CapabilityWorkspaceWrite:
 		tools = append(tools, "replace_file_content", "run_command")

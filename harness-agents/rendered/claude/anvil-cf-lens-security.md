@@ -3,7 +3,7 @@ name: anvil-cf-lens-security
 description: "Reviews security posture, dependencies, API contracts, and trust boundaries."
 tools: Read, Grep, Glob
 mcpServers: []
-model: "sonnet"
+model: "opus"
 effort: medium
 permissionMode: plan
 ---
