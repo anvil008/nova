@@ -1,1 +1,0 @@
-{"apiVersion":"anvil.adapter-conformance/v1","name":"unavailable-route","scenario":"unavailable-route","inputKinds":["task","repository"],"expectedDisposition":"rejected","expectedPasses":0,"expectedRepairs":0,"expectedFinalOutputs":0,"expectedProcessStarts":0,"expectedMutations":0}

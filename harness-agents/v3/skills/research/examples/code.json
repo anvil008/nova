@@ -1,0 +1,10 @@
+{
+  "area": "code",
+  "coverage": {"scope": "Implementation and configuration", "sourcesInspected": ["repository"]},
+  "findings": [
+    {"source": "config.py:18", "finding": "Retry defaults to three attempts.", "evidence": "config.py:18 sets attempts=3", "topic": "retry-default", "position": "three"},
+    {"source": "config.py:18", "finding": "Retry defaults to three attempts.", "evidence": "config.py:18 sets attempts=3", "topic": "retry-default", "position": "three"}
+  ],
+  "gaps": [],
+  "openQuestions": []
+}

@@ -1,0 +1,23 @@
+{
+  "lens": "correctness",
+  "findings": [
+    {
+      "file": "src/auth.py",
+      "line": 42,
+      "severity": "medium",
+      "lens": "correctness",
+      "claim": "Empty tokens bypass authentication",
+      "failureScenario": "An empty Authorization token reaches the protected handler as an authenticated request.",
+      "confidence": 0.91
+    },
+    {
+      "file": "src/cache.py",
+      "line": 18,
+      "severity": "medium",
+      "lens": "correctness",
+      "claim": "Cache key omits tenant identity",
+      "failureScenario": "Tenant B requests the same object id as tenant A and receives tenant A's cached value.",
+      "confidence": 0.84
+    }
+  ]
+}

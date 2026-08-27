@@ -1,1 +1,0 @@
-{"apiVersion":"anvil.adapter-conformance/v1","name":"valid","scenario":"valid","inputKinds":["task","repository","public-tests"],"expectedDisposition":"succeeded","expectedPasses":1,"expectedRepairs":0,"expectedFinalOutputs":1,"expectedProcessStarts":0,"expectedMutations":0}

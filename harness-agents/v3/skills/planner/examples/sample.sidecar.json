@@ -1,0 +1,69 @@
+{
+  "planId": "planner-v3-sample",
+  "planName": "Planner v3 Sample",
+  "repo": "foundry-zero/swarm-coder",
+  "generatedAt": "2026-08-26T12:00:00Z",
+  "summary": "Demonstrate the offline planner folio and approval-gated GitHub reconciliation.",
+  "architecture": {
+    "components": [
+      {
+        "name": "Plan sidecar",
+        "purpose": "Carries stable architecture and issue data."
+      },
+      {
+        "name": "HTML renderer",
+        "purpose": "Produces the self-contained review folio."
+      },
+      {
+        "name": "GitHub reconciler",
+        "purpose": "Applies only an explicitly approved plan."
+      }
+    ],
+    "diagramsMermaid": {
+      "targetArchitecture": "flowchart LR\n  Research[Read-only investigation] --> Sidecar[Plan sidecar]\n  Sidecar --> Folio[Offline HTML folio]\n  Sidecar --> Gate{Human approval}\n  Gate --> GitHub[Milestone and issues]"
+    }
+  },
+  "issues": [
+    {
+      "key": "render-folio",
+      "title": "Render the offline plan folio",
+      "body": "Render the fixed publication sections and the three Mermaid views without external resources.",
+      "labels": [
+        "planning"
+      ],
+      "dependsOn": [],
+      "ownershipHint": "templates/** and scripts/render_plan.py",
+      "wave": 1,
+      "acceptanceTests": [
+        {
+          "name": "three_mermaid_blocks",
+          "kind": "unit",
+          "oracle": "rendered HTML contains exactly three mermaid blocks",
+          "testPath": "tests/test_planner.py"
+        }
+      ]
+    },
+    {
+      "key": "reconcile-github",
+      "title": "Reconcile the approved GitHub milestone",
+      "body": "Preview changes, stop for human approval, then create, update, close, and deduplicate marked issues.",
+      "labels": [
+        "planning",
+        "automation"
+      ],
+      "dependsOn": [
+        "render-folio"
+      ],
+      "ownershipHint": "scripts/reconcile_github.py",
+      "wave": 2,
+      "acceptanceTests": [
+        {
+          "name": "idempotent_rerun",
+          "kind": "integration",
+          "oracle": "second reconcile against applied state yields zero actions",
+          "testPath": "tests/test_planner.py"
+        }
+      ]
+    }
+  ]
+}

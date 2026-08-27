@@ -1,2 +1,7 @@
 bin/
 .dagr/
+.DS_Store
+.claude/
+.agents/
+skills-lock.json
+.anvil/

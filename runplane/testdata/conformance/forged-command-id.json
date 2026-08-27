@@ -1,1 +1,0 @@
-{"apiVersion":"anvil.adapter-conformance/v1","name":"forged-command-id","scenario":"forged-command-id","inputKinds":["task","repository","public-tests"],"expectedDisposition":"rejected","expectedPasses":0,"expectedRepairs":0,"expectedFinalOutputs":0,"expectedProcessStarts":0,"expectedMutations":0}

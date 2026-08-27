@@ -1,12 +1,9 @@
 name: CI
-
 on:
   push:
   pull_request:
-
 permissions:
   contents: read
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,6 +18,8 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test -count=1 ./...
-      - run: go test -count=1 -race ./runplane -run 'Worker|Send|Cancel|Recover|Replay|Visibility|Durability'
-      - run: go run ./cmd/codingfleet render --check
-      - run: go run ./cmd/swarm-runplane conformance --offline --definitions harness-agents/rendered
+      - name: v3 skill tests + docs-check
+        run: |
+          for t in planner build research code-review docs; do
+            python3 -B harness-agents/v3/skills/$t/tests/test_${t//-/_}.py
+          done

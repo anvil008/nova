@@ -1,0 +1,30 @@
+{
+  "repo": "foundry-zero/swarm-coder",
+  "milestone": "Builder v3 wave demo",
+  "issues": [
+    {
+      "number": 101,
+      "body": "Create the shared primitives.\n\n<!-- swarm-planner planId=builder-v3-demo issue=Foundation -->",
+      "labels": ["build"],
+      "state": "closed"
+    },
+    {
+      "number": 102,
+      "body": "Add the API surface.\n\n<!-- swarm-planner planId=builder-v3-demo issue=API -->",
+      "labels": ["build"],
+      "state": "open"
+    },
+    {
+      "number": 103,
+      "body": "Add the UI surface.\n\n<!-- swarm-planner planId=builder-v3-demo issue=UI -->",
+      "labels": ["build"],
+      "state": "open"
+    },
+    {
+      "number": 104,
+      "body": "Verify API and UI together.\n\n<!-- swarm-planner planId=builder-v3-demo issue=Integration -->",
+      "labels": ["build"],
+      "state": "open"
+    }
+  ]
+}

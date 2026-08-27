@@ -1,9 +1,0 @@
-{
-  "apiVersion": "anvil.run-plane/v2",
-  "id": "11111111111111111111111111111111",
-  "status": "recovered",
-  "workflowDisposition": "uncertain",
-  "promptDigest": "fixture",
-  "startedAt": "2026-08-24T20:00:00Z",
-  "updatedAt": "2026-08-24T20:00:00Z"
-}
