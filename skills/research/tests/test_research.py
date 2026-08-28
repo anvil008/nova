@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "merge_research.py"
 EXAMPLES = ROOT / "examples"
-AGENT = ROOT.parents[1] / "agents" / "research" / "AGENT.md"
+AGENT = ROOT.parents[1] / "agents" / "claude" / "research.md"
 
 
 def run_helper(*reports):

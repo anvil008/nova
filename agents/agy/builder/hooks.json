@@ -1,0 +1,17 @@
+{
+  "swarm-guard": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/build-guard agy",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

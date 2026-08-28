@@ -62,7 +62,7 @@ class DocsCheckTests(unittest.TestCase):
             self.assertTrue(any("my-decision.md" in v for v in out["violations"]))
 
     def test_docs_agent_and_skill_declare_the_standard(self):
-        agent = (ROOT.parents[1] / "agents" / "docs" / "AGENT.md").read_text(encoding="utf-8")
+        agent = (ROOT.parents[1] / "agents" / "claude" / "docs.md").read_text(encoding="utf-8")
         self.assertTrue(agent.startswith("---\nname: docs\n"))
         for phrase in ("Update, don't duplicate", "lean", "ADR", "docs_check"):
             self.assertIn(phrase, agent)

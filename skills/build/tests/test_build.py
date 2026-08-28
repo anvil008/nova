@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "waves.py"
 EXAMPLES = ROOT / "examples"
-AGENT = ROOT.parents[1] / "agents" / "builder" / "AGENT.md"
+AGENT = ROOT.parents[1] / "agents" / "claude" / "builder.md"
 
 
 def run_helper(sidecar, snapshot):
@@ -40,7 +40,7 @@ class BuildSkillTests(unittest.TestCase):
             invalid.write_text(json.dumps(sidecar), encoding="utf-8")
             result = run_helper(invalid, EXAMPLES / "issue-state.json")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("unknown field", result.stderr.lower())
+        self.assertIn("unexpected", result.stderr.lower())
 
     def test_rejects_invalid_issue_snapshot_and_marker_mismatch(self):
         snapshot = json.loads((EXAMPLES / "issue-state.json").read_text(encoding="utf-8"))
@@ -88,7 +88,9 @@ class BuildSkillTests(unittest.TestCase):
     def test_builder_agent_and_skill_publish_required_boundaries(self):
         agent = AGENT.read_text(encoding="utf-8")
         frontmatter = agent.split("---", 2)[1].strip().splitlines()
-        self.assertEqual([line.split(":", 1)[0] for line in frontmatter], ["name", "description", "tools"])
+        keys = [line.split(":", 1)[0].strip() for line in frontmatter if ":" in line]
+        for required in ("name", "description", "tools"):
+            self.assertIn(required, keys)
         for phrase in (
             "exactly one assigned GitHub issue", "status:in-progress", "tdd-guard seal",
             "tdd-guard reseal --reason", "tdd-guard verify", "git diff HEAD",

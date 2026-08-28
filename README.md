@@ -5,10 +5,17 @@ You give a goal; a skill turns it into a plan and GitHub tasks; specialist agent
 work — some in parallel — and two mechanical gates keep them honest.
 
 ## Agents (`agents/`)
+Organized by harness under `agents/claude/`, `agents/codex/`, and `agents/agy/` with platform-tailored frontmatter, tools, and hooks:
 - **research** — explore code / docs / runtime / prior-art; read-only. Owns `read-the-damn-docs`, `find-docs`.
 - **builder** — implement one issue end-to-end (branch → change → PR); the only writer, never commits to `main`. Owns `jj`, `full-output-enforcement`, `builder-frontend`.
-- **code-reviewer** — read-only assurance, one instance per review lens. Owns `frontend-review`.
+- **code-reviewer** — read-only assurance, one instance per review lens. Owns `code-reviewer-frontend-review`.
 - **docs** — the docs-scoped writer: update-don't-duplicate, lean `CLAUDE.md`/`AGENTS.md`, ADRs. Owns `grill-with-docs`.
+
+Deploy agents and skills into all present harnesses with:
+```sh
+scripts/install-harness.sh --install
+```
+Or target a specific harness with `--harness <claude|codex|agy>`.
 
 ## Skills (`skills/`)
 Orchestration: **planner** (→ HTML plan + GitHub issues), **build** (parallel builder waves),

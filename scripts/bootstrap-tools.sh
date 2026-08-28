@@ -89,6 +89,7 @@ need prettier "$(pick npm:prettier)" "JS/TS/JSON/MD format (build-format)"
 need eslint "$(pick npm:eslint)" "JS/TS lint (build-lint)"
 
 echo
-echo "Next: install the agents + skills into your harness(es) — symlink"
-echo "agents/*/AGENT.md and skills/* (+ agents/*/skills/*) into ~/.claude, ~/.codex,"
-echo "and ~/.agents/skills. See README.md."
+echo "Next: install the agents + skills into your harness(es) via:"
+echo "  scripts/install-harness.sh --install"
+echo "Agents are organized under agents/{claude,codex,agy} and deployed to ~/.claude,"
+echo "~/.codex, and ~/.gemini/config/agents. See README.md."

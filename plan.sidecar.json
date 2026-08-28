@@ -1,0 +1,171 @@
+{
+  "planId": "swarm-coder-hardening-and-dx",
+  "planName": "Hardening, Portability, and DX Improvements for Swarm Coder",
+  "repo": "anvil008/swarm-coder",
+  "generatedAt": "2026-08-28T04:47:00Z",
+  "summary": "Harden Go mechanical enforcement gates against OOM and path bypasses, ensure cross-platform hook portability across macOS and Linux, achieve multi-harness agent instruction parity, add subprocess timeouts and ownership overlap validation to Python orchestration skills, and establish CI quality gates.",
+  "architecture": {
+    "components": [
+      {
+        "name": "Mechanical Gates (Go)",
+        "purpose": "Enforce strict test-first development (tdd-guard) and policy boundaries (anvil-guard) with memory-safe streaming digests and robust path normalization."
+      },
+      {
+        "name": "Orchestration Skills (Python)",
+        "purpose": "Deterministic planning, wave execution, research merging, code review consolidation, and doc standards with timeout protection and ownership overlap detection."
+      },
+      {
+        "name": "Harness Adapters & Hooks (Shell / JSON)",
+        "purpose": "Cross-platform shell hooks and agent definitions ensuring uniform capabilities across Claude Code, Codex, and Antigravity."
+      },
+      {
+        "name": "Repository Standards & CI/CD",
+        "purpose": "Accurate ADRs, synchronized documentation, and automated GitHub Actions verification covering build, lint, format, and docs check."
+      }
+    ],
+    "diagramsMermaid": {
+      "targetArchitecture": "flowchart TD\n  subgraph MechanicalGates[\"Mechanical Enforcement Gates (Go)\"]\n    TDD[\"tdd-guard CLI\"]\n    Guard[\"anvil-guard / Policy Engine\"]\n    StreamDigest[\"Streaming SHA-256 Digest\"]\n    PathNorm[\"Cross-Platform Path Normalizer\"]\n  end\n  subgraph HarnessHooks[\"Multi-Harness Adapters & Hooks\"]\n    Claude[\"Claude Agent Config\"]\n    Codex[\"Codex Agent Config\"]\n    AGY[\"Antigravity Agent Config\"]\n    Hooks[\"POSIX build-guard / format / lint\"]\n  end\n  subgraph Orchestration[\"Deterministic Orchestration Skills (Python)\"]\n    Planner[\"planner / reconcile_github\"]\n    Build[\"build / waves / overlap-check\"]\n    Research[\"research / merge_research\"]\n    Review[\"code-review / merge_findings\"]\n  end\n  subgraph StandardsCI[\"Standards & CI/CD\"]\n    ADR[\"docs/adr/\"]\n    CI[\".github/workflows/ci.yml\"]\n    DocsCheck[\"docs_check.py\"]\n  end\n  HarnessHooks --> MechanicalGates\n  Orchestration --> HarnessHooks\n  StandardsCI --> Orchestration"
+    }
+  },
+  "issues": [
+    {
+      "key": "T1-gate-hardening",
+      "title": "Harden guard mechanical gates with streaming SHA-256 and cross-platform path normalization",
+      "body": "Resolve unbounded memory consumption in untracked diff digesting by streaming hash computation with an enforced size limit. Fix Linux path normalization for backslash-separated paths in sealed test checks. Cache repository directory walk in arch-check to avoid quadratic filesystem traversals.",
+      "labels": ["planning", "guard", "security"],
+      "dependsOn": [],
+      "ownershipHint": "guard/",
+      "wave": 1,
+      "acceptanceTests": [
+        {
+          "name": "untracked-digest-streaming",
+          "kind": "unit",
+          "oracle": "Digesting untracked files uses io.Copy with a bounded buffer or streaming hasher without loading full files into memory via os.ReadFile.",
+          "testPath": "guard/repository.go"
+        },
+        {
+          "name": "backslash-path-normalization",
+          "kind": "unit",
+          "oracle": "Paths with literal backslashes on Linux are converted to forward slashes before component splitting and sealed test check.",
+          "testPath": "guard/actions.go"
+        },
+        {
+          "name": "arch-check-glob-caching",
+          "kind": "unit",
+          "oracle": "Arch-check assertions execute against a single pre-walked repository tree cache rather than walking the filesystem per glob assertion.",
+          "testPath": "guard/actions.go"
+        }
+      ]
+    },
+    {
+      "key": "T2-hook-portability",
+      "title": "Fix cross-platform hook portability, Antigravity payloads, and tool bootstrap",
+      "body": "Add jq dependency verification to bootstrap-tools.sh. Fix word-boundary regexes in build-guard to support BSD grep on macOS without bypassing rules. Expand build-format and build-lint to support Antigravity tool-call arguments. Ensure .git/info exists before writing to .git/info/exclude in project-bootstrap.sh.",
+      "labels": ["planning", "hooks", "portability"],
+      "dependsOn": [],
+      "ownershipHint": "scripts/",
+      "wave": 1,
+      "acceptanceTests": [
+        {
+          "name": "bootstrap-jq-dependency",
+          "kind": "unit",
+          "oracle": "scripts/bootstrap-tools.sh checks and installs jq via brew or apt.",
+          "testPath": "scripts/bootstrap-tools.sh"
+        },
+        {
+          "name": "build-guard-posix-grep",
+          "kind": "integration",
+          "oracle": "build-guard denies push and commit to main under POSIX/BSD grep without relying on PCRE \\b escapes.",
+          "testPath": "scripts/hooks/build-guard"
+        },
+        {
+          "name": "hooks-antigravity-payload",
+          "kind": "unit",
+          "oracle": "build-format and build-lint correctly extract filepath from Antigravity toolCall payload structures.",
+          "testPath": "scripts/hooks/build-format"
+        },
+        {
+          "name": "project-bootstrap-git-exclude",
+          "kind": "integration",
+          "oracle": "project-bootstrap.sh creates .git/info directory if missing before appending ignore patterns.",
+          "testPath": "scripts/project-bootstrap.sh"
+        }
+      ]
+    },
+    {
+      "key": "T3-skill-orchestration",
+      "title": "Add subprocess timeouts in GitHub reconciler, wave ownership overlap detection, and fix doc script paths",
+      "body": "Add default timeout to gh subprocess invocations in reconcile_github.py. Implement programmatic glob overlap detection in waves.py to prevent concurrent builder collisions. Correct all skill markdown files to reference explicit repository-relative script paths.",
+      "labels": ["planning", "skills", "orchestration"],
+      "dependsOn": ["T1-gate-hardening", "T2-hook-portability"],
+      "ownershipHint": "skills/",
+      "wave": 2,
+      "acceptanceTests": [
+        {
+          "name": "reconcile-gh-timeout",
+          "kind": "unit",
+          "oracle": "reconcile_github.py sets timeout=30 on subprocess.run calls and handles TimeoutExpired cleanly.",
+          "testPath": "skills/planner/scripts/reconcile_github.py"
+        },
+        {
+          "name": "wave-ownership-overlap-detection",
+          "kind": "unit",
+          "oracle": "waves.py identifies overlapping ownershipHint globs in the same wave and flags or serializes them.",
+          "testPath": "skills/build/scripts/waves.py"
+        },
+        {
+          "name": "skill-doc-relative-paths",
+          "kind": "integration",
+          "oracle": "All script commands in skills/*/SKILL.md reference valid, existing files relative to the repository root.",
+          "testPath": "skills/planner/SKILL.md"
+        }
+      ]
+    },
+    {
+      "key": "T4-agent-parity",
+      "title": "Align agent instructions across Claude, Codex, and Antigravity and wire Antigravity builder hooks",
+      "body": "Port missing Skills guidelines and role instructions from Claude agent definitions to Codex and Antigravity agents. Wire format, advisory lint, and tdd-guard hooks into agents/agy/builder/hooks.json.",
+      "labels": ["planning", "agents", "harness-parity"],
+      "dependsOn": ["T1-gate-hardening", "T2-hook-portability"],
+      "ownershipHint": "agents/",
+      "wave": 2,
+      "acceptanceTests": [
+        {
+          "name": "agent-skills-parity",
+          "kind": "unit",
+          "oracle": "agents/codex/docs.md and agents/agy/docs/agent.md include full skill guidance matching agents/claude/docs.md.",
+          "testPath": "agents/codex/docs.md"
+        },
+        {
+          "name": "antigravity-builder-hooks-json",
+          "kind": "unit",
+          "oracle": "agents/agy/builder/hooks.json defines valid PreToolUse and PostToolUse hook configurations for guard, format, and lint.",
+          "testPath": "agents/agy/builder/hooks.json"
+        }
+      ]
+    },
+    {
+      "key": "T5-docs-adr-ci",
+      "title": "Reconcile ADRs with centralized skills layout and add CI quality gates",
+      "body": "Update ADR-0001 or add ADR-0002 to reflect the centralized skills layout and cross-harness install strategy. Add CI workflow jobs for formatting (gofmt, ruff format), linting (golangci-lint, ruff check, shellcheck), and docs compliance (docs_check.py).",
+      "labels": ["planning", "documentation", "ci"],
+      "dependsOn": ["T3-skill-orchestration", "T4-agent-parity"],
+      "ownershipHint": "docs/",
+      "wave": 3,
+      "acceptanceTests": [
+        {
+          "name": "docs-check-adr-compliance",
+          "kind": "unit",
+          "oracle": "python3 skills/docs/scripts/docs_check.py passes with 0 errors across all docs/adr/ records.",
+          "testPath": "docs/adr/0001-agent-owned-skills.md"
+        },
+        {
+          "name": "ci-workflow-lint-steps",
+          "kind": "integration",
+          "oracle": ".github/workflows/ci.yml includes automated lint, format, and docs-check execution.",
+          "testPath": ".github/workflows/ci.yml"
+        }
+      ]
+    }
+  ]
+}
