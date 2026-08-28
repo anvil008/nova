@@ -70,6 +70,71 @@ class DocsCheckTests(unittest.TestCase):
         self.assertTrue(skill.startswith("---\nname: docs\n"))
         self.assertIn("docs_check", skill)
 
+    def test_agent_skills_parity(self):
+        # 1. Docs agents (claude, codex, agy) must contain 'grill-with-docs' skill
+        claude_docs = (ROOT.parents[1] / "agents" / "claude" / "docs.md").read_text(encoding="utf-8")
+        codex_docs = (ROOT.parents[1] / "agents" / "codex" / "docs.md").read_text(encoding="utf-8")
+        agy_docs = (ROOT.parents[1] / "agents" / "agy" / "docs" / "agent.md").read_text(encoding="utf-8")
+        
+        self.assertIn("grill-with-docs", claude_docs)
+        self.assertIn("grill-with-docs", codex_docs)
+        self.assertIn("grill-with-docs", agy_docs)
+
+        # 2. Research agents (claude, codex, agy) must contain 'read-the-damn-docs' and 'find-docs'
+        claude_res = (ROOT.parents[1] / "agents" / "claude" / "research.md").read_text(encoding="utf-8")
+        codex_res = (ROOT.parents[1] / "agents" / "codex" / "research.md").read_text(encoding="utf-8")
+        agy_res = (ROOT.parents[1] / "agents" / "agy" / "research" / "agent.md").read_text(encoding="utf-8")
+
+        self.assertIn("read-the-damn-docs", claude_res)
+        self.assertIn("find-docs", claude_res)
+        self.assertIn("read-the-damn-docs", codex_res)
+        self.assertIn("find-docs", codex_res)
+        self.assertIn("read-the-damn-docs", agy_res)
+        self.assertIn("find-docs", agy_res)
+
+    def test_antigravity_builder_hooks_json(self):
+        import json
+        hooks_file = ROOT.parents[1] / "agents" / "agy" / "builder" / "hooks.json"
+        self.assertTrue(hooks_file.exists())
+        with open(hooks_file, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        
+        self.assertIn("swarm-guard", cfg)
+        guard_cfg = cfg["swarm-guard"]
+        self.assertTrue(guard_cfg.get("enabled", False))
+        
+        self.assertIn("PreToolUse", guard_cfg)
+        self.assertIn("PostToolUse", guard_cfg)
+
+        pre_hooks = guard_cfg["PreToolUse"]
+        post_hooks = guard_cfg["PostToolUse"]
+
+        # Verify build-guard, build-format, build-lint and build-hooks are defined correctly
+        pre_matchers = {h.get("matcher"): h.get("hooks") for h in pre_hooks if "matcher" in h}
+        post_matchers = {h.get("matcher"): h.get("hooks") for h in post_hooks if "matcher" in h}
+
+        # 1. PreToolUse must contain run_command matching build-guard
+        self.assertIn("run_command", pre_matchers)
+        guard_hook_cmd = [hk.get("command") for hk in pre_matchers["run_command"] if hk.get("type") == "command"]
+        self.assertTrue(any("build-guard" in cmd for cmd in guard_hook_cmd))
+
+        # 2. PreToolUse must contain edit matcher matching build-hooks
+        edit_matcher = "write_to_file|replace_file_content|multi_replace_file_content"
+        self.assertIn(edit_matcher, pre_matchers)
+        edit_hook_cmd = [hk.get("command") for hk in pre_matchers[edit_matcher] if hk.get("type") == "command"]
+        self.assertTrue(any("build-hooks" in cmd and "PreToolUse" in cmd for cmd in edit_hook_cmd))
+
+        # 3. PostToolUse must contain run_command matcher matching build-hooks PostToolUse
+        self.assertIn("run_command", post_matchers)
+        cmd_hook_cmd = [hk.get("command") for hk in post_matchers["run_command"] if hk.get("type") == "command"]
+        self.assertTrue(any("build-hooks" in cmd and "PostToolUse" in cmd for cmd in cmd_hook_cmd))
+
+        # 4. PostToolUse must contain edit matcher matching build-format and build-lint
+        self.assertIn(edit_matcher, post_matchers)
+        edit_post_cmds = [hk.get("command") for hk in post_matchers[edit_matcher] if hk.get("type") == "command"]
+        self.assertTrue(any("build-format" in cmd for cmd in edit_post_cmds))
+        self.assertTrue(any("build-lint" in cmd for cmd in edit_post_cmds))
+
 
 if __name__ == "__main__":
     unittest.main()

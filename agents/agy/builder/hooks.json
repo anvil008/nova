@@ -11,6 +11,43 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/build-hooks agy PreToolUse",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/build-hooks agy PostToolUse",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/build-format agy",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "~/.local/bin/build-lint agy",
+            "timeout": 10
+          }
+        ]
       }
     ]
   }
