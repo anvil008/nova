@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "merge_research.py"
+RENDER = ROOT / "scripts" / "render_research.py"
 EXAMPLES = ROOT / "examples"
 AGENT = ROOT.parents[1] / "agents" / "claude" / "research.md"
 
@@ -116,6 +117,54 @@ class ResearchSkillTests(unittest.TestCase):
             "coverage", "gaps", "open questions", "primary agent", "owns synthesis",
         ):
             self.assertIn(phrase, skill)
+
+    def test_renders_packet_and_synthesis_to_self_contained_html(self):
+        packet = json.loads((EXAMPLES / "expected-packet.json").read_text(encoding="utf-8"))
+        synthesis = {
+            "verdict": "advisory",
+            "summary": "Retry default is consistent; docs lag <b>code</b> {{FINDINGS}}.",
+            "recommendations": [
+                {"priority": "low", "title": "Update docs", "detail": "Mention attempts=3.", "refs": ["F1-01"]}
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            packet_path = Path(tmp) / "packet.json"
+            synthesis_path = Path(tmp) / "synthesis.json"
+            output = Path(tmp) / "out" / "research.html"
+            packet_path.write_text(json.dumps(packet), encoding="utf-8")
+            synthesis_path.write_text(json.dumps(synthesis), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-B", str(RENDER), str(packet_path), str(output),
+                 "--synthesis", str(synthesis_path), "--title", "Sample", "--generated-at", "2026-01-01T00:00:00Z"],
+                cwd=ROOT, text=True, capture_output=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            html_text = output.read_text(encoding="utf-8")
+            self.assertIn('id="F1-01"', html_text)
+            self.assertIn('href="#F1-01"', html_text)
+            self.assertIn("&lt;b&gt;code&lt;/b&gt;", html_text)
+            self.assertIn("{{FINDINGS}}", html_text, "user text must not be re-substituted")
+            self.assertNotRegex(html_text, r"\{\{[A-Z_]+\}\}(?!\.)")
+            self.assertNotIn("<link", html_text)
+            self.assertNotIn("<script src", html_text)
+
+            bad = dict(synthesis, recommendations=[dict(synthesis["recommendations"][0], refs=["F9-99"])])
+            synthesis_path.write_text(json.dumps(bad), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-B", str(RENDER), str(packet_path), str(output), "--synthesis", str(synthesis_path)],
+                cwd=ROOT, text=True, capture_output=True,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unknown finding F9-99", result.stderr)
+
+            clean = dict(synthesis, verdict="clean")
+            synthesis_path.write_text(json.dumps(clean), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-B", str(RENDER), str(packet_path), str(output), "--synthesis", str(synthesis_path)],
+                cwd=ROOT, text=True, capture_output=True,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("clean verdict cannot carry recommendations", result.stderr)
 
 
 if __name__ == "__main__":
