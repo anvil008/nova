@@ -44,6 +44,20 @@ func runMain(t *testing.T, directory, stdin string, args ...string) invocation {
 	return invocation{code: command.ProcessState.ExitCode(), stdout: stdout.String(), stderr: stderr.String()}
 }
 
+func TestHelpExitsZeroWithBinaryName(t *testing.T) {
+	command := exec.Command(os.Args[0], "--help")
+	command.Args[0] = "tdd-guard"
+	command.Env = append(os.Environ(), reexecEnv+"=1")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tdd-guard --help: %v: %s", err, output)
+	}
+	firstLine := strings.SplitN(string(output), "\n", 2)[0]
+	if !strings.Contains(firstLine, "tdd-guard") {
+		t.Fatalf("help first line %q does not contain binary name", firstLine)
+	}
+}
+
 func newRepository(t *testing.T) string {
 	t.Helper()
 	repository := t.TempDir()

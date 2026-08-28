@@ -159,8 +159,13 @@ func ValidateDigest(value string) error {
 // traversal syntax while allowing the role names already used by Swarm.
 func ValidIdentifier(value string) bool {
 	if len(value) == 0 || len(value) > 128 || value[0] < 'A' || value[0] > 'z' ||
-		(value[0] > 'Z' && value[0] < 'a') {
+		(value[0] > 'Z' && value[0] < 'a') || strings.HasPrefix(value, "/") {
 		return false
+	}
+	for _, segment := range strings.Split(value, "/") {
+		if segment == ".." {
+			return false
+		}
 	}
 	for _, character := range value {
 		switch {

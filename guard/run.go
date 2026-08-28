@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
 
-const usage = `usage: anvil-guard <command> [options]
+const usageCommands = `<command> [options]
 
   seal --tests <globs|paths> --red-command <argv...>
   verify --green-command <argv...> [--coverage-command <argv...>] [--min-coverage <float>]
@@ -19,6 +20,10 @@ const usage = `usage: anvil-guard <command> [options]
   arch-check --assertions <file>
   hook --harness claude|codex|agy --event PreToolUse|PostToolUse|Stop|SubagentStop
   status [--json]`
+
+func usage() string {
+	return "usage: " + filepath.Base(os.Args[0]) + " " + usageCommands
+}
 
 // Options carries the process boundary so every command is directly testable.
 type Options struct {
@@ -41,8 +46,12 @@ func Run(options Options, args []string) int {
 		options.Dir, _ = os.Getwd()
 	}
 	if len(args) == 0 {
-		fmt.Fprintln(options.Stderr, usage)
+		fmt.Fprintln(options.Stderr, usage())
 		return 1
+	}
+	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
+		fmt.Fprintln(options.Stdout, usage())
+		return 0
 	}
 	code, err := dispatch(options, args)
 	if err != nil {
@@ -136,7 +145,7 @@ func dispatch(options Options, args []string) (int, error) {
 		fmt.Fprintln(options.Stdout, string(encoded))
 		return 0, nil
 	default:
-		fmt.Fprintln(options.Stderr, usage)
+		fmt.Fprintln(options.Stderr, usage())
 		return 1, fmt.Errorf("unknown command %q", command)
 	}
 }
