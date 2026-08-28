@@ -131,18 +131,18 @@ type ArchReview struct {
 
 // Status is the machine-readable state the orchestrator reconciles.
 type Status struct {
-	APIVersion   string                        `json:"apiVersion"`
-	Repository   string                        `json:"repository"`
-	StateDir     string                        `json:"stateDir"`
-	Sealed       bool                          `json:"sealed"`
-	Seal         *Seal                         `json:"seal,omitempty"`
-	Green        *Green                        `json:"green,omitempty"`
-	DiffReview   *DiffReview                   `json:"diffReview,omitempty"`
-	ArchReview   *ArchReview                   `json:"archReview,omitempty"`
-	ChangedTests []string                      `json:"changedTests"`
-	DiffStale    bool                          `json:"diffStale"`
-	ArchStale    bool                          `json:"archStale"`
-	Ready        bool                          `json:"ready"`
+	APIVersion   string      `json:"apiVersion"`
+	Repository   string      `json:"repository"`
+	StateDir     string      `json:"stateDir"`
+	Sealed       bool        `json:"sealed"`
+	Seal         *Seal       `json:"seal,omitempty"`
+	Green        *Green      `json:"green,omitempty"`
+	DiffReview   *DiffReview `json:"diffReview,omitempty"`
+	ArchReview   *ArchReview `json:"archReview,omitempty"`
+	ChangedTests []string    `json:"changedTests"`
+	DiffStale    bool        `json:"diffStale"`
+	ArchStale    bool        `json:"archStale"`
+	Ready        bool        `json:"ready"`
 	// Records is the stable list of runs anvil-guard itself performed. It is
 	// what the control plane resolves an agent-cited commandId against.
 	Records []controlplane.GuardRecord `json:"records"`

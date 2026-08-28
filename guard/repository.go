@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -26,6 +27,8 @@ import (
 var skippedDirectories = map[string]struct{}{
 	".git": {}, ".jj": {}, "node_modules": {},
 }
+
+var filepathWalkDir = filepath.WalkDir
 
 // runArgv executes one command as an argv array, never through a shell, and
 // returns bounded proof of what it did.
@@ -159,7 +162,7 @@ func aggregateArchEvidence(runs []controlplane.CommandEvidence, allPassed bool) 
 // trees. It is how a pathGlob is scoped to concrete files before ast-grep runs.
 func filesMatchingGlob(repository, glob string) ([]string, error) {
 	matched := make([]string, 0)
-	walkErr := filepath.WalkDir(repository, func(current string, entry fs.DirEntry, err error) error {
+	walkErr := filepathWalkDir(repository, func(current string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -287,18 +290,13 @@ func workingDiff(repository string) ([]byte, error) {
 		if name == "" {
 			continue
 		}
-		content, err := os.ReadFile(filepath.Join(repository, filepath.FromSlash(name)))
+		digest, err := digestFileStreaming(filepath.Join(repository, filepath.FromSlash(name)))
 		if err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				return nil, err
-			}
-			// A listed path that no longer resolves is itself part of the state
-			// under review, so it stays in the digest as an empty content.
-			content = nil
+			return nil, err
 		}
 		combined = append(combined, name...)
 		combined = append(combined, 0)
-		combined = append(combined, digestBytes(content)...)
+		combined = append(combined, digest...)
 		combined = append(combined, 0)
 	}
 	return combined, nil
@@ -336,7 +334,7 @@ func configuredPatterns(repository string) ([]string, error) {
 // collectTests digests every repository file matching any pattern.
 func collectTests(repository string, patterns []string) ([]TestDigest, error) {
 	matched := make(map[string]struct{})
-	walkErr := filepath.WalkDir(repository, func(current string, entry fs.DirEntry, err error) error {
+	walkErr := filepathWalkDir(repository, func(current string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -411,4 +409,68 @@ func matchSegments(pattern, name []string) bool {
 		pattern, name = pattern[1:], name[1:]
 	}
 	return len(name) == 0
+}
+
+func digestFileStreaming(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return digestBytes(nil), nil
+		}
+		return "", err
+	}
+	defer file.Close()
+
+	const maxBytes = 10 * 1024 * 1024
+	reader := io.LimitReader(file, maxBytes)
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, reader); err != nil {
+		return "", err
+	}
+	sum := hasher.Sum(nil)
+	return controlplane.CanonicalDigestPrefix + hex.EncodeToString(sum), nil
+}
+
+// repositoryFilesWalk walks the repository once and returns all regular files,
+// skipping skippedDirectories.
+func repositoryFilesWalk(repository string) ([]string, error) {
+	files := make([]string, 0)
+	walkErr := filepathWalkDir(repository, func(current string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if _, skip := skippedDirectories[entry.Name()]; skip && current != repository {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		relative, err := filepath.Rel(repository, current)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		files = append(files, relative)
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
+	}
+	return files, nil
+}
+
+// matchGlobCached filters the cached files by glob.
+func matchGlobCached(cachedFiles []string, glob string) []string {
+	matched := make([]string, 0)
+	for _, relative := range cachedFiles {
+		if matchTestPattern(glob, relative) {
+			matched = append(matched, filepath.FromSlash(relative))
+		}
+	}
+	sort.Strings(matched)
+	return matched
 }

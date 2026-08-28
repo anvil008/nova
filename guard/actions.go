@@ -262,13 +262,20 @@ func archCheck(loaded *state, assertionsPath string, stderr io.Writer) (int, err
 	runs := make([]controlplane.CommandEvidence, 0, len(document.Assertions))
 	allPassed := true
 	violations := make([]string, 0)
+	var cachedFiles []string
+	var walkErr error
+	hasWalked := false
 	for _, assertion := range document.Assertions {
 		paths := []string{"."}
 		if strings.TrimSpace(assertion.PathGlob) != "" {
-			paths, err = filesMatchingGlob(loaded.repository, assertion.PathGlob)
-			if err != nil {
-				return 1, err
+			if !hasWalked {
+				cachedFiles, walkErr = repositoryFilesWalk(loaded.repository)
+				if walkErr != nil {
+					return 1, walkErr
+				}
+				hasWalked = true
 			}
+			paths = matchGlobCached(cachedFiles, assertion.PathGlob)
 		}
 		count := 0
 		if len(paths) > 0 {
@@ -412,6 +419,7 @@ func status(loaded *state) (Status, error) {
 // records.
 func isSealedTestPath(loaded *state, workingDirectory, candidate string) bool {
 	candidate = strings.TrimSpace(candidate)
+	candidate = strings.ReplaceAll(candidate, "\\", "/")
 	if candidate == "" {
 		return false
 	}
@@ -498,6 +506,7 @@ func resolveSymlinks(absolute string) string {
 }
 
 func pathComponents(pathname string) []string {
+	pathname = strings.ReplaceAll(pathname, "\\", "/")
 	parts := strings.Split(filepath.ToSlash(pathname), "/")
 	components := make([]string, 0, len(parts))
 	for _, part := range parts {
