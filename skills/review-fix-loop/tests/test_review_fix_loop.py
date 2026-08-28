@@ -159,6 +159,47 @@ class ReviewFixLoopTests(unittest.TestCase):
         ):
             self.assertIn(phrase, skill)
 
+    def test_nit_only_review_converges_at_medium_threshold(self):
+        """Findings below --min-severity are reported but never block convergence."""
+        run(self.state, "init", "--min-severity", "medium")
+        source = self.write_review("nits.json", review(
+            [finding("trailing space", severity="nit"), finding("rename", severity="nit")],
+            verdict="approve-with-nits",
+        ))
+        result = run(self.state, "record", source)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output["status"], "converged")
+        self.assertFalse(output["continue"])
+        self.assertEqual(output["latest"]["findings"], 2)
+        self.assertEqual(output["latest"]["blocking"], 0)
+        self.assertEqual(output["minSeverity"], "medium")
+
+    def test_findings_at_threshold_still_block(self):
+        run(self.state, "init", "--min-severity", "medium")
+        source = self.write_review("m.json", review(
+            [finding("real", severity="medium"), finding("tidy", severity="low")],
+        ))
+        output = json.loads(run(self.state, "record", source).stdout)
+        self.assertEqual(output["status"], "running")
+        self.assertEqual(output["latest"]["blocking"], 1)
+
+    def test_invalid_min_severity_is_rejected(self):
+        result = run(self.state, "init", "--min-severity", "bogus")
+        self.assertNotEqual(result.returncode, 0)
+        for value in ("critical", "high", "medium", "low", "nit"):
+            self.assertIn(value, result.stderr)
+        self.assertFalse(self.state.exists())
+
+    def test_skill_states_driver_requirement_and_uses_jj_branching(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("/loop", skill)
+        self.assertIn("Claude Code", skill)
+        self.assertRegex(skill, r"(?i)manual")
+        self.assertNotIn("git switch -c", skill)
+        self.assertNotIn("/tmp", skill)
+        self.assertIn("--min-severity", skill)
+
 
 if __name__ == "__main__":
     unittest.main()
