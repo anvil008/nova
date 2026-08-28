@@ -54,6 +54,14 @@ need gh      "$(pick brew:gh apt:gh)"                                    "GitHub
 
 echo
 echo "== build the tdd-guard gate =="
+if [[ -e $ROOT/bin/anvil-guard || -L $ROOT/bin/anvil-guard ]]; then
+  if ((install)); then
+    rm -f "$ROOT/bin/anvil-guard"
+    echo "  removed orphaned $ROOT/bin/anvil-guard (the supported artifact is tdd-guard)"
+  else
+    echo "  orphaned $ROOT/bin/anvil-guard is present; --install removes it"
+  fi
+fi
 if ! ((install)); then
   echo "  would build ~/.local/bin/tdd-guard + build-hooks (run with --install)"
 elif have go; then
