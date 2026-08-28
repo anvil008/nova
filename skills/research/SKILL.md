@@ -18,7 +18,7 @@ Spawn one read-only `research` agent per area, in parallel. Each agent is blind 
 Collect the per-area envelopes and merge them without dropping evidence:
 
 1. Deduplicate findings by `(area, source, finding)`; group the survivors by area.
-2. Surface conflicts: when one `topic` carries more than one `position` across areas, report it as a conflict **without dropping** either finding.
+2. Surface conflicts: a finding may carry an optional `stance` of `supports`, `contradicts`, or `neutral` (the default) toward its `topic`. A topic is a conflict only when at least one of its findings is `contradicts`; distinct wording of a `position` is not disagreement. Report the conflict with every position on that topic **without dropping** any finding.
 3. Assess coverage: report any declared area with no report as a missing area, roll up each area's gaps and open questions, and mark the packet incomplete when an area is missing.
 
 `skills/research/scripts/merge_research.py` performs this deterministically over captured per-area fixtures:
