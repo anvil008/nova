@@ -20,7 +20,7 @@ The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-
 
 ## Merge and adversarial verification
 
-1. Collect the per-lens JSON files and deduplicate by `(file, line, claim)`. `scripts/merge_findings.py --dedupe-only` chooses the representative by highest severity, highest confidence, then lexicographically smallest `(lens, failureScenario)`. This full tie-break is independent of parallel collection order; the helper then ranks candidates deterministically.
+1. Collect the per-lens JSON files and deduplicate by `(file, line, claim)`. `skills/code-review/scripts/merge_findings.py --dedupe-only` chooses the representative by highest severity, highest confidence, then lexicographically smallest `(lens, failureScenario)`. This full tie-break is independent of parallel collection order; the helper then ranks candidates deterministically.
 2. Run an independent adversarial verification of every surviving candidate. Use a fresh read-only reviewer that did not originate the candidate, assign its lens and exact claim, and require a skeptic pass that tries to refute it against the code and concrete failure scenario.
 3. Record one verification per candidate with `substantiated`, `refutationAttempt`, and `evidence`. Run the helper again with `--verification`. DROP every finding that the independent pass cannot substantiate; missing, duplicate, or extra verification records are errors.
 
@@ -35,6 +35,6 @@ Return the verified findings ranked by severity and the verdict: `block` / `appr
 These commands read local fixtures only and have no GitHub or subagent side effects:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/merge_findings.py --dedupe-only examples/correctness.json examples/tests.json examples/security.json
-PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/merge_findings.py --verification examples/verification.json examples/correctness.json examples/tests.json examples/security.json
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/merge_findings.py --dedupe-only skills/code-review/examples/correctness.json skills/code-review/examples/tests.json skills/code-review/examples/security.json
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/merge_findings.py --verification skills/code-review/examples/verification.json skills/code-review/examples/correctness.json skills/code-review/examples/tests.json skills/code-review/examples/security.json
 ```

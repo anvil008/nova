@@ -21,10 +21,10 @@ Collect the per-area envelopes and merge them without dropping evidence:
 2. Surface conflicts: when one `topic` carries more than one `position` across areas, report it as a conflict **without dropping** either finding.
 3. Assess coverage: report any declared area with no report as a missing area, roll up each area's gaps and open questions, and mark the packet incomplete when an area is missing.
 
-`scripts/merge_research.py` performs this deterministically over captured per-area fixtures:
+`skills/research/scripts/merge_research.py` performs this deterministically over captured per-area fixtures:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/merge_research.py examples/areas.json examples/code.json examples/docs.json examples/runtime.json
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/merge_research.py skills/research/examples/areas.json skills/research/examples/code.json skills/research/examples/docs.json skills/research/examples/runtime.json
 ```
 
 ## Report

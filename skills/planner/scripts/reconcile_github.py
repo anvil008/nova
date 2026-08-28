@@ -22,14 +22,22 @@ ISSUE_MARKER_RE = re.compile(
 )
 
 
-def gh_json(args: list[str], *, payload: dict | None = None) -> object:
+class ReconcileError(PlanError):
+    pass
+
+
+def gh_json(args: list[str], *, payload: dict | None = None, timeout: float = 30) -> object:
     command = ["gh", "api", *args]
-    result = subprocess.run(
-        command,
-        input=json.dumps(payload) if payload is not None else None,
-        text=True,
-        capture_output=True,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            input=json.dumps(payload) if payload is not None else None,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise ReconcileError(f"GitHub API call timed out after {timeout} seconds: {' '.join(command)}") from error
     if result.returncode:
         raise PlanError(f"{' '.join(command)} failed: {result.stderr.strip()}")
     try:
@@ -230,7 +238,7 @@ def main() -> int:
             output["approvedBy"] = args.approved_by
             output["receipts"] = apply_actions(plan["repo"], actions)
         print(json.dumps(output, indent=2, sort_keys=True))
-    except (OSError, json.JSONDecodeError, PlanError) as error:
+    except (OSError, json.JSONDecodeError, PlanError, ReconcileError) as error:
         print(f"planner reconcile error: {error}", file=sys.stderr)
         return 1
     return 0

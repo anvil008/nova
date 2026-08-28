@@ -112,8 +112,61 @@ def is_done(issue: dict) -> bool:
     return issue["state"] == "closed" or "status:done" in issue["labels"]
 
 
+def generate_witnesses(glob_pattern: str) -> list[str]:
+    parts = glob_pattern.split("/")
+    results = []
+    def builder(idx: int, current_path_parts: list[str]):
+        if idx == len(parts):
+            path_str = "/".join(p for p in current_path_parts if p)
+            if path_str:
+                results.append(path_str)
+            else:
+                results.append(".")
+            return
+        part = parts[idx]
+        if part == "**":
+            builder(idx + 1, current_path_parts)
+            builder(idx + 1, current_path_parts + ["sub"])
+            builder(idx + 1, current_path_parts + ["sub", "sub2"])
+        else:
+            p = part.replace("*", "file").replace("?", "a")
+            p = re.sub(r"\[[^\]]+\]", "a", p)
+            builder(idx + 1, current_path_parts + [p])
+    builder(0, [])
+    return list(set(results))
+
+
+def globs_overlap(g1: str, g2: str) -> bool:
+    from pathlib import PurePath
+    for w in generate_witnesses(g1):
+        if PurePath(w).match(g2):
+            return True
+    for w in generate_witnesses(g2):
+        if PurePath(w).match(g1):
+            return True
+    return False
+
+
+def validate_ownership_overlap(plan: dict) -> None:
+    waves_dict = {}
+    for issue in plan["issues"]:
+        waves_dict.setdefault(issue["wave"], []).append(issue)
+    for wave, issues in waves_dict.items():
+        for i in range(len(issues)):
+            for j in range(i + 1, len(issues)):
+                issue1 = issues[i]
+                issue2 = issues[j]
+                h1 = issue1.get("ownershipHint")
+                h2 = issue2.get("ownershipHint")
+                if h1 and h2 and globs_overlap(h1, h2):
+                    msg = f"Parallel issues '{issue1['key']}' and '{issue2['key']}' in wave {wave} have overlapping ownershipHint paths: '{h1}' and '{h2}'"
+                    print(f"Warning: {msg}", file=sys.stderr)
+                    raise BuildError(msg)
+
+
 def derive(plan: dict, snapshot: dict[str, dict]) -> dict:
     validate_acyclic(plan)
+    validate_ownership_overlap(plan)
     planned = {issue["key"]: issue for issue in plan["issues"]}
     required = set(planned)
     required.update(dependency for issue in plan["issues"] for dependency in issue["dependsOn"])
