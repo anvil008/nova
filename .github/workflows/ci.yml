@@ -16,12 +16,18 @@ jobs:
       - run: go mod tidy
       - run: git diff --exit-code -- go.mod go.sum
       - run: go build ./...
-      - run: go vet ./...
-      - run: go test -count=1 ./...
-      - name: v3 skill tests + docs-check
-        run: |
-          for t in planner build research code-review docs; do
-            python3 -B skills/$t/tests/test_${t//-/_}.py
-          done
-      - name: builder aux-hook tests (format / lint / guard)
+      - name: Go vet
+        run: go vet ./...
+      - name: Go tests
+        run: go test -v ./...
+      - name: Hook tests
         run: bash scripts/hooks/tests/test_hooks.sh
+      - name: Skill unit tests
+        run: |
+          python3 -m unittest discover -s skills/planner/tests -p "test_*.py"
+          python3 -m unittest discover -s skills/build/tests -p "test_*.py"
+          python3 -m unittest discover -s skills/code-review/tests -p "test_*.py"
+          python3 -m unittest discover -s skills/docs/tests -p "test_*.py"
+          python3 -m unittest discover -s skills/research/tests -p "test_*.py"
+      - name: Docs check
+        run: python3 skills/docs/scripts/docs_check.py .
