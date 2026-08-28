@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# build-lint — advisory lint of the file the builder just wrote.
+# Wired as a Claude PostToolUse hook on Edit|Write|MultiEdit|NotebookEdit.
+# NEVER blocks: findings are injected back into the agent's context via
+# additionalContext so it self-corrects on the next turn. Fast single-file linters
+# only (kept instant) — whole-project type-checks belong on Stop, not here.
+set -uo pipefail
+f=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // .tool_response.filePath // empty' 2>/dev/null)
+[[ -n ${f:-} && -f $f ]] || exit 0
+out=""
+case "$f" in
+  *.py)         command -v ruff       >/dev/null 2>&1 && out=$(ruff check "$f" 2>&1 || true) ;;
+  *.sh|*.bash)  command -v shellcheck >/dev/null 2>&1 && out=$(shellcheck -f gcc "$f" 2>&1 || true) ;;
+  *.ts|*.tsx|*.js|*.jsx)
+                if command -v eslint >/dev/null 2>&1 && ls .eslintrc* eslint.config.* >/dev/null 2>&1; then
+                  out=$(eslint "$f" 2>&1 || true); fi ;;
+esac
+[[ -n ${out//[[:space:]]/} ]] || exit 0
+jq -n --arg c "build-lint · $f"$'\n'"$out" \
+  '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$c}}'

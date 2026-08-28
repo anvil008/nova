@@ -67,13 +67,26 @@ else
 fi
 
 echo
+echo "== builder aux hooks (format / lint / guard) =="
+if ! ((install)); then
+  echo "  would install ~/.local/bin/build-{format,lint,guard} (run with --install)"
+else
+  install -m755 "$ROOT"/scripts/hooks/build-format "$ROOT"/scripts/hooks/build-lint \
+                "$ROOT"/scripts/hooks/build-guard "$HOME/.local/bin/" \
+    && echo "  installed ~/.local/bin/build-{format,lint,guard}"
+fi
+
+echo
 echo "== optional (language servers + linters; capability-aware, not required) =="
 need gopls "go install golang.org/x/tools/gopls@latest" "Go LSP"
 need rust-analyzer "rustup component add rust-analyzer" "Rust LSP"
 need pyright "$(pick npm:pyright)" "Python type-check + LSP"
 need typescript-language-server "$(pick npm:'typescript typescript-language-server')" "TS/JS LSP"
-need ruff "$(pick uv:ruff pipx:ruff)" "Python lint / format"
-need shellcheck "$(pick brew:shellcheck apt:shellcheck)" "shell script check"
+need ruff "$(pick uv:ruff pipx:ruff)" "Python lint / format (build-format + build-lint)"
+need shellcheck "$(pick brew:shellcheck apt:shellcheck)" "shell script check (build-lint)"
+need goimports "go install golang.org/x/tools/cmd/goimports@latest" "Go import-aware format (build-format)"
+need prettier "$(pick npm:prettier)" "JS/TS/JSON/MD format (build-format)"
+need eslint "$(pick npm:eslint)" "JS/TS lint (build-lint)"
 
 echo
 echo "Next: install the agents + skills into your harness(es) — symlink"

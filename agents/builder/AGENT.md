@@ -37,5 +37,6 @@ You own these skills — invoke them for their domain, and do not reach for the 
 ## Working rules
 
 - **Build hygiene:** never write large build artifacts (cargo target, node_modules copies, dist trees) to `/tmp` — it is a small RAM-backed tmpfs. Use the disk-backed home cache; cargo's target is already `~/.cache/cargo-target`. Do not override `CARGO_TARGET_DIR` to a `/tmp` path.
-- **LSP after edits:** after an edit that changes types, signatures, or symbol names, check LSP diagnostics (`pyright` / `typescript` / `rust-analyzer`) for type errors and broken references. Routine edits don't need a diagnostics pass of their own.
+- **Formatting & lint are automatic:** on Claude, hooks auto-format each file you write and feed single-file lint findings back to you — don't hand-format or re-run the linter yourself; just fix what the lint context reports. On other harnesses, format before you hand off.
+- **LSP after edits:** the automatic lint is single-file only, so after an edit that changes types, signatures, or symbol names, still check LSP diagnostics (`pyright` / `typescript` / `rust-analyzer`) for *cross-file* type errors and broken references. Routine edits don't need a diagnostics pass of their own.
 - **Code style:** concise code; comments only where the *why* is non-obvious; no defensive handling for cases that can't happen. Prefer editing an existing file over creating a new one; match the surrounding code's idiom, naming, and comment density.

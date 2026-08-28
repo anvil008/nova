@@ -17,8 +17,11 @@ Lifecycle: **docs** (standardize + ADRs + docs-check), **deploy** (human-gated s
 Plus **use-other-harness** — an explicit headless run in another harness.
 
 ## Mechanical gates
-- **tdd-guard** (`cmd/tdd-guard`) — test-first for code: seal a failing test → implement → verify green → diff-review. Enforced on the builder via `build-hooks`.
+- **tdd-guard** (`cmd/tdd-guard`) — test-first for code: seal a failing test → implement → verify green → diff-review. Enforced on the builder via `build-hooks` (blocking).
+- **build-format / build-lint / build-guard** (`scripts/hooks/`) — builder PostToolUse/PreToolUse hooks: auto-format the file just written, feed single-file lint findings back into context (advisory, non-blocking), and deny main-branch pushes / `/tmp` build artifacts. Per-agent on Claude (builder frontmatter) and, for build-guard, on Antigravity via a co-located `~/.gemini/config/agents/builder/hooks.json` (`decision:"deny"`); the scripts are harness-aware (`build-guard claude|agy`).
 - **docs-check** (`skills/docs/scripts/docs_check.py`) — instruction-file budget + ADR format.
+
+Ready a project folder (detect stack, ensure the hook tools, optionally wire the advisory gates for single-agent / benchmark runs) with `scripts/project-bootstrap.sh [--install] [--with-hooks] [DIR]`.
 
 ## Flagship workflow
 planner → **you approve** → GitHub issues (milestone) → parallel builders → review →

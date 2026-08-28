@@ -23,3 +23,5 @@ jobs:
           for t in planner build research code-review docs; do
             python3 -B skills/$t/tests/test_${t//-/_}.py
           done
+      - name: builder aux-hook tests (format / lint / guard)
+        run: bash scripts/hooks/tests/test_hooks.sh

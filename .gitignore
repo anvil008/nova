@@ -5,3 +5,6 @@ bin/
 .agents/
 skills-lock.json
 .anvil/
+__pycache__/
+*.pyc
+dist/

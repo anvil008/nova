@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# build-guard — block forbidden shell commands for the builder. PreToolUse, blocking.
+# Harness-aware: reads the command and emits the deny verdict in each harness's own shape.
+#   claude: stdin .tool_input.command      -> {hookSpecificOutput:{permissionDecision:"deny",...}}
+#   agy:    stdin .toolCall.args.CommandLine -> {decision:"deny",reason:...}   (Antigravity contract)
+# Denies only unambiguous POLICY violations the permission classifier doesn't cover; silent (allow)
+# otherwise. Deliberately narrow to avoid false positives that would break a benchmark task.
+set -uo pipefail
+harness="${1:-claude}"
+case "$harness" in
+  agy)  cmd=$(jq -r '.toolCall.args.CommandLine // .toolCall.args.command // empty' 2>/dev/null)
+        deny(){ jq -n --arg r "$1" '{decision:"deny",reason:$r}'; exit 0; } ;;
+  *)    cmd=$(jq -r '.tool_input.command // empty' 2>/dev/null)
+        deny(){ jq -n --arg r "$1" \
+          '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; } ;;
+esac
+[[ -n ${cmd:-} ]] || exit 0
+re(){ printf '%s' "$cmd" | grep -Eq "$1"; }
+# the builder owns an issue branch and must never touch main
+re '\bgit\b.*\bpush\b.*\bmain\b'           && deny "builder must not push to main — push your issue branch instead"
+re '\bgit\b.*\b(commit|merge)\b.*\bmain\b' && deny "builder must not commit/merge into main"
+# /tmp is a small RAM-backed tmpfs here — never park build artifacts there
+re 'CARGO_TARGET_DIR=[[:space:]]*/tmp'     && deny "don't point CARGO_TARGET_DIR at /tmp (RAM tmpfs) — use ~/.cache/cargo-target"
+re '\-\-target-dir[= ][[:space:]]*/tmp/'   && deny "don't write cargo artifacts under /tmp (RAM tmpfs)"
+exit 0

@@ -79,8 +79,19 @@ if want("claude") and (HOME/".claude/agents").exists():
     dst = HOME/".claude/agents/builder.md"
     if MODE == "install":
         fm, body = parts("builder")
-        hooks = {ev:[{**({"matcher":m} if m else {}), "hooks":[{"type":"command","command":f"/home/anvil/.local/bin/build-hooks claude {ev}"}]}]
-                 for ev,m in [("PreToolUse","Edit|Write|MultiEdit|NotebookEdit"),("PostToolUse","Bash"),("Stop",""),("SubagentStop","")]}
+        BIN=f"{HOME}/.local/bin"; edits="Edit|Write|MultiEdit|NotebookEdit"
+        spec = [                                                              # (event, matcher, [commands])
+            ("PreToolUse",   edits,  [f"{BIN}/build-hooks claude PreToolUse"]),   # tdd-guard seal gate
+            ("PreToolUse",   "Bash", [f"{BIN}/build-guard claude"]),             # block main-branch / tmp-artifact commands
+            ("PostToolUse",  "Bash", [f"{BIN}/build-hooks claude PostToolUse"]),  # tdd-guard captures test runs
+            ("PostToolUse",  edits,  [f"{BIN}/build-format claude", f"{BIN}/build-lint claude"]),  # auto-format + advisory lint
+            ("Stop",         "",     [f"{BIN}/build-hooks claude Stop"]),
+            ("SubagentStop", "",     [f"{BIN}/build-hooks claude SubagentStop"]),
+        ]
+        hooks = {}
+        for ev,m,cmds in spec:
+            hooks.setdefault(ev, []).append({**({"matcher":m} if m else {}),
+                                             "hooks":[{"type":"command","command":c} for c in cmds]})
         dst.write_text(f"---\nname: builder\ndescription: {fm['description']}\ntools: {fm['tools']}\nhooks: {json.dumps(hooks)}\n---\n\n{body}\n")
     elif dst.exists(): dst.unlink()
 
@@ -113,8 +124,15 @@ if want("agy") and (HOME/".gemini/config/agents").exists():
             (d/"agent.md").write_text("---\n"f"name: {n}\n"f'description: "{fm["description"]}"\n'"tools:\n"
                 + "".join(f"  - {t}\n" for t in tools)
                 + 'mainAgent: true\nsubagent: true\nmodel: "gemini-3.7-flash-high"\ncommandExecutionPolicy: sandbox\n---\n\n'+body+"\n")
+            # per-agent hook: Antigravity scopes hooks by co-locating hooks.json in the agent's dir
+            # (.../agents/<n>/hooks.json). Give the builder the same policy guard as on Claude.
+            if n == "builder":
+                (d/"hooks.json").write_text(json.dumps({"swarm-guard": {"enabled": True, "PreToolUse": [
+                    {"matcher": "run_command", "hooks": [
+                        {"type": "command", "command": f"{HOME}/.local/bin/build-guard agy", "timeout": 10}]}]}}, indent=2) + "\n")
         else:
             (d/"agent.md").unlink(missing_ok=True)
+            (d/"hooks.json").unlink(missing_ok=True)
             try: d.rmdir()
             except OSError: pass
 print("agent projections", MODE + "ed")
