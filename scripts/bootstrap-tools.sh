@@ -7,9 +7,12 @@
 #   scripts/bootstrap-tools.sh --install  # install what is missing (best effort)
 #
 # Installs are best effort: they use the first of brew / apt / cargo / npm / uv
-# that is present, else print a manual hint. Only an apt fallback needs sudo.
-set -uo pipefail
+# that is present, else print a manual hint. Only an apt fallback needs sudo, and
+# it runs in the foreground so the prompt is visible (skipped without a terminal).
+set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+. "$ROOT/scripts/lib.sh"
 install=0; [[ ${1:-} == "--install" ]] && install=1
 have(){ command -v "$1" >/dev/null 2>&1; }
 mkdir -p "$HOME/.local/bin"
@@ -36,7 +39,7 @@ need(){ # name | install-cmd | purpose | required(0/1)
   report "$n" && return 0
   printf '         %s%s\n' "$why" "$( ((req)) && echo '  [required]' )"
   if [[ -z $cmd ]]; then printf '         install it manually for your OS\n'
-  elif ((install)); then printf '         + %s\n' "$cmd"; eval "$cmd" || printf '         (failed — install manually)\n'
+  elif ((install)); then printf '         + %s\n' "$cmd"; run_install "$cmd" || printf '         (failed — install manually)\n'
   else printf '         install: %s\n' "$cmd"; fi
 }
 
@@ -57,9 +60,9 @@ elif have go; then
   # The binary is a build artifact, so it is built into the repo's gitignored
   # bin/ and linked — same rule as everything else: the repo is the source.
   mkdir -p "$ROOT/bin" "$HOME/.local/bin"
-  ( cd "$ROOT" && go build -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) \
-    && ln -sfn "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard" \
-    && echo "  built $ROOT/bin/tdd-guard -> ~/.local/bin/tdd-guard"
+  ( cd "$ROOT" && go build -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) || die "go build ./cmd/tdd-guard failed"
+  link_owned "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard" || die "could not link tdd-guard into ~/.local/bin"
+  echo "  built $ROOT/bin/tdd-guard -> ~/.local/bin/tdd-guard"
 else
   echo "  skipped — install Go, then re-run"
 fi
@@ -72,7 +75,7 @@ else
   # Symlinked, not copied: editing scripts/hooks/* takes effect immediately.
   mkdir -p "$HOME/.local/bin"
   for h in build-hooks build-format build-lint build-guard; do
-    ln -sfn "$ROOT/scripts/hooks/$h" "$HOME/.local/bin/$h"
+    link_owned "$ROOT/scripts/hooks/$h" "$HOME/.local/bin/$h" || die "could not link $h into ~/.local/bin"
   done
   echo "  linked ~/.local/bin/build-{hooks,format,lint,guard} -> scripts/hooks/"
 fi
@@ -93,4 +96,4 @@ echo
 echo "Next: install the agents + skills into your harness(es) via:"
 echo "  scripts/install-harness.sh --install"
 echo "Agents are organized under agents/{claude,codex,agy} and deployed to ~/.claude,"
-echo "~/.codex, and ~/.gemini/config/agents. See README.md."
+echo "\$HOME/.codex, and \$HOME/.gemini/config/agents. See README.md."
