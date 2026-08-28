@@ -1,210 +1,194 @@
 {
-  "planId": "swarm-coder-hardening-and-dx",
-  "planName": "Hardening, Portability, and DX Improvements for Swarm Coder",
+  "planId": "harness-gate-integrity",
+  "planName": "Harness Gate Integrity and Cross-Harness Parity",
   "repo": "anvil008/swarm-coder",
-  "generatedAt": "2026-08-28T04:47:00Z",
-  "summary": "Harden Go mechanical enforcement gates against OOM and path bypasses, ensure cross-platform hook portability across macOS and Linux, achieve multi-harness agent instruction parity, add subprocess timeouts and ownership overlap validation to Python orchestration skills, and establish CI quality gates.",
+  "generatedAt": "2026-08-28T19:35:00Z",
+  "summary": "Act on the 2026-08-28 harness research packet (docs/research/research01-20260828-agentic-harness-review.html). The harness runs green everywhere; the defects are in what the gates guarantee. Decisions taken with the human: build-guard becomes a hard boundary (fail closed, bypass set covered); tdd-guard binds the green command to the sealed red command by argv digest; the four dangling skill references (read-the-damn-docs, find-docs, grill-with-docs, full-output-enforcement) are dropped rather than authored; the unused controlplane contract surface is kept and covered by tests. Wave 1 carries eight independent tracks with disjoint ownership; wave 2 lands the follow-ons that touch the same files (guard blind spots, CI wiring, documentation) once wave 1 behaviour is final.",
   "architecture": {
     "components": [
-      {
-        "name": "Mechanical Gates (Go)",
-        "purpose": "Enforce strict test-first development (tdd-guard) and policy boundaries (anvil-guard) with memory-safe streaming digests and robust path normalization."
-      },
-      {
-        "name": "Orchestration Skills (Python)",
-        "purpose": "Deterministic planning, wave execution, research merging, code review consolidation, and doc standards with timeout protection and ownership overlap detection."
-      },
-      {
-        "name": "Harness Adapters & Hooks (Shell / JSON)",
-        "purpose": "Cross-platform shell hooks and agent definitions ensuring uniform capabilities across Claude Code, Codex, and Antigravity."
-      },
-      {
-        "name": "Repository Standards & CI/CD",
-        "purpose": "Accurate ADRs, synchronized documentation, and automated GitHub Actions verification covering build, lint, format, and docs check."
-      }
+      {"name": "tdd-guard (guard/, cmd/tdd-guard)", "purpose": "Mechanical red->green gate; after this plan it proves the sealed red argv went green, not merely that some command passed."},
+      {"name": "build-guard / build-hooks (scripts/hooks)", "purpose": "PreToolUse boundary for main-branch pushes and tmpfs cargo targets; after this plan it fails closed and its probe corpus is a test fixture."},
+      {"name": "Installers (scripts/*.sh)", "purpose": "Symlink-only projection of this repo into each harness with ownership checks on install and uninstall; portable to stock macOS."},
+      {"name": "Agent definitions (agents/)", "purpose": "Harness-specific frontmatter over shared procedure; skill references must resolve and gate wiring must be declared per harness."},
+      {"name": "Skill scripts (skills/*/scripts)", "purpose": "Deterministic planner, build-wave, review, research and loop helpers; idempotent GitHub reconciliation and safe overlap detection."},
+      {"name": "CI (.github/workflows/ci.yml)", "purpose": "Discovers every skill test suite, pins Python, and runs the lint gates the hooks assume."},
+      {"name": "Docs (README, CHANGELOG, docs/adr)", "purpose": "Describe the enforced behaviour accurately after the code changes land."}
     ],
     "diagramsMermaid": {
-      "targetArchitecture": "flowchart TD\n  subgraph MechanicalGates[\"Mechanical Enforcement Gates (Go)\"]\n    TDD[\"tdd-guard CLI\"]\n    Guard[\"anvil-guard / Policy Engine\"]\n    StreamDigest[\"Streaming SHA-256 Digest\"]\n    PathNorm[\"Cross-Platform Path Normalizer\"]\n  end\n  subgraph HarnessHooks[\"Multi-Harness Adapters & Hooks\"]\n    Claude[\"Claude Agent Config\"]\n    Codex[\"Codex Agent Config\"]\n    AGY[\"Antigravity Agent Config\"]\n    Hooks[\"POSIX build-guard / format / lint\"]\n  end\n  subgraph Orchestration[\"Deterministic Orchestration Skills (Python)\"]\n    Planner[\"planner / reconcile_github\"]\n    Build[\"build / waves / overlap-check\"]\n    Research[\"research / merge_research\"]\n    Review[\"code-review / merge_findings\"]\n  end\n  subgraph StandardsCI[\"Standards & CI/CD\"]\n    ADR[\"docs/adr/\"]\n    CI[\".github/workflows/ci.yml\"]\n    DocsCheck[\"docs_check.py\"]\n  end\n  HarnessHooks --> MechanicalGates\n  Orchestration --> HarnessHooks\n  StandardsCI --> Orchestration"
+      "targetArchitecture": "flowchart LR\n  subgraph W1[Wave 1 - independent tracks]\n    G1[G1 tdd-guard argv binding]\n    H1[H1 build-guard hard boundary]\n    I1[I1 installer safety + macOS]\n    A1[A1 agent parity + skill refs]\n    S1[S1 build-wave overlap]\n    S2[S2 planner/review renderers]\n    S3[S3 review-fix-loop severity]\n    R1[R1 research conflict detection]\n  end\n  subgraph W2[Wave 2 - follow-ons]\n    G2[G2 guard blind spots + controlplane tests]\n    C1[C1 CI discovery + lint gates]\n    D1[D1 docs / ADR / CHANGELOG]\n  end\n  G1 --> G2\n  H1 --> C1\n  S3 --> C1\n  A1 --> C1\n  G1 --> D1\n  H1 --> D1\n  I1 --> D1\n  A1 --> D1\n  S1 --> D1\n  C1 --> D1"
     }
   },
   "issues": [
     {
-      "key": "T1-gate-hardening",
-      "title": "Harden guard mechanical gates with streaming SHA-256 and cross-platform path normalization",
-      "body": "Resolve unbounded memory consumption in untracked diff digesting by streaming hash computation with an enforced size limit. Fix Linux path normalization for backslash-separated paths in sealed test checks. Cache repository directory walk in arch-check to avoid quadratic filesystem traversals.",
-      "labels": [
-        "planning",
-        "guard",
-        "security"
-      ],
+      "key": "G1-tdd-guard-argv-binding",
+      "title": "tdd-guard: bind verify's green command to the sealed red command",
+      "body": "Research F1-02, F1-13, F1-17. Today `tdd-guard seal --red-command false` followed by `tdd-guard verify --green-command true` passes: seal only requires the red argv to exit non-zero and verify only requires the green argv to exit 0 after the seal (guard/actions.go:42, :98-103). Scope: record the red ArgvDigest in the seal; make verify refuse a green argv whose digest differs from the sealed red argv (exit non-zero with a message naming both digests); re-compute sealed-test digests after the green command runs and fail verify if any sealed test changed during the run (closes the TOCTOU at actions.go:87-103); surface the bound argv in `status`. Keep the seal file schema backward-compatible or migrate explicitly with a test. Update guard/*_test.go and the builder agent text that describes the seal/verify contract only where it states the argv rule.",
+      "labels": ["planning", "guard"],
       "dependsOn": [],
-      "ownershipHint": "guard/",
+      "ownershipHint": "guard/**, cmd/**",
       "wave": 1,
       "acceptanceTests": [
-        {
-          "name": "untracked-digest-streaming",
-          "kind": "unit",
-          "oracle": "Digesting untracked files uses io.Copy with a bounded buffer or streaming hasher without loading full files into memory via os.ReadFile.",
-          "testPath": "guard/repository.go"
-        },
-        {
-          "name": "backslash-path-normalization",
-          "kind": "unit",
-          "oracle": "Paths with literal backslashes on Linux are converted to forward slashes before component splitting and sealed test check.",
-          "testPath": "guard/actions.go"
-        },
-        {
-          "name": "arch-check-glob-caching",
-          "kind": "unit",
-          "oracle": "Arch-check assertions execute against a single pre-walked repository tree cache rather than walking the filesystem per glob assertion.",
-          "testPath": "guard/actions.go"
-        }
+        {"name": "verify-rejects-mismatched-green-argv", "kind": "unit", "oracle": "After a seal with red argv X, verify with green argv Y != X exits non-zero and the seal remains unverified", "testPath": "guard/actions_argv_test.go"},
+        {"name": "verify-accepts-same-argv", "kind": "unit", "oracle": "After a seal with red argv X (exit 1), verify with argv X (exit 0) succeeds and status reports green with the bound digest", "testPath": "guard/actions_argv_test.go"},
+        {"name": "verify-detects-sealed-test-edit-during-green", "kind": "integration", "oracle": "A green command that rewrites a sealed test file then restores it causes verify to exit non-zero", "testPath": "guard/actions_argv_test.go"},
+        {"name": "false-then-true-no-longer-passes", "kind": "e2e", "oracle": "Scratch repo: seal --red-command false then verify --green-command true exits non-zero", "testPath": "cmd/tdd-guard/main_test.go"}
       ]
     },
     {
-      "key": "T2-hook-portability",
-      "title": "Fix cross-platform hook portability, Antigravity payloads, and tool bootstrap",
-      "body": "Add jq dependency verification to bootstrap-tools.sh. Fix word-boundary regexes in build-guard to support BSD grep on macOS without bypassing rules. Expand build-format and build-lint to support Antigravity tool-call arguments. Ensure .git/info exists before writing to .git/info/exclude in project-bootstrap.sh.",
-      "labels": [
-        "planning",
-        "hooks",
-        "portability"
-      ],
+      "key": "H1-build-guard-hard-boundary",
+      "title": "build-guard: fail closed and cover the bypass and false-positive corpus",
+      "body": "Research F2-05, F2-06, F2-07, F2-08, F2-19, F2-20, F2-03. Decision: build-guard is a hard boundary. Scope in scripts/hooks/build-guard and build-hooks: (1) exit 2 with a reason when jq is missing, the payload is unparseable, or the harness payload shape yields no command; build-hooks exits 2 when tdd-guard is absent instead of 127. (2) Deny: bare `git push` and `git push <remote>` with no refspec, `git push <remote> HEAD`, `git push <remote> master`, `git branch -f main`, `git branch -f master`, `git update-ref refs/heads/main`, `gh pr merge`, `git checkout main`/`git switch main` followed by `git merge` on the same line, `jj bookmark set main` combined with `jj git push`, and cargo `--target-dir` / `CARGO_TARGET_DIR` / `CARGO_BUILD_TARGET_DIR` pointing at /tmp, /dev/shm or $TMPDIR with or without quotes and with or without a trailing slash. (3) Stop denying `main-*`/`main.*` branch names, commit-message text (`-m \"... main ...\"`), `git merge-base`, and quoted strings passed to echo/grep. Use a small tokenizer (strip quoted args before matching) rather than more regex. (4) Move the probe list into scripts/hooks/tests/guard-corpus.txt (expected|command per line) and have test_hooks.sh assert every line; make test_hooks.sh hermetic by running project-bootstrap under a temporary HOME/BIN so it never writes to the real ~/.local/bin. Keep POSIX ERE only; no \\b, no -P.",
+      "labels": ["planning", "hooks"],
       "dependsOn": [],
-      "ownershipHint": "scripts/",
+      "ownershipHint": "scripts/hooks/**",
       "wave": 1,
       "acceptanceTests": [
-        {
-          "name": "bootstrap-jq-dependency",
-          "kind": "unit",
-          "oracle": "scripts/bootstrap-tools.sh checks and installs jq via brew or apt.",
-          "testPath": "scripts/bootstrap-tools.sh"
-        },
-        {
-          "name": "build-guard-posix-grep",
-          "kind": "integration",
-          "oracle": "build-guard denies push and commit to main under POSIX/BSD grep without relying on PCRE \\b escapes.",
-          "testPath": "scripts/hooks/build-guard"
-        },
-        {
-          "name": "hooks-antigravity-payload",
-          "kind": "unit",
-          "oracle": "build-format and build-lint correctly extract filepath from Antigravity toolCall payload structures.",
-          "testPath": "scripts/hooks/build-format"
-        },
-        {
-          "name": "project-bootstrap-git-exclude",
-          "kind": "integration",
-          "oracle": "project-bootstrap.sh creates .git/info directory if missing before appending ignore patterns.",
-          "testPath": "scripts/project-bootstrap.sh"
-        }
+        {"name": "guard-corpus-all-pass", "kind": "unit", "oracle": "Every line of scripts/hooks/tests/guard-corpus.txt (>= 40 entries covering the research bypass and false-positive sets) produces the expected allow/deny decision for the Claude and agy payload shapes", "testPath": "scripts/hooks/tests/test_hooks.sh"},
+        {"name": "guard-fails-closed-without-jq", "kind": "unit", "oracle": "With jq removed from PATH, build-guard exits 2 and prints a reason; with a non-JSON payload it exits 2", "testPath": "scripts/hooks/tests/test_hooks.sh"},
+        {"name": "build-hooks-fails-closed-without-tdd-guard", "kind": "unit", "oracle": "With HOME pointing at a directory lacking .local/bin/tdd-guard, build-hooks exits 2 with a reason", "testPath": "scripts/hooks/tests/test_hooks.sh"},
+        {"name": "test-suite-is-hermetic", "kind": "integration", "oracle": "Running test_hooks.sh leaves the mtime and link status of every file in the real ~/.local/bin unchanged", "testPath": "scripts/hooks/tests/test_hooks.sh"}
       ]
     },
     {
-      "key": "T3-skill-orchestration",
-      "title": "Add subprocess timeouts in GitHub reconciler, wave ownership overlap detection, and fix doc script paths",
-      "body": "Add default timeout to gh subprocess invocations in reconcile_github.py. Implement programmatic glob overlap detection in waves.py to prevent concurrent builder collisions. Correct all skill markdown files to reference explicit repository-relative script paths.",
-      "labels": [
-        "planning",
-        "skills",
-        "orchestration"
-      ],
-      "dependsOn": [
-        "T1-gate-hardening",
-        "T2-hook-portability"
-      ],
-      "ownershipHint": "skills/",
+      "key": "I1-installer-safety-portability",
+      "title": "Installers: symlink-only, ownership-checked, fail-fast, and portable to stock macOS",
+      "body": "Research F2-04, F2-11, F2-13, F2-14, F2-15, F2-16, F2-17, F5-08. Scope across scripts/install-harness.sh, scripts/project-bootstrap.sh, scripts/bootstrap-tools.sh: (1) project-bootstrap.sh --install symlinks the hook scripts with ln -sfn exactly like bootstrap-tools.sh; no `install -m755` copies remain. (2) A shared helper `link_owned SRC DST` that creates the link only if DST is absent or is a symlink resolving into $ROOT, and otherwise prints a clear refusal and returns non-zero; `unlink_owned DST` removes only such symlinks. Use both for every agent, skill, hook and codex TOML link. (3) --uninstall also removes ~/.local/bin/build-* and ~/.local/bin/tdd-guard links it owns and reports what it left behind. (4) Replace `mapfile` + `find -printf` with a portable `for d in \"$ROOT\"/skills/*/` loop; scripts run under bash 3.2 syntax. (5) `set -euo pipefail` with explicit error messages so 'done.' only prints on success; validate agents/codex/*.md frontmatter before touching any harness. (6) project-bootstrap.sh writes the local exclude via `git rev-parse --git-path info/exclude` so worktrees and jj workspaces are covered. (7) Never hide a sudo prompt: run installer commands without redirecting stdin/stderr or skip them with a message when not a tty.",
+      "labels": ["planning", "installer"],
+      "dependsOn": [],
+      "ownershipHint": "scripts/*.sh",
+      "wave": 1,
+      "acceptanceTests": [
+        {"name": "install-refuses-foreign-target", "kind": "integration", "oracle": "With HOME set to a temp dir containing a real directory at .claude/skills/jj and a user file at .claude/agents/builder.md, install-harness.sh --install exits non-zero, names both targets, and leaves them byte-identical", "testPath": "scripts/tests/test_install.sh"},
+        {"name": "uninstall-removes-only-owned-links", "kind": "integration", "oracle": "After install into a temp HOME, adding a foreign symlink named research.md, --uninstall removes every link into $ROOT (including ~/.local/bin/build-* and tdd-guard) and leaves the foreign link", "testPath": "scripts/tests/test_install.sh"},
+        {"name": "hooks-are-symlinks-after-project-bootstrap", "kind": "integration", "oracle": "project-bootstrap.sh --with-hooks under a temp HOME leaves ~/.local/bin/build-format, build-lint, build-guard as symlinks into $ROOT/scripts/hooks", "testPath": "scripts/tests/test_install.sh"},
+        {"name": "no-gnu-only-constructs", "kind": "unit", "oracle": "grep finds no `mapfile`, `find -printf`, `readlink -f`, or `sed -i` in scripts/*.sh, and `bash -n` passes for each", "testPath": "scripts/tests/test_install.sh"},
+        {"name": "exclude-written-in-worktree", "kind": "integration", "oracle": "In a temp git worktree (where .git is a file) project-bootstrap.sh adds .claude/settings.local.json to the common-dir info/exclude", "testPath": "scripts/tests/test_install.sh"}
+      ]
+    },
+    {
+      "key": "A1-agent-parity-skill-refs",
+      "title": "Agents: drop dangling skill references and declare gate wiring per harness",
+      "body": "Research F4-01, F4-02, F4-03, F4-04, F4-05, F4-06, F4-07, F4-08, F4-22, F2-10, F2-09. Decision: drop the four dangling references. Scope across agents/** and skills/docs/**: (1) Remove read-the-damn-docs and find-docs from all research agents, grill-with-docs from all docs agents, and full-output-enforcement from all builders; where a Skills section becomes empty, delete the section. (2) Add a mechanical check to skills/docs/scripts/docs_check.py (and its tests) that every skill named in a `## Skills` section or a `skills:` frontmatter across agents/**/*.md exists as a directory under skills/. (3) Antigravity builder hooks.json gains a Stop-equivalent hook calling `build-hooks agy Stop` if the harness supports one; if it does not, the agy builder agent.md states that the Stop-time verify gate is manual and the builder must run `tdd-guard verify` itself before handing off. (4) Codex builder: document in its frontmatter comment and body that no PreToolUse/PostToolUse hooks exist on Codex and that build-guard and tdd-guard are invoked explicitly by the builder (`tdd-guard hook` is not available; call seal/verify directly). (5) Codex and agy builders declare the mechanism they use to hand the change-set to a code-reviewer, or the step is reworded to 'run the code-review skill' if spawning is not available. (6) Align model tiers: agy builder no longer runs on `flash`; use the harness's strongest tier for builder and a mid tier for code-reviewer/docs, matching Codex's high/medium/medium/low ladder; set mainAgent only on builder and docs. (7) agy builder prose reflects its automatic format/lint hooks. (8) docs_check.py INSTRUCTION_FILES includes GEMINI.md.",
+      "labels": ["planning", "agents"],
+      "dependsOn": [],
+      "ownershipHint": "agents/**, skills/docs/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {"name": "no-dangling-skill-refs", "kind": "unit", "oracle": "docs_check.py reports a violation for an agent file referencing a skill absent from skills/, and reports ok for the repository after the edits", "testPath": "skills/docs/tests/test_docs.py"},
+        {"name": "agy-builder-has-stop-gate-or-manual-verify", "kind": "unit", "oracle": "Either agents/agy/builder/hooks.json contains a Stop-class hook invoking build-hooks agy Stop, or agents/agy/builder/agent.md contains the explicit manual `tdd-guard verify` instruction; the test asserts exactly one holds", "testPath": "skills/docs/tests/test_docs.py"},
+        {"name": "model-tiers-aligned", "kind": "unit", "oracle": "No agents/agy/*/agent.md declares `model: flash` for builder; mainAgent is true only for builder and docs", "testPath": "skills/docs/tests/test_docs.py"},
+        {"name": "gemini-instruction-file-budget", "kind": "unit", "oracle": "docs_check.py flags a GEMINI.md that exceeds the instruction-file budget", "testPath": "skills/docs/tests/test_docs.py"}
+      ]
+    },
+    {
+      "key": "S1-build-wave-overlap",
+      "title": "build skill: fix recursive-glob overlap false negative and bound builder re-dispatch",
+      "body": "Research F3-07, F3-08, F3-20, F4-18. Scope in skills/build/**: (1) globs_overlap in scripts/waves.py must report overlap for `src/**` vs `src/a/b/c.py` in both argument orders; implement with PurePath.full_match on 3.13+ and an fnmatch-based fallback, and treat a plain path as its own literal glob. (2) Exclude wave 0 (ungrouped) from the hard-fail overlap check; warn only. (3) Emit the warning or raise, not both. (4) Document the `status:done` label in SKILL.md. (5) Add a re-dispatch cap to SKILL.md: a builder that returns `blocked` may be re-dispatched at most twice per issue, after which the issue is marked stalled in the wave summary and the loop escalates to the human.",
+      "labels": ["planning", "skills"],
+      "dependsOn": [],
+      "ownershipHint": "skills/build/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {"name": "recursive-glob-vs-deep-path-overlaps", "kind": "unit", "oracle": "globs_overlap('src/**','src/a/b/c.py') and the reverse both return True; ('src/*.py','lib/x.py') returns False", "testPath": "skills/build/tests/test_build.py"},
+        {"name": "wave-zero-not-hard-failed", "kind": "unit", "oracle": "Two wave-0 issues with identical ownershipHint validate without raising and produce a single warning", "testPath": "skills/build/tests/test_build.py"},
+        {"name": "skill-documents-redispatch-cap", "kind": "unit", "oracle": "SKILL.md contains the re-dispatch cap and the `status:done` label semantics; the docs test asserts both strings", "testPath": "skills/build/tests/test_build.py"}
+      ]
+    },
+    {
+      "key": "S2-planner-review-renderers",
+      "title": "planner/code-review: id normalisation, single-pass token substitution, safer reconciliation",
+      "body": "Research F3-03, F3-04, F3-06, F3-09, F3-10, F3-12. Scope in skills/planner/** and skills/code-review/**: (1) validate_plan stores the stripped planId and issue keys (or rejects padded values) so markers round-trip and a second reconcile of an unchanged plan is a no-op. (2) Both render_plan.py and render_review.py substitute template tokens in a single re.sub pass so user text containing a token name is left verbatim; the research renderer already does this. (3) mermaid_label neutralises `#`, `;`, backticks and angle brackets. (4) Planner reconcile skips reopening issues that are closed and carry the status:done label or were closed by a merged PR (state_reason completed) unless --reopen-done is passed; milestone adoption by title preserves an existing description by appending the marker. (5) reconcile_findings only closes an issue when its recorded severity (from the marker or a label) is at or above the current --min-severity, so a stricter threshold never closes live defects. Update SKILL.md text for both skills accordingly.",
+      "labels": ["planning", "skills"],
+      "dependsOn": [],
+      "ownershipHint": "skills/planner/**, skills/code-review/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {"name": "padded-ids-round-trip", "kind": "unit", "oracle": "A sidecar with planId ' x ' and key 'k ' either fails validation with a clear message or renders markers with no padding, and a second reconcile preview against the first run's payloads yields zero actions", "testPath": "skills/planner/tests/test_planner.py"},
+        {"name": "token-in-user-text-is-inert", "kind": "unit", "oracle": "A summary containing '{{MERMAID_JS}}' renders that literal string escaped in the lede and the page contains exactly one inlined mermaid bundle", "testPath": "skills/planner/tests/test_planner.py"},
+        {"name": "review-token-in-claim-is-inert", "kind": "unit", "oracle": "A finding claim containing '{{FINDINGS}}' renders literally and the findings section is rendered once", "testPath": "skills/code-review/tests/test_code_review.py"},
+        {"name": "reconcile-does-not-reopen-done", "kind": "unit", "oracle": "Snapshot with a closed issue labelled status:done and an unchanged sidecar produces no update_issue action; with --reopen-done it produces one", "testPath": "skills/planner/tests/test_planner.py"},
+        {"name": "min-severity-drift-safe", "kind": "unit", "oracle": "A review re-run with --min-severity high does not close an open issue recorded at medium", "testPath": "skills/code-review/tests/test_code_review.py"}
+      ]
+    },
+    {
+      "key": "S3-review-fix-loop-severity",
+      "title": "review-fix-loop: wire --min-severity into convergence and scope the skill honestly",
+      "body": "Research F3-13, F4-17, F4-21. Scope in skills/review-fix-loop/**: (1) loop_state.py validates --min-severity against the severity enum and defines convergence as 'no findings at or above the threshold'; findings below it are reported but do not block convergence. (2) SKILL.md states the skill requires a harness with a /loop driver (Claude Code today) and how to drive one iteration manually elsewhere; the plain-git branch instruction is replaced with the jj-colocated equivalent to match the builder's VCS rule. (3) Replace /tmp example paths with a repo-local scratch path.",
+      "labels": ["planning", "skills"],
+      "dependsOn": [],
+      "ownershipHint": "skills/review-fix-loop/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {"name": "nit-only-review-converges", "kind": "unit", "oracle": "With --min-severity medium, a review reporting only nit findings sets status converged on the first pass", "testPath": "skills/review-fix-loop/tests/test_review_fix_loop.py"},
+        {"name": "invalid-min-severity-rejected", "kind": "unit", "oracle": "--min-severity bogus exits non-zero with a message listing the valid values", "testPath": "skills/review-fix-loop/tests/test_review_fix_loop.py"},
+        {"name": "skill-states-driver-requirement", "kind": "unit", "oracle": "SKILL.md contains the harness-driver requirement and no `git switch -c` instruction", "testPath": "skills/review-fix-loop/tests/test_review_fix_loop.py"}
+      ]
+    },
+    {
+      "key": "R1-research-conflict-detection",
+      "title": "research: make conflict detection mean disagreement, not distinct wording",
+      "body": "Research recommendation R-16. merge_research.py flags a conflict whenever a topic has more than one distinct free-text position, so the 2026-08-28 packet reported 20 conflicts of which two were real. Scope in skills/research/**: (1) A finding may carry an optional `contradicts` boolean or the agent envelope gains a `stance` field constrained to {supports, contradicts, neutral} per topic; a conflict is reported only when a topic carries both supports and contradicts (or at least one contradicts). Choose the stance form, keep the existing example fixtures valid (defaulting to neutral), and update the research agent envelope text in all three harness variants only if the field is mandatory — prefer optional. (2) merge_research.nonempty_string strips like the other scripts. (3) Land the new render_research.py, templates and tests already in the working tree, and add the planner/code-review byte-identity requirement for report.css to the research SKILL.md (already drafted).",
+      "labels": ["planning", "skills"],
+      "dependsOn": [],
+      "ownershipHint": "skills/research/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {"name": "distinct-wording-is-not-conflict", "kind": "unit", "oracle": "Two findings on one topic with different position text and no contradicts stance produce zero conflicts", "testPath": "skills/research/tests/test_research.py"},
+        {"name": "explicit-contradiction-is-conflict", "kind": "unit", "oracle": "Two findings on one topic where one carries the contradicting stance produce exactly one conflict listing both positions", "testPath": "skills/research/tests/test_research.py"},
+        {"name": "example-packet-still-matches", "kind": "unit", "oracle": "The bundled examples still merge to expected-packet.json after the schema change", "testPath": "skills/research/tests/test_research.py"}
+      ]
+    },
+    {
+      "key": "G2-guard-blind-spots-controlplane-tests",
+      "title": "guard: digest full untracked files, lock the touch log, cover the controlplane contract",
+      "body": "Research F1-03, F1-09, F1-10, F1-11, F1-12, F1-14, F1-18, F5-12. Decision: keep the controlplane surface. Scope in guard/** and controlplane/** after G1 lands: (1) digestFileStreaming hashes the whole stream (still bounded memory) and includes the byte length, so edits past 10 MiB invalidate diff-review; drop the truncation assertion from hardening_test.go. (2) recordTouchedRepositories takes an advisory file lock (or O_EXCL temp + rename retry) so concurrent hooks cannot drop entries; add a two-process test. (3) workingDiff skips non-regular untracked entries. (4) Delete filesMatchingGlob. (5) ValidIdentifier rejects `..` segments and leading `/` or the doc comment is corrected — pick reject. (6) Add tests for DecodeWorkflowResult, DecodeRoute, DecodeSelection, SealGoal/ValidateGoal, SealAssignment/ValidateAssignment, SealDispatch/ValidateDispatch and CanonicalDigest covering the fail-closed paths; controlplane coverage >= 85%. (7) Usage text derives from os.Args[0] and --help/-h exit 0. (8) unsealedSourceChanges un-escapes C-quoted porcelain paths.",
+      "labels": ["planning", "guard"],
+      "dependsOn": ["G1-tdd-guard-argv-binding"],
+      "ownershipHint": "guard/**, controlplane/**, cmd/**",
       "wave": 2,
       "acceptanceTests": [
-        {
-          "name": "reconcile-gh-timeout",
-          "kind": "unit",
-          "oracle": "reconcile_github.py sets timeout=30 on subprocess.run calls and handles TimeoutExpired cleanly.",
-          "testPath": "skills/planner/scripts/reconcile_github.py"
-        },
-        {
-          "name": "wave-ownership-overlap-detection",
-          "kind": "unit",
-          "oracle": "waves.py identifies overlapping ownershipHint globs in the same wave and flags or serializes them.",
-          "testPath": "skills/build/scripts/waves.py"
-        },
-        {
-          "name": "skill-doc-relative-paths",
-          "kind": "integration",
-          "oracle": "All script commands in skills/*/SKILL.md reference valid, existing files relative to the repository root.",
-          "testPath": "skills/planner/SKILL.md"
-        }
+        {"name": "edit-past-10mib-invalidates-diff-review", "kind": "unit", "oracle": "Two untracked files identical in the first 10 MiB but differing after produce different tree digests", "testPath": "guard/hardening_test.go"},
+        {"name": "concurrent-touch-log-writes-are-merged", "kind": "integration", "oracle": "Two guard processes recording different repositories for one session concurrently leave both in the touch log", "testPath": "guard/session_test.go"},
+        {"name": "controlplane-decoders-fail-closed", "kind": "unit", "oracle": "Each Decode*/Validate* function rejects oversize, deep, duplicate-key and traversal inputs and accepts the canonical fixture; `go test -cover ./controlplane` reports >= 85%", "testPath": "controlplane/contract_test.go"},
+        {"name": "help-exits-zero-with-binary-name", "kind": "unit", "oracle": "`tdd-guard --help` exits 0 and the first line contains 'tdd-guard'", "testPath": "cmd/tdd-guard/main_test.go"},
+        {"name": "no-dead-code", "kind": "unit", "oracle": "`deadcode -test ./...` reports no unreachable functions in guard/ or controlplane/", "testPath": "guard/deadcode_test.go"}
       ]
     },
     {
-      "key": "T4-agent-parity",
-      "title": "Align agent instructions across Claude, Codex, and Antigravity and wire Antigravity builder hooks",
-      "body": "Port missing Skills guidelines and role instructions from Claude agent definitions to Codex and Antigravity agents. Wire format, advisory lint, and tdd-guard hooks into agents/agy/builder/hooks.json.",
-      "labels": [
-        "planning",
-        "agents",
-        "harness-parity"
-      ],
-      "dependsOn": [
-        "T1-gate-hardening",
-        "T2-hook-portability"
-      ],
-      "ownershipHint": "agents/",
+      "key": "C1-ci-discovery-lint-gates",
+      "title": "CI: discover every skill suite, pin Python, add ruff and shellcheck gates",
+      "body": "Research F5-06, F5-07, F3-02, F3-14, F4-12. Scope in .github/** and skills/docs/tests/**: (1) ci.yml loops over skills/*/tests (`for d in skills/*/tests; do python3 -m unittest discover -s \"$d\" -p 'test_*.py'; done`) so review-fix-loop and any future suite run. (2) actions/setup-python pins 3.13. (3) Add `ruff check skills/` and `shellcheck -S warning scripts/*.sh scripts/hooks/build-*` steps; fix the 44 ruff findings and the one SC2088 so the gates pass. (4) Add scripts/tests/test_install.sh (from I1) and `go test -count=1 -race ./...` to the pipeline. (5) The docs test that guards ci.yml asserts the loop form rather than a fixed skill list.",
+      "labels": ["planning", "ci"],
+      "dependsOn": ["H1-build-guard-hard-boundary", "S3-review-fix-loop-severity", "A1-agent-parity-skill-refs", "I1-installer-safety-portability"],
+      "ownershipHint": ".github/**, skills/docs/tests/**",
       "wave": 2,
       "acceptanceTests": [
-        {
-          "name": "agent-skills-parity",
-          "kind": "unit",
-          "oracle": "agents/codex/docs.md and agents/agy/docs/agent.md include full skill guidance matching agents/claude/docs.md.",
-          "testPath": "agents/codex/docs.md"
-        },
-        {
-          "name": "antigravity-builder-hooks-json",
-          "kind": "unit",
-          "oracle": "agents/agy/builder/hooks.json defines valid PreToolUse and PostToolUse hook configurations for guard, format, and lint.",
-          "testPath": "agents/agy/builder/hooks.json"
-        }
+        {"name": "ci-runs-every-skill-suite", "kind": "unit", "oracle": "test_docs asserts ci.yml contains the skills/*/tests loop and no per-skill unittest line", "testPath": "skills/docs/tests/test_docs.py"},
+        {"name": "ruff-and-shellcheck-clean", "kind": "integration", "oracle": "`ruff check skills/` and `shellcheck -S warning scripts/*.sh scripts/hooks/build-*` exit 0 locally", "testPath": "skills/docs/tests/test_docs.py"},
+        {"name": "python-pinned", "kind": "unit", "oracle": "ci.yml contains actions/setup-python with python-version 3.13", "testPath": "skills/docs/tests/test_docs.py"}
       ]
     },
     {
-      "key": "T5-docs-adr-ci",
-      "title": "Reconcile ADRs with centralized skills layout and add CI quality gates",
-      "body": "Update ADR-0001 or add ADR-0002 to reflect the centralized skills layout and cross-harness install strategy. Add CI workflow jobs for formatting (gofmt, ruff format), linting (golangci-lint, ruff check, shellcheck), and docs compliance (docs_check.py).",
-      "labels": [
-        "planning",
-        "documentation",
-        "ci"
-      ],
-      "dependsOn": [
-        "T3-skill-orchestration",
-        "T4-agent-parity"
-      ],
-      "ownershipHint": "docs/",
-      "wave": 3,
+      "key": "D1-docs-adr-changelog",
+      "title": "Docs: bring README, ADRs and CHANGELOG in line with the enforced behaviour",
+      "body": "Research F1-04, F1-07, F2-15, F4-09, F4-10, F4-11, F4-15, F5-11, F3-20. Scope in README.md, CHANGELOG.md, docs/adr/**, and the stray root artifacts, after wave 1 lands: (1) ADR-0003 supersedes ADR-0001 (agents carry skills via the central layout; research and code-reviewer do use skills); ADR-0001 status becomes Superseded; ADR-0002 corrected from 'copies' to 'symlinks' and gains the dist/ step for Codex. (2) README: the tdd-guard section describes the argv-bound red->green contract, reseal/arch-check/status, and that arch-check is advisory; the streaming-digest claim is scoped accurately; build-guard is described as a failing-closed boundary with the corpus test; the installer section says what --uninstall removes and that stock macOS is supported; the hook-parity paragraph states per-harness gate coverage; remove the four dropped skill names; document status:done. (3) CHANGELOG entries for a1f4584, ee46c1a and this milestone. (4) Remove the previous root plan.sidecar.json content by replacing it with this plan's sidecar (already done by the planner) and note in README that docs/plans holds the folio; add bin/ cleanup of the orphaned anvil-guard binary to bootstrap-tools.sh's presence report. Run docs_check.py.",
+      "labels": ["planning", "docs"],
+      "dependsOn": ["G1-tdd-guard-argv-binding", "H1-build-guard-hard-boundary", "I1-installer-safety-portability", "A1-agent-parity-skill-refs", "S1-build-wave-overlap", "C1-ci-discovery-lint-gates"],
+      "ownershipHint": "README.md, CHANGELOG.md, docs/adr/**",
+      "wave": 2,
       "acceptanceTests": [
-        {
-          "name": "docs-check-adr-compliance",
-          "kind": "unit",
-          "oracle": "python3 skills/docs/scripts/docs_check.py passes with 0 errors across all docs/adr/ records.",
-          "testPath": "docs/adr/0001-agent-owned-skills.md"
-        },
-        {
-          "name": "ci-workflow-lint-steps",
-          "kind": "integration",
-          "oracle": ".github/workflows/ci.yml includes automated lint, format, and docs-check execution.",
-          "testPath": ".github/workflows/ci.yml"
-        }
+        {"name": "adr-0001-superseded", "kind": "unit", "oracle": "docs_check.py passes and docs/adr/0001 has Status: Superseded by 0003 while 0003 exists with the required sections", "testPath": "skills/docs/tests/test_docs.py"},
+        {"name": "readme-mentions-no-dropped-skills", "kind": "unit", "oracle": "grep for read-the-damn-docs, find-docs, grill-with-docs, full-output-enforcement in README.md and agents/ returns nothing", "testPath": "skills/docs/tests/test_docs.py"},
+        {"name": "changelog-covers-recent-commits", "kind": "unit", "oracle": "CHANGELOG.md contains entries referencing the report system, review-fix-loop and the gate-integrity milestone", "testPath": "skills/docs/tests/test_docs.py"}
       ]
     }
   ],
   "risks": [
-    {
-      "id": "R-01",
-      "title": "Harness install drifts from the canonical catalog",
-      "likelihood": 2,
-      "impact": 2,
-      "owner": "installer",
-      "mitigation": "The install script is reproducible and pins the catalog it installs from."
-    }
+    {"id": "R-01", "title": "Argv binding breaks existing seal files or the build skill's seal/verify invocation", "likelihood": 2, "impact": 3, "owner": "G1 builder", "mitigation": "Version the seal schema, accept legacy seals with an explicit warning for one release, and run the build skill's documented seal/verify sequence in an e2e test before merging."},
+    {"id": "R-02", "title": "A hard-boundary build-guard blocks legitimate builder commands in the field", "likelihood": 2, "impact": 2, "owner": "H1 builder", "mitigation": "The corpus fixture includes the false-positive set from research; any new deny rule must ship with allow cases; failures print the matched rule so a human can extend the corpus."},
+    {"id": "R-03", "title": "Ownership-checked install refuses on machines with hand-made links and stalls adoption", "likelihood": 2, "impact": 2, "owner": "I1 builder", "mitigation": "Refusal message names the exact path and the `--force` flag that replaces a symlink (never a real file or directory); bootstrap report lists foreign targets before install."},
+    {"id": "R-04", "title": "Antigravity has no Stop hook, so the agy TDD gate stays manual", "likelihood": 3, "impact": 2, "owner": "A1 builder", "mitigation": "Verify the Antigravity hook contract first; if absent, make the manual `tdd-guard verify` instruction explicit and assert it by test so the gap is documented rather than silent."},
+    {"id": "R-05", "title": "Wave-2 docs describe behaviour that a wave-1 track changed again during review", "likelihood": 2, "impact": 1, "owner": "D1 builder", "mitigation": "D1 starts only after all wave-1 PRs merge; its tests grep the code for the claims (usage text, corpus file, loop form) rather than restating them."},
+    {"id": "R-06", "title": "Hashing full untracked files removes the 10 MiB bound on time for huge generated artifacts", "likelihood": 1, "impact": 2, "owner": "G2 builder", "mitigation": "Keep a hard ceiling (e.g. 256 MiB) above which the file is recorded as 'oversize' with its size and mtime instead of a content digest, and test both branches."}
   ]
 }

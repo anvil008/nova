@@ -435,11 +435,12 @@ class PlannerSkillTests(unittest.TestCase):
     def test_shared_report_css_is_byte_identical_across_skills(self):
         repo_root = ROOT.parents[1]
         planner = (repo_root / "skills" / "planner" / "templates" / "report.css").read_bytes()
-        review = (repo_root / "skills" / "code-review" / "templates" / "report.css").read_bytes()
-        self.assertEqual(
-            planner, review,
-            "report.css must stay byte-identical in skills/planner and skills/code-review",
-        )
+        for skill in ("code-review", "research"):
+            other = (repo_root / "skills" / skill / "templates" / "report.css").read_bytes()
+            self.assertEqual(
+                planner, other,
+                f"report.css must stay byte-identical in skills/planner and skills/{skill}",
+            )
 
     def test_skill_requires_approval_and_documents_milestones_only(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")

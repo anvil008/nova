@@ -30,3 +30,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/merge_research.py s
 ## Report
 
 Return the consolidated packet: per-area findings with evidence, the conflicts, the coverage summary, the gaps, and the open questions. The primary agent owns synthesis and decides what the evidence means.
+
+When a shareable report is wanted, write the synthesis as JSON — `{"verdict": "clean|advisory|action-needed", "summary": "...", "recommendations": [{"priority": "high|medium|low", "title", "detail", "refs": ["F1-01"]}]}` — where each `ref` is a finding id (`F<area index>-<finding index>`) from the packet, and render both into a self-contained HTML page in the shared Foundry Zero report style (`docs/research/research<NN>-<YYYYMMDD>-<title>.html`):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/render_research.py packet.json docs/research/research01-20260101-sample.html --synthesis synthesis.json --title "Sample" --repo owner/name --subject "what was researched"
+```
+
+The renderer rejects a recommendation that cites an unknown finding and a `clean` verdict that carries recommendations. `templates/report.css` is the shared design system and must stay byte-identical to the planner and code-review copies; `templates/research.css` holds the research-only rules.
