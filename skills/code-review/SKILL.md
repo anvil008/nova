@@ -14,9 +14,18 @@ Inspect the change, then select lenses from its actual risks:
 - correctness and tests are always selected;
 - security applies when trust boundaries, authentication or authorization, dependencies, secrets, or input handling change;
 - performance applies to hot paths, loops, allocations, concurrency, or materially larger data flow;
-- api-contract applies when a public surface, wire format, schema, CLI, or compatibility promise changes.
+- api-contract applies when a public surface, wire format, schema, CLI, or compatibility promise changes;
+- frontend applies when the change touches user-facing UI — see below.
 
 The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-only `code-reviewer` per selected lens in parallel. Give each reviewer the same change-set and exactly one lens. Reviewers return structured findings and never edit.
+
+### The frontend lens
+
+Select `frontend` when the change-set touches rendered UI: `.tsx` / `.jsx` / `.vue` / `.svelte` / `.astro` components, templates (`.html`, `.hbs`, `.ejs`), stylesheets (`.css` / `.scss` / `.less`), Tailwind or design-token config, or static assets those import. A change confined to server code, build config, or tests is not a frontend change — do not select the lens to be thorough, because a lens with nothing to look at produces noise, not coverage.
+
+That reviewer runs the [`code-reviewer-frontend-review`](../code-reviewer-frontend-review/SKILL.md) skill, which is the frontend lens's method rather than a separate review: a static pass over the changed components and styles, then a Playwright pass that resizes through a fixed viewport matrix — 4K (3840×2160), half-tiled 4K (1920×2160), QHD, 1080p, MacBook 16"/15"/13", a small laptop, tablet, and phone — capturing structure, screenshots, and an objective horizontal-overflow check at each. It returns the same envelope as every other lens, with `lens` set to `frontend`, so its findings dedupe, verify, and rank alongside the rest with no special-casing downstream.
+
+Two practical constraints. The reviewer needs Playwright browser tools; without them it runs the static pass only and must say so rather than assert runtime behaviour it never observed. And it must ask before starting a dev server and never point at production.
 
 ## Merge and adversarial verification
 
@@ -30,6 +39,71 @@ Only verified findings reach the report. The helper ranks `critical`, `high`, `m
 
 Return the verified findings ranked by severity and the verdict: `block` / `approve-with-nits` / `approve`. Include the selected lenses and verification evidence. The primary agent is the sole synthesis and completion authority; reviewer or verifier output is evidence, not the verdict.
 
+`--verification` emits both `findings` (substantiated) and `dropped` (refuted), each carrying its `verification{refutationAttempt, evidence}`. Refuted candidates are reported rather than discarded: the evidence that killed a plausible finding is what shows the verification pass did work.
+
+### HTML report
+
+Render the merged JSON into a self-contained report for a human reviewer:
+
+```bash
+python3 skills/code-review/scripts/render_review.py review.json review.html \
+  --title "One-line claim of what this review found" \
+  --repo owner/name --subject "PR #4821" --base a91f3c2 \
+  --lenses correctness,tests,security --generated-at 2026-08-28T06:40:00Z
+```
+
+Only `review.json` and the output path are required; the rest default to honest placeholders. The renderer re-validates the merged JSON strictly and refuses unknown fields, so a hand-edited report cannot silently diverge from the pipeline that produced it.
+
+Sections are fixed: 01 Summary, 02 Findings, 03 Touched Files, 04 Refuted Candidates, 05 Method. Findings filter by severity and by lens, and each expands to its failure scenario, the refutation attempt, and the evidence. All CSS and JavaScript are inline; there are no external resource loads.
+
+Styling comes from two files. [templates/report.css](templates/report.css) is the shared Foundry Zero report design system and is **byte-identical** to `skills/planner/templates/report.css`; a test enforces that, so change both together or neither. [templates/review.css](templates/review.css) holds review-only components. The report is theme-aware, responsive, and prints: filters are suppressed, hidden rows are restored, and disclosure rows open.
+
+## GitHub issues
+
+Verified findings become tracked work the same way an approved plan does: an idempotent,
+marker-based reconciliation behind an explicit human gate.
+
+```bash
+# Preview — read-only. Omit --snapshot to query GitHub read-only instead.
+python3 skills/code-review/scripts/reconcile_findings.py review.json \
+  --repo owner/name --review-id pr-4821 --subject "PR #4821" \
+  --snapshot github-state.json
+
+# Apply — only after a human approves this exact review.
+python3 skills/code-review/scripts/reconcile_findings.py review.json \
+  --repo owner/name --review-id pr-4821 --subject "PR #4821" \
+  --apply --approved-by "<human identity>"
+```
+
+**Stop for explicit human approval before `--apply`.** Issues are outward-facing and land in a
+shared tracker; approval to review is not approval to file. Do not infer approval from silence or
+from approval of an earlier revision.
+
+`--review-id` is the durable identity of this review — a stable lowercase slug you keep across
+re-runs (`pr-4821`, not a timestamp). Each issue carries
+`<!-- swarm-review reviewId=<id> finding=<key> -->`, and that marker is what makes re-running safe.
+
+A finding's key is a hash of **(file, claim)** — deliberately not the line. Line numbers move
+whenever anything above them changes, so keying on them would file a duplicate for the same defect
+after any unrelated edit and strand the original as never-fixed. The line lives in the issue body.
+
+Reconciliation therefore converges rather than accumulates:
+
+| Situation | Action |
+|---|---|
+| Finding has no issue | `create_issue` |
+| Issue exists, content changed | `update_issue` |
+| Finding no longer reported — fixed, or refuted on re-run | `close_resolved_issue` |
+| Two issues carry the same marker | `close_duplicate_issue` |
+| Nothing changed | no actions at all |
+
+`--min-severity` (default `medium`) sets the filing threshold; `low` and `nit` stay in the report
+rather than becoming tracker noise. Issues are labelled `code-review`, `severity:<sev>`, and
+`lens:<lens>`; add more with `--label`, and attach them to a milestone with `--milestone`.
+
+Each issue body carries the failure scenario and the independent verification — the refutation
+attempt and the evidence — so whoever picks it up sees why it is real without re-reading the diff.
+
 ## Offline demonstration
 
 These commands read local fixtures only and have no GitHub or subagent side effects:
@@ -37,4 +111,8 @@ These commands read local fixtures only and have no GitHub or subagent side effe
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/merge_findings.py --dedupe-only skills/code-review/examples/correctness.json skills/code-review/examples/tests.json skills/code-review/examples/security.json
 PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/merge_findings.py --verification skills/code-review/examples/verification.json skills/code-review/examples/correctness.json skills/code-review/examples/tests.json skills/code-review/examples/security.json
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/render_review.py skills/code-review/examples/expected-review.json /tmp/review.html --repo acme/platform --subject "PR #4821" --lenses correctness,tests,security
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/reconcile_findings.py skills/code-review/examples/expected-review.json --repo acme/platform --review-id pr-4821 --subject "PR #4821" --snapshot skills/code-review/examples/empty-github-snapshot.json
 ```
+
+Never run `--apply` merely to test the skill. Use snapshot preview for validation.

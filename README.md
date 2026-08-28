@@ -8,25 +8,36 @@ work — some in parallel — and mechanical gates keep them honest.
 Organized by harness under `agents/claude/`, `agents/codex/`, and `agents/agy/` with platform-tailored frontmatter, tools, and hooks to ensure agent parity:
 - **research** — explore code / docs / runtime / prior-art; read-only. Owns `read-the-damn-docs`, `find-docs`.
 - **builder** — implement one issue end-to-end (branch → change → PR); the only writer, never commits to `main`. Owns `jj`, `full-output-enforcement`, `builder-frontend`.
-- **code-reviewer** — read-only assurance, one instance per review lens. Owns `code-reviewer-frontend-review`.
+- **code-reviewer** — read-only assurance, one instance per review lens (correctness / security / performance / tests / api-contract / frontend). The `frontend` lens runs `code-reviewer-frontend-review` over a Playwright viewport matrix.
 - **docs** — the docs-scoped writer: update-don't-duplicate, lean `CLAUDE.md`/`AGENTS.md`, ADRs. Owns `grill-with-docs`.
 
 Deploy agents and skills into all present harnesses with:
 ```sh
 scripts/install-harness.sh --install
 ```
-Or target a specific harness with `--harness <claude|codex|agy>`.
+Or target a specific harness with `--harness <claude|codex|agy>`; `--uninstall` reverses it.
+
+**This repository is the single source.** Everything a harness sees is a symlink back into
+it — agents, skills, and the `~/.local/bin/build-*` hooks — so editing a file here takes
+effect immediately with no re-install. Codex is the one exception: its harness requires a
+generated TOML with the agent body embedded as an escaped string, so it cannot read the
+markdown directly. That file is generated into `dist/` (gitignored) and symlinked from
+`~/.codex`, which means a change to `agents/codex/*.md` does need a re-run.
 
 ## Centralized Skills (`skills/`)
-Skills are defined in a centralized, harness-agnostic structure under the `skills/` directory at the project root. The installation script projects these skills into the target harness:
-- **planner** — investigate a goal and produce an offline HTML implementation plan and strict JSON sidecar, then reconcile into GitHub milestones/issues.
-- **build** — execute approved plan waves in parallel across isolated worktrees. Features programmatic glob overlap detection to prevent concurrent builder collisions.
+Skills live in a harness-agnostic structure under `skills/`, and the installer symlinks them
+into each harness. The set is *discovered*, not listed — every directory under `skills/` is a
+skill, so adding one needs no change to the install script.
+- **planner** — investigate a goal and produce an offline HTML implementation plan (`docs/plans/plan<NN>-<YYYYMMDD>-<title>.html`) and strict JSON sidecar, then reconcile into GitHub milestones/issues.
+- **build** — execute approved plan waves in parallel across isolated jj workspaces. Features programmatic glob overlap detection to prevent concurrent builder collisions. Each builder reviews its own change-set (two passes) before opening a PR, then tears its workspace down.
 - **research** — area fan-out and informational merging.
-- **code-review** — adversarial code verification and multi-lens review aggregation.
+- **code-review** — adversarial code verification and multi-lens review aggregation, rendered to a self-contained HTML report and reconciled into GitHub issues (idempotent, marker-based, approval-gated — resolved findings auto-close).
 - **docs** — standardize documentation in place, record ADRs, and run mechanical gate checks.
 - **deploy** — human-gated production releases.
 - **use-other-harness** — explicit headless run of a command or task in an alternative harness.
-- **builder-frontend** & **code-reviewer-frontend-review** — specialize frontend-focused task flows and visual assets reviews.
+- **builder-frontend** — the builder's focused UI skill: clean, accessible, responsive frontends.
+- **code-reviewer-frontend-review** — the method behind code-review's `frontend` lens, not a standalone review: static pass over changed components and styles, then Playwright across 4K, half-tiled 4K, QHD, 1080p, MacBook 16"/15"/13", small laptop, tablet, and phone.
+- **jj** — Jujutsu VCS reference, vendored (MIT, © 2025 Josh Thomas). The builder's version control, including the workspace isolation the build waves rely on.
 
 ## Mechanical Gates & Hooks
 The system enforces safety, correctness, and compliance via blocking and advisory mechanical gates:

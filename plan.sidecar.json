@@ -32,7 +32,11 @@
       "key": "T1-gate-hardening",
       "title": "Harden guard mechanical gates with streaming SHA-256 and cross-platform path normalization",
       "body": "Resolve unbounded memory consumption in untracked diff digesting by streaming hash computation with an enforced size limit. Fix Linux path normalization for backslash-separated paths in sealed test checks. Cache repository directory walk in arch-check to avoid quadratic filesystem traversals.",
-      "labels": ["planning", "guard", "security"],
+      "labels": [
+        "planning",
+        "guard",
+        "security"
+      ],
       "dependsOn": [],
       "ownershipHint": "guard/",
       "wave": 1,
@@ -61,7 +65,11 @@
       "key": "T2-hook-portability",
       "title": "Fix cross-platform hook portability, Antigravity payloads, and tool bootstrap",
       "body": "Add jq dependency verification to bootstrap-tools.sh. Fix word-boundary regexes in build-guard to support BSD grep on macOS without bypassing rules. Expand build-format and build-lint to support Antigravity tool-call arguments. Ensure .git/info exists before writing to .git/info/exclude in project-bootstrap.sh.",
-      "labels": ["planning", "hooks", "portability"],
+      "labels": [
+        "planning",
+        "hooks",
+        "portability"
+      ],
       "dependsOn": [],
       "ownershipHint": "scripts/",
       "wave": 1,
@@ -96,8 +104,15 @@
       "key": "T3-skill-orchestration",
       "title": "Add subprocess timeouts in GitHub reconciler, wave ownership overlap detection, and fix doc script paths",
       "body": "Add default timeout to gh subprocess invocations in reconcile_github.py. Implement programmatic glob overlap detection in waves.py to prevent concurrent builder collisions. Correct all skill markdown files to reference explicit repository-relative script paths.",
-      "labels": ["planning", "skills", "orchestration"],
-      "dependsOn": ["T1-gate-hardening", "T2-hook-portability"],
+      "labels": [
+        "planning",
+        "skills",
+        "orchestration"
+      ],
+      "dependsOn": [
+        "T1-gate-hardening",
+        "T2-hook-portability"
+      ],
       "ownershipHint": "skills/",
       "wave": 2,
       "acceptanceTests": [
@@ -125,8 +140,15 @@
       "key": "T4-agent-parity",
       "title": "Align agent instructions across Claude, Codex, and Antigravity and wire Antigravity builder hooks",
       "body": "Port missing Skills guidelines and role instructions from Claude agent definitions to Codex and Antigravity agents. Wire format, advisory lint, and tdd-guard hooks into agents/agy/builder/hooks.json.",
-      "labels": ["planning", "agents", "harness-parity"],
-      "dependsOn": ["T1-gate-hardening", "T2-hook-portability"],
+      "labels": [
+        "planning",
+        "agents",
+        "harness-parity"
+      ],
+      "dependsOn": [
+        "T1-gate-hardening",
+        "T2-hook-portability"
+      ],
       "ownershipHint": "agents/",
       "wave": 2,
       "acceptanceTests": [
@@ -148,8 +170,15 @@
       "key": "T5-docs-adr-ci",
       "title": "Reconcile ADRs with centralized skills layout and add CI quality gates",
       "body": "Update ADR-0001 or add ADR-0002 to reflect the centralized skills layout and cross-harness install strategy. Add CI workflow jobs for formatting (gofmt, ruff format), linting (golangci-lint, ruff check, shellcheck), and docs compliance (docs_check.py).",
-      "labels": ["planning", "documentation", "ci"],
-      "dependsOn": ["T3-skill-orchestration", "T4-agent-parity"],
+      "labels": [
+        "planning",
+        "documentation",
+        "ci"
+      ],
+      "dependsOn": [
+        "T3-skill-orchestration",
+        "T4-agent-parity"
+      ],
       "ownershipHint": "docs/",
       "wave": 3,
       "acceptanceTests": [
@@ -166,6 +195,16 @@
           "testPath": ".github/workflows/ci.yml"
         }
       ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-01",
+      "title": "Harness install drifts from the canonical catalog",
+      "likelihood": 2,
+      "impact": 2,
+      "owner": "installer",
+      "mitigation": "The install script is reproducible and pins the catalog it installs from."
     }
   ]
 }

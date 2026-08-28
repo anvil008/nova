@@ -54,27 +54,27 @@ echo "== build the tdd-guard gate =="
 if ! ((install)); then
   echo "  would build ~/.local/bin/tdd-guard + build-hooks (run with --install)"
 elif have go; then
-  ( cd "$ROOT" && go build -o "$HOME/.local/bin/tdd-guard" ./cmd/tdd-guard ) && echo "  built ~/.local/bin/tdd-guard"
-  cat > "$HOME/.local/bin/build-hooks" <<'SH'
-#!/usr/bin/env bash
-# build-hooks — the builder agent's TDD build gate. Thin wrapper over tdd-guard.
-exec "$HOME/.local/bin/tdd-guard" hook \
-  --harness "${1:?usage: build-hooks <claude|codex|agy> <event>}" \
-  --event   "${2:?usage: build-hooks <claude|codex|agy> <event>}"
-SH
-  chmod +x "$HOME/.local/bin/build-hooks" && echo "  installed ~/.local/bin/build-hooks"
+  # The binary is a build artifact, so it is built into the repo's gitignored
+  # bin/ and linked — same rule as everything else: the repo is the source.
+  mkdir -p "$ROOT/bin" "$HOME/.local/bin"
+  ( cd "$ROOT" && go build -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) \
+    && ln -sfn "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard" \
+    && echo "  built $ROOT/bin/tdd-guard -> ~/.local/bin/tdd-guard"
 else
   echo "  skipped — install Go, then re-run"
 fi
 
 echo
-echo "== builder aux hooks (format / lint / guard) =="
+echo "== builder hooks (hooks / format / lint / guard) =="
 if ! ((install)); then
-  echo "  would install ~/.local/bin/build-{format,lint,guard} (run with --install)"
+  echo "  would link ~/.local/bin/build-{hooks,format,lint,guard} (run with --install)"
 else
-  install -m755 "$ROOT"/scripts/hooks/build-format "$ROOT"/scripts/hooks/build-lint \
-                "$ROOT"/scripts/hooks/build-guard "$HOME/.local/bin/" \
-    && echo "  installed ~/.local/bin/build-{format,lint,guard}"
+  # Symlinked, not copied: editing scripts/hooks/* takes effect immediately.
+  mkdir -p "$HOME/.local/bin"
+  for h in build-hooks build-format build-lint build-guard; do
+    ln -sfn "$ROOT/scripts/hooks/$h" "$HOME/.local/bin/$h"
+  done
+  echo "  linked ~/.local/bin/build-{hooks,format,lint,guard} -> scripts/hooks/"
 fi
 
 echo

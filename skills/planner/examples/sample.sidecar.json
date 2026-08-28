@@ -65,5 +65,31 @@
         }
       ]
     }
+  ],
+  "risks": [
+    {
+      "id": "R-01",
+      "title": "Renderer and reconciler drift apart",
+      "likelihood": 2,
+      "impact": 3,
+      "owner": "planner",
+      "mitigation": "Both read the same validated sidecar; the renderer rejects unknown fields so a schema change cannot land silently."
+    },
+    {
+      "id": "R-02",
+      "title": "Approval is inferred from silence",
+      "likelihood": 1,
+      "impact": 3,
+      "owner": "human reviewer",
+      "mitigation": "--apply requires an explicit --approved-by identity; a changed sidecar invalidates prior approval."
+    },
+    {
+      "id": "R-03",
+      "title": "Mermaid fails to render offline",
+      "likelihood": 2,
+      "impact": 1,
+      "owner": "planner",
+      "mitigation": "Every diagram ships its source in a details fallback that becomes visible when rendering throws."
+    }
   ]
 }
