@@ -138,9 +138,7 @@ func TestPreToolUseAllowsPathsOutsideTheRepository(t *testing.T) {
 func TestResealInvalidatesEarlierGreenEvidence(t *testing.T) {
 	h := newHarness(t)
 	h.seal()
-	if code, _, stderr := h.run("verify", "--green-command", "true"); code != 0 {
-		t.Fatalf("verify exit %d: %s", code, stderr)
-	}
+	h.verify()
 	h.write("findings.txt", "reviewed\n")
 	if code, _, stderr := h.run("diff-review", "record", "--findings", "findings.txt"); code != 0 {
 		t.Fatalf("diff-review exit %d: %s", code, stderr)
