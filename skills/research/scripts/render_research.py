@@ -17,7 +17,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKET_FIELDS = {"inputFindingCount", "findingCount", "areas", "conflicts", "coverage", "gaps", "openQuestions"}
-FINDING_FIELDS = {"source", "finding", "evidence", "topic", "position"}
+FINDING_FIELDS = {"source", "finding", "evidence", "topic", "position", "stance"}
+STANCES = ("supports", "contradicts", "neutral")
 SYNTHESIS_FIELDS = {"verdict", "summary", "recommendations"}
 REC_FIELDS = {"priority", "title", "detail", "refs"}
 PRIORITIES = ("high", "medium", "low")
@@ -75,6 +76,8 @@ def validate_packet(packet: object) -> dict:
             require_exact_fields(finding, FINDING_FIELDS, f"areas[{index}].findings[{j}]")
             for field in FINDING_FIELDS:
                 nonempty_string(finding[field], f"areas[{index}].findings[{j}].{field}")
+            if finding["stance"] not in STANCES:
+                raise ResearchRenderError(f"areas[{index}].findings[{j}].stance must be one of: {', '.join(STANCES)}")
         total += len(area["findings"])
     if total != packet["findingCount"]:
         raise ResearchRenderError("findingCount does not match the findings present")
@@ -129,7 +132,7 @@ def metrics_html(packet: dict, rec_count: int) -> str:
     cells = [
         ("Raw findings", packet["inputFindingCount"], "before dedupe", ""),
         ("Deduplicated", packet["findingCount"], f"across {len(packet['areas'])} area(s)", ""),
-        ("Conflicts", conflicts, "topics with >1 position", "high" if conflicts else "ok"),
+        ("Conflicts", conflicts, "topics with a contradicting stance", "high" if conflicts else "ok"),
         ("Missing areas", missing, "declared, no report", "critical" if missing else "ok"),
         ("Gaps", len(packet["gaps"]), "unresolved by an area", ""),
         ("Open questions", len(packet["openQuestions"]), "raised by an area", ""),
@@ -176,7 +179,7 @@ def finding_rows(packet: dict) -> str:
                 '<div class="row-detail">'
                 '<div class="block proof"><div class="k">Evidence</div>'
                 f'<p>{escaped(finding["evidence"])}</p></div>'
-                '<div class="block"><div class="k">Position</div>'
+                f'<div class="block"><div class="k">Position ({escaped(finding["stance"])})</div>'
                 f'<p>{escaped(finding["position"])}</p></div>'
                 "</div></details>"
             )
@@ -206,7 +209,7 @@ def recommendations_html(synthesis: dict | None) -> str:
 
 def conflicts_html(packet: dict) -> str:
     if not packet["conflicts"]:
-        return '<div class="empty">No topic carried more than one position across areas.</div>'
+        return '<div class="empty">No finding contradicted another position on its topic.</div>'
     blocks = []
     for conflict in packet["conflicts"]:
         positions = "".join(f"<li>{escaped(p)}</li>" for p in conflict["positions"])
