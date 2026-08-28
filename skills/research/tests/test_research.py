@@ -27,6 +27,27 @@ def run_helper(*reports):
     )
 
 
+def topic_report(area, *findings):
+    return {
+        "area": area,
+        "coverage": {"scope": f"{area} scope", "sourcesInspected": [f"{area} source"]},
+        "findings": [
+            {"source": f"{area}-src-{i}", "finding": f"{area} finding {i}", "evidence": f"{area} evidence {i}",
+             "topic": "retry-default", **finding}
+            for i, finding in enumerate(findings)
+        ],
+        "gaps": [],
+        "openQuestions": [],
+    }
+
+
+def merge_docs_report(report):
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "docs.json"
+        path.write_text(json.dumps(report), encoding="utf-8")
+        return run_helper(path)
+
+
 class ResearchSkillTests(unittest.TestCase):
     def test_example_merge_is_deterministic_and_matches_expected_packet(self):
         reports = [EXAMPLES / "runtime.json", EXAMPLES / "code.json", EXAMPLES / "docs.json"]
@@ -57,6 +78,11 @@ class ResearchSkillTests(unittest.TestCase):
         conflict = output["conflicts"][0]
         self.assertEqual(conflict["topic"], "retry-default")
         self.assertEqual(conflict["positions"], ["three", "unbounded"])
+        stances = {
+            item["position"]: item["stance"] for area in output["areas"] for item in area["findings"]
+            if item["topic"] == "retry-default"
+        }
+        self.assertEqual(stances, {"three": "neutral", "unbounded": "contradicts"})
         conflict_findings = [
             item for area in output["areas"] for item in area["findings"]
             if item["topic"] == "retry-default"
@@ -116,6 +142,49 @@ class ResearchSkillTests(unittest.TestCase):
             "in parallel", "blind", "(area, source, finding)", "without dropping",
             "coverage", "gaps", "open questions", "primary agent", "owns synthesis",
         ):
+            self.assertIn(phrase, skill)
+
+    def test_distinct_wording_without_contradicting_stance_is_not_a_conflict(self):
+        report = topic_report("docs", {"position": "three attempts"}, {"position": "3 retries"})
+        result = merge_docs_report(report)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output["conflicts"], [])
+        self.assertEqual([f["stance"] for f in output["areas"][0]["findings"]], ["neutral", "neutral"])
+
+        report = topic_report("docs", {"position": "three", "stance": "supports"}, {"position": "unbounded"})
+        output = json.loads(merge_docs_report(report).stdout)
+        self.assertEqual(output["conflicts"], [], "supports plus neutral is agreement, not a conflict")
+
+    def test_explicit_contradiction_is_exactly_one_conflict_listing_every_position(self):
+        report = topic_report(
+            "docs",
+            {"position": "three", "stance": "supports"},
+            {"position": "unbounded", "stance": "contradicts"},
+            {"position": "three by default"},
+        )
+        result = merge_docs_report(report)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output["conflicts"], [{"topic": "retry-default", "positions": ["three", "three by default", "unbounded"]}])
+        self.assertEqual(output["findingCount"], 3)
+
+    def test_rejects_unknown_stance_and_strips_string_fields(self):
+        bad = topic_report("docs", {"position": "three", "stance": "disagrees"})
+        result = merge_docs_report(bad)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("stance", result.stderr)
+
+        padded = topic_report("docs", {"position": " three "}, {"position": "three", "stance": " contradicts "})
+        result = merge_docs_report(padded)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output["conflicts"], [{"topic": "retry-default", "positions": ["three"]}])
+        self.assertEqual([f["position"] for f in output["areas"][0]["findings"]], ["three", "three"])
+
+    def test_skill_documents_stance_driven_conflicts(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        for phrase in ("`stance`", "`contradicts`", "`supports`", "`neutral`", "byte-identical"):
             self.assertIn(phrase, skill)
 
     def test_renders_packet_and_synthesis_to_self_contained_html(self):

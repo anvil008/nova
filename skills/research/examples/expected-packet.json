@@ -10,7 +10,8 @@
           "finding": "Retry defaults to three attempts.",
           "evidence": "config.py:18 sets attempts=3",
           "topic": "retry-default",
-          "position": "three"
+          "position": "three",
+          "stance": "neutral"
         }
       ]
     },
@@ -22,14 +23,16 @@
           "finding": "Retries continue until success.",
           "evidence": "The guide describes retrying until success.",
           "topic": "retry-default",
-          "position": "unbounded"
+          "position": "unbounded",
+          "stance": "contradicts"
         },
         {
           "source": "guide.md#timeouts",
           "finding": "Each attempt has a five-second timeout.",
           "evidence": "The timeout section states five seconds.",
           "topic": "attempt-timeout",
-          "position": "five-seconds"
+          "position": "five-seconds",
+          "stance": "neutral"
         }
       ]
     },
@@ -41,7 +44,8 @@
           "finding": "A failed operation ran three times.",
           "evidence": "Events 8, 10, and 12 are attempts.",
           "topic": "observed-attempts",
-          "position": "three"
+          "position": "three",
+          "stance": "neutral"
         }
       ]
     }
