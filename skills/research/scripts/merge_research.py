@@ -15,7 +15,6 @@ import json
 import sys
 from pathlib import Path
 
-
 AREAS_FIELDS = {"areas"}
 AREA_DECL_FIELDS = {"area", "scope", "sources"}
 REPORT_FIELDS = {"area", "coverage", "findings", "gaps", "openQuestions"}

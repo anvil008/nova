@@ -6,7 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "loop_state.py"
 REVIEW_EXAMPLES = ROOT.parents[0] / "code-review" / "examples"
@@ -17,7 +16,7 @@ def run(state, *args):
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
     return subprocess.run(
         [sys.executable, "-B", str(SCRIPT), "--state", str(state), *map(str, args)],
-        cwd=ROOT, env=environment, text=True, capture_output=True,
+        cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
 
 
