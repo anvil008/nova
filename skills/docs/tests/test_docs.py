@@ -135,6 +135,38 @@ class DocsCheckTests(unittest.TestCase):
         self.assertTrue(any("build-format" in cmd for cmd in edit_post_cmds))
         self.assertTrue(any("build-lint" in cmd for cmd in edit_post_cmds))
 
+    def test_docs_check_adr_compliance(self):
+        # Verifies docs_check.py passes on all ADRs in the real repository.
+        repo_root = ROOT.parents[1]
+        r = run(repo_root)
+        self.assertEqual(r.returncode, 0, f"docs_check failed with stdout:\n{r.stdout}\nstderr:\n{r.stderr}")
+        out = json.loads(r.stdout)
+        self.assertTrue(out["ok"])
+        self.assertEqual(out["violations"], [])
+
+    def test_ci_workflow_lint_steps(self):
+        # Verifies .github/workflows/ci.yml contains the required lint and doc checks.
+        ci_yaml_path = ROOT.parents[1] / ".github" / "workflows" / "ci.yml"
+        self.assertTrue(ci_yaml_path.exists(), "ci.yml does not exist")
+        content = ci_yaml_path.read_text(encoding="utf-8")
+        
+        # Check for go vet
+        self.assertIn("go vet ./...", content)
+        
+        # Check for go test -v ./...
+        self.assertIn("go test -v ./...", content)
+        
+        # Check for hook tests
+        self.assertIn("bash scripts/hooks/tests/test_hooks.sh", content)
+        
+        # Check for skill unit tests
+        for skill in ("planner", "build", "code-review", "docs", "research"):
+            expected_pattern = f"python3 -m unittest discover -s skills/{skill}/tests -p \"test_*.py\""
+            self.assertIn(expected_pattern, content)
+            
+        # Check for docs check
+        self.assertIn("skills/docs/scripts/docs_check.py", content)
+
 
 if __name__ == "__main__":
     unittest.main()
