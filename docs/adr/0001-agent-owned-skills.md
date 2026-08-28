@@ -1,7 +1,7 @@
 # 1. Agent-owned skills
 
 ## Status
-Accepted
+Superseded by [ADR-0003](0003-central-skills-agent-capabilities.md)
 
 ## Context
 The agents are single-purpose leaves (research, builder, code-reviewer, docs) that the orchestration skills drive. We want each agent to carry its own domain skills — e.g. `jj` for the builder — without every agent sharing the same set. Harnesses discover skills globally (`~/.claude/skills`, `~/.codex/skills`, `~/.agents/skills`); there is no frontmatter flag that hard-scopes a skill to one agent.
