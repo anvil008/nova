@@ -3,47 +3,51 @@ package guard
 import (
 	"bytes"
 	"io/fs"
-
+	"os"
+	"path/filepath"
 	"testing"
 )
 
-func TestUntrackedDigestStreaming(t *testing.T) {
+func TestUntrackedEditPastTenMiBChangesTreeDigest(t *testing.T) {
 	h := newHarness(t)
-
-	// Create a large untracked file (15MB)
-	// The first 10MB will be 'A's, the rest 5MB will be 'B's.
 	const limit = 10 * 1024 * 1024
-	const largeSize = 15 * 1024 * 1024
-
-	largeContent := make([]byte, largeSize)
-	for i := 0; i < limit; i++ {
-		largeContent[i] = 'A'
-	}
-	for i := limit; i < largeSize; i++ {
-		largeContent[i] = 'B'
-	}
-
-	h.write("large_untracked.txt", string(largeContent))
-
-	// Get the working diff
-	diff, err := workingDiff(h.repository)
+	content := bytes.Repeat([]byte{'A'}, limit+1)
+	h.write("large_untracked.txt", string(content))
+	first, _, err := currentBase(h.repository)
 	if err != nil {
-		t.Fatalf("workingDiff failed: %v", err)
+		t.Fatal(err)
 	}
-
-	// The digest should be of the first 10MB ('A's)
-	expectedDigest := digestBytes(largeContent[:limit])
-
-	// Since workingDiff formats the combined byte array:
-	// combined = tracked + \x00 + name + \x00 + digestBytes(content) + \x00
-	// Let's verify that expectedDigest is present in the diff bytes, but the digest of the whole 15MB file is NOT.
-	wholeDigest := digestBytes(largeContent)
-
-	if !bytes.Contains(diff, []byte(expectedDigest)) {
-		t.Errorf("Expected combined diff to contain capped digest %s", expectedDigest)
+	content[limit] = 'B'
+	h.write("large_untracked.txt", string(content))
+	second, _, err := currentBase(h.repository)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if bytes.Contains(diff, []byte(wholeDigest)) {
-		t.Errorf("Combined diff contains digest of entire 15MB file %s, expected capping at 10MB", wholeDigest)
+	if first.TreeDigest == second.TreeDigest {
+		t.Fatal("edit after the first 10 MiB did not invalidate the tree digest")
+	}
+}
+
+func TestWorkingDiffSkipsNonRegularUntrackedEntries(t *testing.T) {
+	h := newHarness(t)
+	if err := os.Symlink("missing-target", filepath.Join(h.repository, "untracked-link")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := workingDiff(h.repository); err != nil {
+		t.Fatalf("non-regular untracked entry made workingDiff fail: %v", err)
+	}
+}
+
+func TestUnsealedSourceChangesUnquotesPorcelainPaths(t *testing.T) {
+	h := newHarness(t)
+	path := "pkg/odd\tname.go"
+	h.write(path, "package pkg\n")
+	paths, err := unsealedSourceChanges(h.repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 1 || paths[0] != path {
+		t.Fatalf("unsealed paths = %q, want %q", paths, path)
 	}
 }
 
