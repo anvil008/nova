@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "merge_findings.py"
 RENDER = ROOT / "scripts" / "render_review.py"
@@ -25,6 +24,7 @@ def run_script(script, *args):
         env=environment,
         text=True,
         capture_output=True,
+        check=False,
     )
 
 

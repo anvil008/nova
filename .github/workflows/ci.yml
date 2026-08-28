@@ -13,21 +13,30 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Python lint tooling
+        run: python3 -m pip install ruff
       - run: go mod tidy
       - run: git diff --exit-code -- go.mod go.sum
       - run: go build ./...
       - name: Go vet
         run: go vet ./...
       - name: Go tests
-        run: go test -v ./...
+        run: go test -count=1 -race ./...
       - name: Hook tests
         run: bash scripts/hooks/tests/test_hooks.sh
+      - name: Installer tests
+        run: bash scripts/tests/test_install.sh
+      - name: Ruff
+        run: ruff check skills/
+      - name: ShellCheck
+        run: shellcheck -S warning scripts/*.sh scripts/hooks/build-*
       - name: Skill unit tests
         run: |
-          python3 -m unittest discover -s skills/planner/tests -p "test_*.py"
-          python3 -m unittest discover -s skills/build/tests -p "test_*.py"
-          python3 -m unittest discover -s skills/code-review/tests -p "test_*.py"
-          python3 -m unittest discover -s skills/docs/tests -p "test_*.py"
-          python3 -m unittest discover -s skills/research/tests -p "test_*.py"
+          for d in skills/*/tests; do
+            python3 -m unittest discover -s "$d" -p 'test_*.py'
+          done
       - name: Docs check
         run: python3 skills/docs/scripts/docs_check.py .
