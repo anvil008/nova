@@ -13,23 +13,41 @@ more importantly, when the loop must stop. Loop state lives in a file rather tha
 because `/loop` re-invokes with a fresh context each tick and an agent that cannot remember which
 pass it is on will happily run forever.
 
+## Harness requirement
+
+This skill requires a harness with a `/loop` driver that re-invokes a prompt on a schedule.
+Today that is Claude Code (`/loop <interval> <prompt>`). Codex and Antigravity have no equivalent,
+so on those harnesses there is no automatic repetition: drive the loop manually by running the
+"Every tick" section below as one complete iteration per invocation, and re-invoke it yourself
+until `loop_state.py record` reports a stop. The state file makes this safe — every iteration
+reads the pass count from disk, so a manual driver gets the same bound and the same stop
+conditions as `/loop` does.
+
 ## First tick — set up
 
 Do this once, then never again for the life of the loop.
 
-1. Put the work on its own branch. Never run this loop on `main`.
+1. Put the work on its own branch. Never run this loop on `main`. The repository is
+   jj-colocated (see the `jj` skill), so the branch is a bookmark on the current change:
 
    ```bash
-   jj bookmark create loop-branch -r @   # jj repos — see the `jj` skill
-   git switch -c loop-branch             # plain git repos
+   jj bookmark create loop-branch -r @
    ```
+
+   Colocation keeps `.git/` in step, so git-based tooling sees `loop-branch` as an ordinary
+   branch without any plain-git checkout step.
 
 2. Initialise the state:
 
    ```bash
    python3 skills/review-fix-loop/scripts/loop_state.py init \
-     --branch loop-branch --max-iterations 10
+     --branch loop-branch --max-iterations 10 --min-severity high
    ```
+
+   `--min-severity` is the lowest severity that still blocks convergence (`critical`, `high`,
+   `medium`, `low`, or `nit`; default `high`). Findings below it are counted and reported on
+   every pass but never keep the loop running — pick `medium` when the change should leave with
+   no medium findings either, and `nit` only when a fully clean review is the requirement.
 
    `.swarm/review-fix-loop.json` is working state, not a deliverable — add `.swarm/` to
    `.gitignore` if it is not there already.
@@ -52,12 +70,14 @@ Do this once, then never again for the life of the loop.
 
    | Status | Meaning |
    |---|---|
-   | `converged` | The review reported no findings. This is the good ending. |
-   | `stalled` | Two consecutive passes reported an *identical* finding set — the fixer is not moving. |
+   | `converged` | No findings at or above `--min-severity`. Lower findings may remain — `latest.findings` counts them, and the merged review JSON lists them. This is the good ending. |
+   | `stalled` | Two consecutive passes reported an *identical* set of findings at or above `--min-severity` — the fixer is not moving. Clearing only lower findings does not count as movement. |
    | `exhausted` | Hit the iteration bound. |
 
 3. **Fix — only if `continue` is true.** Dispatch the `builder` to fix the reported findings,
-   ranked by severity, `critical` and `high` first. The builder runs in a reduced mode here:
+   ranked by severity, `critical` and `high` first. Findings below `--min-severity` are optional
+   for the builder; fixing them is welcome but not what the loop is waiting on. The builder runs
+   in a reduced mode here:
 
    - it works on `loop-branch` in the existing working copy, taking no new jj workspace, since
      the loop owns the branch;
@@ -78,7 +98,8 @@ Do this once, then never again for the life of the loop.
 The bound is the point. Ten passes of an agent editing code against its own reviewer is a lot of
 unsupervised change, so the loop is designed to end early and honestly rather than to reach ten:
 
-- `converged` is a real result — hand over the branch.
+- `converged` is a real result — hand over the branch, together with the findings below the
+  threshold that the last merged review still lists.
 - `stalled` usually means the finding needs a human decision, or the builder cannot reach it from
   the findings alone. Report the repeated finding set verbatim; do not retry it.
 - `exhausted` means ten passes did not clear the findings. That is a signal about the change, not
@@ -96,10 +117,11 @@ something. Restarting a finished loop needs an explicit `init --force`.
 
 ## Offline demonstration
 
-Reads and writes a temporary state file only; no GitHub, no subagents, no repository changes:
+Reads and writes a scratch state file under the gitignored `.swarm/` directory only; no GitHub,
+no subagents, no tracked repository changes:
 
 ```bash
-python3 skills/review-fix-loop/scripts/loop_state.py --state /tmp/loop.json init --max-iterations 3
-python3 skills/review-fix-loop/scripts/loop_state.py --state /tmp/loop.json record skills/code-review/examples/expected-review.json
-python3 skills/review-fix-loop/scripts/loop_state.py --state /tmp/loop.json status
+python3 skills/review-fix-loop/scripts/loop_state.py --state .swarm/demo/loop.json init --max-iterations 3 --min-severity medium
+python3 skills/review-fix-loop/scripts/loop_state.py --state .swarm/demo/loop.json record skills/code-review/examples/expected-review.json
+python3 skills/review-fix-loop/scripts/loop_state.py --state .swarm/demo/loop.json status
 ```
