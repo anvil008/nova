@@ -1,0 +1,929 @@
+{
+  "inputFindingCount": 95,
+  "findingCount": 95,
+  "areas": [
+    {
+      "area": "go-guard",
+      "findings": [
+        {
+          "source": "go build/vet/test/gofmt (repo root)",
+          "finding": "Toolchain is clean: build, vet, tests (including -race) all pass; gofmt reports no files; go.sum is empty (zero external dependencies); go.mod declares go 1.26.5 matching the local toolchain.",
+          "evidence": "`go build ./... && go vet ./... && go test ./...` -> ok cmd/tdd-guard, ok controlplane, ok guard; `go test -race ./...` -> all ok; `gofmt -l .` -> empty; `wc -l go.sum` -> 0",
+          "topic": "go-toolchain",
+          "position": "Go code compiles, vets, formats, and tests cleanly; no race under -race; no third-party deps."
+        },
+        {
+          "source": "guard/actions.go:20-44,80-103",
+          "finding": "CONFIRMED design gap: the guard never ties the RED and GREEN commands together or constrains what they are. `seal` only requires the red argv to exit non-zero and `verify` only requires the green argv to exit 0 and postdate the seal. An agent can satisfy the whole seal->verify contract with `--red-command false` and `--green-command true` without ever running tests.",
+          "evidence": "Scratchpad: `tdd-guard seal --red-command false` -> exit 0; `tdd-guard verify --green-command true` -> exit 0; status shows green recorded. actions.go:42 checks only ExitCode == 0 for red; actions.go:98-103 checks only ExitCode != 0 and isAfter(StartedAt, SealedAt) for green. No ArgvDigest comparison between seal.Red and green exists.",
+          "topic": "tdd-guard-bypass",
+          "position": "The mechanical gate proves 'some command failed, then some command passed', not 'the sealed tests went red then green'. Severity depends on whether the argv is trusted to come from the skill/prompt rather than the agent."
+        },
+        {
+          "source": "guard/repository.go:414-433, guard/hardening_test.go:10-48",
+          "finding": "CONFIRMED consequence of the 10MB cap: digestFileStreaming silently truncates via io.LimitReader, so two untracked files sharing their first 10MiB produce the same digest. diff-review staleness therefore cannot see edits past byte 10,485,760 of an untracked file. hardening_test.go:42-47 asserts this truncation as intended. Tracked files are unaffected (git diff HEAD).",
+          "evidence": "repository.go:424-425 `const maxBytes = 10 * 1024 * 1024; reader := io.LimitReader(file, maxBytes)`; no size/EOF check after io.Copy.",
+          "topic": "tdd-guard-bypass",
+          "position": "Bounded memory was achieved by truncation rather than hashing the full stream (also bounded-memory); including file size in the digest would close the blind spot."
+        },
+        {
+          "source": "README.md:50 vs guard/guard.go:316, guard/repository.go:373, guard/actions.go:128, guard/repository.go:280",
+          "finding": "PARTIAL README parity on 'streaming SHA-256 ... to prevent unbounded memory consumption during diff digesting'. Streaming with the cap applies only to untracked files in workingDiff. Sealed test files are still read whole with os.ReadFile in three places, and `git diff HEAD` output is buffered entirely in memory by captureArgv.",
+          "evidence": "guard.go:316 os.ReadFile; repository.go:373 same in collectTests; actions.go:128 same in reseal; repository.go:280 captureArgv(\"git\",\"diff\",\"HEAD\") into bytes.Buffer.",
+          "topic": "readme-parity",
+          "position": "Claim holds narrowly (untracked files); the broader 'unbounded memory' wording overstates coverage."
+        },
+        {
+          "source": "README.md:51 vs guard/actions.go:420-441,508-518",
+          "finding": "README claim 'cross-platform path normalization (backslash/forward-slash)' is implemented and tested (TestBackslashPathNormalization). Normalization is unconditional on Linux, so a POSIX filename containing a backslash is mis-resolved \u2014 an edge case that only widens what is treated as sealed.",
+          "evidence": "actions.go:422 strings.ReplaceAll(candidate, \"\\\\\", \"/\"); actions.go:509 same in pathComponents; hardening_test.go:50-70.",
+          "topic": "readme-parity",
+          "position": "Claim matches implementation."
+        },
+        {
+          "source": "README.md:52 vs guard/actions.go:265-279, guard/repository.go:437-476",
+          "finding": "README claim 'in-memory directory caching during arch-check' is implemented: repositoryFilesWalk runs once and matchGlobCached filters per assertion; TestArchCheckGlobCaching asserts exactly one walk. Caveat: an assertion with an empty PathGlob passes `.` to ast-grep, bypassing the cached walk and the skippedDirectories filter.",
+          "evidence": "actions.go:269 `paths := []string{\".\"}`; actions.go:271-278; hardening_test.go:104-106.",
+          "topic": "readme-parity",
+          "position": "Claim matches implementation; mixed scan semantics between globbed and unglobbed assertions is a minor inconsistency."
+        },
+        {
+          "source": "README.md:48 vs guard/run.go:13-21, guard/actions.go",
+          "finding": "README describes seal -> verify -> diff-review; the binary additionally exposes reseal, arch-check, hook, and status. README does not mention that arch-check results never block the Stop gate (stopBlockers omits arch review) nor that coverage is advisory-only. README calls the binary tdd-guard while the package, usage text, and messages call it anvil-guard.",
+          "evidence": "run.go:13-21 usage lists 7 commands; actions.go:346-369 stopBlockers checks changedTests/green/diffReview only; actions.go:75-79 coverage 'never gates'; bootstrap-tools.sh:60 builds ./cmd/tdd-guard as bin/tdd-guard.",
+          "topic": "readme-parity",
+          "position": "README undersells the surface and uses the tdd-guard name while code self-identifies as anvil-guard; not a functional mismatch."
+        },
+        {
+          "source": "README.md:83 vs .github/workflows/ci.yml:16-17",
+          "finding": "README claim that CI runs go mod tidy verification is implemented.",
+          "evidence": "ci.yml:16 `go mod tidy`; ci.yml:17 `git diff --exit-code -- go.mod go.sum`.",
+          "topic": "readme-parity",
+          "position": "Claim matches CI."
+        },
+        {
+          "source": "guard/repository.go:160-193",
+          "finding": "CONFIRMED dead code: filesMatchingGlob is unreachable after the caching refactor replaced it with repositoryFilesWalk + matchGlobCached. No callers, no tests.",
+          "evidence": "`go run golang.org/x/tools/cmd/deadcode@latest -test ./...` -> `guard/repository.go:163:6: unreachable func: filesMatchingGlob`.",
+          "topic": "dead-code",
+          "position": "Safe to delete."
+        },
+        {
+          "source": "controlplane/{codec.go:94,lifecycle.go:135-177,261-274,result.go:298,route.go:287,selection.go:235}",
+          "finding": "Ten exported controlplane functions have no callers anywhere in the repository and no test coverage: CanonicalDigest, SealGoal, ValidateGoal, SealAssignment, ValidateAssignment, SealDispatch, ValidateDispatch, DecodeWorkflowResult, DecodeRoute, DecodeSelection. controlplane is consumed only by guard/ (CommandEvidence, GuardSnapshot, digest prefix).",
+          "evidence": "deadcode lists all ten as unreachable; `grep -rln controlplane` outside controlplane/ hits only guard/actions.go and guard/repository.go; `go test -cover` -> controlplane 66.5%.",
+          "topic": "dead-code",
+          "position": "Not bugs, but inflates the surface README/ADRs describe as enforced; the strict fail-closed Decode* entry points are entirely untested."
+        },
+        {
+          "source": "controlplane/codec.go:157-176",
+          "finding": "CONFIRMED comment/behaviour mismatch: ValidIdentifier's doc says it 'deliberately excludes whitespace and path traversal syntax', but the allowed set includes '.' and '/', so `a/../../etc` passes. Identifiers are used for IDs, not paths; paths use validRelativeScope (authority.go:328-334) which does reject traversal.",
+          "evidence": "codec.go:170 `case strings.ContainsRune(\"-_.:/@\", character)` with no `..` check; contrast authority.go:332-333 path.Clean-based check.",
+          "topic": "controlplane-validation",
+          "position": "Doc comment overstates the guarantee; tighten the rule or fix the comment."
+        },
+        {
+          "source": "guard/session.go:38-72",
+          "finding": "SUSPECTED lost-update race in the session touch log: recordTouchedRepositories does read-merge-write with no file lock. Two PreToolUse hooks for the same session running concurrently can each read the old log and the later rename wins, dropping the other's repository. writeJSON is atomic per write so corruption is impossible, only loss.",
+          "evidence": "session.go:46 readJSON, :71 writeJSON with no flock/O_EXCL between; guard.go:226-248 writeJSON uses CreateTemp+Rename.",
+          "topic": "race-conditions",
+          "position": "Real but narrow; the repository-from-target lookup in preToolUse still blocks sealed-test edits regardless, so loss only weakens Stop/PostToolUse coverage of touched repos."
+        },
+        {
+          "source": "guard/actions.go:87-103",
+          "finding": "SUSPECTED TOCTOU in verify: changedTests is checked before the green command runs, and the green command is arbitrary argv. A green command that edits a sealed test, runs the suite, and restores the file would pass verify. Corollary of the untrusted-argv finding.",
+          "evidence": "actions.go:87-93 pre-check; actions.go:94 runArgv; no post-run digest comparison.",
+          "topic": "tdd-guard-bypass",
+          "position": "Only meaningful if the green argv is agent-controlled; same root cause as the false/true finding."
+        },
+        {
+          "source": "guard/repository.go:279-303,414-433",
+          "finding": "Symlinked untracked files are followed by os.Open when digesting the working tree, so content outside the repository is read and hashed (capped at 10MB, digest only, no exfiltration). FIFOs are not listed by `git ls-files --others` so no hang. Traversal in guard paths is handled physically via resolveSymlinks with a 40-hop bound and is well tested.",
+          "evidence": "Scratchpad: `ln -s /etc/hostname repo/link.txt; tdd-guard status` -> exit 0; `mkfifo repo/pipe.fifo; timeout 5 tdd-guard status` -> exit 0. collectTests filters entry.Type().IsRegular() (repository.go:347) but workingDiff does not.",
+          "topic": "path-traversal",
+          "position": "No exploitable traversal or symlink bypass found; symlink-follow in workingDiff is a minor robustness note."
+        },
+        {
+          "source": "guard/repository.go:35-60,88-118,204-242",
+          "finding": "No command injection: every external invocation uses exec.Command with an argv slice; nothing routes through a shell. A repository-relative path beginning with '-' could be misparsed by ast-grep as a flag, which surfaces as a non-zero exit -> error (fail closed).",
+          "evidence": "repository.go:40 exec.Command(argv[0], argv[1:]...); :89 append([]string{astGrepBinary(), \"run\", \"--pattern\", pattern, \"--json\"}, paths...); :110-112 non-zero exit returns error.",
+          "topic": "command-injection",
+          "position": "Clean."
+        },
+        {
+          "source": "guard/hook.go:66-90, controlplane/codec.go:25-31",
+          "finding": "Input bounds are in place: hook payload capped at 64MiB with fail-closed refusal when a seal exists; controlplane contracts capped at 1MiB with depth limit 64, duplicate-key, surrogate, and trailing-data rejection.",
+          "evidence": "hook.go:69 maxPayloadBytes = 64 << 20, :76-82; codec.go:28-31, :49-81; bypass_test.go:42-75.",
+          "topic": "unbounded-reads",
+          "position": "Bounded, except the os.ReadFile/captureArgv cases noted under readme-parity."
+        },
+        {
+          "source": "go test -cover ./... and test inventory",
+          "finding": "Coverage: cmd/tdd-guard 100%, guard 82.4%, controlplane 66.5%. Holes: no test that seal/verify relate red/green argv; no test for concurrent touch-log writes; controlplane Decode*/Seal* sequence edge cases untested; resolveSymlinks maxSymlinkHops (cyclic symlink) path untested.",
+          "evidence": "`go test -cover ./...`; grep '^func Test' inventory (60 guard, 3 cmd, 38 controlplane); deadcode listing.",
+          "topic": "test-coverage",
+          "position": "Good on the hook/path surface, thin on the contract-decoding surface and on cross-process behaviour."
+        },
+        {
+          "source": "guard/hook.go:383-414",
+          "finding": "Minor: unsealedSourceChanges parses `git status --porcelain` v1 by slicing line[3:] and stripping quotes, but does not un-escape C-quoted paths (core.quotePath), so non-ASCII filenames are reported with escape sequences. Advisory-only path.",
+          "evidence": "hook.go:399-404.",
+          "topic": "correctness",
+          "position": "Cosmetic."
+        }
+      ]
+    },
+    {
+      "area": "shell-hooks",
+      "findings": [
+        {
+          "source": "scripts/hooks/tests/test_hooks.sh",
+          "finding": "Test suite passes: 22 passed, 0 failed (gofmt, ruff, shellcheck present so no skips).",
+          "evidence": "bash scripts/hooks/tests/test_hooks.sh | tail -3 -> '22 passed, 0 failed'",
+          "topic": "test-status",
+          "position": "green"
+        },
+        {
+          "source": "scripts/bootstrap-tools.sh:96",
+          "finding": "shellcheck at warning severity reports exactly one issue across all 8 scripts: SC2088 tilde-in-quotes in a cosmetic echo. Info-level output is only SC2015 x24 and one SC2016 in test_hooks.sh \u2014 intentional idioms. Hook scripts themselves are shellcheck-clean.",
+          "evidence": "shellcheck -S warning -s bash <8 scripts> -> only 'scripts/bootstrap-tools.sh line 96: SC2088'",
+          "topic": "shell-correctness",
+          "position": "essentially clean; one cosmetic warning"
+        },
+        {
+          "source": "scripts/hooks/tests/test_hooks.sh:88 -> scripts/project-bootstrap.sh:24,63",
+          "finding": "CONFIRMED side effect: running the test suite mutates the user's ~/.local/bin. Test 4 invokes project-bootstrap.sh --with-hooks, which sets install=1 and runs `install -m755 build-format build-lint build-guard $HOME/.local/bin/`, overwriting the symlinks bootstrap-tools.sh created with regular-file copies. CI runs the same script, so on a runner this also writes into $HOME.",
+          "evidence": "stat ~/.local/bin/build-guard -> '2026-08-28 13:05:17 regular file' (test run time); ~/.local/bin/build-hooks -> symlink dated 01:29; project-bootstrap.sh:24 `--with-hooks) withhooks=1; install=1;;` and :63 `install -m755 ... \"$BIN/\"`",
+          "topic": "installer-safety",
+          "position": "tests are not hermetic; they clobber user-level installs"
+        },
+        {
+          "source": "scripts/project-bootstrap.sh:63 vs scripts/bootstrap-tools.sh:72-75 vs README.md:20-22",
+          "finding": "CONFIRMED README parity break: README says every ~/.local/bin/build-* hook is a symlink so edits take effect immediately. bootstrap-tools.sh honors that (ln -sfn), but project-bootstrap.sh --install COPIES the three hook scripts (install -m755), replacing the symlinks. After project-bootstrap --install, edits to scripts/hooks/* no longer take effect until re-run.",
+          "evidence": "bootstrap-tools.sh:75 `ln -sfn \"$ROOT/scripts/hooks/$h\" \"$HOME/.local/bin/$h\"`; project-bootstrap.sh:63 `install -m755 ...`; README.md:21",
+          "topic": "readme-parity",
+          "position": "README claim is false after project-bootstrap --install"
+        },
+        {
+          "source": "scripts/hooks/build-guard:20-21",
+          "finding": "CONFIRMED guard bypasses for the 'never push/commit/merge to main' policy (empirical probes). Allowed: bare `git push` (upstream may be main), `git push origin HEAD` while on main, `git push origin master`, `git checkout main && git merge feat`, `git switch main; git merge feat`, `git branch -f main HEAD`, `git update-ref refs/heads/main HEAD`, `gh pr merge 1 --merge`, `jj bookmark set main -r @ && jj git push`, `B=main; git push origin $B`, `git push origin $(git branch --show-current)`, quote-splitting `git push origin ma\"\"in`, and an alias defined in an earlier turn. Correctly denied: `git -C`, `sh -c \"...\"`, `cd x && git push origin main`, `/usr/bin/git`, tabs, `refs/heads/main`, `jj git push -b main`.",
+          "evidence": "probe loop: `jq -nc --arg c \"$1\" '{tool_input:{command:$c}}' | build-guard | jq -r .hookSpecificOutput.permissionDecision` -> empty (allow) for each listed command",
+          "topic": "guard-bypass",
+          "position": "guard is an advisory speed bump, not a security boundary; its header (lines 6-7) says 'deliberately narrow' while README.md:58 says it 'blocks critical violations'"
+        },
+        {
+          "source": "scripts/hooks/build-guard:20-21",
+          "finding": "CONFIRMED false positives (benign commands denied): `git push origin main-fix` (any branch beginning 'main-'), `git commit -m \"fix main\"`, `git commit -am \"refactor main.go\"`, `git merge-base main HEAD`, `echo \"git push origin main\"`, `grep \"git push origin main\" README.md`. Root cause: `main([^[:alnum:]_]|$)` treats '-' and '.' as boundaries and the pattern scans the whole command string including quoted message text.",
+          "evidence": "probe output: 'deny | git push origin main-fix', 'deny | git commit -m \"fix main\"', 'deny | git merge-base main HEAD', 'deny | grep \"git push origin main\" README.md'",
+          "topic": "guard-false-positives",
+          "position": "regex over-matches commit messages and hyphenated branch names"
+        },
+        {
+          "source": "scripts/hooks/build-guard:23-24",
+          "finding": "CONFIRMED: /tmp cargo-target blocking works for the literal test cases but is trivially evaded. Allowed: `CARGO_TARGET_DIR=\"/tmp/x\" cargo b` (quoted), `cargo build --target-dir \"/tmp/x\"`, `cargo build --target-dir /tmp` (no trailing slash), `--target-dir=$TMPDIR/x`, `CARGO_BUILD_TARGET_DIR=/tmp/x`, `/dev/shm/x`. Denied correctly: unquoted forms, `export CARGO_TARGET_DIR=/tmp/x;`, `env CARGO_TARGET_DIR=/tmp/x`.",
+          "evidence": "build-guard:23 `CARGO_TARGET_DIR=[[:space:]]*/tmp`, :24 `\\-\\-target-dir[= ][[:space:]]*/tmp/`; probe output shows allow for quoted forms",
+          "topic": "guard-bypass",
+          "position": "quoting or dropping the trailing slash bypasses the tmpfs rule"
+        },
+        {
+          "source": "scripts/hooks/build-guard:11-17",
+          "finding": "CONFIRMED fail-open: if jq is absent (or the payload is malformed/empty), cmd is empty and the guard exits 0 silently \u2014 every command is allowed. Same fail-open applies to build-lint:8-9 and build-format:10-11. README's 'Verified jq availability at bootstrap' refers only to bootstrap-tools.sh:47; nothing at hook runtime checks for it.",
+          "evidence": "PATH=<dir with only bash+grep> bash scripts/hooks/build-guard <<< '{\"tool_input\":{\"command\":\"git push origin main\"}}' -> rc=0, no output; `echo 'not json' | build-guard` -> rc=0",
+          "topic": "guard-bypass",
+          "position": "missing jq silently disables all three hooks"
+        },
+        {
+          "source": "scripts/hooks/build-guard:9-16, agents/agy/builder/hooks.json:10",
+          "finding": "Harness dispatch: only `agy` selects the Antigravity payload shape; `claude`, `codex`, or no arg use the Claude shape. Feeding an agy-invoked guard a Claude-shaped payload (or vice versa) yields no cmd and a silent allow. build-hooks accepts `codex` but agents/codex/builder.md wires no hooks, so the codex arg is dead in practice.",
+          "evidence": "build-guard:11,13; `... | build-guard agy` with Claude payload -> no output, rc=0; `grep -n -i hook agents/codex/builder.md` -> no matches",
+          "topic": "payload-parsing",
+          "position": "parsing is correct per harness but fails open cross-harness"
+        },
+        {
+          "source": "agents/agy/builder/hooks.json vs agents/claude/builder.md:5-30",
+          "finding": "Hook wiring parity gap: Claude builder wires Stop and SubagentStop to build-hooks; the Antigravity hooks.json has only PreToolUse/PostToolUse. hooks.json also uses `~/.local/bin/...` tilde paths and regex-alternation matchers; whether Antigravity expands tilde and supports alternation is unverified.",
+          "evidence": "agents/claude/builder.md:24-30 (Stop/SubagentStop); agents/agy/builder/hooks.json:4-52 (no Stop key)",
+          "topic": "harness-parity",
+          "position": "AGY builder lacks the Stop-time TDD verify gate"
+        },
+        {
+          "source": "scripts/install-harness.sh:38",
+          "finding": "CONFIRMED portability defect: `find ... -printf '%f\\n'` is GNU-only; BSD/macOS find has no -printf, so SKILLS is empty and the script aborts with 'no skills found' on macOS unless GNU findutils is installed. `mapfile` also requires bash 4+, so macOS stock bash 3.2 fails too.",
+          "evidence": "install-harness.sh:38 `mapfile -t SKILLS < <(cd \"$ROOT/skills\" && find . -mindepth 1 -maxdepth 1 -type d -printf '%f\\n' | sort)`; :39 exits 1 when empty",
+          "topic": "portability",
+          "position": "installer will not run on stock macOS"
+        },
+        {
+          "source": "scripts/hooks/build-guard:20-24, test_hooks.sh:58",
+          "finding": "Guard regexes are POSIX ERE with bracket classes only (no \\b, \\s, or -P), so they are portable across GNU and BSD grep -E; the test at test_hooks.sh:58 enforces absence of \\b.",
+          "evidence": "grep -n '\\\\b\\|grep -P\\|sed -i' scripts/hooks/* -> no matches in hook scripts; README.md:62",
+          "topic": "portability",
+          "position": "hook regexes are portable; README accurate here"
+        },
+        {
+          "source": "scripts/install-harness.sh:42,76",
+          "finding": "CONFIRMED install-clobber pitfall: `ln -sfn SRC DST` where DST is an existing real directory (e.g. a user's own ~/.claude/skills/jj/) does NOT replace it; it creates a symlink INSIDE it (DST/jj -> SRC). Install reports success while the harness keeps loading the user's original directory. --uninstall then runs `rm -f DST`, which fails on a directory and is silently ignored (no set -e). For regular files (agents/claude/*.md at :50), ln -sfn silently overwrites any user-authored file of the same name.",
+          "evidence": "scratchpad repro: mkdir dst/jj; touch dst/jj/userfile; ln -sfn src/jj dst/jj -> dst/jj/jj symlink created; rm -f dst/jj -> 'Is a directory' rc=1; `echo mine > dst/builder.md; ln -sfn src dst/builder.md` -> replaced",
+          "topic": "installer-safety",
+          "position": "install silently misbehaves on pre-existing real dirs and overwrites same-named user files"
+        },
+        {
+          "source": "scripts/install-harness.sh:54,82,44",
+          "finding": "Uninstall deletes by name without checking that the target is a symlink pointing into this repo: a user's own file or symlink at those names (e.g. their own research.md agent) would be removed. README.md:18 says '--uninstall reverses it' with no caveat.",
+          "evidence": "install-harness.sh:54 `rm -f ~/.claude/agents/\"$a\".md`; :44 `rm -f \"$d/$s\"`",
+          "topic": "installer-safety",
+          "position": "uninstall can delete user files sharing a name"
+        },
+        {
+          "source": "scripts/install-harness.sh, scripts/bootstrap-tools.sh",
+          "finding": "README parity gap on reversibility: install-harness.sh --uninstall removes agents/skills/codex TOML links but not ~/.local/bin/build-*, ~/.local/bin/tdd-guard, bin/, or dist/codex; bootstrap-tools.sh has no --uninstall and only recognises `--install` as $1 (`--help` prints the presence report instead).",
+          "evidence": "grep -n 'local/bin' scripts/install-harness.sh -> no rm of build-*; bootstrap-tools.sh:13 `[[ ${1:-} == \"--install\" ]] && install=1`",
+          "topic": "readme-parity",
+          "position": "'--uninstall reverses it' is only partially true"
+        },
+        {
+          "source": "scripts/install-harness.sh:22, scripts/project-bootstrap.sh:19, scripts/bootstrap-tools.sh:11",
+          "finding": "All scripts use `set -uo pipefail` without -e: a failed ln/mkdir/python3 step is not fatal and 'done.' still prints. The embedded python3 heredoc (install-harness.sh:90) runs unconditionally with naive frontmatter parsing (split('---', 2) at :109), so a malformed agents/codex/*.md produces a traceback after other harnesses were already modified. project-bootstrap.sh:37 runs install commands via `eval \"$cmd\" >/dev/null 2>&1`, which hides a sudo password prompt and can hang despite the 'non-interactively' claim.",
+          "evidence": "install-harness.sh:22,90,109-114,141-143; project-bootstrap.sh:3,29,37",
+          "topic": "shell-correctness",
+          "position": "partial-failure states are possible and unreported"
+        },
+        {
+          "source": "scripts/project-bootstrap.sh:103",
+          "finding": "The .git/info/exclude local-ignore of .claude/settings.local.json only fires when .git is a directory. In git worktrees and jj workspaces (the builder's documented mode) .git is a file, so the settings file is not excluded and can leak into a commit \u2014 contradicting README.md:64.",
+          "evidence": "project-bootstrap.sh:103 `if [[ -d .git ]]; then`",
+          "topic": "readme-parity",
+          "position": "exclude is skipped for worktrees/workspaces"
+        },
+        {
+          "source": "scripts/hooks/build-format:16-18, scripts/hooks/build-lint:15",
+          "finding": "Minor robustness: build-format hardcodes `rustfmt --edition 2021` (edition-2024 crates may be misformatted); `prettier --log-level` is Prettier 3 syntax; build-lint checks for eslint config in the hook's cwd, not the edited file's project, so monorepo subpackages are skipped. Filenames with spaces are handled correctly.",
+          "evidence": "build-format:16 `rustfmt --edition 2021 \"$f\"`; :18 `prettier --write --log-level warn`; build-lint:15 `ls .eslintrc* eslint.config.* >/dev/null`",
+          "topic": "shell-correctness",
+          "position": "minor robustness issues, advisory hooks only"
+        },
+        {
+          "source": "scripts/hooks/build-hooks:3",
+          "finding": "build-hooks hardcodes $HOME/.local/bin/tdd-guard rather than PATH lookup; when absent it exits 127. For a Claude PreToolUse hook a non-2 non-zero exit is non-blocking, so a missing tdd-guard silently disables the TDD gate.",
+          "evidence": "HOME=/nonexistent scripts/hooks/build-hooks claude PreToolUse -> 'No such file or directory', rc=127",
+          "topic": "guard-bypass",
+          "position": "TDD gate fails open when tdd-guard is not installed"
+        },
+        {
+          "source": "scripts/hooks/tests/test_hooks.sh:18-27,39",
+          "finding": "Test coverage of the guard is limited to 5 literal happy-path strings; none of the bypasses or false positives above are covered, and test :39 ('format no-ops on missing file') is vacuous because build-format always exits 0. Several portability tests are grep-the-source assertions rather than behavioural tests.",
+          "evidence": "test_hooks.sh:18-27, :55, :58, :82-83, :39",
+          "topic": "test-status",
+          "position": "green but shallow"
+        }
+      ]
+    },
+    {
+      "area": "skill-scripts",
+      "findings": [
+        {
+          "source": "skills/*/tests",
+          "finding": "All six skill test suites pass: planner 19, build 10, code-review 21, docs 10, research 7, review-fix-loop 12 (79 total, 0 failures).",
+          "evidence": "`for d in planner build code-review docs research review-fix-loop; do python3 -m unittest discover -s skills/$d/tests -p 'test_*.py'; done` -> each prints OK.",
+          "topic": "test-coverage",
+          "position": "Suites are green; gaps below are about what they do not exercise."
+        },
+        {
+          "source": "skills/ (ruff 0.16.5)",
+          "finding": "ruff reports 44 issues, none of them bugs: 16 I001 import-sort, 8 EXE001, 8 PLW1510 subprocess.run without check=, 2 F401 unused importlib.util in tests, 1 F841 unused `sidecar` (skills/build/tests/test_build.py:84), plus FURB192/ISC004/RUF010/UP012/RUF007. CI does not run ruff on skills/.",
+          "evidence": "`ruff check skills/ --output-format concise` -> 'Found 44 errors, 22 fixable'; `grep -i ruff .github/workflows/*.yml` returns nothing.",
+          "topic": "lint-hygiene",
+          "position": "Style-only debt; no ruff gate exists in CI for skill scripts."
+        },
+        {
+          "source": "skills/planner/scripts/render_plan.py:44-47,54-56,100-102 and skills/planner/scripts/reconcile_github.py:18-22,85",
+          "finding": "CONFIRMED idempotency bug: validate_plan() checks regexes against the stripped value but leaves the raw value in the plan, so a planId or issue key with leading/trailing whitespace passes validation yet produces a marker like `<!-- swarm-planner planId= planner-v3-sample issue=render-folio  -->` that ISSUE_MARKER_RE never matches. Every reconcile run then re-creates all issues.",
+          "evidence": "Probe: sample.sidecar.json with planId=' planner-v3-sample' and key 'render-folio '; render_plan and reconcile both exit 0; second reconcile against a snapshot built from the first run's payloads produced actions ['create_issue', 'create_issue'] instead of [].",
+          "topic": "github-reconcile-safety",
+          "position": "Whitespace-padded ids are accepted by validation but break marker round-tripping; reject or normalise (use the stripped value) in validate_plan."
+        },
+        {
+          "source": "skills/planner/scripts/render_plan.py:471-472 and skills/code-review/scripts/render_review.py:279-280",
+          "finding": "CONFIRMED template-token injection (low severity): render() does sequential str.replace of `{{TOKEN}}` per key. A user-controlled string containing a later token name (e.g. summary = '{{MERMAID_JS}}') is not neutralised by html.escape (braces are not escaped), so the later replacement substitutes into it. For the planner the entire 3 MB mermaid bundle was injected as visible text into the lede. Not an XSS, but sidecar text can pull other sections' markup into arbitrary places.",
+          "evidence": "Probe with summary 'Injected {{MERMAID_JS}} token and <script>alert(1)</script>' -> rendered lede reads `Injected \"use strict\";var __esbuild_esm_mermaid_nm;...`. The <script> portion was correctly escaped.",
+          "topic": "html-escaping",
+          "position": "Escaping is correct; placeholder substitution order is the weakness. A single-pass regex substitution would close it."
+        },
+        {
+          "source": "skills/planner/scripts/render_plan.py (all HTML builders) and skills/code-review/scripts/render_review.py",
+          "finding": "HTML escaping is otherwise consistent: every interpolated user value goes through html.escape(quote=True), including attribute contexts. Class-name interpolations use only validated enum values. Mermaid source is escaped inside <pre class=\"mermaid\">, the inlined bundle has `</script` neutralised (render_plan.py:443), and Mermaid runs with securityLevel strict (plan.html.tmpl:185).",
+          "evidence": "Manual read of all f-string HTML builders; `<script>alert(1)</script>` in summary rendered as `<script>`.",
+          "topic": "html-escaping",
+          "position": "No unescaped sink found beyond the token-substitution issue."
+        },
+        {
+          "source": "skills/planner/scripts/render_plan.py:214-215",
+          "finding": "SUSPICION: mermaid_label() only neutralises double quotes, newlines and square brackets. `#...;` (Mermaid entity syntax), HTML tags and backticks pass through into quoted node labels; a title like 'Fix #123; \u2026' may mis-render (fallback source panel is shown on failure).",
+          "evidence": "`mermaid_label('Fix #123; use `x` and <b>bold</b> \"q\"')` -> `Fix #123; use `x` and <b>bold</b> 'q'`.",
+          "topic": "html-escaping",
+          "position": "Diagram-level robustness gap, not a security issue given strict securityLevel; untested."
+        },
+        {
+          "source": "skills/build/scripts/waves.py:115-147",
+          "finding": "CONFIRMED false negative in ownership-overlap detection: globs_overlap relies on PurePath.match, which on Python 3.13 does not treat `**` recursively and is right-anchored, so a recursive glob vs a deeper concrete path is reported as non-overlapping. Two parallel issues owning `src/**` and `src/a/b/c.py` would pass validation and be built in the same wave.",
+          "evidence": "Probe (Python 3.13.5): globs_overlap('src/**','src/a/b/c.py') -> False; globs_overlap('src/a/b/c.py','src/**') -> False. Positive cases work: ('skills/planner/**','skills/**') -> True. Tests test_wave_ownership_overlap_* (test_build.py:160-165) do not cover the deep-path case.",
+          "topic": "build-wave-safety",
+          "position": "Overlap check is heuristic and misses recursive-glob vs deep path; PurePath.full_match (3.13+) or fnmatch-based expansion would be more reliable."
+        },
+        {
+          "source": "skills/build/scripts/waves.py:150-164",
+          "finding": "SUSPICION: validate_ownership_overlap treats wave 0 ('Ungrouped' per render_plan.py:327) like any other wave, so two ungrouped issues with overlapping hints hard-fail the build. It also prints a Warning to stderr and then raises with the same message. Free-text hints that are identical (e.g. 'backend service') also count as overlap.",
+          "evidence": "globs_overlap('backend service','backend service') -> True; wave grouping at lines 151-153 has no `wave > 0` filter.",
+          "topic": "build-wave-safety",
+          "position": "Defensible but inconsistent with the planner's 'wave 0 = ungrouped' semantics."
+        },
+        {
+          "source": "skills/planner/scripts/reconcile_github.py:100-112,161-165 and skills/planner/SKILL.md:111",
+          "finding": "Re-running planner reconcile reopens any marked issue that a builder has closed as done (issue_differs treats state != 'open' as drift and the payload sets state:'open'). Documented as intended, but reconciling a plan after work has started reverts completed issues to open.",
+          "evidence": "Probe: snapshot with issue #1 closed, sidecar unchanged -> actions [('update_issue', 1, 'open')]. SKILL.md:111.",
+          "topic": "github-reconcile-safety",
+          "position": "Documented design, but hazardous mid-build; no guard (e.g. skip issues labelled status:done or closed via a merged PR)."
+        },
+        {
+          "source": "skills/planner/scripts/reconcile_github.py:122-136",
+          "finding": "Milestone adoption by exact title: when no milestone carries the plan marker, the reconciler adopts any milestone whose title equals planName and overwrites its description with the marker, dropping any human-written description.",
+          "evidence": "Probe: milestone #7 title 'Planner v3 Sample', description 'Human-written milestone description' -> update_milestone with description replaced by the marker.",
+          "topic": "github-reconcile-safety",
+          "position": "Intended adoption path; side effect is loss of pre-existing milestone description."
+        },
+        {
+          "source": "skills/planner/scripts/reconcile_github.py:29-46,196-206 and skills/code-review/scripts/reconcile_findings.py:45-64,204-222",
+          "finding": "No gh command injection: subprocess.run uses an argv list (no shell), repo is regex-validated before interpolation into the REST path, issue/milestone numbers come from the API or int-typed args, bodies are passed via `--input -` on stdin as JSON. Timeouts enforced (30 s).",
+          "evidence": "reconcile_github.py:30-38; REPOSITORY regex at render_plan.py:28 / reconcile_findings.py:24.",
+          "topic": "gh-command-injection",
+          "position": "Clean."
+        },
+        {
+          "source": "skills/code-review/scripts/reconcile_findings.py:189-200",
+          "finding": "SUSPICION: close_resolved_issue closes every issue carrying this reviewId whose key is absent from the current filtered finding set. Because the set is filtered by --min-severity (line 168), re-running with a stricter --min-severity, or reusing a review-id for a partial re-review, closes issues for defects that still exist.",
+          "evidence": "review_actions builds desired_keys only from reportable(review, min_severity); no check that the closed issue's severity is below the new threshold.",
+          "topic": "github-reconcile-safety",
+          "position": "Convergence semantic is intentional (SKILL.md:88-98) but parameter drift between runs is not guarded or documented."
+        },
+        {
+          "source": "skills/review-fix-loop/scripts/loop_state.py:16,103-125,157",
+          "finding": "SUSPICION: `--min-severity` is stored in state but never used. Convergence requires zero findings of any severity (line 120), and `blocking` is computed from the hard-coded BLOCKING set; --min-severity is not validated against the severity enum. A review that only reports nits therefore never converges and runs until stalled/exhausted.",
+          "evidence": "loop_state.py:103 `blocking = [f for f in findings if f['severity'] in BLOCKING]`; :120 `if not findings: status='converged'`; state['minSeverity'] has no other reference.",
+          "topic": "readme-parity",
+          "position": "Dead parameter; wire it into convergence or remove it."
+        },
+        {
+          "source": ".github/workflows/ci.yml:26-31 and skills/docs/tests/test_docs.py:147-165",
+          "finding": "review-fix-loop's test suite is not run in CI, and the docs test that guards the CI workflow only asserts the five older skills, so the omission is invisible.",
+          "evidence": "ci.yml 'Skill unit tests' lists planner, build, code-review, docs, research; test_ci_workflow_lint_steps iterates ('planner','build','code-review','docs','research').",
+          "topic": "test-coverage",
+          "position": "review-fix-loop tests (12) pass locally but are unguarded in CI."
+        },
+        {
+          "source": "skills/*/tests/test_*.py",
+          "finding": "Test coverage holes (none exercised): whitespace-padded ids round-trip through markers; template-token strings in user text; reopen-on-reconcile of closed issues; milestone title adoption; recursive-glob vs deep-path ownership overlap; reconcile_findings when --min-severity changes between runs; loop_state --min-severity; mermaid_label with `#`/`<`/backticks.",
+          "evidence": "`grep -n 'def test_' skills/*/tests/test_*.py` (79 tests) \u2014 none touch these cases; probes reproduced each behaviour.",
+          "topic": "test-coverage",
+          "position": "Coverage is good on schema strictness and determinism, weak on marker/idempotency edge cases."
+        },
+        {
+          "source": "skills/*/examples",
+          "finding": "All examples match their scripts and expected outputs: planner sample renders and previews; build example equals expected-waves.json; code-review merge equals expected-review.json; research merge equals expected-packet.json.",
+          "evidence": "Ran each script on its examples; `diff` against expected JSON printed MATCH for waves, review, research.",
+          "topic": "examples-schema-parity",
+          "position": "Clean."
+        },
+        {
+          "source": "skills/*/scripts/__pycache__, skills/*/tests/__pycache__",
+          "finding": "__pycache__ directories exist on disk but none are tracked; ignored by .gitignore.",
+          "evidence": "`git ls-files | grep -i pycache` -> empty; .gitignore contains `__pycache__/` and `*.pyc`.",
+          "topic": "stale-pycache",
+          "position": "Clean \u2014 untracked/ignored."
+        },
+        {
+          "source": "skills/planner/templates/report.css, skills/code-review/templates/report.css",
+          "finding": "report.css (425 lines) is duplicated byte-for-byte across the two skills. Deliberate and enforced: test_shared_report_css_is_byte_identical_across_skills and both SKILL.md files state it must stay identical. All severity classes used by render_review exist in the CSS.",
+          "evidence": "`diff` -> identical; test_planner.py:435-441; planner SKILL.md:135-138; code-review SKILL.md:59.",
+          "topic": "template-duplication",
+          "position": "Intentional copy with a guard test rather than single-sourcing; a shared location would remove the manual sync requirement."
+        },
+        {
+          "source": "skills/planner/assets/mermaid.min.js, MERMAID-LICENSE.txt",
+          "finding": "Bundled Mermaid is 11.17.2 with the MIT licence text included.",
+          "evidence": "`grep -oE 'version:\"1[0-9]\\.[0-9]+\\.[0-9]+\"'` -> version:\"11.17.2\"; licence header present.",
+          "topic": "vendored-assets",
+          "position": "Present and licensed."
+        },
+        {
+          "source": "skills/build/scripts/waves.py:111-112 vs skills/build/SKILL.md, README.md",
+          "finding": "waves.py treats the `status:done` label as equivalent to a closed issue, but no SKILL.md or README documents that label.",
+          "evidence": "waves.py:112 `return issue['state'] == 'closed' or 'status:done' in issue['labels']`; `grep -rn 'status:done' --include=*.md .` -> no matches.",
+          "topic": "readme-parity",
+          "position": "Undocumented control label."
+        },
+        {
+          "source": "skills/code-review/scripts/merge_findings.py, skills/research/scripts/merge_research.py, skills/docs/scripts/docs_check.py",
+          "finding": "Schema validation in merge_findings, merge_research, and docs_check is strict and matched by tests; no holes found. Minor: merge_research.nonempty_string does not strip (unlike the other scripts) and docs_check hard-codes SKIP_DIRS.",
+          "evidence": "merge_findings.py:39-49,62-84,139-166; merge_research.py:40-49,69-88; docs_check.py:22-24,38-70.",
+          "topic": "schema-validation",
+          "position": "Clean beyond the planner whitespace issue."
+        }
+      ]
+    },
+    {
+      "area": "agent-definitions",
+      "findings": [
+        {
+          "source": "agents/claude/research.md:45; agents/codex/research.md:47; agents/agy/research/agent.md:54; README.md:9",
+          "finding": "CONFIRMED: all three research agents and the README tell the agent to use skills `read-the-damn-docs` and `find-docs`, but neither exists in skills/ nor in any installed harness skill directory.",
+          "evidence": "`find ~/.claude ~/.codex ~/.gemini ~/.agents <repo> -maxdepth 4 -name read-the-damn-docs` and `-name find-docs` return nothing; `ls skills/` = build builder-frontend code-review code-reviewer-frontend-review deploy docs jj planner research review-fix-loop use-other-harness.",
+          "topic": "missing-skill-refs",
+          "position": "read-the-damn-docs and find-docs are dangling references in every harness variant and in README"
+        },
+        {
+          "source": "agents/claude/docs.md:29; agents/codex/docs.md:31; agents/agy/docs/agent.md:40; README.md:12",
+          "finding": "CONFIRMED: every docs agent and the README declare ownership of `grill-with-docs`, which does not exist anywhere in the repo or installed harnesses.",
+          "evidence": "`find ... -name grill-with-docs` returns nothing; not present in skills/.",
+          "topic": "missing-skill-refs",
+          "position": "grill-with-docs is a dangling reference in all three docs agents and README"
+        },
+        {
+          "source": "agents/claude/builder.md:105; agents/codex/builder.md:77; agents/agy/builder/agent.md:86; README.md:10",
+          "finding": "CONFIRMED: builder agents reference `full-output-enforcement`, which is NOT in skills/ (the single source claimed by README:20 and ADR-0002). It exists only in the repo-local, gitignored `.agents/skills/full-output-enforcement`, so it is not installed into ~/.codex/skills or ~/.gemini/config/skills and is invisible to a fresh clone.",
+          "evidence": "`find` hit only <repo>/.agents/skills/full-output-enforcement and .claude/skills/full-output-enforcement; .gitignore lines `.claude/` and `.agents/`; `ls ~/.codex/skills` lacks it.",
+          "topic": "missing-skill-refs",
+          "position": "full-output-enforcement is referenced by all builders but is neither centralized nor tracked; only Claude on this machine can resolve it"
+        },
+        {
+          "source": "agents/claude/builder.md:4-33 vs agents/codex/builder.md:1-7 vs agents/agy/builder/hooks.json",
+          "finding": "CONFIRMED: hook parity differs per harness. Claude builder wires PreToolUse/PostToolUse/Stop/SubagentStop; agy hooks.json wires PreToolUse/PostToolUse only (`build-hooks agy Stop` never runs); Codex builder has no hooks at all and install-harness.sh only mentions hooks in a comment.",
+          "evidence": "agents/claude/builder.md:26-33 (Stop, SubagentStop); agents/agy/builder/hooks.json has only PreToolUse/PostToolUse keys; `grep -n hook scripts/install-harness.sh` -> lines 4 and 142 (comments) only; agents/codex/builder.md frontmatter = model/model_reasoning_effort/sandbox_mode.",
+          "topic": "harness-parity",
+          "position": "mechanical gates (tdd-guard hooks, build-guard) are enforced on Claude, partially on agy, and not at all on Codex; README:8 claim of hook parity is overstated"
+        },
+        {
+          "source": "agents/agy/builder/agent.md:92 vs agents/agy/builder/hooks.json:37-51",
+          "finding": "CONFIRMED (minor): agy builder prose says 'format files before handing off' while its hooks.json runs build-format/build-lint automatically on every write, exactly as Claude's does. The Claude variant explains the auto-format behaviour; the agy variant does not.",
+          "evidence": "agents/agy/builder/agent.md:92 vs hooks.json PostToolUse matcher `write_to_file|replace_file_content|multi_replace_file_content`; compare agents/claude/builder.md:110.",
+          "topic": "harness-parity",
+          "position": "agy builder text is out of sync with its own hooks"
+        },
+        {
+          "source": "agents/claude/builder.md:4 vs agents/codex/builder.md vs agents/agy/builder/agent.md:4-15",
+          "finding": "CONFIRMED: only the Claude builder declares a subagent-spawning tool (`Task`). Codex and agy builders are instructed (step 5, Boundaries) to hand the change-set to a read-only code-reviewer and 'may spawn read-only code-reviewer agents', but declare no tool for doing so.",
+          "evidence": "agents/claude/builder.md:4 `tools: ... Skill, Task`; agents/agy/builder/agent.md:4-11; agents/codex/builder.md:1-7; step 5 text identical in all three (claude:69, codex:41, agy:50).",
+          "topic": "harness-parity",
+          "position": "the two-pass self-review step may be unexecutable on Codex/agy as written (inference: depends on whether those harnesses expose spawning implicitly)"
+        },
+        {
+          "source": "agents/claude/code-reviewer.md:4 vs agents/codex/code-reviewer.md:1-7 vs agents/agy/code-reviewer/agent.md:4-9",
+          "finding": "CONFIRMED: only the Claude code-reviewer declares Playwright MCP tools. Codex and agy reviewers have none, so the `frontend` lens degrades to static-pass-only there. The prose fallback covers this, but README:11/39 presents the viewport matrix as unconditional.",
+          "evidence": "agents/claude/code-reviewer.md:4; agents/agy/code-reviewer/agent.md tools list; README.md:11, :39.",
+          "topic": "harness-parity",
+          "position": "frontend lens is Claude-only in practice; documented fallback exists in agent text but not in README"
+        },
+        {
+          "source": "agents/codex/*.md:4-5 vs agents/agy/*/agent.md",
+          "finding": "CONFIRMED divergence in model tiering: Codex assigns builder=high, code-reviewer=medium, docs=medium, research=low effort on gpt-5.6-sol; agy assigns `model: flash` to all four agents including the builder; Claude declares no model. agy also sets `mainAgent: true` on every agent although research/code-reviewer are described as leaves.",
+          "evidence": "agents/codex/{builder,code-reviewer,docs,research}.md:4-5; agents/agy/*/agent.md `model: flash`, `mainAgent: true`.",
+          "topic": "harness-parity",
+          "position": "capability tiers are inconsistent across harnesses; agy builder runs on the cheapest model with mainAgent enabled"
+        },
+        {
+          "source": "agents/claude/{research,code-reviewer}.md:4 vs docs/adr/0001-agent-owned-skills.md:10",
+          "finding": "CONFIRMED ADR drift: ADR-0001 (Accepted) says research and code-reviewer 'stay skill-free' and that skills are vendored under agents/<agent>/skills/. In the tree, both carry `Skill` and `## Skills` sections, no agents/<agent>/skills/ exists, and files are agents/<harness>/<agent>.md. ADR-0002 does not mark ADR-0001 as Superseded.",
+          "evidence": "agents/claude/research.md:4 `tools: Read, Grep, Glob, Bash, Skill`; agents/claude/code-reviewer.md:4 includes Skill; docs/adr/0001:3-4 'Accepted'; docs/adr/0002:3-4 'Accepted', no Supersedes line.",
+          "topic": "readme-parity",
+          "position": "ADR-0001 is stale but still Accepted; the docs agent's own rule ('supersede with a new ADR') was not followed"
+        },
+        {
+          "source": "docs/adr/0002-centralized-skills-layout.md:22 vs scripts/install-harness.sh:76",
+          "finding": "CONFIRMED: ADR-0002 says Antigravity agent files are 'Copied' into ~/.gemini/config/agents/; the installer symlinks them (ln -sfn). README:20-25 correctly says symlink. ADR-0002:18 also omits the dist/ intermediate for Codex that README and install-harness.sh describe.",
+          "evidence": "docs/adr/0002:22 'Copies agent files'; scripts/install-harness.sh:76 `ln -sfn \"$ROOT/agents/agy/$a\" ~/.gemini/config/agents/\"$a\"`; :89 comment.",
+          "topic": "readme-parity",
+          "position": "ADR-0002 mechanism description is out of date relative to installer and README"
+        },
+        {
+          "source": "CHANGELOG.md:5 vs git log",
+          "finding": "CONFIRMED: CHANGELOG's only entry is dated 2026-08-27; the two most recent commits (a1f4584 HTML report system / jj workspace builds / single-source harness, and ee46c1a review-fix-loop, both 2026-08-28) are not recorded, though README already documents them.",
+          "evidence": "`git log -3 --format='%h %ad %s' --date=short`; CHANGELOG.md has a single `## [Hardening Release] - 2026-08-27` heading.",
+          "topic": "readme-parity",
+          "position": "CHANGELOG lags README by two feature commits"
+        },
+        {
+          "source": "README.md:86 vs .github/workflows/ci.yml:27-31",
+          "finding": "CONFIRMED: README lists CI Python skill tests for planner/build/code-review/docs/research; ci.yml matches, but skills/review-fix-loop/tests/test_review_fix_loop.py exists and is not run in CI.",
+          "evidence": "ci.yml lines 27-31; `git ls-files` shows skills/review-fix-loop/tests/test_review_fix_loop.py tracked.",
+          "topic": "readme-parity",
+          "position": "review-fix-loop tests are tracked but unwired in CI"
+        },
+        {
+          "source": "README.md:24-25; .gitignore:10; dist/",
+          "finding": "CONFIRMED CLEAN: dist/ is gitignored as README claims. dist/index.html and dist/builder-wave-demo.html (3.5MB each) are present on disk but ignored.",
+          "evidence": "`git check-ignore -v dist/index.html` -> `.gitignore:10:dist/`; `git ls-files dist` empty.",
+          "topic": "stray-files",
+          "position": "dist/ is correctly untracked"
+        },
+        {
+          "source": "git ls-files; git status --short --ignored",
+          "finding": "CONFIRMED CLEAN for .DS_Store/__pycache__/.pyc: 11 .DS_Store files and 11 __pycache__ dirs exist on disk but none is tracked; all covered by .gitignore. `.ruff_cache/` is not in .gitignore but is ignored anyway by ruff's own .ruff_cache/.gitignore.",
+          "evidence": "`git ls-files | grep -Ei 'DS_Store|__pycache__|ruff_cache|\\.pyc'` -> none; `git status --short --ignored` lists them all as `!!`.",
+          "topic": "stray-files",
+          "position": "no OS/cache junk is committed; only the working tree is cluttered"
+        },
+        {
+          "source": "plan.sidecar.json (repo root); git log -- plan.sidecar.json",
+          "finding": "CONFIRMED: plan.sidecar.json at repo root is TRACKED (committed in 83bccb0, updated in a1f4584). It is a planner output for the 'swarm-coder-hardening-and-dx' milestone \u2014 a self-planning artifact, not a fixture. Its companion folio (docs/plans/plan01-*.html) is absent (docs/ contains only adr/). The sidecar does validate against the current renderer.",
+          "evidence": "`git log --oneline -- plan.sidecar.json` -> a1f4584, 83bccb0; `ls -R docs` -> docs/adr only; scratch render succeeded.",
+          "topic": "stray-files",
+          "position": "root plan.sidecar.json is a tracked stray planning artifact (plan already executed per CHANGELOG) with no matching folio; remove it or move under docs/plans with its HTML"
+        },
+        {
+          "source": ".claude/settings.local.json; .gitignore:4",
+          "finding": "CONFIRMED CLEAN: .claude/settings.local.json only allows `Bash(ssh *)` and the whole .claude/ dir is gitignored.",
+          "evidence": "`git ls-files .claude` empty; .gitignore line `.claude/`.",
+          "topic": "stray-files",
+          "position": "not an issue"
+        },
+        {
+          "source": "skills/review-fix-loop/SKILL.md:3,11-14,23-24 vs agents/*/builder.md jj rule",
+          "finding": "CONFIRMED prompt-level issues: (a) the skill is 'driven by the harness /loop', a Claude Code feature; Codex/agy have no equivalent, yet the skill is installed into all three harnesses. (b) It offers `git switch -c loop-branch` for plain-git repos while the builder it dispatches is told 'jj \u2014 your version control, always' and to adopt jj with `jj git init --colocate` when .jj/ is absent. Stop conditions themselves are sound (converged/stalled/exhausted; loop_state.py:121-125,83-84).",
+          "evidence": "skills/review-fix-loop/SKILL.md:3, :24, :93-95; agents/claude/builder.md:43-49, :104.",
+          "topic": "prompt-contradiction",
+          "position": "loop is bounded and well-specified but Claude-specific and mildly inconsistent with the builder's jj-only rule"
+        },
+        {
+          "source": "skills/build/SKILL.md:17,21",
+          "finding": "SUSPICION (unbounded loop): the build wave loop says 'repeat until no planned issue remains' and, for a builder returning `blocked`, 'decide whether to re-dispatch, re-scope, or escalate' with no bound on re-dispatches. Each builder is bounded (two review passes) but the orchestrator is not.",
+          "evidence": "skills/build/SKILL.md:17 and :21.",
+          "topic": "prompt-contradiction",
+          "position": "build skill lacks an explicit re-dispatch cap or stalled condition, unlike review-fix-loop"
+        },
+        {
+          "source": "skills/code-review/SKILL.md:20,33; skills/research/SKILL.md:14; skills/docs/SKILL.md:12; skills/deploy/SKILL.md:17-18,22; skills/review-fix-loop/SKILL.md:41,59",
+          "finding": "CONFIRMED CLEAN on agent naming: orchestration skills refer to agents only by the harness-independent names research, code-reviewer, builder, docs, which are the `name:` in every harness variant.",
+          "evidence": "grep of skills/*/SKILL.md for agent names; `name:` frontmatter in all 12 agent files.",
+          "topic": "harness-parity",
+          "position": "agent names are consistent across harnesses and skills"
+        },
+        {
+          "source": "skills/*/SKILL.md script references vs git ls-files",
+          "finding": "CONFIRMED CLEAN: every script and fixture path referenced in SKILL.md files exists and is tracked.",
+          "evidence": "grep -o of `skills/.../*.py` paths in SKILL.md cross-checked with `git ls-files`.",
+          "topic": "missing-skill-refs",
+          "position": "SKILL.md -> script references are all resolvable"
+        },
+        {
+          "source": "agents/claude/builder.md:104 vs skills/code-review/SKILL.md:114; skills/review-fix-loop/SKILL.md:102",
+          "finding": "SUSPICION (minor): builder is told 'never write ... to /tmp' while SKILL demos write /tmp/review.html and /tmp/loop.json. Not a real contradiction but a mixed signal about /tmp.",
+          "evidence": "agents/claude/builder.md:109 vs skills/code-review/SKILL.md:114.",
+          "topic": "prompt-contradiction",
+          "position": "low-severity mixed guidance on /tmp usage"
+        },
+        {
+          "source": "agents/codex/docs.md:16 and agents/agy/docs/agent.md:25 vs skills/docs/scripts/docs_check.py:21",
+          "finding": "CONFIRMED (minor divergence): Claude docs agent names CLAUDE.md/AGENTS.md; Codex/agy variants generalize to 'instruction files', but docs_check.py only checks CLAUDE.md and AGENTS.md (no GEMINI.md). On agy the agent is told to keep instruction files lean but the mechanical gate ignores that harness's file.",
+          "evidence": "docs_check.py:21 `INSTRUCTION_FILES = (\"CLAUDE.md\", \"AGENTS.md\")`.",
+          "topic": "harness-parity",
+          "position": "docs gate is not harness-aware for Antigravity"
+        },
+        {
+          "source": "diff of agent bodies across harnesses",
+          "finding": "CONFIRMED CLEAN otherwise: research and code-reviewer bodies are byte-identical across all three harnesses; builder bodies are identical except the Claude-only formatting/LSP wording; docs bodies differ only in the instruction-file naming and tool-name inventory line.",
+          "evidence": "`diff` of stripped bodies printed SAME for research and code-reviewer; builder diff limited to lines 110-111 vs 92-93.",
+          "topic": "harness-parity",
+          "position": "prose parity is good; divergences are in frontmatter/tools/hooks, not procedure"
+        }
+      ]
+    },
+    {
+      "area": "ci-runtime",
+      "findings": [
+        {
+          "source": ".github/workflows/ci.yml:15-16",
+          "finding": "go mod tidy produced no diff; go.mod/go.sum did not change, so no revert was needed.",
+          "evidence": "cmd: `go mod tidy && git diff --exit-code -- go.mod go.sum` -> exit 0; `git status --short` empty afterwards",
+          "topic": "go-toolchain",
+          "position": "go.mod/go.sum are tidy at HEAD ee46c1a"
+        },
+        {
+          "source": ".github/workflows/ci.yml:17-21",
+          "finding": "go build, go vet, go test all pass locally with zero warnings.",
+          "evidence": "build-exit=0, vet-exit=0; `go test ./...` -> `ok cmd/tdd-guard (cached)`, `ok controlplane (cached)`, `ok guard (cached)`",
+          "topic": "go-toolchain",
+          "position": "Go pipeline green; local toolchain go1.26.5 matches go.mod `go 1.26.5` (go.mod:3) which CI reads via go-version-file"
+        },
+        {
+          "source": ".github/workflows/ci.yml:22-23",
+          "finding": "Hook test suite passes.",
+          "evidence": "`bash scripts/hooks/tests/test_hooks.sh` -> `22 passed, 0 failed`, exit 0",
+          "topic": "ci-coverage",
+          "position": "hook tests green"
+        },
+        {
+          "source": ".github/workflows/ci.yml:24-31",
+          "finding": "All five skill unittest suites pass: planner 19, build 10, code-review 21, docs 10, research 7 tests, all OK. Local interpreter is Python 3.13.5.",
+          "evidence": "`python3 -m unittest discover -s skills/<s>/tests -p \"test_*.py\"` for planner/build/code-review/docs/research -> `OK`, exit=0 each; `python3 --version` -> Python 3.13.5",
+          "topic": "ci-coverage",
+          "position": "skill suites green locally"
+        },
+        {
+          "source": ".github/workflows/ci.yml:32-33",
+          "finding": "docs_check passes with no violations; both ADRs (0001, 0002) report ok.",
+          "evidence": "`python3 skills/docs/scripts/docs_check.py .` -> `\"violations\": [], \"ok\": true`",
+          "topic": "ci-coverage",
+          "position": "docs check green"
+        },
+        {
+          "source": "skills/review-fix-loop/tests/test_review_fix_loop.py",
+          "finding": "The review-fix-loop skill has a 12-test unittest suite that ci.yml does not run. It passes when invoked manually.",
+          "evidence": "ci.yml:27-31 lists only planner/build/code-review/docs/research; `python3 -m unittest discover -s skills/review-fix-loop/tests -p \"test_*.py\"` -> `Ran 12 tests ... OK`",
+          "topic": "ci-coverage",
+          "position": "review-fix-loop tests are an unrun suite; CI silently skips it"
+        },
+        {
+          "source": ".github/workflows/ci.yml",
+          "finding": "ci.yml pins no Python version (no actions/setup-python) and never runs ruff or shellcheck, although the repo's build-lint/build-format hooks depend on them at runtime.",
+          "evidence": "`grep -nE 'python|ruff|shellcheck|setup-python' ci.yml` matches only the `python3 -m unittest` and docs_check lines; scripts/hooks/build-lint:12-13 shell out to `ruff check` and `shellcheck -f gcc`; build-format:15 uses `ruff format`",
+          "topic": "ci-coverage",
+          "position": "no Python pin, no ruff/shellcheck lint gate in CI; hook lint tools are best-effort (`command -v ... &&`) so their absence is silent"
+        },
+        {
+          "source": "~/.local/bin, ~/.claude/agents",
+          "finding": "Installed harness state: ~/.claude/skills -> ~/.agents/skills; ~/.claude/agents has builder/code-reviewer/docs/research symlinked into repo agents/claude/; ~/.local/bin/tdd-guard -> repo bin/tdd-guard; ~/.local/bin/anvil-guard -> tdd-guard; build-hooks -> repo scripts/hooks/build-hooks; build-format/build-guard/build-lint are regular-file copies (Aug 28 13:05), not symlinks, though build-lint is byte-identical to the repo version.",
+          "evidence": "`ls -la ~/.claude/agents ~/.claude/skills ~/.local/bin | grep -iE 'swarm|build-|guard|->'`; `diff scripts/hooks/build-lint ~/.local/bin/build-lint` -> identical",
+          "topic": "installer-state",
+          "position": "harness installed and consistent with repo HEAD; three hooks are copied rather than linked, so they can drift silently after future repo edits"
+        },
+        {
+          "source": "find ~/.claude/skills ~/.claude/agents ~/.local/bin -maxdepth 1 -xtype l",
+          "finding": "Exactly one broken symlink on the machine, unrelated to the harness: ~/.local/bin/python3.14 -> a uv cpython-3.14.6 path that no longer exists. No swarm-coder links are broken.",
+          "evidence": "find output: `/home/anvil/.local/bin/python3.14`; `find ~/.agents/skills -maxdepth 1 -xtype l` -> empty",
+          "topic": "installer-state",
+          "position": "harness links all resolve; python3.14 link is stale (not a swarm-coder artifact)"
+        },
+        {
+          "source": "~/.codex, ~/.gemini, ~/.antigravity",
+          "finding": "Codex and Antigravity harness homes are present (~/.codex with AGENTS.md/auth/sessions; ~/.gemini with antigravity*; ~/.antigravity with agy_daemon.log and bin).",
+          "evidence": "`ls -la ~/.codex | head`, `ls ~/.gemini ~/.antigravity | head`",
+          "topic": "installer-state",
+          "position": "other harness homes exist; whether swarm-coder agents are installed into ~/.gemini/config/agents (install-harness.sh:76) was not verified"
+        },
+        {
+          "source": "bin/tdd-guard, bin/anvil-guard",
+          "finding": "bin/tdd-guard is current (built from 1953f8b+dirty; no Go source changed since). bin/anvil-guard is stale and orphaned: built Aug 25 from package cmd/anvil-guard at ae9e931, but cmd/anvil-guard was deleted in 31725c5 and only cmd/tdd-guard exists now. Nothing references bin/anvil-guard; both are gitignored (bin/).",
+          "evidence": "`go version -m bin/tdd-guard` -> `v0.0.0-20260828055352-1953f8b8fdbe+dirty`; `go version -m bin/anvil-guard` -> `path github.com/anvil008/swarm-coder/cmd/anvil-guard`, `v0.0.0-20260825193924-ae9e931657bd`; `ls cmd/` -> `tdd-guard`; `git diff --stat 1953f8b ee46c1a -- guard cmd controlplane go.mod` -> empty",
+          "topic": "stale-binaries",
+          "position": "tdd-guard fresh; anvil-guard is a dead leftover from a removed package, safe to delete but harmless"
+        },
+        {
+          "source": "guard/run.go:13",
+          "finding": "Both `tdd-guard --help` and `anvil-guard --help` print the same usage text, but the usage string is hardcoded as `usage: anvil-guard ...` even when invoked as tdd-guard, and --help exits 1 (treated as an unknown command).",
+          "evidence": "guard/run.go:13 `const usage = \\`usage: anvil-guard <command> [options]`; `tdd-guard --help; echo $?` -> usage text then exit 1",
+          "topic": "stale-binaries",
+          "position": "binaries functional; usage text names anvil-guard and --help is non-zero"
+        },
+        {
+          "source": ".github/workflows/ci.yml:21",
+          "finding": "CI runs `go test -v ./...`; local results were served from the test cache, so a cache-masked flaky test cannot be ruled out.",
+          "evidence": "ci.yml:21 `run: go test -v ./...`; local output shows `(cached)` on all three packages",
+          "topic": "go-toolchain",
+          "position": "inference: a clean-cache CI run should match; not verified with -count=1"
+        }
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "topic": "build-wave-safety",
+      "positions": [
+        "Defensible but inconsistent with the planner's 'wave 0 = ungrouped' semantics.",
+        "Overlap check is heuristic and misses recursive-glob vs deep path; PurePath.full_match (3.13+) or fnmatch-based expansion would be more reliable."
+      ]
+    },
+    {
+      "topic": "ci-coverage",
+      "positions": [
+        "docs check green",
+        "hook tests green",
+        "no Python pin, no ruff/shellcheck lint gate in CI; hook lint tools are best-effort (`command -v ... &&`) so their absence is silent",
+        "review-fix-loop tests are an unrun suite; CI silently skips it",
+        "skill suites green locally"
+      ]
+    },
+    {
+      "topic": "dead-code",
+      "positions": [
+        "Not bugs, but inflates the surface README/ADRs describe as enforced; the strict fail-closed Decode* entry points are entirely untested.",
+        "Safe to delete."
+      ]
+    },
+    {
+      "topic": "github-reconcile-safety",
+      "positions": [
+        "Convergence semantic is intentional (SKILL.md:88-98) but parameter drift between runs is not guarded or documented.",
+        "Documented design, but hazardous mid-build; no guard (e.g. skip issues labelled status:done or closed via a merged PR).",
+        "Intended adoption path; side effect is loss of pre-existing milestone description.",
+        "Whitespace-padded ids are accepted by validation but break marker round-tripping; reject or normalise (use the stripped value) in validate_plan."
+      ]
+    },
+    {
+      "topic": "go-toolchain",
+      "positions": [
+        "Go code compiles, vets, formats, and tests cleanly; no race under -race; no third-party deps.",
+        "Go pipeline green; local toolchain go1.26.5 matches go.mod `go 1.26.5` (go.mod:3) which CI reads via go-version-file",
+        "go.mod/go.sum are tidy at HEAD ee46c1a",
+        "inference: a clean-cache CI run should match; not verified with -count=1"
+      ]
+    },
+    {
+      "topic": "guard-bypass",
+      "positions": [
+        "TDD gate fails open when tdd-guard is not installed",
+        "guard is an advisory speed bump, not a security boundary; its header (lines 6-7) says 'deliberately narrow' while README.md:58 says it 'blocks critical violations'",
+        "missing jq silently disables all three hooks",
+        "quoting or dropping the trailing slash bypasses the tmpfs rule"
+      ]
+    },
+    {
+      "topic": "harness-parity",
+      "positions": [
+        "AGY builder lacks the Stop-time TDD verify gate",
+        "agent names are consistent across harnesses and skills",
+        "agy builder text is out of sync with its own hooks",
+        "capability tiers are inconsistent across harnesses; agy builder runs on the cheapest model with mainAgent enabled",
+        "docs gate is not harness-aware for Antigravity",
+        "frontend lens is Claude-only in practice; documented fallback exists in agent text but not in README",
+        "mechanical gates (tdd-guard hooks, build-guard) are enforced on Claude, partially on agy, and not at all on Codex; README:8 claim of hook parity is overstated",
+        "prose parity is good; divergences are in frontmatter/tools/hooks, not procedure",
+        "the two-pass self-review step may be unexecutable on Codex/agy as written (inference: depends on whether those harnesses expose spawning implicitly)"
+      ]
+    },
+    {
+      "topic": "html-escaping",
+      "positions": [
+        "Diagram-level robustness gap, not a security issue given strict securityLevel; untested.",
+        "Escaping is correct; placeholder substitution order is the weakness. A single-pass regex substitution would close it.",
+        "No unescaped sink found beyond the token-substitution issue."
+      ]
+    },
+    {
+      "topic": "installer-safety",
+      "positions": [
+        "install silently misbehaves on pre-existing real dirs and overwrites same-named user files",
+        "tests are not hermetic; they clobber user-level installs",
+        "uninstall can delete user files sharing a name"
+      ]
+    },
+    {
+      "topic": "installer-state",
+      "positions": [
+        "harness installed and consistent with repo HEAD; three hooks are copied rather than linked, so they can drift silently after future repo edits",
+        "harness links all resolve; python3.14 link is stale (not a swarm-coder artifact)",
+        "other harness homes exist; whether swarm-coder agents are installed into ~/.gemini/config/agents (install-harness.sh:76) was not verified"
+      ]
+    },
+    {
+      "topic": "missing-skill-refs",
+      "positions": [
+        "SKILL.md -> script references are all resolvable",
+        "full-output-enforcement is referenced by all builders but is neither centralized nor tracked; only Claude on this machine can resolve it",
+        "grill-with-docs is a dangling reference in all three docs agents and README",
+        "read-the-damn-docs and find-docs are dangling references in every harness variant and in README"
+      ]
+    },
+    {
+      "topic": "portability",
+      "positions": [
+        "hook regexes are portable; README accurate here",
+        "installer will not run on stock macOS"
+      ]
+    },
+    {
+      "topic": "prompt-contradiction",
+      "positions": [
+        "build skill lacks an explicit re-dispatch cap or stalled condition, unlike review-fix-loop",
+        "loop is bounded and well-specified but Claude-specific and mildly inconsistent with the builder's jj-only rule",
+        "low-severity mixed guidance on /tmp usage"
+      ]
+    },
+    {
+      "topic": "readme-parity",
+      "positions": [
+        "'--uninstall reverses it' is only partially true",
+        "ADR-0001 is stale but still Accepted; the docs agent's own rule ('supersede with a new ADR') was not followed",
+        "ADR-0002 mechanism description is out of date relative to installer and README",
+        "CHANGELOG lags README by two feature commits",
+        "Claim holds narrowly (untracked files); the broader 'unbounded memory' wording overstates coverage.",
+        "Claim matches CI.",
+        "Claim matches implementation.",
+        "Claim matches implementation; mixed scan semantics between globbed and unglobbed assertions is a minor inconsistency.",
+        "Dead parameter; wire it into convergence or remove it.",
+        "README claim is false after project-bootstrap --install",
+        "README undersells the surface and uses the tdd-guard name while code self-identifies as anvil-guard; not a functional mismatch.",
+        "Undocumented control label.",
+        "exclude is skipped for worktrees/workspaces",
+        "review-fix-loop tests are tracked but unwired in CI"
+      ]
+    },
+    {
+      "topic": "shell-correctness",
+      "positions": [
+        "essentially clean; one cosmetic warning",
+        "minor robustness issues, advisory hooks only",
+        "partial-failure states are possible and unreported"
+      ]
+    },
+    {
+      "topic": "stale-binaries",
+      "positions": [
+        "binaries functional; usage text names anvil-guard and --help is non-zero",
+        "tdd-guard fresh; anvil-guard is a dead leftover from a removed package, safe to delete but harmless"
+      ]
+    },
+    {
+      "topic": "stray-files",
+      "positions": [
+        "dist/ is correctly untracked",
+        "no OS/cache junk is committed; only the working tree is cluttered",
+        "not an issue",
+        "root plan.sidecar.json is a tracked stray planning artifact (plan already executed per CHANGELOG) with no matching folio; remove it or move under docs/plans with its HTML"
+      ]
+    },
+    {
+      "topic": "tdd-guard-bypass",
+      "positions": [
+        "Bounded memory was achieved by truncation rather than hashing the full stream (also bounded-memory); including file size in the digest would close the blind spot.",
+        "Only meaningful if the green argv is agent-controlled; same root cause as the false/true finding.",
+        "The mechanical gate proves 'some command failed, then some command passed', not 'the sealed tests went red then green'. Severity depends on whether the argv is trusted to come from the skill/prompt rather than the agent."
+      ]
+    },
+    {
+      "topic": "test-coverage",
+      "positions": [
+        "Coverage is good on schema strictness and determinism, weak on marker/idempotency edge cases.",
+        "Good on the hook/path surface, thin on the contract-decoding surface and on cross-process behaviour.",
+        "Suites are green; gaps below are about what they do not exercise.",
+        "review-fix-loop tests (12) pass locally but are unguarded in CI."
+      ]
+    },
+    {
+      "topic": "test-status",
+      "positions": [
+        "green",
+        "green but shallow"
+      ]
+    }
+  ],
+  "coverage": {
+    "missingAreas": [],
+    "complete": true
+  },
+  "gaps": [
+    "go-guard: Could not determine from code alone whether the seal/verify argv is expected to be fixed by the build skill/prompt rather than agent-chosen; bypass severity depends on that policy.",
+    "go-guard: Cross-process touch-log race was reasoned from code, not reproduced.",
+    "go-guard: Harness dialect correctness of hook.go:467-511 emit shapes was not validated against current Claude/Codex/Antigravity hook docs.",
+    "go-guard: Whether the exported-but-unused controlplane API is consumed by an external repository (the 'run-plane supervisor' referenced in guard.go:152) could not be verified.",
+    "shell-hooks: Did not verify Antigravity's actual hook contract (tilde expansion, regex alternation in matchers, whether a Stop event exists).",
+    "shell-hooks: Did not run install-harness.sh or bootstrap-tools.sh with --install/--uninstall; clobber/uninstall behaviours were reproduced with the same ln/rm invocations in the scratchpad.",
+    "shell-hooks: Could not test on macOS/BSD; the find -printf and bash 3.2 findings come from documented tool behaviour, not an executed run.",
+    "shell-hooks: Did not inspect how Claude Code treats hook exit codes beyond documented behaviour (exit 2 = block, other non-zero = non-blocking).",
+    "skill-scripts: Did not execute --apply against a real GitHub repository; reconciliation behaviour verified only via --snapshot previews and synthetic snapshots.",
+    "skill-scripts: Did not render the HTML in a browser, so Mermaid label robustness is inferred from code.",
+    "skill-scripts: ruff reported 44 issues even with --isolated, suggesting an environment-level rule set; the count may differ in CI if a gate is added.",
+    "agent-definitions: Could not verify whether Codex or Antigravity expose subagent spawning implicitly, so whether the builder's two-pass code-reviewer step is executable there is inferred from declared tools only.",
+    "agent-definitions: Did not trace the Codex TOML projection or any hook wiring for Codex in full.",
+    "agent-definitions: Did not confirm the origin of the .ruff_cache ignore (assumed ruff's self-written .gitignore).",
+    "agent-definitions: skills/jj/* vendored content was not reviewed for internal consistency.",
+    "ci-runtime: Did not run `go test -count=1` to bypass the test cache.",
+    "ci-runtime: Did not verify whether swarm-coder agents are installed under ~/.gemini/config/agents or ~/.codex \u2014 only confirmed the harness homes exist.",
+    "ci-runtime: Only build-lint was diffed against its ~/.local/bin copy; build-format/build-guard not compared.",
+    "ci-runtime: Did not assess whether ubuntu-latest's default python3 differs from local 3.13.5 in a way that affects the unittest suites."
+  ],
+  "openQuestions": [
+    "go-guard: Should verify require the green ArgvDigest to equal the seal's red ArgvDigest so the guard proves red->green on the same command?",
+    "go-guard: Should digestFileStreaming include the file size (or hash the whole stream) so edits past 10MB of an untracked file invalidate the diff review?",
+    "go-guard: Should arch-review staleness or failure ever block the Stop gate, given README lists arch-check among the enforcement gates?",
+    "go-guard: Is the unused controlplane surface intended for a consumer outside this repo, or should it be trimmed or covered by tests?",
+    "shell-hooks: Is build-guard intended to be a hard security boundary or an advisory speed bump? Its header and README disagree.",
+    "shell-hooks: Should project-bootstrap.sh --install symlink instead of copying, and should test_hooks.sh point BIN at a temp dir so the suite stops mutating ~/.local/bin?",
+    "shell-hooks: Should install/uninstall refuse to touch a target that is not a symlink into $ROOT?",
+    "shell-hooks: Should the hooks fail closed (exit 2 with a reason) when jq or tdd-guard is missing?",
+    "shell-hooks: Should the .git/info/exclude logic handle .git files (worktrees / jj workspaces) via `git rev-parse --git-common-dir`?",
+    "skill-scripts: Should validate_plan normalise (strip) planId/issue keys, or reject padded values outright, so markers round-trip?",
+    "skill-scripts: Is reopening builder-closed issues on planner re-reconcile acceptable mid-build, or should reconcile skip issues that are closed/labelled done?",
+    "skill-scripts: Should reconcile_findings only close issues whose recorded severity is at or above the current --min-severity?",
+    "skill-scripts: Is loop_state --min-severity meant to define convergence rather than zero findings?",
+    "skill-scripts: Should report.css be single-sourced instead of a byte-identical copy plus guard test?",
+    "agent-definitions: Should full-output-enforcement (and the other .agents/skills design skills) be moved under skills/ so the single-source claim holds, or should the builder stop referencing it?",
+    "agent-definitions: Are read-the-damn-docs, find-docs, grill-with-docs planned skills, or should the research/docs agents and README drop them?",
+    "agent-definitions: Should ADR-0001 be marked Superseded by ADR-0002 (and ADR-0002 corrected from 'copies' to 'symlinks')?",
+    "agent-definitions: Is root plan.sidecar.json meant to remain tracked, and if so where is its folio (docs/plans/)?",
+    "agent-definitions: Should review-fix-loop declare itself Claude-only (needs /loop) or document an equivalent driver for Codex/agy?",
+    "agent-definitions: Should the build skill get an explicit re-dispatch cap for blocked builders?",
+    "ci-runtime: Should ci.yml loop over skills/*/tests so new skill suites cannot be silently omitted?",
+    "ci-runtime: Should CI pin a Python version via actions/setup-python and add ruff/shellcheck gates, given the hooks depend on them?",
+    "ci-runtime: Should the usage string in guard/run.go derive from os.Args[0] and should --help exit 0?",
+    "ci-runtime: Should install-harness.sh symlink build-format/build-guard/build-lint like build-hooks instead of copying them, to avoid drift?"
+  ]
+}

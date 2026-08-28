@@ -5,143 +5,149 @@
 #
 #   scripts/install-harness.sh                      # install into all present harnesses
 #   scripts/install-harness.sh --harness claude     # just one (claude|codex|agy)
+#   scripts/install-harness.sh --force              # also replace foreign *symlinks* (never files/dirs)
 #   scripts/install-harness.sh --uninstall          # remove what this script installs
 #
-# Agents are organized by harness under agents/ (agents/claude, agents/codex, agents/agy)
-# and deployed directly to their respective directories:
-#   - Claude:      ~/.claude/agents/<agent>.md
-#   - Codex:       ~/.codex/<agent>.config.toml + [agents.*] in ~/.codex/config.toml
-#   - Antigravity: ~/.gemini/config/agents/<agent>/agent.md (+ hooks.json)
+# This repository is the single source. Everything the harnesses see is a symlink
+# back into it, so editing a file here takes effect immediately with no re-install:
+#   - Claude:      ~/.claude/agents/<agent>.md      -> agents/claude/<agent>.md
+#   - Antigravity: ~/.gemini/config/agents/<agent>  -> agents/agy/<agent>/
+#   - Codex:       ~/.codex/<agent>.config.toml     -> dist/codex/<agent>.config.toml
+#   - Skills:      <harness>/skills/<skill>         -> skills/<skill>
 #
-# Skills are located under skills/ and symlinked into each harness's skills folder.
-set -uo pipefail
+# A target that already exists and is not one of our links (a real file/dir, or a
+# symlink elsewhere) is never replaced: it is refused by name and the run exits
+# non-zero. Agent frontmatter is validated before any harness is touched. Uninstall
+# removes only links into this repository, including the ~/.local/bin/build-* and
+# tdd-guard links, and reports what it leaves behind.
+#
+# Codex is the one exception to "edit and go": its harness requires a generated
+# TOML with the agent body embedded as an escaped string, so it cannot read the
+# markdown directly. The generated file is built into dist/ (gitignored) and
+# symlinked from ~/.codex, keeping this repo the source — but a change to
+# agents/codex/*.md needs a re-run of this script to reach Codex.
+set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HARNESS=all; MODE=install
+# shellcheck source=scripts/lib.sh
+. "$ROOT/scripts/lib.sh"
+HARNESS=all; MODE=install; FORCE=""
 while (($#)); do case "$1" in
-  --harness) HARNESS=${2:?}; shift 2;;
+  --harness) HARNESS=${2:?"--harness needs claude|codex|agy"}; shift 2;;
   --install) MODE=install; shift;;
   --uninstall) MODE=uninstall; shift;;
-  -h|--help) sed -n '2,17p' "$0"; exit 0;;
+  --force) FORCE=--force; shift;;
+  -h|--help) sed -n '2,28p' "$0"; exit 0;;
   *) echo "unknown arg: $1" >&2; exit 2;;
 esac; done
+case "$HARNESS" in all|claude|codex|agy) ;; *) die "unknown harness: $HARNESS (claude|codex|agy)";; esac
 
 want(){ [[ $HARNESS == all || $HARNESS == "$1" ]]; }
-SKILLS=(planner research build code-review docs deploy use-other-harness builder-frontend code-reviewer-frontend-review)
+AGENTS=(builder code-reviewer docs research)
+BIN="$HOME/.local/bin"
 
-link_skills(){ local d=$1; mkdir -p "$d"
-  for s in "${SKILLS[@]}"; do ln -sfn "$ROOT/skills/$s" "$d/$s"; done; }
-unlink_skills(){ local d=$1
-  for s in "${SKILLS[@]}"; do rm -f "$d/$s"; done; }
+# Every directory under skills/ is a skill. Discovered, not listed, so adding
+# one is a matter of creating the directory.
+SKILLS=()
+for d in "$ROOT"/skills/*/; do [[ -d $d ]] && SKILLS+=("$(basename "$d")"); done
+((${#SKILLS[@]})) || die "no skills found under $ROOT/skills"
 
-# ---- Claude: deploy agents + link skills ----
-if want claude && [[ -d ~/.claude ]]; then
-  if [[ $MODE == install ]]; then
-    mkdir -p ~/.claude/agents
-    for a in builder code-reviewer docs research; do
-      ln -sfn "$ROOT/agents/claude/$a.md" ~/.claude/agents/$a.md
-    done
-    link_skills ~/.claude/skills
-    echo "claude: agents linked + ${#SKILLS[@]} skills linked"
-  else
-    for a in builder code-reviewer docs research; do
-      rm -f ~/.claude/agents/$a.md
-    done
-    unlink_skills ~/.claude/skills
-    echo "claude: removed"
-  fi
+# ---- validate the sources before touching any harness ----
+for a in "${AGENTS[@]}"; do
+  for f in "$ROOT/agents/claude/$a.md" "$ROOT/agents/codex/$a.md"; do
+    [[ -f $f ]] || die "missing agent source $f"
+    check_frontmatter "$f" || die "invalid agent frontmatter in $f"
+  done
+done
+command -v python3 >/dev/null || die "python3 is required (codex agent projection)"
+
+# ---- plan: every SRC DST pair, in install order ----
+# Recorded as parallel arrays so the whole plan can be checked before any link is made.
+PLAN_SRC=(); PLAN_DST=()
+plan(){ PLAN_SRC+=("$1"); PLAN_DST+=("$2"); }
+plan_skills(){ local s; for s in "${SKILLS[@]}"; do plan "$ROOT/skills/$s" "$1/$s"; done; }
+DIST="$ROOT/dist/codex"
+
+if want claude && [[ -d $HOME/.claude ]]; then
+  for a in "${AGENTS[@]}"; do plan "$ROOT/agents/claude/$a.md" "$HOME/.claude/agents/$a.md"; done
+  plan_skills "$HOME/.claude/skills"
 fi
-
-# ---- Codex: link skills ----
-if want codex && [[ -d ~/.codex ]]; then
-  if [[ $MODE == install ]]; then
-    link_skills ~/.codex/skills
-    echo "codex: skills linked"
-  else
-    unlink_skills ~/.codex/skills
-    echo "codex: removed"
-  fi
+if want codex && [[ -d $HOME/.codex ]]; then
+  plan_skills "$HOME/.codex/skills"
+  for a in "${AGENTS[@]}"; do plan "$DIST/$a.config.toml" "$HOME/.codex/$a.config.toml"; done
 fi
-
-# ---- Antigravity: link skills ----
 if want agy; then
-  if [[ $MODE == install ]]; then
-    mkdir -p ~/.gemini/config/agents ~/.gemini/config/skills
-    [[ -d ~/.agents ]] && mkdir -p ~/.agents/skills
-    link_skills ~/.gemini/config/skills
-    [[ -d ~/.agents ]] && link_skills ~/.agents/skills
-    echo "agy: skills linked"
-  else
-    unlink_skills ~/.gemini/config/skills
-    [[ -d ~/.agents ]] && unlink_skills ~/.agents/skills
-    echo "agy: removed"
-  fi
+  for a in "${AGENTS[@]}"; do [[ -d $ROOT/agents/agy/$a ]] && plan "$ROOT/agents/agy/$a" "$HOME/.gemini/config/agents/$a"; done
+  plan_skills "$HOME/.gemini/config/skills"
+  [[ -d $HOME/.agents ]] && plan_skills "$HOME/.agents/skills"
 fi
 
-# ---- Native agent projections (Codex tomls+config and Antigravity agents) ----
-python3 - "$ROOT" "$MODE" "$HARNESS" <<'PY'
-import json, re, sys
+if [[ $MODE == install ]]; then
+  # Codex agent projection: agents/codex/*.md -> dist/codex/*.config.toml (linked below).
+  if want codex && [[ -d $HOME/.codex ]]; then
+    mkdir -p "$DIST"
+    python3 - "$ROOT" "$DIST" "${AGENTS[@]}" <<'PY'
+import json, sys
 from pathlib import Path
-ROOT, MODE, HARNESS = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-HOME = Path.home()
-want = lambda h: HARNESS in ("all", h)
-AGENTS = ["builder", "code-reviewer", "docs", "research"]
-
-# Codex — parse agents/codex/<name>.md frontmatter + body -> ~/.codex/<name>.config.toml + marked config.toml block
-if want("codex") and (HOME/".codex").exists():
-    cfg = HOME/".codex/config.toml"; text = cfg.read_text() if cfg.exists() else ""
-    text = re.sub(r"\n*# BEGIN SWARM CODER(?: V3)? AGENTS.*?# END SWARM CODER(?: V3)? AGENTS\n", "\n", text, flags=re.DOTALL)
-    if MODE == "install":
-        for n in AGENTS:
-            p = ROOT/"agents"/"codex"/f"{n}.md"
-            parts = p.read_text().split("---", 2)
-            fm = {}
-            for line in parts[1].strip().splitlines():
-                if ":" in line:
-                    k, v = line.split(":", 1)
-                    fm[k.strip()] = v.strip().strip('"\'')
-            body = parts[2].strip()
-            eff = fm.get("model_reasoning_effort", "medium")
-            sb = fm.get("sandbox_mode", "workspace-write")
-            model = fm.get("model", "gpt-5.6-sol")
-            desc = fm.get("description", "")
-            (HOME/f".codex/{n}.config.toml").write_text(
-                "# Generated by install-harness.sh; do not hand-edit.\n"
-                f"description = {json.dumps(desc)}\n"
-                f'model = "{model}"\nmodel_reasoning_effort = "{eff}"\nsandbox_mode = "{sb}"\n'
-                f"developer_instructions = {json.dumps(body)}\n")
-        block = "# BEGIN SWARM CODER AGENTS\n" + "".join(
-            f'[agents.{n}]\nconfig_file = "{HOME}/.codex/{n}.config.toml"\n' for n in AGENTS) + "# END SWARM CODER AGENTS\n"
-        cfg.write_text((text.rstrip()+"\n\n"+block) if text.strip() else block)
-        print("codex: agents projected")
-    else:
-        for n in AGENTS: (HOME/f".codex/{n}.config.toml").unlink(missing_ok=True)
-        cfg.write_text(text)
-
-# Antigravity — deploy agents/agy/ into ~/.gemini/config/agents/
-if want("agy"):
-    agents_dir = HOME/".gemini/config/agents"
-    if MODE == "install":
-        agents_dir.mkdir(parents=True, exist_ok=True)
-        for n in AGENTS:
-            d = agents_dir/n
-            d.mkdir(parents=True, exist_ok=True)
-            src_md = ROOT/"agents"/"agy"/n/"agent.md"
-            if not src_md.exists():
-                src_md = ROOT/"agents"/"agy"/f"{n}.md"
-            if src_md.exists():
-                (d/"agent.md").write_text(src_md.read_text())
-            src_hooks = ROOT/"agents"/"agy"/n/"hooks.json"
-            if src_hooks.exists():
-                (d/"hooks.json").write_text(src_hooks.read_text())
-        print("agy: agents deployed")
-    else:
-        for n in AGENTS:
-            d = agents_dir/n
-            (d/"agent.md").unlink(missing_ok=True)
-            (d/"hooks.json").unlink(missing_ok=True)
-            (agents_dir/f"{n}.md").unlink(missing_ok=True)
-            try: d.rmdir()
-            except OSError: pass
+ROOT, DIST, AGENTS = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3:]
+for name in AGENTS:
+    source = ROOT / "agents" / "codex" / f"{name}.md"
+    _, frontmatter, body = source.read_text().split("---", 2)
+    fields = {}
+    for line in frontmatter.strip().splitlines():
+        if ":" in line:
+            key, value = line.split(":", 1)
+            fields[key.strip()] = value.strip().strip("\"'")
+    (DIST / f"{name}.config.toml").write_text(
+        "# Generated by install-harness.sh from agents/codex/%s.md — do not hand-edit.\n" % name
+        + f"description = {json.dumps(fields.get('description', ''))}\n"
+        + f'model = "{fields.get("model", "gpt-5.6-sol")}"\n'
+        + f'model_reasoning_effort = "{fields.get("model_reasoning_effort", "medium")}"\n'
+        + f'sandbox_mode = "{fields.get("sandbox_mode", "workspace-write")}"\n'
+        + f"developer_instructions = {json.dumps(body.strip())}\n"
+    )
 PY
+  fi
 
-[[ $MODE == install ]] && { command -v tdd-guard >/dev/null || echo "note: tdd-guard/build-hooks not found — run scripts/bootstrap-tools.sh --install"; echo "done."; } || echo "uninstalled."
+  # Each foreign target is refused on its own; the rest are linked and the run ends non-zero.
+  bad=0
+  for i in "${!PLAN_DST[@]}"; do link_owned "${PLAN_SRC[$i]}" "${PLAN_DST[$i]}" $FORCE || bad=$((bad+1)); done
+  want claude && [[ -d $HOME/.claude ]] && echo "claude: ${#AGENTS[@]} agents + ${#SKILLS[@]} skills linked"
+  want agy && echo "agy: ${#AGENTS[@]} agents + ${#SKILLS[@]} skills linked"
+else
+  for i in "${!PLAN_DST[@]}"; do unlink_owned "${PLAN_DST[$i]}"; done
+  for h in build-hooks build-format build-lint build-guard tdd-guard; do unlink_owned "$BIN/$h"; done
+  [[ -d $DIST ]] && rm -f "$DIST"/*.config.toml
+  echo "links into $ROOT removed (harness agents, skills, codex toml, ~/.local/bin/build-* and tdd-guard)"
+fi
+
+# ---- Codex config.toml: the [agents.*] block pointing at the linked TOMLs ----
+if want codex && [[ -d $HOME/.codex ]]; then
+  python3 - "$MODE" "$HOME/.codex/config.toml" "${AGENTS[@]}" <<'PY'
+import re, sys
+from pathlib import Path
+MODE, cfg, AGENTS = sys.argv[1], Path(sys.argv[2]), sys.argv[3:]
+text = cfg.read_text() if cfg.exists() else ""
+text = re.sub(
+    r"\n*# BEGIN SWARM CODER(?: V3)? AGENTS.*?# END SWARM CODER(?: V3)? AGENTS\n",
+    "\n", text, flags=re.DOTALL,
+)
+if MODE == "install":
+    block = "# BEGIN SWARM CODER AGENTS\n" + "".join(
+        f'[agents.{name}]\nconfig_file = "{cfg.parent}/{name}.config.toml"\n'
+        for name in AGENTS
+    ) + "# END SWARM CODER AGENTS\n"
+    cfg.write_text((text.rstrip() + "\n\n" + block) if text.strip() else block)
+    print(f"codex: {len(AGENTS)} agents generated into dist/codex and linked, {cfg} updated")
+else:
+    cfg.write_text(text)
+    print(f"codex: agents block removed from {cfg}")
+PY
+fi
+
+if [[ $MODE == install ]]; then
+  ((bad == 0)) || die "$bad target(s) refused (see above); the rest were linked"
+  command -v tdd-guard >/dev/null || echo "note: tdd-guard/build-hooks not found — run scripts/bootstrap-tools.sh --install"
+  echo "done."
+else
+  echo "uninstalled."
+fi

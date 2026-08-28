@@ -13,7 +13,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/anvil008/swarm-coder/controlplane"
 )
@@ -62,6 +64,15 @@ type Amendment struct {
 	After  []TestDigest `json:"after"`
 }
 
+// BoundArgv is the command the seal binds verification to. The red run proves
+// these tests fail; only the same argv can later prove they pass, otherwise
+// `seal --red-command false` followed by `verify --green-command true` is a
+// complete TDD cycle on paper.
+type BoundArgv struct {
+	Argv   []string `json:"argv"`
+	Digest string   `json:"digest"`
+}
+
 // Seal is the RED baseline: the tests that must not move plus proof they
 // actually failed before any implementation ran.
 type Seal struct {
@@ -70,6 +81,17 @@ type Seal struct {
 	Tests      []TestDigest                 `json:"tests"`
 	Red        controlplane.CommandEvidence `json:"red"`
 	Amendments []Amendment                  `json:"amendments"`
+	// BoundArgv is absent from seals written before the binding existed; those
+	// bind to Red.ArgvDigest, which every seal has always recorded.
+	BoundArgv *BoundArgv `json:"boundArgv,omitempty"`
+}
+
+// boundArgv returns the binding in force, synthesizing one for a legacy seal.
+func (s *Seal) boundArgv() BoundArgv {
+	if s.BoundArgv != nil {
+		return *s.BoundArgv
+	}
+	return BoundArgv{Digest: s.Red.ArgvDigest}
 }
 
 // Green is the passing run recorded at verify time. It carries the full command
@@ -136,6 +158,7 @@ type Status struct {
 	StateDir     string      `json:"stateDir"`
 	Sealed       bool        `json:"sealed"`
 	Seal         *Seal       `json:"seal,omitempty"`
+	BoundArgv    *BoundArgv  `json:"boundArgv,omitempty"`
 	Green        *Green      `json:"green,omitempty"`
 	DiffReview   *DiffReview `json:"diffReview,omitempty"`
 	ArchReview   *ArchReview `json:"archReview,omitempty"`
@@ -326,6 +349,54 @@ func (s *state) changedTests() ([]string, error) {
 		}
 	}
 	return changed, nil
+}
+
+// testStat is what a sealed test looked like on disk at one instant. Digest
+// catches a change that stayed; modification time and size catch one that was
+// undone before anyone looked.
+type testStat struct {
+	digest  string
+	modTime time.Time
+	size    int64
+}
+
+// sealedTestStats snapshots every sealed test so a later call can tell whether
+// any of them moved in between, even transiently.
+func (s *state) sealedTestStats() (map[string]testStat, error) {
+	stats := make(map[string]testStat, len(s.sealedTests()))
+	for _, test := range s.sealedTests() {
+		target := filepath.Join(s.repository, filepath.FromSlash(test.Path))
+		content, err := os.ReadFile(target)
+		if err != nil {
+			return nil, err
+		}
+		info, err := os.Stat(target)
+		if err != nil {
+			return nil, err
+		}
+		stats[test.Path] = testStat{digest: digestBytes(content), modTime: info.ModTime(), size: info.Size()}
+	}
+	return stats, nil
+}
+
+// sealedTestsTouchedSince reports sealed tests whose content or metadata differ
+// from an earlier snapshot, including tests that no longer exist.
+func (s *state) sealedTestsTouchedSince(before map[string]testStat) ([]string, error) {
+	after, err := s.sealedTestStats()
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return s.changedTests()
+		}
+		return nil, err
+	}
+	touched := make([]string, 0)
+	for path, was := range before {
+		if now, ok := after[path]; !ok || now != was {
+			touched = append(touched, path)
+		}
+	}
+	sort.Strings(touched)
+	return touched, nil
 }
 
 // records lists the runs anvil-guard performed for this repository, in a stable

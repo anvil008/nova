@@ -1,0 +1,148 @@
+# build-guard probe corpus — one probe per line, `expected|command`.
+# expected is `allow` or `deny`; everything after the first `|` is the raw shell command.
+# test_hooks.sh runs every probe through build-guard for both the Claude and the
+# Antigravity payload shapes and asserts the verdict. Keep the deny set to unambiguous
+# policy violations and the allow set to the false positives we have actually hit.
+
+# --- deny: pushing to / rewriting main and master -----------------------------------
+deny|git push
+deny|git push origin
+deny|git push -u origin
+deny|git push origin HEAD
+deny|git push origin main
+deny|git push origin master
+deny|git push --force origin main
+deny|git push origin HEAD:main
+deny|git push origin +HEAD:refs/heads/main
+deny|git push origin feat:main
+deny|git push origin refs/heads/master
+deny|git push origin "main"
+deny|git push origin 'HEAD:main'
+deny|git push --delete origin main
+deny|git -C ../other push origin main
+deny|cd /repo && git push origin main
+deny|git fetch && git push origin master
+deny|command git push origin main
+deny|/usr/bin/git push origin main
+deny|(git push origin main)
+deny|echo start; git push origin main; echo done
+deny|bash -c 'git push origin main'
+deny|sh -c "git push origin main"
+deny|eval "git push origin main"
+deny|git branch -f main HEAD~3
+deny|git branch -f master origin/master
+deny|git branch -M feat main
+deny|git branch -D main
+deny|git update-ref refs/heads/main HEAD
+deny|git update-ref refs/heads/master abc123
+deny|git update-ref -d refs/heads/main
+deny|gh pr merge 42 --squash
+deny|gh pr merge --auto
+deny|gh api -X PUT repos/o/r/pulls/42/merge
+deny|git checkout main && git merge feat
+deny|git checkout main; git merge --no-ff feat
+deny|git switch main && git merge issue-12
+deny|git switch master && git merge issue-12
+deny|git checkout main && git commit -m "x"
+deny|git checkout -b main && git merge feat
+deny|git checkout main && git cherry-pick abc123
+deny|git checkout main && git rebase feat
+deny|jj bookmark set main -r @ && jj git push
+deny|jj bookmark set main -r @; jj git push --bookmark main
+deny|jj bookmark move --to @ main && jj git push
+deny|jj git push --bookmark main
+deny|jj git push -b main
+deny|jj git push --bookmark=master
+deny|jj git push --named main=@
+deny|jj git push --all
+deny|jj git push --tracked
+deny|jj git push
+
+# --- deny: cargo build artifacts on the RAM-backed tmpfs ----------------------------
+deny|CARGO_TARGET_DIR=/tmp cargo build
+deny|CARGO_TARGET_DIR=/tmp/ cargo build
+deny|CARGO_TARGET_DIR=/tmp/target cargo build
+deny|CARGO_TARGET_DIR="/tmp/target" cargo build
+deny|CARGO_TARGET_DIR='/tmp/target/' cargo test
+deny|CARGO_TARGET_DIR=/dev/shm/target cargo build
+deny|CARGO_TARGET_DIR=$TMPDIR/target cargo build
+deny|CARGO_TARGET_DIR="${TMPDIR}/target" cargo build
+deny|CARGO_BUILD_TARGET_DIR=/tmp/target cargo build
+deny|export CARGO_TARGET_DIR=/tmp/target
+deny|export CARGO_TARGET_DIR="/dev/shm"; cargo build
+deny|env CARGO_TARGET_DIR=/tmp/t cargo build
+deny|cargo build --target-dir /tmp
+deny|cargo build --target-dir /tmp/
+deny|cargo build --target-dir=/tmp/target
+deny|cargo build --target-dir "/tmp/target"
+deny|cargo build --target-dir='/tmp/target/'
+deny|cargo test --release --target-dir /dev/shm/t
+deny|cargo build --target-dir $TMPDIR
+deny|cargo build --target-dir "$TMPDIR/target"
+deny|cargo build --target-dir ${TMPDIR}/target
+deny|cd crate && cargo build --target-dir /tmp/x
+
+# --- allow: legitimate builder work ----------------------------------------------------
+allow|git status
+allow|git log --oneline main..HEAD
+allow|git diff main
+allow|git diff HEAD
+allow|git fetch origin main
+allow|git rebase main
+allow|git merge main
+allow|git merge-base main HEAD
+allow|git merge-base --is-ancestor main HEAD
+allow|git push origin feat-branch
+allow|git push -u origin feature/x
+allow|git push origin main-fix
+allow|git push origin main.old
+allow|git push origin mainline
+allow|git push origin issue-12-H1-build-guard-hard-boundary
+allow|git push origin HEAD:feat-branch
+allow|git push origin HEAD:refs/heads/feat
+allow|git push origin $BRANCH
+allow|git push origin "$BRANCH"
+allow|git push --force-with-lease origin feat
+allow|git commit -m "fix main loop"
+allow|git commit -m "merge main into feature"
+allow|git commit -am "git push origin main"
+allow|git commit -m 'main: tidy'
+allow|git branch -f main-old HEAD~3
+allow|git branch --list main
+allow|git branch -m main-backup
+allow|git update-ref refs/heads/main-old HEAD
+allow|git checkout main
+allow|git switch main
+allow|git checkout main -- README.md
+allow|git checkout feat && git merge main
+allow|git switch -c issue-12 && git commit -m "start"
+allow|git show main:README.md
+allow|echo "git push origin main"
+allow|echo 'git push origin main'
+allow|grep -rn "git push origin main" docs/
+allow|grep "push main" scripts/hooks/build-guard
+allow|printf '%s\n' "git checkout main && git merge feat"
+allow|gh pr create --base main --title "x"
+allow|gh pr view 42
+allow|gh pr merge-queue
+allow|gh api repos/o/r/pulls/42
+allow|jj git push --bookmark issue-12
+allow|jj git push --named issue-12=issue-12
+allow|jj git push -b main-fix
+allow|jj git push --bookmark=feat-main
+allow|jj bookmark set main -r @
+allow|jj bookmark set issue-12 -r @ && jj git push --bookmark issue-12
+allow|jj log -r main
+allow|jj rebase -d main
+allow|cargo test
+allow|cargo build --target-dir /home/anvil/.cache/cargo-target
+allow|cargo build --target-dir ~/.cache/cargo-target
+allow|cargo build --target-dir /tmpfs/target
+allow|cargo build --target-dir ./target
+allow|CARGO_TARGET_DIR=/home/anvil/.cache/cargo-target cargo build
+allow|CARGO_TARGET_DIR=/tmpdir/target cargo build
+allow|CARGO_TARGET_DIR=$HOME/.cache/cargo-target cargo build
+allow|echo "CARGO_TARGET_DIR=/tmp"
+allow|ls /tmp
+allow|rm -rf /tmp/scratch
+allow|cat /dev/shm/x

@@ -7,9 +7,12 @@
 #   scripts/bootstrap-tools.sh --install  # install what is missing (best effort)
 #
 # Installs are best effort: they use the first of brew / apt / cargo / npm / uv
-# that is present, else print a manual hint. Only an apt fallback needs sudo.
-set -uo pipefail
+# that is present, else print a manual hint. Only an apt fallback needs sudo, and
+# it runs in the foreground so the prompt is visible (skipped without a terminal).
+set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+. "$ROOT/scripts/lib.sh"
 install=0; [[ ${1:-} == "--install" ]] && install=1
 have(){ command -v "$1" >/dev/null 2>&1; }
 mkdir -p "$HOME/.local/bin"
@@ -36,7 +39,7 @@ need(){ # name | install-cmd | purpose | required(0/1)
   report "$n" && return 0
   printf '         %s%s\n' "$why" "$( ((req)) && echo '  [required]' )"
   if [[ -z $cmd ]]; then printf '         install it manually for your OS\n'
-  elif ((install)); then printf '         + %s\n' "$cmd"; eval "$cmd" || printf '         (failed — install manually)\n'
+  elif ((install)); then printf '         + %s\n' "$cmd"; run_install "$cmd" || printf '         (failed — install manually)\n'
   else printf '         install: %s\n' "$cmd"; fi
 }
 
@@ -51,30 +54,38 @@ need gh      "$(pick brew:gh apt:gh)"                                    "GitHub
 
 echo
 echo "== build the tdd-guard gate =="
+if [[ -e $ROOT/bin/anvil-guard || -L $ROOT/bin/anvil-guard ]]; then
+  if ((install)); then
+    rm -f "$ROOT/bin/anvil-guard"
+    echo "  removed orphaned $ROOT/bin/anvil-guard (the supported artifact is tdd-guard)"
+  else
+    echo "  orphaned $ROOT/bin/anvil-guard is present; --install removes it"
+  fi
+fi
 if ! ((install)); then
   echo "  would build ~/.local/bin/tdd-guard + build-hooks (run with --install)"
 elif have go; then
-  ( cd "$ROOT" && go build -o "$HOME/.local/bin/tdd-guard" ./cmd/tdd-guard ) && echo "  built ~/.local/bin/tdd-guard"
-  cat > "$HOME/.local/bin/build-hooks" <<'SH'
-#!/usr/bin/env bash
-# build-hooks — the builder agent's TDD build gate. Thin wrapper over tdd-guard.
-exec "$HOME/.local/bin/tdd-guard" hook \
-  --harness "${1:?usage: build-hooks <claude|codex|agy> <event>}" \
-  --event   "${2:?usage: build-hooks <claude|codex|agy> <event>}"
-SH
-  chmod +x "$HOME/.local/bin/build-hooks" && echo "  installed ~/.local/bin/build-hooks"
+  # The binary is a build artifact, so it is built into the repo's gitignored
+  # bin/ and linked — same rule as everything else: the repo is the source.
+  mkdir -p "$ROOT/bin" "$HOME/.local/bin"
+  ( cd "$ROOT" && go build -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) || die "go build ./cmd/tdd-guard failed"
+  link_owned "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard" || die "could not link tdd-guard into ~/.local/bin"
+  echo "  built $ROOT/bin/tdd-guard -> ~/.local/bin/tdd-guard"
 else
   echo "  skipped — install Go, then re-run"
 fi
 
 echo
-echo "== builder aux hooks (format / lint / guard) =="
+echo "== builder hooks (hooks / format / lint / guard) =="
 if ! ((install)); then
-  echo "  would install ~/.local/bin/build-{format,lint,guard} (run with --install)"
+  echo "  would link ~/.local/bin/build-{hooks,format,lint,guard} (run with --install)"
 else
-  install -m755 "$ROOT"/scripts/hooks/build-format "$ROOT"/scripts/hooks/build-lint \
-                "$ROOT"/scripts/hooks/build-guard "$HOME/.local/bin/" \
-    && echo "  installed ~/.local/bin/build-{format,lint,guard}"
+  # Symlinked, not copied: editing scripts/hooks/* takes effect immediately.
+  mkdir -p "$HOME/.local/bin"
+  for h in build-hooks build-format build-lint build-guard; do
+    link_owned "$ROOT/scripts/hooks/$h" "$HOME/.local/bin/$h" || die "could not link $h into ~/.local/bin"
+  done
+  echo "  linked ~/.local/bin/build-{hooks,format,lint,guard} -> scripts/hooks/"
 fi
 
 echo
@@ -93,4 +104,4 @@ echo
 echo "Next: install the agents + skills into your harness(es) via:"
 echo "  scripts/install-harness.sh --install"
 echo "Agents are organized under agents/{claude,codex,agy} and deployed to ~/.claude,"
-echo "~/.codex, and ~/.gemini/config/agents. See README.md."
+echo "\$HOME/.codex, and \$HOME/.gemini/config/agents. See README.md."
