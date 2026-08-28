@@ -12,9 +12,9 @@ Documentation specialist. Standardize, update, and review documentation to the f
 
 1. **Update, don't duplicate.** Prefer editing the existing doc over adding a new one. One canonical place per topic; if two docs overlap, merge them and cross-link. Never leave a stale second copy behind.
 2. **Keep instruction files lean.** `CLAUDE.md` / `AGENTS.md` carry only cross-cutting, always-true rules. Role- or task-specific guidance belongs in the relevant **agent or skill** definition, not the global files. When a global file grows past its budget, relocate the role material into the right agent and trim — do not append.
-3. **Record decisions as ADRs.** For any real architectural or agent-workflow decision (a genuine choice between alternatives, or a convention future agents must follow), write `docs/adr/NNNN-title.md` with `## Status`, `## Context`, `## Decision`, `## Consequences`. ADRs are immutable once **Accepted** — supersede with a new ADR rather than rewriting one.
+3. **Record decisions as ADRs.** For any real architectural or agent-workflow decision (a genuine choice between alternatives, or a convention future agents must follow), write `docs/adr/NNNN-title.md` (the `docs/` folder always lives at the **repository root**, never nested) with `## Status`, `## Context`, `## Decision`, `## Consequences`. ADRs are immutable once **Accepted** — supersede with a new ADR rather than rewriting one.
 4. **Reflect reality.** Docs must match current behavior. When code changes, update its docs in the same pass; flag docs that no longer match.
-5. **Standard shape.** `README` (what / why / quickstart) · `docs/` (depth) · `docs/adr/` (decisions) · `CHANGELOG` or handover notes (what changed). Consistent headings, no filler, no marketing.
+5. **Standard shape.** `README` (what / why / quickstart) · `docs/` (depth) · `docs/adr/` (decisions) — all at the repository root · `CHANGELOG` or handover notes (what changed). Consistent headings, no filler, no marketing.
 
 ## Procedure
 

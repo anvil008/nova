@@ -21,5 +21,5 @@ jobs:
       - name: v3 skill tests + docs-check
         run: |
           for t in planner build research code-review docs; do
-            python3 -B harness-agents/v3/skills/$t/tests/test_${t//-/_}.py
+            python3 -B skills/$t/tests/test_${t//-/_}.py
           done
