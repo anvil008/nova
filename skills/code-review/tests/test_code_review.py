@@ -462,6 +462,66 @@ class CodeReviewSkillTests(unittest.TestCase):
         self.assertNotEqual(reconcile_findings.finding_key(base), reconcile_findings.finding_key(other_claim))
         self.assertNotEqual(reconcile_findings.finding_key(base), reconcile_findings.finding_key(other_file))
 
+    def test_review_token_in_claim_is_inert(self):
+        review = json.loads((EXAMPLES / "expected-review.json").read_text(encoding="utf-8"))
+        review["findings"][0]["claim"] = "Literal {{FINDINGS}} and {{INLINE_CSS}} in a claim"
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "review.json"
+            output = Path(tmp) / "review.html"
+            source.write_text(json.dumps(review), encoding="utf-8")
+            result = run_render(source, output, "--generated-at", "2026-08-26T12:00:00Z")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = output.read_text(encoding="utf-8")
+        self.assertIn("Literal {{FINDINGS}} and {{INLINE_CSS}} in a claim", rendered)
+        self.assertEqual(rendered.count('<span class="finding-id">F-01</span>'), 1)
+        self.assertEqual(rendered.count('<span class="finding-id">D-01</span>'), 1)
+
+    def test_min_severity_drift_does_not_close_live_issues(self):
+        review = json.loads((EXAMPLES / "expected-review.json").read_text(encoding="utf-8"))
+        review["findings"][0]["severity"] = "medium"
+        review["verdict"] = "approve-with-nits"
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "review.json"
+            source.write_text(json.dumps(review), encoding="utf-8")
+            empty = Path(tmp) / "empty.json"
+            empty.write_text(json.dumps({"issues": []}), encoding="utf-8")
+            first = run_reconcile(source, "--repo", "acme/platform", "--review-id", "pr-4821", "--snapshot", empty)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            actions = json.loads(first.stdout)["actions"]
+            self.assertEqual([a["payload"]["title"] for a in actions], ["[medium] Empty tokens bypass authentication"])
+            state = Path(tmp) / "state.json"
+            state.write_text(json.dumps(snapshot_from(actions)), encoding="utf-8")
+
+            stricter = run_reconcile(
+                source, "--repo", "acme/platform", "--review-id", "pr-4821",
+                "--min-severity", "high", "--snapshot", state,
+            )
+            self.assertEqual(stricter.returncode, 0, stricter.stderr)
+            self.assertEqual(json.loads(stricter.stdout)["actions"], [])
+
+            # Severity recorded only by label still protects the issue.
+            labelled = snapshot_from(actions)
+            labelled["issues"][0]["body"] = re.sub(r"\s*severity=\w+", "", labelled["issues"][0]["body"])
+            state.write_text(json.dumps(labelled), encoding="utf-8")
+            by_label = run_reconcile(
+                source, "--repo", "acme/platform", "--review-id", "pr-4821",
+                "--min-severity", "high", "--snapshot", state,
+            )
+            self.assertEqual(by_label.returncode, 0, by_label.stderr)
+            self.assertEqual(json.loads(by_label.stdout)["actions"], [])
+
+            # The finding really gone at the same threshold still closes.
+            fixed = dict(review, findings=[], verifiedCount=0, verdict="approve")
+            fixed_path = Path(tmp) / "fixed.json"
+            fixed_path.write_text(json.dumps(fixed), encoding="utf-8")
+            resolved = run_reconcile(fixed_path, "--repo", "acme/platform", "--review-id", "pr-4821", "--snapshot", state)
+            self.assertEqual(resolved.returncode, 0, resolved.stderr)
+            self.assertEqual([a["action"] for a in json.loads(resolved.stdout)["actions"]], ["close_resolved_issue"])
+
+    def test_skill_documents_min_severity_close_guard(self):
+        text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("recorded severity", text)
+
     def test_reconcile_apply_requires_an_approving_human(self):
         cases = (
             (["--apply"], "requires --approved-by"),

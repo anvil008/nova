@@ -432,6 +432,133 @@ class PlannerSkillTests(unittest.TestCase):
             self.assertTrue(output.exists())
             self.assertFalse((Path(tmp) / "docs").exists())
 
+    def test_padded_ids_round_trip(self):
+        """A padded planId or key must never leak into markers, and a second
+        reconcile against the first run's payloads must be a no-op."""
+        plan = sample_plan()
+        plan["planId"] = " x "
+        plan["issues"][0]["key"] = "k "
+        plan["issues"][1]["dependsOn"] = [" k"]
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, Path(tmp) / "out.html")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = (Path(tmp) / "out.html").read_text(encoding="utf-8")
+            self.assertIn("<!-- swarm-planner planId=x -->", rendered)
+            self.assertNotIn("planId= x", rendered)
+            state = Path(tmp) / "snapshot.json"
+            state.write_text(json.dumps({"milestones": [], "issues": []}), encoding="utf-8")
+            first = self.run_script(RECONCILE, sidecar, "--snapshot", state)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            actions = json.loads(first.stdout)["actions"]
+            created = [a for a in actions if a["action"] == "create_issue"]
+            self.assertEqual({a["key"] for a in created}, {"k", "sync"})
+            for action in created:
+                self.assertIn(f'<!-- swarm-planner planId=x issue={action["key"]} -->', action["payload"]["body"])
+            snapshot = {
+                "milestones": [{"number": 1, "title": plan["planName"], "description": "<!-- swarm-planner planId=x -->", "state": "open"}],
+                "issues": [
+                    {
+                        "number": 10 + i, "title": a["payload"]["title"], "body": a["payload"]["body"],
+                        "labels": [{"name": n} for n in a["payload"]["labels"]],
+                        "milestone": {"number": 1}, "state": "open",
+                    }
+                    for i, a in enumerate(created)
+                ],
+            }
+            state.write_text(json.dumps(snapshot), encoding="utf-8")
+            second = self.run_script(RECONCILE, sidecar, "--snapshot", state)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertEqual(json.loads(second.stdout)["actions"], [])
+
+    def test_token_in_user_text_is_inert(self):
+        plan = sample_plan()
+        plan["summary"] = "Beware {{MERMAID_JS}} and {{ISSUE_CARDS}} in prose."
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, Path(tmp) / "out.html")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = (Path(tmp) / "out.html").read_text(encoding="utf-8")
+        self.assertIn("Beware {{MERMAID_JS}} and {{ISSUE_CARDS}} in prose.", rendered)
+        bundle_head = (ROOT / "assets" / "mermaid.min.js").read_text(encoding="utf-8")[:200]
+        self.assertEqual(rendered.count(bundle_head), 1)
+        self.assertEqual(rendered.count('class="issue-key"'), len(plan["issues"]))
+
+    def test_mermaid_label_neutralises_directive_and_markup_characters(self):
+        sys.path.insert(0, SCRIPTS_DIR)
+        import render_plan
+
+        label = render_plan.mermaid_label('a#b;c`d<e>f"g[h]\ni')
+        for char in '#;`<>"[]\n':
+            self.assertNotIn(char, label)
+        self.assertIn("a", label)
+        self.assertIn("i", label)
+
+    def test_reconcile_does_not_reopen_done_issues_unless_asked(self):
+        plan = sample_plan()
+        snapshot = {"milestones": [{"number": 7, "title": plan["planName"], "description": "<!-- swarm-planner planId=planner-v3 -->", "state": "open"}], "issues": []}
+        first = reconcile_github.plan_actions(plan, snapshot)
+        issues = []
+        for i, action in enumerate(a for a in first if a["action"] == "create_issue"):
+            issues.append({
+                "number": 10 + i, "title": action["payload"]["title"], "body": action["payload"]["body"],
+                "labels": [{"name": n} for n in action["payload"]["labels"]],
+                "milestone": {"number": 7}, "state": "open",
+            })
+        issues[0]["state"] = "closed"
+        issues[0]["labels"].append({"name": "status:done"})
+        issues[1]["state"] = "closed"
+        issues[1]["state_reason"] = "completed"
+        snapshot["issues"] = issues
+
+        self.assertEqual(reconcile_github.plan_actions(plan, snapshot), [])
+        # A done canonical still gets its open duplicates closed, with a reason
+        # that keeps the reconciler's own closures distinguishable from done work.
+        duplicate = dict(issues[0], number=99, state="closed", state_reason=None, labels=[])
+        duplicate["state"] = "open"
+        with_duplicate = reconcile_github.plan_actions(plan, dict(snapshot, issues=issues + [duplicate]))
+        self.assertEqual([(a["action"], a["number"]) for a in with_duplicate], [("close_duplicate_issue", 99)])
+        self.assertEqual(with_duplicate[0]["payload"], {"state": "closed", "state_reason": "not_planned"})
+        reopened = reconcile_github.plan_actions(plan, snapshot, reopen_done=True)
+        self.assertEqual([a["action"] for a in reopened], ["update_issue", "update_issue"])
+        self.assertEqual({a["number"] for a in reopened}, {10, 11})
+        self.assertTrue(all(a["payload"]["state"] == "open" for a in reopened))
+
+        issues[0]["labels"] = [{"name": "planning"}]
+        issues[0]["state_reason"] = "not_planned"
+        plain = reconcile_github.plan_actions(plan, snapshot)
+        self.assertEqual([(a["action"], a["number"]) for a in plain], [("update_issue", 10)])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            state = Path(tmp) / "snapshot.json"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            state.write_text(json.dumps(snapshot), encoding="utf-8")
+            result = self.run_script(RECONCILE, sidecar, "--snapshot", state, "--reopen-done")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(json.loads(result.stdout)["actions"]), 2)
+
+    def test_milestone_adoption_by_title_preserves_description(self):
+        plan = sample_plan()
+        snapshot = {
+            "milestones": [{"number": 3, "title": plan["planName"], "description": "Hand-written goals.", "state": "open"}],
+            "issues": [],
+        }
+        actions = reconcile_github.plan_actions(plan, snapshot)
+        update = next(a for a in actions if a["action"] == "update_milestone")
+        self.assertEqual(update["number"], 3)
+        self.assertTrue(update["payload"]["description"].startswith("Hand-written goals."))
+        self.assertTrue(update["payload"]["description"].endswith("<!-- swarm-planner planId=planner-v3 -->"))
+        snapshot["milestones"][0]["description"] = update["payload"]["description"]
+        self.assertFalse(any(a["action"] == "update_milestone" for a in reconcile_github.plan_actions(plan, snapshot)))
+
+    def test_skill_documents_reopen_done_and_marker_normalisation(self):
+        text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("--reopen-done", text)
+        self.assertIn("status:done", text)
+
     def test_shared_report_css_is_byte_identical_across_skills(self):
         repo_root = ROOT.parents[1]
         planner = (repo_root / "skills" / "planner" / "templates" / "report.css").read_bytes()

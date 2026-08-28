@@ -276,12 +276,24 @@ def render(review: dict, context: dict) -> str:
         "DROPPED": f'<div class="rows dropped">{finding_rows(review["dropped"], "D", refuted=True)}</div>',
         "FILES": files_html(findings),
     }
-    for key, value in replacements.items():
-        template = template.replace("{{" + key + "}}", value)
-    leftovers = sorted(set(re.findall(r"\{\{[A-Z_]+\}\}", template)))
+    return substitute_tokens(template, replacements)
+
+
+def substitute_tokens(template: str, replacements: dict[str, str]) -> str:
+    """Single pass: a token-shaped string inside user text is never re-substituted."""
+    leftovers: list[str] = []
+
+    def substitute(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key not in replacements:
+            leftovers.append(match.group(0))
+            return match.group(0)
+        return replacements[key]
+
+    rendered = re.sub(r"\{\{([A-Z_]+)\}\}", substitute, template)
     if leftovers:
-        raise ReviewError(f"unresolved template token(s): {', '.join(leftovers)}")
-    return template
+        raise ReviewError(f"unresolved template token(s): {', '.join(sorted(set(leftovers)))}")
+    return rendered
 
 
 def build_context(args: argparse.Namespace) -> dict:

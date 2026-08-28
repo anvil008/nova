@@ -14,12 +14,14 @@ from pathlib import Path
 from render_review import SEVERITIES, ReviewError, validate_review
 
 
-FINDING_MARKER = "<!-- swarm-review reviewId={review_id} finding={key} -->"
+FINDING_MARKER = "<!-- swarm-review reviewId={review_id} finding={key} severity={severity} -->"
 FINDING_MARKER_RE = re.compile(
     r"<!--\s*swarm-review\s+"
     r"reviewId=([a-z0-9]+(?:-[a-z0-9]+)*)\s+"
-    r"finding=([0-9a-f]{12})\s*-->"
+    r"finding=([0-9a-f]{12})"
+    r"(?:\s+severity=([a-z]+))?\s*-->"
 )
+SEVERITY_LABEL_RE = re.compile(r"^severity:([a-z]+)$")
 REVIEW_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SEVERITY_RANK = {severity: rank for rank, severity in enumerate(SEVERITIES)}
@@ -103,7 +105,7 @@ def issue_body(finding: dict, key: str, review_id: str, subject: str) -> str:
         f"Raised by the `{finding['lens']}` lens reviewing {subject} and substantiated by an "
         "independent verifier that tried to refute it.",
         "",
-        FINDING_MARKER.format(review_id=review_id, key=key),
+        FINDING_MARKER.format(review_id=review_id, key=key, severity=finding["severity"]),
     ]
     return "\n".join(lines)
 
@@ -132,16 +134,42 @@ def existing_marker(issue: dict) -> tuple[str, str] | None:
     return (match.group(1), match.group(2)) if match else None
 
 
-def issue_differs(existing: dict, desired: dict) -> bool:
-    labels = sorted(
+def label_names(issue: dict) -> list[str]:
+    return [
         label.get("name", "") if isinstance(label, dict) else str(label)
-        for label in existing.get("labels", [])
-    )
+        for label in issue.get("labels", [])
+    ]
+
+
+def recorded_severity(issue: dict) -> str | None:
+    """Severity the issue was filed at: the marker first, then the severity label."""
+    match = FINDING_MARKER_RE.search(issue.get("body") or "")
+    if match and match.group(3) in SEVERITY_RANK:
+        return match.group(3)
+    for name in label_names(issue):
+        label = SEVERITY_LABEL_RE.match(name)
+        if label and label.group(1) in SEVERITY_RANK:
+            return label.group(1)
+    return None
+
+
+def closable(issue: dict, min_severity: str) -> bool:
+    """Only findings this run could have reported may be declared resolved.
+
+    A stricter --min-severity than the one an issue was filed at means the
+    finding was filtered out, not fixed, so the issue stays open. An issue with
+    no recorded severity is left alone for the same reason.
+    """
+    severity = recorded_severity(issue)
+    return severity is not None and SEVERITY_RANK[severity] <= SEVERITY_RANK[min_severity]
+
+
+def issue_differs(existing: dict, desired: dict) -> bool:
     milestone = existing.get("milestone") or {}
     return any((
         existing.get("title") != desired["title"],
         (existing.get("body") or "") != desired["body"],
-        labels != sorted(desired["labels"]),
+        sorted(label_names(existing)) != sorted(desired["labels"]),
         milestone.get("number") != desired["milestone"],
         existing.get("state") != "open",
     ))
@@ -193,7 +221,7 @@ def review_actions(
         if key in desired_keys:
             continue
         for removed in matches:
-            if removed.get("state") != "closed":
+            if removed.get("state") != "closed" and closable(removed, min_severity):
                 actions.append({
                     "action": "close_resolved_issue", "key": key,
                     "number": removed["number"], "payload": {"state": "closed"},
