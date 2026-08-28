@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 )
 
 // sessionsDirectory holds one touch log per harness session. A session routinely
@@ -43,6 +44,18 @@ func recordTouchedRepositories(session string, repositories []string) error {
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(pathname), 0o700); err != nil {
+		return err
+	}
+	lock, err := os.OpenFile(pathname+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	defer func() { _ = syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) }()
 	existing, err := readJSON[touchLog](pathname)
 	if err != nil {
 		return err
