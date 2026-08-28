@@ -12,7 +12,6 @@ from pathlib import Path
 
 from render_plan import PlanError, validate_plan
 
-
 PLAN_MARKER = "<!-- swarm-planner planId={plan_id} -->"
 ISSUE_MARKER = "<!-- swarm-planner planId={plan_id} issue={key} -->"
 ISSUE_MARKER_RE = re.compile(
@@ -35,6 +34,7 @@ def gh_json(args: list[str], *, payload: dict | None = None, timeout: float = 30
             text=True,
             capture_output=True,
             timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired as error:
         raise ReconcileError(f"GitHub API call timed out after {timeout} seconds: {' '.join(command)}") from error

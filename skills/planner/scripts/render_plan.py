@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import argparse
 import html
+import itertools
 import json
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 TOP_FIELDS = {
@@ -291,7 +291,7 @@ def waves_source(issues: list[dict]) -> str:
     for wave in ordered:
         titles = " · ".join(mermaid_label(issue["key"]) for issue in grouped[wave])
         lines.append(f'  wave_{wave}["Wave {wave}<br/>{titles}"]')
-    for left, right in zip(ordered, ordered[1:]):
+    for left, right in itertools.pairwise(ordered):
         lines.append(f"  wave_{left} --> wave_{right}")
     if 0 in grouped:
         titles = " · ".join(mermaid_label(issue["key"]) for issue in grouped[0])

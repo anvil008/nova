@@ -13,8 +13,12 @@ GOOD_ADR = "## Status\nAccepted\n## Context\nx\n## Decision\ny\n## Consequences\
 
 
 def run(root, *args):
-    return subprocess.run([sys.executable, "-B", str(SCRIPT), str(root), *map(str, args)],
-                          text=True, capture_output=True)
+    return subprocess.run(
+        [sys.executable, "-B", str(SCRIPT), str(root), *map(str, args)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 class DocsCheckTests(unittest.TestCase):
@@ -194,16 +198,23 @@ class DocsCheckTests(unittest.TestCase):
         # Check for go vet
         self.assertIn("go vet ./...", content)
         
-        # Check for go test -v ./...
-        self.assertIn("go test -v ./...", content)
+        # Check for uncached race-enabled Go tests and installer coverage.
+        self.assertIn("go test -count=1 -race ./...", content)
+        self.assertIn("bash scripts/tests/test_install.sh", content)
         
         # Check for hook tests
         self.assertIn("bash scripts/hooks/tests/test_hooks.sh", content)
         
-        # Check for skill unit tests
-        for skill in ("planner", "build", "code-review", "docs", "research"):
-            expected_pattern = f"python3 -m unittest discover -s skills/{skill}/tests -p \"test_*.py\""
-            self.assertIn(expected_pattern, content)
+        # Every present and future skill suite is discovered; none is hard-coded.
+        self.assertIn("for d in skills/*/tests; do", content)
+        self.assertIn("python3 -m unittest discover -s \"$d\" -p 'test_*.py'", content)
+        self.assertNotRegex(content, r"python3 -m unittest discover -s skills/[^\s]+/tests")
+
+        # Python and lint tooling are explicit CI gates.
+        self.assertIn("actions/setup-python@v5", content)
+        self.assertRegex(content, r"python-version:\s*[\"']?3\.13[\"']?")
+        self.assertIn("ruff check skills/", content)
+        self.assertIn("shellcheck -S warning scripts/*.sh scripts/hooks/build-*", content)
             
         # Check for docs check
         self.assertIn("skills/docs/scripts/docs_check.py", content)
