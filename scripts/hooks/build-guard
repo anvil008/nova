@@ -3,23 +3,214 @@
 # Harness-aware: reads the command and emits the deny verdict in each harness's own shape.
 #   claude: stdin .tool_input.command      -> {hookSpecificOutput:{permissionDecision:"deny",...}}
 #   agy:    stdin .toolCall.args.CommandLine -> {decision:"deny",reason:...}   (Antigravity contract)
-# Denies only unambiguous POLICY violations the permission classifier doesn't cover; silent (allow)
-# otherwise. Deliberately narrow to avoid false positives that would break a benchmark task.
+#
+# This is a hard boundary, so it fails closed: exit 2 with a reason on stderr when jq is
+# missing, the payload is not JSON, or the payload carries no command. Silent (allow) otherwise.
+#
+# The command is tokenized instead of regex-matched. Quoted arguments that contain whitespace
+# (commit messages, echo/grep text) are dropped before any rule looks at the words, so
+# `git commit -m "merge main"` cannot trip a rule, while `git push origin "main"` still can.
+# Segments split on ; & | && || newlines and (sub)shell brackets are judged one at a time,
+# with a little cross-segment state for `checkout main && git merge` and
+# `jj bookmark set main && jj git push`. POSIX ERE only — portable to BSD grep/awk.
 set -uo pipefail
 harness="${1:-claude}"
+
+fail(){ printf 'build-guard: %s\n' "$1" >&2; exit 2; }
+command -v jq  >/dev/null 2>&1 || fail "jq is required to parse the hook payload; failing closed"
+command -v awk >/dev/null 2>&1 || fail "awk is required to tokenize the command; failing closed"
+
+payload=$(cat)
 case "$harness" in
-  agy)  cmd=$(jq -r '.toolCall.args.CommandLine // .toolCall.args.command // empty' 2>/dev/null)
-        deny(){ jq -n --arg r "$1" '{decision:"deny",reason:$r}'; exit 0; } ;;
-  *)    cmd=$(jq -r '.tool_input.command // empty' 2>/dev/null)
-        deny(){ jq -n --arg r "$1" \
-          '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; } ;;
+  agy) filter='.toolCall.args.CommandLine // .toolCall.args.command // empty'
+       deny(){ jq -n --arg r "$1" '{decision:"deny",reason:$r}'; exit 0; } ;;
+  *)   filter='.tool_input.command // empty'
+       deny(){ jq -n --arg r "$1" \
+         '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; } ;;
 esac
-[[ -n ${cmd:-} ]] || exit 0
-re(){ printf '%s' "$cmd" | grep -Eq "$1"; }
-# the builder owns an issue branch and must never touch main
-re '(^|[^[:alnum:]_])git[^[:alnum:]_]+(.*[^[:alnum:]_]+)?push[^[:alnum:]_]+(.*[^[:alnum:]_]+)?main([^[:alnum:]_]|$)'           && deny "builder must not push to main — push your issue branch instead"
-re '(^|[^[:alnum:]_])git[^[:alnum:]_]+(.*[^[:alnum:]_]+)?(commit|merge)[^[:alnum:]_]+(.*[^[:alnum:]_]+)?main([^[:alnum:]_]|$)' && deny "builder must not commit/merge into main"
-# /tmp is a small RAM-backed tmpfs here — never park build artifacts there
-re 'CARGO_TARGET_DIR=[[:space:]]*/tmp'     && deny "don't point CARGO_TARGET_DIR at /tmp (RAM tmpfs) — use ~/.cache/cargo-target"
-re '\-\-target-dir[= ][[:space:]]*/tmp/'   && deny "don't write cargo artifacts under /tmp (RAM tmpfs)"
+cmd=$(printf '%s' "$payload" | jq -r "$filter" 2>/dev/null) || fail "hook payload is not valid JSON; failing closed"
+[[ -n $cmd ]] || fail "hook payload has no command for harness '$harness'; failing closed"
+
+# --- tokenizer -----------------------------------------------------------------------------------
+# Emits one token per line. `;` lines are segment boundaries. Quoted text with no whitespace is
+# glued into the surrounding word (so "main" and '/tmp/x' are seen); quoted text containing
+# whitespace is dropped from the word and emitted as a `Q<TAB>text` line so `bash -c` / `eval`
+# bodies can be re-checked.
+tokenize(){
+  awk '
+    { line = line (NR > 1 ? "\n" : "") $0 }
+    END {
+      n = length(line); tok = ""; q = ""; qbuf = ""
+      for (i = 1; i <= n; i++) {
+        c = substr(line, i, 1)
+        if (q != "") {
+          if (c == q) {
+            if (qbuf ~ /[ \t\n]/) { gsub(/\n/, ";", qbuf); print "Q\t" qbuf } else tok = tok qbuf
+            q = ""; qbuf = ""; continue
+          }
+          if (c == "\\" && q == "\"" && i < n) { i++; c = substr(line, i, 1) }
+          qbuf = qbuf c; continue
+        }
+        if (c == "\"" || c == "\047") { q = c; continue }
+        if (c == "\\" && i < n) { i++; tok = tok substr(line, i, 1); continue }
+        if (c == "$" && substr(line, i + 1, 1) == "(") { if (tok != "") print tok; tok = ""; print ";"; i++; continue }
+        if (c == "$" && substr(line, i + 1, 1) == "{") {   # ${VAR...} is part of the word, not a brace group
+          j = index(substr(line, i), "}"); if (j == 0) j = n - i + 1
+          tok = tok substr(line, i, j); i += j - 1; continue
+        }
+        if (c ~ /[;&|\n(){}`]/) { if (tok != "") print tok; tok = ""; print ";"; continue }
+        if (c ~ /[ \t]/) { if (tok != "") print tok; tok = ""; continue }
+        tok = tok c
+      }
+      if (tok != "") print tok
+      print ";"
+    }'
+}
+
+# --- helpers ---------------------------------------------------------------------------------------
+is_protected(){ [[ $1 == main || $1 == master ]]; }
+is_tmpfs_dir(){ [[ $1 =~ ^(/tmp|/dev/shm|\$TMPDIR|\$\{TMPDIR[^}]*\})(/.*)?$ ]]; }
+is_opt(){ [[ $1 == -* || $1 =~ ^[0-9]*[\<\>] ]]; }
+# positionals <value-taking-opts-regex> <args...> -> sets `pos` to the non-option words
+positionals(){
+  local skip=$1; shift; pos=()
+  while (($#)); do
+    if [[ $1 == -- ]]; then shift; pos+=("$@"); return; fi
+    if [[ -n $skip && $1 =~ ^($skip)$ ]]; then shift 2; continue; fi
+    is_opt "$1" || pos+=("$1"); shift
+  done
+}
+env_assign(){
+  local name=${1%%=*} val=${1#*=}
+  case $name in
+    CARGO_TARGET_DIR|CARGO_BUILD_TARGET_DIR)
+      is_tmpfs_dir "$val" && deny "don't point $name at $val (RAM-backed tmpfs) — use ~/.cache/cargo-target" ;;
+  esac
+}
+
+# --- per-command rules -----------------------------------------------------------------------------
+rule_git(){
+  local sub="" ; local -a rest=() pos=()
+  while (($#)); do
+    case $1 in
+      -C|-c|--git-dir|--work-tree|--namespace|--exec-path|--super-prefix) shift 2; continue ;;
+      -*) shift; continue ;;
+      *) sub=$1; shift; rest=("$@"); break ;;
+    esac
+  done
+  case $sub in
+    push)
+      positionals '-o|--push-option|--receive-pack|--exec|--repo' "${rest[@]}"
+      ((${#pos[@]} >= 2)) || deny "git push must name the remote and your issue branch explicitly — a bare push targets the current branch, which may be main"
+      local ref dest
+      for ref in "${pos[@]:1}"; do
+        dest=${ref#*:}; dest=${dest#+}; dest=${dest#refs/heads/}
+        if is_protected "$dest" || [[ $dest == HEAD ]]; then
+          deny "builder must not push to $dest — push your issue branch instead"; fi
+      done ;;
+    branch)
+      local force=0 a
+      for a in "${rest[@]}"; do case $a in
+        -f|--force|-M|-m|-D|-d|-C|-c|--move|--copy|--delete) force=1 ;;
+      esac; done
+      positionals '-u|--set-upstream-to|-t|--track' "${rest[@]}"
+      if ((force)); then for a in "${pos[@]}"; do
+        is_protected "$a" && deny "builder must not rewrite, rename or delete branch $a"; done; fi ;;
+    update-ref)
+      local a; for a in "${rest[@]}"; do
+        [[ $a =~ ^refs/heads/(main|master)$ ]] && deny "builder must not rewrite $a directly"; done ;;
+    checkout|switch)
+      positionals '-b|-B|-c|-C|--orphan|--track|-t' "${rest[@]}"
+      local a; for a in "${pos[@]}"; do is_protected "$a" && on_main=1; done
+      # `git checkout -b main` / `git switch -c main` creates and lands on a branch named main
+      local i; for ((i = 0; i + 1 < ${#rest[@]}; i++)); do
+        [[ ${rest[i]} =~ ^(-b|-B|-c|-C)$ ]] && is_protected "${rest[i+1]}" && on_main=1; done ;;
+    merge|commit|cherry-pick|rebase)
+      ((on_main)) && deny "builder must not $sub on main — this line checks out main first" ;;
+  esac
+}
+rule_gh(){
+  local -a pos=(); positionals '-R|--repo|-X|--method|-f|-F|--field|--raw-field|-H|--header' "$@"
+  [[ ${pos[0]:-} == pr && ${pos[1]:-} == merge ]] && deny "builder must not merge pull requests — hand the PR back for review"
+  local a; for a in "$@"; do
+    [[ $a =~ /pulls/[0-9]+/merge$ ]] && deny "builder must not merge pull requests via the API"; done
+}
+rule_jj(){
+  local sub="" ; local -a rest=() pos=()
+  while (($#)); do
+    case $1 in
+      -R|--repository|--at-op|--at-operation|--config|--config-toml|--config-file) shift 2; continue ;;
+      -*) shift; continue ;;
+      *) sub=$1; shift; rest=("$@"); break ;;
+    esac
+  done
+  case $sub in
+    bookmark|b)
+      positionals '-r|--revision|--to|--from' "${rest[@]}"
+      case ${pos[0]:-} in set|move|create|c|s|m|track)
+        local a; for a in "${pos[@]:1}"; do is_protected "$a" && jj_main=1; done ;;
+      esac ;;
+    git)
+      [[ ${rest[0]:-} == push ]] || return 0
+      ((jj_main)) && deny "builder must not push main — this line moves the main bookmark first"
+      local named=0 i a
+      for ((i = 1; i < ${#rest[@]}; i++)); do
+        a=${rest[i]}
+        case $a in
+          --all|--tracked|--deleted) deny "jj git push $a may push main — name your issue bookmark with --bookmark" ;;
+          -b|--bookmark|--named|-c|--change|-r|--revisions)
+            named=1; ((i + 1 < ${#rest[@]})) && is_protected "${rest[i+1]%%=*}" \
+              && deny "builder must not push bookmark ${rest[i+1]%%=*} — push your issue bookmark instead" ;;
+          --bookmark=*|--named=*|--change=*|--revisions=*)
+            named=1; a=${a#*=}; is_protected "${a%%=*}" \
+              && deny "builder must not push bookmark ${a%%=*} — push your issue bookmark instead" ;;
+        esac
+      done
+      ((named)) || deny "jj git push must name your issue bookmark (--bookmark/--named) — a bare push may include main" ;;
+  esac
+}
+rule_cargo(){
+  while (($#)); do
+    case $1 in
+      --target-dir=*) is_tmpfs_dir "${1#*=}" && deny "don't write cargo artifacts under ${1#*=} (RAM-backed tmpfs) — use ~/.cache/cargo-target" ;;
+      --target-dir)   is_tmpfs_dir "${2:-}"  && deny "don't write cargo artifacts under $2 (RAM-backed tmpfs) — use ~/.cache/cargo-target"; shift ;;
+    esac
+    shift
+  done
+}
+
+# --- driver ------------------------------------------------------------------------------------------
+# analyze_segment: strip leading env assignments / wrappers, dispatch on the command word.
+analyze_segment(){
+  local -a seg=("$@") ; local i=0 n=${#seg[@]}
+  while ((i < n)); do
+    case ${seg[i]} in
+      [A-Za-z_]*=*) env_assign "${seg[i]}"; ((i++)) ;;
+      env|sudo|command|exec|nohup|time|nice|export|declare|builtin|doas) ((i++)) ;;
+      -*) ((i++)) ;;   # options to the wrapper (sudo -u, env -i, ...)
+      *) break ;;
+    esac
+  done
+  ((i < n)) || return 0
+  local word=${seg[i]}
+  case ${word##*/} in
+    git)   rule_git   "${seg[@]:i+1}" ;;
+    gh)    rule_gh    "${seg[@]:i+1}" ;;
+    jj)    rule_jj    "${seg[@]:i+1}" ;;
+    cargo) rule_cargo "${seg[@]:i+1}" ;;
+    bash|sh|zsh|dash|ksh|eval) local q; for q in "${quoted[@]}"; do check "$q"; done ;;
+  esac
+}
+# check <command-string>: tokenize, then judge each segment. Recursive for shell -c / eval bodies.
+check(){
+  local on_main=0 jj_main=0 t; local -a seg=() quoted=()
+  while IFS= read -r t; do
+    case $t in
+      ';')      analyze_segment "${seg[@]}"; seg=(); quoted=() ;;
+      $'Q\t'*)  quoted+=("${t#Q$'\t'}") ;;
+      *)        seg+=("$t") ;;
+    esac
+  done < <(printf '%s' "$1" | tokenize)
+}
+check "$cmd"
 exit 0
