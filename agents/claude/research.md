@@ -37,9 +37,3 @@ Return the same envelope with empty `findings`, `gaps`, and `openQuestions` arra
 ## Tools
 
 Use active LSP servers (`pyright` / `typescript` / `rust-analyzer`) to resolve symbol definitions and references precisely, rather than inferring them from text search alone.
-
-## Skills
-
-Use these when they apply — do not reach for the orchestration skills:
-
-- **`read-the-damn-docs`** / **`find-docs`** — fetch and read current official docs, API references, and examples for any third-party library, framework, SDK, or CLI before relying on memory.
