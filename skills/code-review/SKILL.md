@@ -81,7 +81,7 @@ from approval of an earlier revision.
 
 `--review-id` is the durable identity of this review — a stable lowercase slug you keep across
 re-runs (`pr-4821`, not a timestamp). Each issue carries
-`<!-- swarm-review reviewId=<id> finding=<key> -->`, and that marker is what makes re-running safe.
+`<!-- swarm-review reviewId=<id> finding=<key> severity=<sev> -->`, and that marker is what makes re-running safe.
 
 A finding's key is a hash of **(file, claim)** — deliberately not the line. Line numbers move
 whenever anything above them changes, so keying on them would file a duplicate for the same defect
@@ -98,7 +98,9 @@ Reconciliation therefore converges rather than accumulates:
 | Nothing changed | no actions at all |
 
 `--min-severity` (default `medium`) sets the filing threshold; `low` and `nit` stay in the report
-rather than becoming tracker noise. Issues are labelled `code-review`, `severity:<sev>`, and
+rather than becoming tracker noise. An open issue is only closed as resolved when its recorded severity
+(from the marker, or the `severity:<sev>` label) is at or above the current `--min-severity`; a
+stricter threshold filters findings out of the run, it does not fix them, so their issues stay open. Issues are labelled `code-review`, `severity:<sev>`, and
 `lens:<lens>`; add more with `--label`, and attach them to a milestone with `--milestone`.
 
 Each issue body carries the failure scenario and the independent verification — the refutation
