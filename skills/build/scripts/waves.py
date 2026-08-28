@@ -8,8 +8,7 @@ import importlib.util
 import json
 import re
 import sys
-from pathlib import Path
-
+from pathlib import Path, PurePath
 
 ROOT = Path(__file__).resolve().parents[1]
 PLANNER_VALIDATOR = ROOT.parent / "planner" / "scripts" / "render_plan.py"
@@ -112,55 +111,111 @@ def is_done(issue: dict) -> bool:
     return issue["state"] == "closed" or "status:done" in issue["labels"]
 
 
+GLOB_CHARS = frozenset("*?[")
+
+
 def generate_witnesses(glob_pattern: str) -> list[str]:
+    """Concrete paths a glob would match; a plain path is its own only witness."""
+    if not GLOB_CHARS & set(glob_pattern):
+        return [glob_pattern]
     parts = glob_pattern.split("/")
-    results = []
-    def builder(idx: int, current_path_parts: list[str]):
+    results: set[str] = set()
+
+    def builder(idx: int, current: list[str]) -> None:
         if idx == len(parts):
-            path_str = "/".join(p for p in current_path_parts if p)
-            if path_str:
-                results.append(path_str)
-            else:
-                results.append(".")
+            results.add("/".join(p for p in current if p) or ".")
             return
         part = parts[idx]
         if part == "**":
-            builder(idx + 1, current_path_parts)
-            builder(idx + 1, current_path_parts + ["sub"])
-            builder(idx + 1, current_path_parts + ["sub", "sub2"])
+            builder(idx + 1, current)
+            builder(idx + 1, current + ["sub"])
+            builder(idx + 1, current + ["sub", "sub2"])
         else:
-            p = part.replace("*", "file").replace("?", "a")
-            p = re.sub(r"\[[^\]]+\]", "a", p)
-            builder(idx + 1, current_path_parts + [p])
+            p = re.sub(r"\[([^\]]+)\]", _class_witness, part.replace("*", "file").replace("?", "a"))
+            builder(idx + 1, current + [p])
+
     builder(0, [])
-    return list(set(results))
+    return sorted(results)
+
+
+def _class_witness(match: re.Match[str]) -> str:
+    body = match.group(1)
+    if not body.startswith("!"):
+        return body[0]
+    return next(c for c in "abcxyz0" if c not in body)
+
+
+def _glob_to_regex(pattern: str) -> re.Pattern[str]:
+    """fnmatch-style translation mirroring PurePath.full_match: `*`/`?` stop at `/`,
+    a whole `**` segment spans directories, and `**` inside a segment is just `*`."""
+    out = []
+    i = 0
+    while i < len(pattern):
+        c = pattern[i]
+        segment_start = i == 0 or pattern[i - 1] == "/"
+        if segment_start and pattern.startswith("**", i) and pattern[i + 2:i + 3] in ("", "/"):
+            i += 2
+            if i < len(pattern):
+                out.append("(?:.*/)?")
+                i += 1
+            else:
+                out.append(".*")
+        elif c == "*":
+            out.append("[^/]*")
+            i += 1
+        elif c == "?":
+            out.append("[^/]")
+            i += 1
+        elif c == "[":
+            j = pattern.find("]", i + 1)
+            if j == -1:
+                out.append(re.escape(c))
+                i += 1
+            else:
+                body = pattern[i + 1:j]
+                negate = body.startswith("!")
+                chars = re.sub(r"[\\\]\[^]", lambda m: "\\" + m.group(0), body[1:] if negate else body)
+                # `[!]` and `[]` have no members; pathlib treats them literally.
+                out.append(f"[{'^' if negate else ''}{chars}]" if chars else re.escape(pattern[i:j + 1]))
+                i = j + 1
+        else:
+            out.append(re.escape(c))
+            i += 1
+    return re.compile("".join(out) + r"\Z")
+
+
+def path_matches(path: str, pattern: str) -> bool:
+    pure = PurePath(path)
+    if hasattr(pure, "full_match"):  # Python 3.13+
+        return pure.full_match(pattern)
+    return _glob_to_regex(pattern).match(path) is not None
 
 
 def globs_overlap(g1: str, g2: str) -> bool:
-    from pathlib import PurePath
-    for w in generate_witnesses(g1):
-        if PurePath(w).match(g2):
-            return True
-    for w in generate_witnesses(g2):
-        if PurePath(w).match(g1):
-            return True
-    return False
+    return any(path_matches(w, g2) for w in generate_witnesses(g1)) or any(
+        path_matches(w, g1) for w in generate_witnesses(g2)
+    )
 
 
 def validate_ownership_overlap(plan: dict) -> None:
-    waves_dict = {}
+    """Overlapping ownership inside a grouped wave is a hard error; wave 0 is the
+    ungrouped bucket, so an overlap there only warns."""
+    waves_dict: dict[int, list[dict]] = {}
     for issue in plan["issues"]:
         waves_dict.setdefault(issue["wave"], []).append(issue)
     for wave, issues in waves_dict.items():
-        for i in range(len(issues)):
-            for j in range(i + 1, len(issues)):
-                issue1 = issues[i]
-                issue2 = issues[j]
-                h1 = issue1.get("ownershipHint")
-                h2 = issue2.get("ownershipHint")
-                if h1 and h2 and globs_overlap(h1, h2):
-                    msg = f"Parallel issues '{issue1['key']}' and '{issue2['key']}' in wave {wave} have overlapping ownershipHint paths: '{h1}' and '{h2}'"
+        for i, issue1 in enumerate(issues):
+            for issue2 in issues[i + 1:]:
+                h1, h2 = issue1["ownershipHint"], issue2["ownershipHint"]
+                if not globs_overlap(h1, h2):
+                    continue
+                msg = (
+                    f"Parallel issues '{issue1['key']}' and '{issue2['key']}' in wave {wave} "
+                    f"have overlapping ownershipHint paths: '{h1}' and '{h2}'"
+                )
+                if wave == 0:
                     print(f"Warning: {msg}", file=sys.stderr)
+                else:
                     raise BuildError(msg)
 
 

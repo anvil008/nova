@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import subprocess
 import tempfile
@@ -219,6 +221,73 @@ class BuildSkillTests(unittest.TestCase):
         with self.assertRaises(Exception) as ctx:
             waves.derive(sidecar, waves.validate_snapshot(snapshot, sidecar))
         self.assertIn("overlapping ownershiphint", str(ctx.exception).lower())
+
+    def test_recursive_glob_vs_deep_path_overlaps(self):
+        self.assertTrue(waves.globs_overlap("src/**", "src/a/b/c.py"))
+        self.assertTrue(waves.globs_overlap("src/a/b/c.py", "src/**"))
+        self.assertFalse(waves.globs_overlap("src/*.py", "lib/x.py"))
+        # A plain path is its own literal glob.
+        self.assertTrue(waves.globs_overlap("src/a/b/c.py", "src/a/b/c.py"))
+        self.assertFalse(waves.globs_overlap("src/a/b/c.py", "src/a/b/d.py"))
+
+    def test_fallback_matcher_agrees_with_full_match(self):
+        """Below 3.13 the fnmatch-style fallback carries the issue's canonical cases."""
+        cases = [
+            ("src/a/b/c.py", "src/**", True), ("src/a/b/c.py", "src/a/b/c.py", True),
+            ("src/a/b/d.py", "src/a/b/c.py", False), ("lib/x.py", "src/*.py", False),
+            ("src/a/b.py", "src/*.py", False), ("a/b/c", "a/**/c", True),
+            ("abc/d", "a**", False), ("a/xz", "a/[!y]z", True), ("a/[!]", "a/[!]", True), ("a/x", "a/[\\x]", True),
+        ]
+        for path, pattern, expected in cases:
+            with self.subTest(path=path, pattern=pattern):
+                self.assertEqual(waves._glob_to_regex(pattern).match(path) is not None, expected)
+                self.assertEqual(waves.path_matches(path, pattern), expected)
+        self.assertFalse(waves.globs_overlap("src/[!a]/x.py", "src/a/x.py"))
+
+    def _overlap_plan(self, wave):
+        issue = lambda key: {
+            "key": key, "title": f"Issue {key}", "body": f"Body {key}", "labels": ["build"],
+            "dependsOn": [], "ownershipHint": "skills/build/**", "wave": wave,
+            "acceptanceTests": [{"name": "test", "kind": "unit", "oracle": "pass"}],
+        }
+        sidecar = {
+            "planId": "overlap-test", "planName": "Overlap test", "repo": "owner/repo",
+            "generatedAt": "2026-08-26T12:00:00Z", "summary": "Overlap testing",
+            "architecture": {"components": [], "diagramsMermaid": {}},
+            "issues": [issue("A"), issue("B")],
+        }
+        snapshot = {
+            "repo": "owner/repo", "milestone": "Overlap test",
+            "issues": [
+                {"number": n, "body": f"Body {k}\n\n<!-- swarm-planner planId=overlap-test issue={k} -->",
+                 "labels": [], "state": "open"}
+                for n, k in ((1, "A"), (2, "B"))
+            ],
+        }
+        return sidecar, snapshot
+
+    def test_wave_zero_not_hard_failed(self):
+        sidecar, snapshot = self._overlap_plan(0)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            output = waves.derive(sidecar, waves.validate_snapshot(snapshot, sidecar))
+        self.assertEqual([item["key"] for item in output["unblocked"]], ["A", "B"])
+        lines = [line for line in stderr.getvalue().splitlines() if line.strip()]
+        self.assertEqual(len(lines), 1, stderr.getvalue())
+        self.assertIn("overlapping ownershiphint", lines[0].lower())
+        self.assertIn("wave 0", lines[0].lower())
+
+    def test_grouped_wave_overlap_raises_without_warning(self):
+        sidecar, snapshot = self._overlap_plan(1)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaises(waves.BuildError):
+            waves.derive(sidecar, waves.validate_snapshot(snapshot, sidecar))
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_skill_documents_redispatch_cap(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        for phrase in ("`status:done`", "at most twice", "stalled", "escalates to the human"):
+            self.assertIn(phrase, skill)
 
 
 if __name__ == "__main__":
