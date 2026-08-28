@@ -10,10 +10,11 @@ import re
 import sys
 from pathlib import Path
 
-
 BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 VERDICTS = {"block", "approve-with-nits", "approve"}
-BLOCKING = {"critical", "high"}
+# Same enum and order as the code-review skill's merge_findings.py.
+SEVERITIES = ("critical", "high", "medium", "low", "nit")
+SEVERITY_RANK = {severity: rank for rank, severity in enumerate(SEVERITIES)}
 STATE_FIELDS = {"branch", "maxIterations", "minSeverity", "iteration", "status", "history"}
 # A pass that reports exactly what the previous pass reported means the fixer
 # changed nothing that mattered. One repeat is enough to call it: a second
@@ -33,10 +34,10 @@ def fingerprint(findings: list[dict]) -> str:
     progress on a finding that is still there.
     """
     keys = sorted(
-        hashlib.sha256(f"{f['file']}\0{f['claim']}".encode("utf-8")).hexdigest()
+        hashlib.sha256(f"{f['file']}\0{f['claim']}".encode()).hexdigest()
         for f in findings
     )
-    return hashlib.sha256("\n".join(keys).encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256("\n".join(keys).encode()).hexdigest()[:16]
 
 
 def read_review(path: Path) -> tuple[str, list[dict]]:
@@ -55,7 +56,17 @@ def read_review(path: Path) -> tuple[str, list[dict]]:
         for field in ("file", "claim", "severity"):
             if not isinstance(finding.get(field), str) or not finding[field].strip():
                 raise LoopError(f"review.findings[{index}].{field} must be a non-empty string")
+        if finding["severity"] not in SEVERITY_RANK:
+            raise LoopError(
+                f"review.findings[{index}].severity must be one of: {', '.join(SEVERITIES)}"
+            )
     return verdict, findings
+
+
+def blocking(findings: list[dict], min_severity: str) -> list[dict]:
+    """Findings at or above the threshold; anything below is reported but never blocks."""
+    threshold = SEVERITY_RANK[min_severity]
+    return [f for f in findings if SEVERITY_RANK[f["severity"]] <= threshold]
 
 
 def load(path: Path) -> dict:
@@ -67,6 +78,8 @@ def load(path: Path) -> dict:
     missing = STATE_FIELDS - state.keys()
     if missing:
         raise LoopError(f"loop state missing field(s): {', '.join(sorted(missing))}")
+    if state["minSeverity"] not in SEVERITY_RANK:
+        raise LoopError(f"loop state minSeverity must be one of: {', '.join(SEVERITIES)}")
     return state
 
 
@@ -80,6 +93,8 @@ def do_init(args: argparse.Namespace) -> dict:
         raise LoopError("--branch must be a plain branch name")
     if args.max_iterations < 1:
         raise LoopError("--max-iterations must be at least 1")
+    if args.min_severity not in SEVERITY_RANK:
+        raise LoopError(f"--min-severity must be one of: {', '.join(SEVERITIES)}")
     if args.state.exists() and not args.force:
         raise LoopError(f"loop state already exists at {args.state} — pass --force to restart")
     state = {
@@ -100,14 +115,16 @@ def do_record(args: argparse.Namespace) -> dict:
         raise LoopError(f"loop already finished with status {state['status']}")
     verdict, findings = read_review(args.review)
 
-    blocking = [f for f in findings if f["severity"] in BLOCKING]
-    mark = fingerprint(findings)
+    blockers = blocking(findings, state["minSeverity"])
+    # Stall detection tracks the blocking set only: clearing a nit while the
+    # same high finding stays put is not progress the loop should credit.
+    mark = fingerprint(blockers)
     state["iteration"] += 1
     state["history"].append({
         "iteration": state["iteration"],
         "verdict": verdict,
         "findings": len(findings),
-        "blocking": len(blocking),
+        "blocking": len(blockers),
         "fingerprint": mark,
     })
 
@@ -117,7 +134,7 @@ def do_record(args: argparse.Namespace) -> dict:
             break
         repeats += 1
 
-    if not findings:
+    if not blockers:
         state["status"] = "converged"
     elif repeats >= STALL_REPEATS:
         state["status"] = "stalled"
@@ -131,14 +148,20 @@ def summary(state: dict) -> dict:
     latest = state["history"][-1] if state["history"] else None
     reasons = {
         "running": "continue — dispatch the builder to fix the reported findings",
-        "converged": "stop — the review reported no findings",
-        "stalled": "stop — two consecutive passes reported an identical finding set",
+        "converged": (
+            f"stop — the review reported no findings at or above {state['minSeverity']}"
+        ),
+        "stalled": (
+            "stop — two consecutive passes reported an identical finding set at or above "
+            f"{state['minSeverity']}"
+        ),
         "exhausted": f"stop — reached the {state['maxIterations']}-iteration bound",
     }
     return {
         "branch": state["branch"],
         "iteration": state["iteration"],
         "maxIterations": state["maxIterations"],
+        "minSeverity": state["minSeverity"],
         "status": state["status"],
         "continue": state["status"] == "running",
         "reason": reasons[state["status"]],
@@ -154,7 +177,10 @@ def main() -> int:
     init = sub.add_parser("init", help="start a loop")
     init.add_argument("--branch", default="loop-branch")
     init.add_argument("--max-iterations", type=int, default=10)
-    init.add_argument("--min-severity", default="high")
+    init.add_argument(
+        "--min-severity", default="high",
+        help="lowest severity that blocks convergence; one of " + ", ".join(SEVERITIES),
+    )
     init.add_argument("--force", action="store_true", help="restart an existing loop")
 
     record = sub.add_parser("record", help="record one review pass and decide what happens next")
