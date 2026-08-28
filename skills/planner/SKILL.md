@@ -55,21 +55,21 @@ Each `architecture.components` entry may be either a `{ "name": "...", "purpose"
 3. Write the strict sidecar, then render it:
 
    ```bash
-   python3 scripts/render_plan.py plan.sidecar.json plan.html
+   python3 skills/planner/scripts/render_plan.py plan.sidecar.json plan.html
    ```
 
 4. Open or otherwise present the HTML folio for review. The planner **must stop for explicit human approval** here. Approval to plan is not approval to write GitHub resources.
 5. Before approval, a read-only reconciliation preview is allowed. Use a captured API snapshot for an offline preview, or omit `--snapshot` to query GitHub read-only:
 
    ```bash
-   python3 scripts/reconcile_github.py plan.sidecar.json --snapshot github-state.json
-   python3 scripts/reconcile_github.py plan.sidecar.json
+   python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json --snapshot github-state.json
+   python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json
    ```
 
 6. Only after the human approves the reviewed artifacts, apply the exact approved sidecar with an approval identity:
 
    ```bash
-   python3 scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<human identity>"
+   python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<human identity>"
    ```
 
 Do not infer approval from silence, prior approval of another revision, or a request to investigate. If the sidecar changes after approval, present the changed plan and stop for fresh human approval.

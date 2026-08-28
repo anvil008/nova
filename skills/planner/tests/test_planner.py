@@ -4,6 +4,16 @@ import tempfile
 import unittest
 from html.parser import HTMLParser
 from pathlib import Path
+import sys
+from unittest.mock import patch
+
+# Load reconcile_github
+import importlib.util
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = str(ROOT / "scripts")
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
+import reconcile_github
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -302,6 +312,36 @@ class PlannerSkillTests(unittest.TestCase):
         self.assertIn("GitHub milestone", skill)
         self.assertIn("Use milestones only; never create or modify a GitHub Project", skill)
         self.assertIn("--apply", skill)
+
+
+    @patch("reconcile_github.subprocess.run")
+    def test_reconcile_gh_timeout(self, mock_run):
+        # mock subprocess.run to raise subprocess.TimeoutExpired
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd=["gh", "api"], timeout=30)
+        with self.assertRaises(Exception) as ctx:
+            reconcile_github.gh_json(["repos/foo/milestones"])
+        # Verify that it raised ReconcileError
+        self.assertEqual(ctx.exception.__class__.__name__, "ReconcileError")
+        self.assertIn("timed out", str(ctx.exception))
+
+    def test_skill_doc_relative_paths(self):
+        import re
+        from pathlib import Path
+        repo_root = Path(__file__).resolve().parents[3]
+        skill_files = list(repo_root.glob("skills/*/SKILL.md"))
+        self.assertGreater(len(skill_files), 0, "No SKILL.md files found")
+        
+        script_pattern = re.compile(r"\b(?:skills/[\w-]+/)?scripts/[\w.-]+\.py\b")
+        
+        for skill_file in skill_files:
+            content = skill_file.read_text(encoding="utf-8")
+            matches = script_pattern.findall(content)
+            for match in matches:
+                # Every match must start with "skills/" to be explicit repo-relative
+                self.assertTrue(match.startswith("skills/"), f"Script path {repr(match)} in {skill_file.relative_to(repo_root)} is not an explicit repo-relative path starting with 'skills/\'")
+                # And the file must exist
+                full_path = repo_root / match
+                self.assertTrue(full_path.exists(), f"Script path {repr(match)} in {skill_file.relative_to(repo_root)} does not exist on disk")
 
 
 if __name__ == "__main__":

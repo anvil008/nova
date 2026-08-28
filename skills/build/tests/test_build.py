@@ -3,6 +3,15 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+import sys
+
+# Load waves
+import importlib.util
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = str(ROOT / "scripts")
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
+import waves
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -104,6 +113,70 @@ class BuildSkillTests(unittest.TestCase):
             "combined GREEN", "sole synthesis", "never force-push main",
         ):
             self.assertIn(phrase, skill)
+
+
+    def test_wave_ownership_overlap_detection(self):
+        self.assertTrue(hasattr(waves, "globs_overlap"), "waves does not have globs_overlap function")
+        self.assertTrue(waves.globs_overlap("skills/planner/**", "skills/**"))
+        self.assertFalse(waves.globs_overlap("skills/planner/**", "skills/build/**"))
+
+    def test_wave_ownership_overlap_validation(self):
+        # Create a mock sidecar and snapshot with overlapping ownershipHints
+        sidecar = {
+            "planId": "overlap-test",
+            "planName": "Overlap test",
+            "repo": "owner/repo",
+            "generatedAt": "2026-08-26T12:00:00Z",
+            "summary": "Overlap testing",
+            "architecture": {
+                "components": [],
+                "diagramsMermaid": {}
+            },
+            "issues": [
+                {
+                    "key": "A",
+                    "title": "Issue A",
+                    "body": "Body A",
+                    "labels": ["build"],
+                    "dependsOn": [],
+                    "ownershipHint": "skills/planner/**",
+                    "wave": 1,
+                    "acceptanceTests": [{"name": "test", "kind": "unit", "oracle": "pass"}]
+                },
+                {
+                    "key": "B",
+                    "title": "Issue B",
+                    "body": "Body B",
+                    "labels": ["build"],
+                    "dependsOn": [],
+                    "ownershipHint": "skills/**",
+                    "wave": 1,
+                    "acceptanceTests": [{"name": "test", "kind": "unit", "oracle": "pass"}]
+                }
+            ]
+        }
+        snapshot = {
+            "repo": "owner/repo",
+            "milestone": "Overlap test",
+            "issues": [
+                {
+                    "number": 1,
+                    "body": "Body A\n\n<!-- swarm-planner planId=overlap-test issue=A -->",
+                    "labels": [],
+                    "state": "open"
+                },
+                {
+                    "number": 2,
+                    "body": "Body B\n\n<!-- swarm-planner planId=overlap-test issue=B -->",
+                    "labels": [],
+                    "state": "open"
+                }
+            ]
+        }
+        # Verify that waves.derive raises waves.BuildError due to overlap
+        with self.assertRaises(Exception) as ctx:
+            waves.derive(sidecar, waves.validate_snapshot(snapshot, sidecar))
+        self.assertIn("overlapping ownershiphint", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":
