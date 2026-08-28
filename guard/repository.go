@@ -32,6 +32,12 @@ var filepathWalkDir = filepath.WalkDir
 
 // runArgv executes one command as an argv array, never through a shell, and
 // returns bounded proof of what it did.
+// argvDigest pins an argv array exactly as it was given: no re-splitting, no
+// shell, so two commands share a digest only when they are the same command.
+func argvDigest(argv []string) string {
+	return digestBytes([]byte(strings.Join(argv, "\x00")))
+}
+
 func runArgv(workingDirectory string, argv []string) (controlplane.CommandEvidence, error) {
 	if len(argv) == 0 {
 		return controlplane.CommandEvidence{}, errors.New("command must be a non-empty argv array")
@@ -48,7 +54,7 @@ func runArgv(workingDirectory string, argv []string) (controlplane.CommandEviden
 		return controlplane.CommandEvidence{}, fmt.Errorf("run %q: %w", argv[0], runErr)
 	}
 	evidence := controlplane.CommandEvidence{
-		ArgvDigest:   digestBytes([]byte(strings.Join(argv, "\x00"))),
+		ArgvDigest:   argvDigest(argv),
 		ExitCode:     command.ProcessState.ExitCode(),
 		StartedAt:    startedAt.Format(time.RFC3339Nano),
 		FinishedAt:   finishedAt.Format(time.RFC3339Nano),
@@ -99,7 +105,7 @@ func runAstGrepPattern(workingDirectory, pattern string, paths []string) (int, c
 		return 0, controlplane.CommandEvidence{}, fmt.Errorf("run ast-grep: %w", runErr)
 	}
 	evidence := controlplane.CommandEvidence{
-		ArgvDigest:   digestBytes([]byte(strings.Join(argv, "\x00"))),
+		ArgvDigest:   argvDigest(argv),
 		ExitCode:     command.ProcessState.ExitCode(),
 		StartedAt:    startedAt.Format(time.RFC3339Nano),
 		FinishedAt:   finishedAt.Format(time.RFC3339Nano),
@@ -146,7 +152,7 @@ func aggregateArchEvidence(runs []controlplane.CommandEvidence, allPassed bool) 
 		exitCode = 1
 	}
 	evidence := controlplane.CommandEvidence{
-		ArgvDigest:   digestBytes([]byte(strings.Join(argv, "\x00"))),
+		ArgvDigest:   argvDigest(argv),
 		ExitCode:     exitCode,
 		StartedAt:    runs[0].StartedAt,
 		FinishedAt:   runs[len(runs)-1].FinishedAt,

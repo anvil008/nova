@@ -52,6 +52,7 @@ func seal(loaded *state, patterns []string, redCommand []string) error {
 		Tests:      tests,
 		Red:        evidence,
 		Amendments: []Amendment{},
+		BoundArgv:  &BoundArgv{Argv: append([]string{}, redCommand...), Digest: evidence.ArgvDigest},
 	}
 	if err := dropSupersededEvidence(loaded); err != nil {
 		return err
@@ -72,8 +73,9 @@ func dropSupersededEvidence(loaded *state) error {
 	return nil
 }
 
-// verify records GREEN. The passing run must postdate the seal and the sealed
-// tests must still be exactly what failed. When a coverage command is supplied
+// verify records GREEN. The passing run must be the command the seal bound,
+// must postdate the seal, and the sealed tests must be exactly what failed --
+// before the run and throughout it. When a coverage command is supplied
 // it is run after green succeeds and its strength number is recorded, but a
 // coverage that errors, parses to nothing, or falls short of --min-coverage
 // never blocks: test strength is a signal, not a new gate.
@@ -84,6 +86,11 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 	if len(greenCommand) == 0 {
 		return fmt.Errorf("verify requires --green-command <argv...>")
 	}
+	bound := loaded.seal.boundArgv()
+	if offered := argvDigest(greenCommand); offered != bound.Digest {
+		return fmt.Errorf("green command %q (argv digest %s) is not the command the seal bound (argv digest %s); verify must run the same argv that proved the tests fail",
+			strings.Join(greenCommand, " "), offered, bound.Digest)
+	}
 	changed, err := loaded.changedTests()
 	if err != nil {
 		return err
@@ -91,9 +98,23 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 	if len(changed) > 0 {
 		return fmt.Errorf("sealed tests changed since the seal: %s; run `anvil-guard reseal --reason <text>` to amend them explicitly", strings.Join(changed, ", "))
 	}
+	before, err := loaded.sealedTestStats()
+	if err != nil {
+		return err
+	}
 	evidence, err := runArgv(loaded.repository, greenCommand)
 	if err != nil {
 		return err
+	}
+	// The pre-run digest check cannot see a test that was rewritten for the
+	// duration of the run and put back before it exited; the file's own
+	// metadata can.
+	touched, err := loaded.sealedTestsTouchedSince(before)
+	if err != nil {
+		return err
+	}
+	if len(touched) > 0 {
+		return fmt.Errorf("sealed tests changed during the green run: %s; the run proves nothing about the tests in force", strings.Join(touched, ", "))
 	}
 	if evidence.ExitCode != 0 {
 		return fmt.Errorf("green command %q exited %d; verification requires exit 0", strings.Join(greenCommand, " "), evidence.ExitCode)
@@ -395,6 +416,8 @@ func status(loaded *state) (Status, error) {
 	if loaded.seal == nil {
 		return report, nil
 	}
+	bound := loaded.seal.boundArgv()
+	report.BoundArgv = &bound
 	changed, err := loaded.changedTests()
 	if err != nil {
 		return Status{}, err
