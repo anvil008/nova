@@ -42,9 +42,7 @@ func TestStatusJSONListsTheRecordsGuardProduced(t *testing.T) {
 	}
 
 	h.seal()
-	if code, _, stderr := h.run("verify", "--green-command", "true"); code != 0 {
-		t.Fatalf("verify exit %d: %s", code, stderr)
-	}
+	h.verify()
 	h.write("findings.txt", "read the real diff\n")
 	if code, _, stderr := h.run("diff-review", "record", "--findings", "findings.txt"); code != 0 {
 		t.Fatalf("diff-review exit %d: %s", code, stderr)
@@ -84,9 +82,7 @@ func TestSnapshotMatchesTheStatusRecords(t *testing.T) {
 	}
 
 	h.seal()
-	if code, _, stderr := h.run("verify", "--green-command", "true"); code != 0 {
-		t.Fatalf("verify exit %d: %s", code, stderr)
-	}
+	h.verify()
 	snapshot, err := Snapshot(h.resolvedRepository())
 	if err != nil {
 		t.Fatal(err)

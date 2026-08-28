@@ -3,90 +3,205 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="dark light">
   <title>{{DOCUMENT_TITLE}}</title>
+  {{PLAN_MARKER}}
   <style>{{INLINE_CSS}}</style>
+  <script>
+  document.documentElement.dataset.theme =
+    window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  </script>
 </head>
 <body>
-  <main class="folio">
-    <header class="folio-head">
-      <div class="brand"><strong>Foundry Zero</strong><span>Implementation Plan · {{PLAN_ID}}</span></div>
-      <p class="eyebrow">Planning folio</p>
+
+<div class="bar">
+  <span class="bar-name"><span class="bar-mark">FZ</span>Foundry Zero</span>
+  <span class="chip">Implementation Plan</span>
+  <span class="bar-spacer"></span>
+  <span class="bar-note">{{PLAN_ID}}</span>
+  <button type="button" id="hints-toggle">&#9671; hints</button>
+  <button type="button" id="theme-toggle" aria-label="Toggle colour theme">&#9788;</button>
+</div>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail-title">Contents</div>
+    <nav>
+      <a href="#overview"><span class="num">01</span><span>Overview</span></a>
+      <a href="#architecture"><span class="num">02</span><span>Architecture</span></a>
+      <a href="#tasks"><span class="num">03</span><span>Task Breakdown</span></a>
+      <a href="#waves"><span class="num">04</span><span>Execution Waves</span></a>
+      <a href="#risks"><span class="num">05</span><span>Risks</span></a>
+      <a href="#execution"><span class="num">06</span><span>Milestone &amp; Execution</span></a>
+    </nav>
+    <div class="rail-foot">
+      <div>repo · {{REPO}}</div>
+      <div>plan · {{PLAN_ID}}</div>
+      <div>issues · {{ISSUE_COUNT}}</div>
+    </div>
+  </aside>
+
+  <main>
+
+    <section class="section" id="header">
+      <div class="doc-eyebrow">Plan &middot; generated <time datetime="{{GENERATED_AT}}">{{DISPLAY_DATE}}</time></div>
       <h1>{{PLAN_NAME}}</h1>
-      <p class="subtitle">{{SUMMARY}}</p>
-      <div class="meta">
-        <time datetime="{{GENERATED_AT}}">{{DISPLAY_DATE}}</time>
-        <span class="pill">Proposed · Awaiting approval</span>
-        <a class="milestone-link" href="{{MILESTONE_URL}}">Milestone: {{PLAN_NAME}}</a>
+      <p class="lede">{{SUMMARY}}</p>
+
+      <div class="verdict-row">
+        <div class="verdict gate-proposed">
+          <span class="verdict-dot pulse"></span>
+          <div>
+            <div class="verdict-label">Status</div>
+            <div class="verdict-value">Proposed &mdash; awaiting explicit human approval</div>
+          </div>
+        </div>
       </div>
-    </header>
+
+      <div class="gate-steps">
+        <span class="step now">1 · review this folio</span>
+        <span class="step">2 · approve the sidecar</span>
+        <span class="step">3 · reconcile milestone</span>
+      </div>
+
+      <div class="meta-grid" style="margin-top: 20px;">
+        <div><dt>Repository</dt><dd>{{REPO}}</dd></div>
+        <div><dt>Plan id</dt><dd>{{PLAN_ID}}</dd></div>
+        <div><dt>Generated</dt><dd>{{GENERATED_AT}}</dd></div>
+        <div><dt>Issues</dt><dd>{{ISSUE_COUNT}}</dd></div>
+        <div><dt>Waves</dt><dd>{{WAVE_COUNT}}</dd></div>
+        <div><dt>Milestone</dt><dd><a href="{{MILESTONE_URL}}">{{PLAN_NAME}}</a></dd></div>
+      </div>
+    </section>
 
     <section class="section" id="overview">
-      <span class="section-number">01</span>
-      <h2>Overview / Goal</h2>
-      <p class="lede">{{SUMMARY}}</p>
-      <p class="muted">Repository: {{REPO}} · Stable plan identity: {{PLAN_ID}}</p>
+      <div class="section-head"><span class="num">01</span><h2>Overview</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>metrics + goal</b> &mdash; headline counts a reviewer can scan, then the outcome this plan buys. Lead with the decision, not the process.</div>
+      </div>
+      {{METRICS}}
+      <p class="muted">Nothing is written to GitHub until a human approves this plan. Approval is bound to the sidecar, not to this page: if the sidecar changes after approval, the changed plan must be presented again.</p>
     </section>
 
     <section class="section" id="architecture">
-      <span class="section-number">02</span>
-      <h2>Architecture</h2>
-      <div class="component-grid">{{COMPONENTS}}</div>
+      <div class="section-head"><span class="num">02</span><h2>Architecture</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>components + target</b> &mdash; data: architecture.components[]{name, purpose} and architecture.diagramsMermaid.targetArchitecture.</div>
+      </div>
+      <div class="cards">{{COMPONENTS}}</div>
       <h3>Target architecture</h3>
       {{ARCHITECTURE_DIAGRAM}}
     </section>
 
     <section class="section" id="tasks">
-      <span class="section-number">03</span>
-      <h2>Task Breakdown</h2>
-      <div class="issue-grid">{{ISSUE_CARDS}}</div>
-      <h3>Dependency DAG</h3>
+      <div class="section-head"><span class="num">03</span><h2>Task Breakdown</h2><span class="count">{{ISSUE_COUNT}} issues</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>issues</b> &mdash; data: issues[]{key, title, body, labels, dependsOn, ownershipHint, wave}. One independently deliverable concern per issue. Acceptance tests are deliberately absent here; they render into the GitHub issue body.</div>
+      </div>
+      <div class="rows">{{ISSUE_CARDS}}</div>
+      <h3>Dependency graph</h3>
       {{DEPENDENCY_DIAGRAM}}
       <h3>Dependency table</h3>
       <div class="table-shell">{{ISSUE_TABLE}}</div>
     </section>
 
-    <section class="section" id="risks">
-      <span class="section-number">04</span>
-      <h2>Risks &amp; Open Questions</h2>
-      <div class="risk-grid">{{RISKS}}</div>
-    </section>
-
-    <section class="section" id="execution">
-      <span class="section-number">05</span>
-      <h2>Milestone &amp; Execution</h2>
-      <p class="execution-note">After review, explicit human approval is required before the milestone or any issues are written to GitHub. Reconciliation uses stable plan and issue markers, updates changed work, and closes removed work.</p>
-      <h3>Execution waves</h3>
+    <section class="section" id="waves">
+      <div class="section-head"><span class="num">04</span><h2>Execution Waves</h2><span class="count">{{WAVE_COUNT}} waves</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>waves</b> &mdash; derived from issues[].wave. A wave is a parallelisable set, not a duration. Only issues with genuinely disjoint ownership belong in the same wave.</div>
+      </div>
+      {{WAVES}}
+      <h3>Wave order</h3>
       {{WAVES_DIAGRAM}}
     </section>
 
-    <footer class="footer">Foundry Zero · {{PLAN_NAME}} · Generated {{DISPLAY_DATE}}</footer>
+    <section class="section" id="risks">
+      <div class="section-head"><span class="num">05</span><h2>Risks</h2><span class="count">{{RISK_COUNT}}</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>risk-matrix</b> &mdash; data: risks[]{id, title, likelihood: 1|2|3, impact: 1|2|3, owner, mitigation}. The cell is likelihood&times;impact; anything in the top-right band needs a named owner.</div>
+      </div>
+      {{RISKS}}
+    </section>
+
+    <section class="section" id="execution">
+      <div class="section-head"><span class="num">06</span><h2>Milestone &amp; Execution</h2></div>
+      <div class="callout note"><span class="mark">&#9679;</span>
+        <p>After review, explicit human approval is required before the milestone or any issue is written to GitHub. Reconciliation uses stable plan and issue markers, updates changed work, and closes removed work. Re-running an unchanged plan produces no mutations.</p>
+      </div>
+      <div class="cards">
+        <article class="card"><h3>1 &middot; Review</h3><p>Read this folio and the sidecar together. They must describe the same scope.</p></article>
+        <article class="card"><h3>2 &middot; Approve</h3><p>Approval names a human identity and applies to this exact sidecar. A changed sidecar needs fresh approval.</p></article>
+        <article class="card"><h3>3 &middot; Reconcile</h3><p>Milestones only, never a GitHub Project. Preview read-only first, then apply.</p></article>
+      </div>
+      <p class="muted" style="margin-top:18px;">Milestone target: <a href="{{MILESTONE_URL}}">{{PLAN_NAME}}</a> in {{REPO}}.</p>
+    </section>
+
   </main>
-  <script>{{MERMAID_JS}}</script>
-  <script>
-  (() => {
-    const explicit = document.documentElement.getAttribute("data-theme");
-    const dark = explicit ? explicit === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const themeName = dark ? "dark" : "default";
-    const themeVariables = dark
-      ? {background:"#16171a",primaryColor:"#1d1f24",primaryTextColor:"#e8e8e6",lineColor:"#9a9a9a",secondaryColor:"#2a2d33",tertiaryColor:"#1d1f24"}
-      : {background:"#f7f6f3",primaryColor:"#ffffff",primaryTextColor:"#1a1a1a",lineColor:"#6b6b6b",secondaryColor:"#e2e0da",tertiaryColor:"#ffffff"};
-    const themeCSS = ".neutral rect,.neutral polygon,.neutral path{fill:transparent!important;stroke:var(--mut)!important}.neutral .nodeLabel,.neutral span{color:var(--mut)!important}";
-    mermaid.initialize({startOnLoad:false,securityLevel:"strict",theme:themeName,themeVariables,themeCSS});
-    const render = async () => {
-      for (const node of document.querySelectorAll("pre.mermaid")) {
-        const shell = node.closest(".diagram-shell");
-        try {
-          await mermaid.run({nodes:[node],suppressErrors:false});
-        } catch (error) {
-          shell?.classList.add("diagram-failed");
-          const message = shell?.querySelector(".diagram-error");
-          if (message) message.textContent = "Diagram could not render; source is preserved below.";
-        }
-      }
-    };
+</div>
+
+<script>{{MERMAID_JS}}</script>
+<script>
+(() => {
+  const root = document.documentElement;
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    document.getElementById("theme-toggle").innerHTML = next === "light" ? "&#9789;" : "&#9788;";
     render();
-  })();
-  </script>
+  });
+
+  document.getElementById("hints-toggle").addEventListener("click", () => {
+    root.dataset.hints = root.dataset.hints === "off" ? "on" : "off";
+  });
+
+  // Print needs every disclosure open; restore the reader's state afterwards.
+  let reopened = [];
+  window.addEventListener("beforeprint", () => {
+    reopened = [...document.querySelectorAll("details:not([open])")];
+    reopened.forEach((node) => { node.open = true; });
+  });
+  window.addEventListener("afterprint", () => {
+    reopened.forEach((node) => { node.open = false; });
+    reopened = [];
+  });
+
+  // Wave and neutral node paint lives here rather than in the Mermaid classDef,
+  // because classDef values are parsed by Mermaid and cannot carry var().
+  const themeCSS = ".neutral rect,.neutral polygon,.neutral path{fill:transparent!important;stroke:var(--mut)!important}"
+    + ".neutral .nodeLabel,.neutral span{color:var(--mut)!important}"
+    + [1, 2, 3, 4, 5].map((n) =>
+        `.wave${n} rect,.wave${n} polygon,.wave${n} path`
+        + `{fill:var(--wave-${n})!important;stroke:var(--wave-stroke)!important}`
+        + `.wave${n} .nodeLabel,.wave${n} span{color:var(--wave-text)!important}`
+      ).join("");
+
+  async function render() {
+    const dark = root.dataset.theme !== "light";
+    const themeVariables = dark
+      ? {background:"#24292f",primaryColor:"#2b323f",primaryTextColor:"#e8ebf0",lineColor:"#8d97a8",secondaryColor:"#343c4b",tertiaryColor:"#2b323f"}
+      : {background:"#ffffff",primaryColor:"#f4f6f9",primaryTextColor:"#1f2531",lineColor:"#68717f",secondaryColor:"#e7ebf1",tertiaryColor:"#ffffff"};
+    mermaid.initialize({startOnLoad:false, securityLevel:"strict", theme: dark ? "dark" : "default", themeVariables, themeCSS});
+    for (const node of document.querySelectorAll("pre.mermaid")) {
+      const shell = node.closest(".diagram-shell");
+      const source = node.getAttribute("data-src") || node.textContent;
+      node.setAttribute("data-src", source);
+      node.removeAttribute("data-processed");
+      node.textContent = source;
+      try {
+        await mermaid.run({nodes:[node], suppressErrors:false});
+        shell?.classList.remove("diagram-failed");
+      } catch {
+        shell?.classList.add("diagram-failed");
+        const message = shell?.querySelector(".diagram-error");
+        if (message) message.textContent = "Diagram could not render; source is preserved below.";
+      }
+    }
+  }
+
+  render();
+})();
+</script>
 </body>
 </html>

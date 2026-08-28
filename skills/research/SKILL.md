@@ -18,7 +18,7 @@ Spawn one read-only `research` agent per area, in parallel. Each agent is blind 
 Collect the per-area envelopes and merge them without dropping evidence:
 
 1. Deduplicate findings by `(area, source, finding)`; group the survivors by area.
-2. Surface conflicts: when one `topic` carries more than one `position` across areas, report it as a conflict **without dropping** either finding.
+2. Surface conflicts: a finding may carry an optional `stance` of `supports`, `contradicts`, or `neutral` (the default) toward its `topic`. A topic is a conflict only when at least one of its findings is `contradicts`; distinct wording of a `position` is not disagreement. Report the conflict with every position on that topic **without dropping** any finding.
 3. Assess coverage: report any declared area with no report as a missing area, roll up each area's gaps and open questions, and mark the packet incomplete when an area is missing.
 
 `skills/research/scripts/merge_research.py` performs this deterministically over captured per-area fixtures:
@@ -30,3 +30,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/merge_research.py s
 ## Report
 
 Return the consolidated packet: per-area findings with evidence, the conflicts, the coverage summary, the gaps, and the open questions. The primary agent owns synthesis and decides what the evidence means.
+
+When a shareable report is wanted, write the synthesis as JSON — `{"verdict": "clean|advisory|action-needed", "summary": "...", "recommendations": [{"priority": "high|medium|low", "title", "detail", "refs": ["F1-01"]}]}` — where each `ref` is a finding id (`F<area index>-<finding index>`) from the packet, and render both into a self-contained HTML page in the shared Foundry Zero report style (`docs/research/research<NN>-<YYYYMMDD>-<title>.html`):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/render_research.py packet.json docs/research/research01-20260101-sample.html --synthesis synthesis.json --title "Sample" --repo owner/name --subject "what was researched"
+```
+
+The renderer rejects a recommendation that cites an unknown finding and a `clean` verdict that carries recommendations. `templates/report.css` is the shared design system and must stay byte-identical to the planner and code-review copies; `templates/research.css` holds the research-only rules.

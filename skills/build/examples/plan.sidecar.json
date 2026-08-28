@@ -99,5 +99,15 @@
         }
       ]
     }
+  ],
+  "risks": [
+    {
+      "id": "R-01",
+      "title": "Waves are parallelised across overlapping ownership",
+      "likelihood": 2,
+      "impact": 3,
+      "owner": "build orchestrator",
+      "mitigation": "Only issues with disjoint ownership hints share a wave; integrate and verify after each wave."
+    }
   ]
 }

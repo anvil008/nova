@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "merge_research.py"
+RENDER = ROOT / "scripts" / "render_research.py"
 EXAMPLES = ROOT / "examples"
 AGENT = ROOT.parents[1] / "agents" / "claude" / "research.md"
 
@@ -23,7 +23,29 @@ def run_helper(*reports):
         env=environment,
         text=True,
         capture_output=True,
+        check=False,
     )
+
+
+def topic_report(area, *findings):
+    return {
+        "area": area,
+        "coverage": {"scope": f"{area} scope", "sourcesInspected": [f"{area} source"]},
+        "findings": [
+            {"source": f"{area}-src-{i}", "finding": f"{area} finding {i}", "evidence": f"{area} evidence {i}",
+             "topic": "retry-default", **finding}
+            for i, finding in enumerate(findings)
+        ],
+        "gaps": [],
+        "openQuestions": [],
+    }
+
+
+def merge_docs_report(report):
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "docs.json"
+        path.write_text(json.dumps(report), encoding="utf-8")
+        return run_helper(path)
 
 
 class ResearchSkillTests(unittest.TestCase):
@@ -56,6 +78,11 @@ class ResearchSkillTests(unittest.TestCase):
         conflict = output["conflicts"][0]
         self.assertEqual(conflict["topic"], "retry-default")
         self.assertEqual(conflict["positions"], ["three", "unbounded"])
+        stances = {
+            item["position"]: item["stance"] for area in output["areas"] for item in area["findings"]
+            if item["topic"] == "retry-default"
+        }
+        self.assertEqual(stances, {"three": "neutral", "unbounded": "contradicts"})
         conflict_findings = [
             item for area in output["areas"] for item in area["findings"]
             if item["topic"] == "retry-default"
@@ -116,6 +143,97 @@ class ResearchSkillTests(unittest.TestCase):
             "coverage", "gaps", "open questions", "primary agent", "owns synthesis",
         ):
             self.assertIn(phrase, skill)
+
+    def test_distinct_wording_without_contradicting_stance_is_not_a_conflict(self):
+        report = topic_report("docs", {"position": "three attempts"}, {"position": "3 retries"})
+        result = merge_docs_report(report)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output["conflicts"], [])
+        self.assertEqual([f["stance"] for f in output["areas"][0]["findings"]], ["neutral", "neutral"])
+
+        report = topic_report("docs", {"position": "three", "stance": "supports"}, {"position": "unbounded"})
+        output = json.loads(merge_docs_report(report).stdout)
+        self.assertEqual(output["conflicts"], [], "supports plus neutral is agreement, not a conflict")
+
+    def test_explicit_contradiction_is_exactly_one_conflict_listing_every_position(self):
+        report = topic_report(
+            "docs",
+            {"position": "three", "stance": "supports"},
+            {"position": "unbounded", "stance": "contradicts"},
+            {"position": "three by default"},
+        )
+        result = merge_docs_report(report)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output["conflicts"], [{"topic": "retry-default", "positions": ["three", "three by default", "unbounded"]}])
+        self.assertEqual(output["findingCount"], 3)
+
+    def test_rejects_unknown_stance_and_strips_string_fields(self):
+        bad = topic_report("docs", {"position": "three", "stance": "disagrees"})
+        result = merge_docs_report(bad)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("stance", result.stderr)
+
+        padded = topic_report("docs", {"position": " three "}, {"position": "three", "stance": " contradicts "})
+        result = merge_docs_report(padded)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output["conflicts"], [{"topic": "retry-default", "positions": ["three"]}])
+        self.assertEqual([f["position"] for f in output["areas"][0]["findings"]], ["three", "three"])
+
+    def test_skill_documents_stance_driven_conflicts(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        for phrase in ("`stance`", "`contradicts`", "`supports`", "`neutral`", "byte-identical"):
+            self.assertIn(phrase, skill)
+
+    def test_renders_packet_and_synthesis_to_self_contained_html(self):
+        packet = json.loads((EXAMPLES / "expected-packet.json").read_text(encoding="utf-8"))
+        synthesis = {
+            "verdict": "advisory",
+            "summary": "Retry default is consistent; docs lag <b>code</b> {{FINDINGS}}.",
+            "recommendations": [
+                {"priority": "low", "title": "Update docs", "detail": "Mention attempts=3.", "refs": ["F1-01"]}
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            packet_path = Path(tmp) / "packet.json"
+            synthesis_path = Path(tmp) / "synthesis.json"
+            output = Path(tmp) / "out" / "research.html"
+            packet_path.write_text(json.dumps(packet), encoding="utf-8")
+            synthesis_path.write_text(json.dumps(synthesis), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-B", str(RENDER), str(packet_path), str(output),
+                 "--synthesis", str(synthesis_path), "--title", "Sample", "--generated-at", "2026-01-01T00:00:00Z"],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            html_text = output.read_text(encoding="utf-8")
+            self.assertIn('id="F1-01"', html_text)
+            self.assertIn('href="#F1-01"', html_text)
+            self.assertIn("&lt;b&gt;code&lt;/b&gt;", html_text)
+            self.assertIn("{{FINDINGS}}", html_text, "user text must not be re-substituted")
+            self.assertNotRegex(html_text, r"\{\{[A-Z_]+\}\}(?!\.)")
+            self.assertNotIn("<link", html_text)
+            self.assertNotIn("<script src", html_text)
+
+            bad = dict(synthesis, recommendations=[dict(synthesis["recommendations"][0], refs=["F9-99"])])
+            synthesis_path.write_text(json.dumps(bad), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-B", str(RENDER), str(packet_path), str(output), "--synthesis", str(synthesis_path)],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unknown finding F9-99", result.stderr)
+
+            clean = dict(synthesis, verdict="clean")
+            synthesis_path.write_text(json.dumps(clean), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-B", str(RENDER), str(packet_path), str(output), "--synthesis", str(synthesis_path)],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("clean verdict cannot carry recommendations", result.stderr)
 
 
 if __name__ == "__main__":

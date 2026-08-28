@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -400,7 +401,12 @@ func unsealedSourceChanges(repository string) ([]string, error) {
 		if idx := strings.Index(rawPath, " -> "); idx != -1 {
 			rawPath = rawPath[idx+4:]
 		}
-		rawPath = strings.Trim(strings.TrimSpace(rawPath), "\"")
+		rawPath = strings.TrimSpace(rawPath)
+		if strings.HasPrefix(rawPath, "\"") {
+			if unquoted, unquoteErr := strconv.Unquote(rawPath); unquoteErr == nil {
+				rawPath = unquoted
+			}
+		}
 		relPath := filepath.ToSlash(rawPath)
 		if isSourcePath(relPath, testPatterns) {
 			if _, exists := seen[relPath]; !exists {

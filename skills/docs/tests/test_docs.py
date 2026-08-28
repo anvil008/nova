@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -12,8 +13,12 @@ GOOD_ADR = "## Status\nAccepted\n## Context\nx\n## Decision\ny\n## Consequences\
 
 
 def run(root, *args):
-    return subprocess.run([sys.executable, "-B", str(SCRIPT), str(root), *map(str, args)],
-                          text=True, capture_output=True)
+    return subprocess.run(
+        [sys.executable, "-B", str(SCRIPT), str(root), *map(str, args)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 class DocsCheckTests(unittest.TestCase):
@@ -70,27 +75,67 @@ class DocsCheckTests(unittest.TestCase):
         self.assertTrue(skill.startswith("---\nname: docs\n"))
         self.assertIn("docs_check", skill)
 
-    def test_agent_skills_parity(self):
-        # 1. Docs agents (claude, codex, agy) must contain 'grill-with-docs' skill
-        claude_docs = (ROOT.parents[1] / "agents" / "claude" / "docs.md").read_text(encoding="utf-8")
-        codex_docs = (ROOT.parents[1] / "agents" / "codex" / "docs.md").read_text(encoding="utf-8")
-        agy_docs = (ROOT.parents[1] / "agents" / "agy" / "docs" / "agent.md").read_text(encoding="utf-8")
-        
-        self.assertIn("grill-with-docs", claude_docs)
-        self.assertIn("grill-with-docs", codex_docs)
-        self.assertIn("grill-with-docs", agy_docs)
+    def test_no_dangling_skill_refs(self):
+        with tempfile.TemporaryDirectory() as t:
+            Path(t, "skills", "real").mkdir(parents=True)
+            agents = Path(t, "agents", "x"); agents.mkdir(parents=True)
+            (agents / "a.md").write_text(
+                "---\nname: a\nskills:\n  - skills/real\n  - skills/ghost\n---\n# A\n\n## Skills\n\n"
+                "- **`real`** — ok.\n- **`missing-one`** / **`real`** — gone.\n- **`real`**, **`comma-ghost`** — see `docs_check`.\n", encoding="utf-8")
+            (agents / "b.md").write_text("---\nname: b\nskills: [skills/real, inline-ghost]\n---\n# B\n", encoding="utf-8")
+            (agents / "c.md").write_text(
+                "---\nname: c\nskills:\n  - real # known skill\n---\n# C\n\n## Skills\n\n"
+                "  - **`indented-ghost`** — gone.\n\n## Skills\n\n- **`second-ghost`** — gone.\n",
+                encoding="utf-8",
+            )
+            r = run(t)
+            self.assertNotEqual(r.returncode, 0)
+            out = json.loads(r.stdout)
+            self.assertFalse(out["ok"])
+            self.assertTrue(any("agents/x/a.md" in v and "`missing-one`" in v for v in out["violations"]))
+            self.assertTrue(any("agents/x/a.md" in v and "`ghost`" in v for v in out["violations"]))
+            self.assertTrue(any("agents/x/a.md" in v and "`comma-ghost`" in v for v in out["violations"]))
+            self.assertTrue(any("agents/x/b.md" in v and "`inline-ghost`" in v for v in out["violations"]))
+            self.assertTrue(any("agents/x/c.md" in v and "`indented-ghost`" in v for v in out["violations"]))
+            self.assertTrue(any("agents/x/c.md" in v and "`second-ghost`" in v for v in out["violations"]))
+            self.assertEqual(len(out["violations"]), 6)
+        out = json.loads(run(ROOT.parents[1]).stdout)
+        self.assertGreaterEqual(len(out["skillRefs"]), 9)
+        self.assertEqual([s for s in out["skillRefs"] if not s["ok"]], [])
+        agent_dir = ROOT.parents[1] / "agents"
+        for name in ("read-the-damn-docs", "find-docs", "grill-with-docs", "full-output-enforcement"):
+            for path in agent_dir.rglob("*.md"):
+                self.assertNotIn(name, path.read_text(encoding="utf-8"), f"{path} still references {name}")
 
-        # 2. Research agents (claude, codex, agy) must contain 'read-the-damn-docs' and 'find-docs'
-        claude_res = (ROOT.parents[1] / "agents" / "claude" / "research.md").read_text(encoding="utf-8")
-        codex_res = (ROOT.parents[1] / "agents" / "codex" / "research.md").read_text(encoding="utf-8")
-        agy_res = (ROOT.parents[1] / "agents" / "agy" / "research" / "agent.md").read_text(encoding="utf-8")
+    def test_agy_builder_has_stop_gate_or_manual_verify(self):
+        agy = ROOT.parents[1] / "agents" / "agy" / "builder"
+        cfg = json.loads((agy / "hooks.json").read_text(encoding="utf-8"))
+        stop_hooks = cfg["swarm-guard"].get("Stop", [])
+        has_stop_hook = any("build-hooks agy Stop" in h.get("command", "") for h in stop_hooks)
+        agent = (agy / "agent.md").read_text(encoding="utf-8")
+        has_manual = "Stop-time verify gate is manual" in agent and "run `tdd-guard verify" in agent
+        self.assertTrue(has_stop_hook != has_manual, f"stop hook={has_stop_hook}, manual={has_manual}")
 
-        self.assertIn("read-the-damn-docs", claude_res)
-        self.assertIn("find-docs", claude_res)
-        self.assertIn("read-the-damn-docs", codex_res)
-        self.assertIn("find-docs", codex_res)
-        self.assertIn("read-the-damn-docs", agy_res)
-        self.assertIn("find-docs", agy_res)
+    def test_model_tiers_aligned(self):
+        agy = ROOT.parents[1] / "agents" / "agy"
+        main_agents = set()
+        for path in sorted(agy.glob("*/agent.md")):
+            front = path.read_text(encoding="utf-8").split("---")[1]
+            if path.parent.name == "builder":
+                self.assertEqual(re.search(r"(?m)^model:\s*(\S+)$", front).group(1), "pro")
+            elif path.parent.name in {"code-reviewer", "docs"}:
+                self.assertEqual(re.search(r"(?m)^model:\s*(\S+)$", front).group(1), "flash")
+            if "mainAgent: true" in front:
+                main_agents.add(path.parent.name)
+        self.assertEqual(main_agents, {"builder", "docs"})
+
+    def test_gemini_instruction_file_budget(self):
+        with tempfile.TemporaryDirectory() as t:
+            Path(t, "GEMINI.md").write_text("\n".join(f"line {i}" for i in range(200)), encoding="utf-8")
+            r = run(t, "--max-instruction-lines", "120")
+            self.assertNotEqual(r.returncode, 0)
+            out = json.loads(r.stdout)
+            self.assertTrue(any("GEMINI.md" in v and "budget" in v for v in out["violations"]))
 
     def test_antigravity_builder_hooks_json(self):
         import json
@@ -153,16 +198,23 @@ class DocsCheckTests(unittest.TestCase):
         # Check for go vet
         self.assertIn("go vet ./...", content)
         
-        # Check for go test -v ./...
-        self.assertIn("go test -v ./...", content)
+        # Check for uncached race-enabled Go tests and installer coverage.
+        self.assertIn("go test -count=1 -race ./...", content)
+        self.assertIn("bash scripts/tests/test_install.sh", content)
         
         # Check for hook tests
         self.assertIn("bash scripts/hooks/tests/test_hooks.sh", content)
         
-        # Check for skill unit tests
-        for skill in ("planner", "build", "code-review", "docs", "research"):
-            expected_pattern = f"python3 -m unittest discover -s skills/{skill}/tests -p \"test_*.py\""
-            self.assertIn(expected_pattern, content)
+        # Every present and future skill suite is discovered; none is hard-coded.
+        self.assertIn("for d in skills/*/tests; do", content)
+        self.assertIn("python3 -m unittest discover -s \"$d\" -p 'test_*.py'", content)
+        self.assertNotRegex(content, r"python3 -m unittest discover -s skills/[^\s]+/tests")
+
+        # Python and lint tooling are explicit CI gates.
+        self.assertIn("actions/setup-python@v5", content)
+        self.assertRegex(content, r"python-version:\s*[\"']?3\.13[\"']?")
+        self.assertIn("ruff check skills/", content)
+        self.assertIn("shellcheck -S warning scripts/*.sh scripts/hooks/build-*", content)
             
         # Check for docs check
         self.assertIn("skills/docs/scripts/docs_check.py", content)

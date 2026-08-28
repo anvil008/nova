@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# build-hooks — the builder agent's TDD build gate. Thin wrapper over tdd-guard.
+# Fails closed: a missing tdd-guard (or missing arguments) is exit 2 with a reason, so the
+# harness blocks the tool call instead of silently skipping the gate.
+set -uo pipefail
+harness=${1:-}; event=${2:-}
+[[ -n $harness && -n $event ]] || { printf 'build-hooks: usage: build-hooks <claude|codex|agy> <event>\n' >&2; exit 2; }
+guard="$HOME/.local/bin/tdd-guard"
+[[ -x $guard ]] || { printf 'build-hooks: %s is missing or not executable — run scripts/bootstrap-tools.sh --install; failing closed\n' "$guard" >&2; exit 2; }
+exec "$guard" hook --harness "$harness" --event "$event"

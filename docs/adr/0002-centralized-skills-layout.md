@@ -15,11 +15,11 @@ These centralized skills are projected into each respective harness directory st
    - Symlinks agent markdown files from `agents/claude/<agent>.md` into `~/.claude/agents/<agent>.md`.
    - Symlinks centralized skill directories from `skills/<skill>` into `~/.claude/skills/<skill>`.
 2. **Codex**:
-   - Parses the frontmatter and body of agent files in `agents/codex/<agent>.md` and projects them into `~/.codex/<agent>.config.toml`.
+   - Parses the frontmatter and body of agent files in `agents/codex/<agent>.md`, generates `dist/codex/<agent>.config.toml`, and symlinks that generated file into `~/.codex/<agent>.config.toml`.
    - Symlinks centralized skill directories from `skills/<skill>` into `~/.codex/skills/<skill>`.
    - Injects corresponding agent blocks into `~/.codex/config.toml`.
 3. **Antigravity**:
-   - Copies agent files from `agents/agy/<agent>/` (both `agent.md` and `hooks.json`) into `~/.gemini/config/agents/<agent>/`.
+   - Symlinks each agent directory from `agents/agy/<agent>/` (including `agent.md` and `hooks.json`) into `~/.gemini/config/agents/<agent>/`.
    - Symlinks centralized skill directories from `skills/<skill>` into `~/.gemini/config/skills/<skill>` (and `~/.agents/skills/<skill>` if it exists).
 
 This approach ensures a single source of truth for all skill logic and configurations.

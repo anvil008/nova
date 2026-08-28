@@ -44,6 +44,20 @@ func runMain(t *testing.T, directory, stdin string, args ...string) invocation {
 	return invocation{code: command.ProcessState.ExitCode(), stdout: stdout.String(), stderr: stderr.String()}
 }
 
+func TestHelpExitsZeroWithBinaryName(t *testing.T) {
+	command := exec.Command(os.Args[0], "--help")
+	command.Args[0] = "tdd-guard"
+	command.Env = append(os.Environ(), reexecEnv+"=1")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tdd-guard --help: %v: %s", err, output)
+	}
+	firstLine := strings.SplitN(string(output), "\n", 2)[0]
+	if !strings.Contains(firstLine, "tdd-guard") {
+		t.Fatalf("help first line %q does not contain binary name", firstLine)
+	}
+}
+
 func newRepository(t *testing.T) string {
 	t.Helper()
 	repository := t.TempDir()
@@ -119,5 +133,26 @@ func TestMainReadsTheHookPayloadFromStandardInput(t *testing.T) {
 	denied := runMain(t, repository, payload, "hook", "--harness", "claude", "--event", "PreToolUse")
 	if denied.code != 0 || !strings.Contains(denied.stdout, `"permissionDecision":"deny"`) {
 		t.Fatalf("exit %d stdout %q stderr %q", denied.code, denied.stdout, denied.stderr)
+	}
+}
+
+// false-then-true-no-longer-passes: the process boundary must refuse the
+// original hole end to end, not just the in-process verify.
+func TestMainRefusesFalseThenTrue(t *testing.T) {
+	repository := newRepository(t)
+	sealed := runMain(t, repository, "", "seal", "--tests", "**/*_test.go", "--red-command", "false")
+	if sealed.code != 0 {
+		t.Fatalf("seal exit %d stderr %q", sealed.code, sealed.stderr)
+	}
+	verified := runMain(t, repository, "", "verify", "--green-command", "true")
+	if verified.code == 0 {
+		t.Fatalf("verify --green-command true passed after seal --red-command false: stdout %q stderr %q", verified.stdout, verified.stderr)
+	}
+	if !strings.Contains(verified.stderr, "argv") {
+		t.Fatalf("stderr %q does not explain the argv binding", verified.stderr)
+	}
+	status := runMain(t, repository, "", "status")
+	if status.code != 0 || strings.Contains(status.stdout, `"green":`) {
+		t.Fatalf("status after refused verify: exit %d stdout %q", status.code, status.stdout)
 	}
 }

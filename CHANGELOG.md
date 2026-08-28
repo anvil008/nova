@@ -2,6 +2,23 @@
 
 All notable changes to Swarm Coder will be documented in this file.
 
+## [Harness Gate Integrity and Cross-Harness Parity] - 2026-08-28
+
+### Added
+- **Gate-integrity milestone**: Added argv-bound RED-to-GREEN evidence, tamper-resistant sealed-test checks, physical-path target resolution, authenticated guard records, and control-plane contract validation.
+- **Build boundary corpus**: Added fail-closed hook parsing and adversarial command tests covering protected Git/jj/GitHub operations, shell wrappers, quoting, and tmpfs targets.
+- **Research assurance**: Added stance-driven conflict detection that separates corroboration from genuine contradictions in merged research.
+
+### Changed
+- **Cross-harness parity**: Removed dangling skill references, aligned agent capabilities and model tiers, wired the Antigravity Stop gate, and documented Codex's explicit manual gates.
+- **Install and CI hardening**: Made installs symlink-only, ownership-checked, Bash-3.2-portable, and fail-fast; CI now discovers every skill test suite and enforces Ruff, ShellCheck, Go race tests, installer tests, and docs checks.
+- **Build and review orchestration**: Corrected recursive ownership-glob overlap detection, normalized planner/review finding identities, and made the review-fix loop severity threshold part of convergence.
+
+## [Report System and Harness Reset] - 2026-08-28
+
+- Commit `a1f4584`: introduced shared HTML report styling, planner folios under `docs/plans/`, code-review reports and finding reconciliation, isolated jj builder workspaces, the frontend review lens, and the repository-as-single-source harness installer.
+- Commit `ee46c1a`: introduced the bounded `review-fix-loop` with durable converged, stalled, and exhausted states on a dedicated loop branch.
+
 ## [Hardening Release] - 2026-08-27
 
 This release focuses on hardening the Go-based guard mechanical gates, improving the portability of shell hooks across GNU/Linux and BSD/macOS environments, enhancing Python skill orchestration, ensuring complete agent parity across Claude, Codex, and Antigravity, and introducing comprehensive CI/CD quality gates.

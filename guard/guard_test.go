@@ -78,12 +78,37 @@ func (h *harness) runStdin(payload string, args ...string) (int, string, string)
 	return code, stdout.String(), stderr.String()
 }
 
-// seal drives the ordinary RED step: a failing command over the default globs.
+// boundArgv is the one command a harness seals and verifies with: it fails
+// until the `.green` marker exists, so the same argv proves RED and then GREEN.
+var boundArgv = []string{"sh", "-c", "test -f .green"}
+
+func (h *harness) redArgs() []string {
+	return append([]string{"seal", "--tests", "**/*_test.go", "--red-command"}, boundArgv...)
+}
+
+// greenArgs flips the marker so the bound argv now passes, and returns the
+// verify invocation any test can extend with further flags.
+func (h *harness) greenArgs() []string {
+	h.t.Helper()
+	h.write(".green", "")
+	return append([]string{"verify", "--green-command"}, boundArgv...)
+}
+
+// seal drives the ordinary RED step: the bound command over the default globs.
 func (h *harness) seal() {
 	h.t.Helper()
-	code, _, stderr := h.run("seal", "--tests", "**/*_test.go", "--red-command", "false")
+	code, _, stderr := h.run(h.redArgs()...)
 	if code != 0 {
 		h.t.Fatalf("seal exit %d: %s", code, stderr)
+	}
+}
+
+// verify drives the ordinary GREEN step with the argv the seal bound.
+func (h *harness) verify() {
+	h.t.Helper()
+	code, _, stderr := h.run(h.greenArgs()...)
+	if code != 0 {
+		h.t.Fatalf("verify exit %d: %s", code, stderr)
 	}
 }
 
@@ -263,15 +288,13 @@ func TestSealHonoursTheRepositoryTestOverride(t *testing.T) {
 func TestVerifyRequiresGreenAndRecordsEvidence(t *testing.T) {
 	h := newHarness(t)
 	h.seal()
-	if code, _, stderr := h.run("verify", "--green-command", "false"); code == 0 {
+	if code, _, stderr := h.run(append([]string{"verify", "--green-command"}, boundArgv...)...); code == 0 {
 		t.Fatalf("verify accepted a failing green command: %s", stderr)
 	}
 	if _, err := os.Stat(filepath.Join(h.stateDirectory(), greenFileName)); !os.IsNotExist(err) {
 		t.Fatalf("failed verify wrote green evidence: %v", err)
 	}
-	if code, _, stderr := h.run("verify", "--green-command", "true"); code != 0 {
-		t.Fatalf("verify exit %d: %s", code, stderr)
-	}
+	h.verify()
 	status := h.status()
 	if status.Green == nil || status.Green.ExitCode != 0 {
 		t.Fatalf("green evidence = %+v", status.Green)
@@ -301,8 +324,8 @@ func (h *harness) greenRecord() map[string]any {
 func TestVerifyRecordsCoverageWhenToolPresent(t *testing.T) {
 	h := newHarness(t)
 	h.seal()
-	code, _, stderr := h.run("verify", "--green-command", "true",
-		"--coverage-command", "echo", "coverage:", "83.3%", "of", "statements")
+	code, _, stderr := h.run(append(h.greenArgs(),
+		"--coverage-command", "echo", "coverage:", "83.3%", "of", "statements")...)
 	if code != 0 {
 		t.Fatalf("verify exit %d: %s", code, stderr)
 	}
@@ -320,7 +343,7 @@ func TestVerifySkipsCoverageSilentlyWhenAbsentOrUnparseable(t *testing.T) {
 	// No coverage flag: green is still recorded, with no strength signal.
 	absent := newHarness(t)
 	absent.seal()
-	if code, _, stderr := absent.run("verify", "--green-command", "true"); code != 0 {
+	if code, _, stderr := absent.run(absent.greenArgs()...); code != 0 {
 		t.Fatalf("verify without coverage exit %d: %s", code, stderr)
 	}
 	if v, present := absent.greenRecord()["coveragePercent"]; present {
@@ -330,7 +353,7 @@ func TestVerifySkipsCoverageSilentlyWhenAbsentOrUnparseable(t *testing.T) {
 	// Coverage tool errors (non-zero exit): skip silently, green still passes.
 	erroring := newHarness(t)
 	erroring.seal()
-	if code, _, stderr := erroring.run("verify", "--green-command", "true", "--coverage-command", "false"); code != 0 {
+	if code, _, stderr := erroring.run(append(erroring.greenArgs(), "--coverage-command", "false")...); code != 0 {
 		t.Fatalf("erroring coverage tool must not block verify: exit %d: %s", code, stderr)
 	}
 	if v, present := erroring.greenRecord()["coveragePercent"]; present {
@@ -340,8 +363,8 @@ func TestVerifySkipsCoverageSilentlyWhenAbsentOrUnparseable(t *testing.T) {
 	// Coverage tool prints no percentage: skip silently, green still passes.
 	unparseable := newHarness(t)
 	unparseable.seal()
-	if code, _, stderr := unparseable.run("verify", "--green-command", "true",
-		"--coverage-command", "echo", "no", "number", "here"); code != 0 {
+	if code, _, stderr := unparseable.run(append(unparseable.greenArgs(),
+		"--coverage-command", "echo", "no", "number", "here")...); code != 0 {
 		t.Fatalf("unparseable coverage must not block verify: exit %d: %s", code, stderr)
 	}
 	if v, present := unparseable.greenRecord()["coveragePercent"]; present {
@@ -352,8 +375,8 @@ func TestVerifySkipsCoverageSilentlyWhenAbsentOrUnparseable(t *testing.T) {
 func TestVerifyMinCoverageIsAdvisoryOnly(t *testing.T) {
 	h := newHarness(t)
 	h.seal()
-	code, _, stderr := h.run("verify", "--min-coverage", "90", "--green-command", "true",
-		"--coverage-command", "echo", "coverage:", "50.0%")
+	code, _, stderr := h.run(append(h.greenArgs(), "--min-coverage", "90",
+		"--coverage-command", "echo", "coverage:", "50.0%")...)
 	if code != 0 {
 		t.Fatalf("--min-coverage must not gate verification: exit %d: %s", code, stderr)
 	}
@@ -370,7 +393,7 @@ func TestVerifyRejectsAnEditedSealedTest(t *testing.T) {
 	h := newHarness(t)
 	h.seal()
 	h.write("pkg/thing_test.go", "package pkg\n\n// weakened\n")
-	code, _, stderr := h.run("verify", "--green-command", "true")
+	code, _, stderr := h.run(h.greenArgs()...)
 	if code == 0 {
 		t.Fatal("verify accepted a modified sealed test")
 	}
@@ -541,9 +564,7 @@ func TestStopRefusesUntilTheContractIsSatisfied(t *testing.T) {
 		t.Fatalf("missing green evidence: exit %d stderr %q", code, stderr)
 	}
 
-	if code, _, stderr := h.run("verify", "--green-command", "true"); code != 0 {
-		t.Fatalf("verify exit %d: %s", code, stderr)
-	}
+	h.verify()
 	code, _, stderr = h.runStdin(stopPayload, "hook", "--harness", "claude", "--event", "Stop")
 	if code != 2 || !strings.Contains(stderr, "diff review") {
 		t.Fatalf("missing diff review: exit %d stderr %q", code, stderr)

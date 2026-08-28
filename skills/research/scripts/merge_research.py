@@ -3,8 +3,9 @@
 
 Reads the declared areas manifest plus one report per area, deduplicates
 findings by (area, source, finding), groups them by declared-area order,
-surfaces cross-area conflicts (a shared topic with more than one position)
-without dropping any finding, and reports coverage, gaps, and open questions.
+surfaces cross-area conflicts (a shared topic where at least one finding
+takes the `contradicts` stance) without dropping any finding, and reports
+coverage, gaps, and open questions.
 """
 
 from __future__ import annotations
@@ -14,23 +15,25 @@ import json
 import sys
 from pathlib import Path
 
-
 AREAS_FIELDS = {"areas"}
 AREA_DECL_FIELDS = {"area", "scope", "sources"}
 REPORT_FIELDS = {"area", "coverage", "findings", "gaps", "openQuestions"}
 COVERAGE_FIELDS = {"scope", "sourcesInspected"}
-FINDING_FIELDS = {"source", "finding", "evidence", "topic", "position"}
+FINDING_FIELDS = ("source", "finding", "evidence", "topic", "position")
+STANCE_FIELD = "stance"
+STANCES = ("supports", "contradicts", "neutral")
+DEFAULT_STANCE = "neutral"
 
 
 class ResearchError(ValueError):
     pass
 
 
-def exact_fields(value: object, expected: set[str], where: str) -> None:
+def exact_fields(value: object, expected: set[str], where: str, optional: set[str] = frozenset()) -> None:
     if not isinstance(value, dict):
         raise ResearchError(f"{where} must be an object")
     missing = expected - value.keys()
-    unknown = value.keys() - expected
+    unknown = value.keys() - expected - optional
     if missing:
         raise ResearchError(f"{where}: missing field(s): {', '.join(sorted(missing))}")
     if unknown:
@@ -40,7 +43,7 @@ def exact_fields(value: object, expected: set[str], where: str) -> None:
 def nonempty_string(value: object, where: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ResearchError(f"{where} must be a non-empty string")
-    return value
+    return value.strip()
 
 
 def string_list(value: object, where: str) -> list[str]:
@@ -77,15 +80,23 @@ def load_report(path: Path, declared: list[str]) -> dict:
     string_list(value["coverage"]["sourcesInspected"], "report.coverage.sourcesInspected")
     if not isinstance(value["findings"], list):
         raise ResearchError("report.findings must be an array")
-    for index, finding in enumerate(value["findings"]):
-        exact_fields(finding, FINDING_FIELDS, f"report.findings[{index}]")
-        for field in FINDING_FIELDS:
-            nonempty_string(finding[field], f"report.findings[{index}].{field}")
+    value["findings"] = [load_finding(finding, f"report.findings[{index}]") for index, finding in enumerate(value["findings"])]
     if not isinstance(value["gaps"], list) or any(not isinstance(x, str) or not x.strip() for x in value["gaps"]):
         raise ResearchError("report.gaps must be an array of non-empty strings")
     if not isinstance(value["openQuestions"], list) or any(not isinstance(x, str) or not x.strip() for x in value["openQuestions"]):
         raise ResearchError("report.openQuestions must be an array of non-empty strings")
     return value
+
+
+def load_finding(value: object, where: str) -> dict:
+    """Normalise one finding: strip every string and default the stance to neutral."""
+    exact_fields(value, set(FINDING_FIELDS), where, optional={STANCE_FIELD})
+    finding = {field: nonempty_string(value[field], f"{where}.{field}") for field in FINDING_FIELDS}
+    stance = nonempty_string(value.get(STANCE_FIELD, DEFAULT_STANCE), f"{where}.{STANCE_FIELD}")
+    if stance not in STANCES:
+        raise ResearchError(f"{where}.{STANCE_FIELD} must be one of: {', '.join(STANCES)}")
+    finding[STANCE_FIELD] = stance
+    return finding
 
 
 def build_packet(declared: list[str], reports: dict[str, dict]) -> dict:
@@ -106,15 +117,20 @@ def build_packet(declared: list[str], reports: dict[str, dict]) -> dict:
         areas_out.append({"area": area, "findings": deduped})
         ranked_findings.extend(deduped)
 
+    # Distinct wording is not disagreement: a topic conflicts only when a finding
+    # explicitly contradicts, and then every position on that topic is listed.
     positions: dict[str, list[str]] = {}
+    contested: set[str] = set()
     for finding in ranked_findings:
         bucket = positions.setdefault(finding["topic"], [])
         if finding["position"] not in bucket:
             bucket.append(finding["position"])
+        if finding[STANCE_FIELD] == "contradicts":
+            contested.add(finding["topic"])
     conflicts = [
         {"topic": topic, "positions": sorted(values)}
         for topic, values in sorted(positions.items())
-        if len(values) > 1
+        if topic in contested
     ]
 
     missing = [area for area in declared if area not in reports]

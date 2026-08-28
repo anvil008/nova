@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -32,6 +33,12 @@ var filepathWalkDir = filepath.WalkDir
 
 // runArgv executes one command as an argv array, never through a shell, and
 // returns bounded proof of what it did.
+// argvDigest pins an argv array exactly as it was given: no re-splitting, no
+// shell, so two commands share a digest only when they are the same command.
+func argvDigest(argv []string) string {
+	return digestBytes([]byte(strings.Join(argv, "\x00")))
+}
+
 func runArgv(workingDirectory string, argv []string) (controlplane.CommandEvidence, error) {
 	if len(argv) == 0 {
 		return controlplane.CommandEvidence{}, errors.New("command must be a non-empty argv array")
@@ -48,7 +55,7 @@ func runArgv(workingDirectory string, argv []string) (controlplane.CommandEviden
 		return controlplane.CommandEvidence{}, fmt.Errorf("run %q: %w", argv[0], runErr)
 	}
 	evidence := controlplane.CommandEvidence{
-		ArgvDigest:   digestBytes([]byte(strings.Join(argv, "\x00"))),
+		ArgvDigest:   argvDigest(argv),
 		ExitCode:     command.ProcessState.ExitCode(),
 		StartedAt:    startedAt.Format(time.RFC3339Nano),
 		FinishedAt:   finishedAt.Format(time.RFC3339Nano),
@@ -99,7 +106,7 @@ func runAstGrepPattern(workingDirectory, pattern string, paths []string) (int, c
 		return 0, controlplane.CommandEvidence{}, fmt.Errorf("run ast-grep: %w", runErr)
 	}
 	evidence := controlplane.CommandEvidence{
-		ArgvDigest:   digestBytes([]byte(strings.Join(argv, "\x00"))),
+		ArgvDigest:   argvDigest(argv),
 		ExitCode:     command.ProcessState.ExitCode(),
 		StartedAt:    startedAt.Format(time.RFC3339Nano),
 		FinishedAt:   finishedAt.Format(time.RFC3339Nano),
@@ -146,7 +153,7 @@ func aggregateArchEvidence(runs []controlplane.CommandEvidence, allPassed bool) 
 		exitCode = 1
 	}
 	evidence := controlplane.CommandEvidence{
-		ArgvDigest:   digestBytes([]byte(strings.Join(argv, "\x00"))),
+		ArgvDigest:   argvDigest(argv),
 		ExitCode:     exitCode,
 		StartedAt:    runs[0].StartedAt,
 		FinishedAt:   runs[len(runs)-1].FinishedAt,
@@ -155,41 +162,6 @@ func aggregateArchEvidence(runs []controlplane.CommandEvidence, allPassed bool) 
 	}
 	evidence.CommandID = commandID(evidence)
 	return evidence
-}
-
-// filesMatchingGlob resolves a `**`-aware repository glob to the repository-
-// relative paths it selects, skipping version-control internals and vendored
-// trees. It is how a pathGlob is scoped to concrete files before ast-grep runs.
-func filesMatchingGlob(repository, glob string) ([]string, error) {
-	matched := make([]string, 0)
-	walkErr := filepathWalkDir(repository, func(current string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			if _, skip := skippedDirectories[entry.Name()]; skip && current != repository {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if !entry.Type().IsRegular() {
-			return nil
-		}
-		relative, err := filepath.Rel(repository, current)
-		if err != nil {
-			return err
-		}
-		relative = filepath.ToSlash(relative)
-		if matchTestPattern(glob, relative) {
-			matched = append(matched, filepath.FromSlash(relative))
-		}
-		return nil
-	})
-	if walkErr != nil {
-		return nil, walkErr
-	}
-	sort.Strings(matched)
-	return matched, nil
 }
 
 // coveragePattern matches a percentage token like `83.3%` or `85%`. It is
@@ -290,7 +262,15 @@ func workingDiff(repository string) ([]byte, error) {
 		if name == "" {
 			continue
 		}
-		digest, err := digestFileStreaming(filepath.Join(repository, filepath.FromSlash(name)))
+		pathname := filepath.Join(repository, filepath.FromSlash(name))
+		info, err := os.Lstat(pathname)
+		if errors.Is(err, fs.ErrNotExist) || (err == nil && !info.Mode().IsRegular()) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		digest, err := digestFileStreaming(pathname)
 		if err != nil {
 			return nil, err
 		}
@@ -421,11 +401,14 @@ func digestFileStreaming(filePath string) (string, error) {
 	}
 	defer file.Close()
 
-	const maxBytes = 10 * 1024 * 1024
-	reader := io.LimitReader(file, maxBytes)
-
 	hasher := sha256.New()
-	if _, err := io.Copy(hasher, reader); err != nil {
+	written, err := io.Copy(hasher, file)
+	if err != nil {
+		return "", err
+	}
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(written))
+	if _, err := hasher.Write(length[:]); err != nil {
 		return "", err
 	}
 	sum := hasher.Sum(nil)

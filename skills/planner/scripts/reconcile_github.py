@@ -12,7 +12,6 @@ from pathlib import Path
 
 from render_plan import PlanError, validate_plan
 
-
 PLAN_MARKER = "<!-- swarm-planner planId={plan_id} -->"
 ISSUE_MARKER = "<!-- swarm-planner planId={plan_id} issue={key} -->"
 ISSUE_MARKER_RE = re.compile(
@@ -35,6 +34,7 @@ def gh_json(args: list[str], *, payload: dict | None = None, timeout: float = 30
             text=True,
             capture_output=True,
             timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired as error:
         raise ReconcileError(f"GitHub API call timed out after {timeout} seconds: {' '.join(command)}") from error
@@ -97,22 +97,45 @@ def issue_marker(issue: dict) -> tuple[str, str] | None:
     return match.groups() if match else None
 
 
-def issue_differs(existing: dict, desired: dict) -> bool:
-    labels = sorted(
+def label_names(issue: dict) -> list[str]:
+    return [
         label.get("name", "") if isinstance(label, dict) else str(label)
-        for label in existing.get("labels", [])
+        for label in issue.get("labels", [])
+    ]
+
+
+# The reconciler's own housekeeping closures carry this reason so they are never
+# mistaken for finished work: GitHub defaults a bare close to "completed".
+CLOSED = {"state": "closed", "state_reason": "not_planned"}
+
+
+def is_done(issue: dict) -> bool:
+    """Closed with status:done, or closed as completed (e.g. by a merged PR)."""
+    return issue.get("state") == "closed" and (
+        "status:done" in label_names(issue) or issue.get("state_reason") == "completed"
     )
+
+
+def issue_differs(existing: dict, desired: dict) -> bool:
     milestone = existing.get("milestone") or {}
     return any((
         existing.get("title") != desired["title"],
         (existing.get("body") or "") != desired["body"],
-        labels != sorted(desired["labels"]),
+        sorted(label_names(existing)) != sorted(desired["labels"]),
         milestone.get("number") != desired["milestone"],
         existing.get("state") != "open",
     ))
 
 
-def plan_actions(plan: dict, state: dict) -> list[dict]:
+def milestone_description(existing: str | None, plan_marker: str) -> str:
+    """Adopting a milestone by title keeps its hand-written description."""
+    current = (existing or "").rstrip()
+    if plan_marker in current:
+        return current
+    return f"{current}\n\n{plan_marker}" if current else plan_marker
+
+
+def plan_actions(plan: dict, state: dict, reopen_done: bool = False) -> list[dict]:
     milestones = state.get("milestones", [])
     issues = [issue for issue in state.get("issues", []) if "pull_request" not in issue]
     if not isinstance(milestones, list) or not isinstance(issues, list):
@@ -127,7 +150,11 @@ def plan_actions(plan: dict, state: dict) -> list[dict]:
     if matching_milestones:
         milestone = matching_milestones[0]
         milestone_number: int | str = milestone["number"]
-        payload = {"title": plan["planName"], "description": plan_marker, "state": "open"}
+        payload = {
+            "title": plan["planName"],
+            "description": milestone_description(milestone.get("description"), plan_marker),
+            "state": "open",
+        }
         if any((
             milestone.get("title") != payload["title"],
             milestone.get("description") != payload["description"],
@@ -158,7 +185,7 @@ def plan_actions(plan: dict, state: dict) -> list[dict]:
             actions.append({"action": "create_issue", "key": key, "payload": desired})
             continue
         canonical = matches[0]
-        if issue_differs(canonical, desired):
+        if issue_differs(canonical, desired) and (reopen_done or not is_done(canonical)):
             actions.append({
                 "action": "update_issue", "key": key,
                 "number": canonical["number"], "payload": desired,
@@ -167,7 +194,7 @@ def plan_actions(plan: dict, state: dict) -> list[dict]:
             if duplicate.get("state") != "closed":
                 actions.append({
                     "action": "close_duplicate_issue", "key": key,
-                    "number": duplicate["number"], "payload": {"state": "closed"},
+                    "number": duplicate["number"], "payload": dict(CLOSED),
                 })
 
     for key, matches in sorted(marked.items()):
@@ -177,7 +204,7 @@ def plan_actions(plan: dict, state: dict) -> list[dict]:
             if removed.get("state") != "closed":
                 actions.append({
                     "action": "close_removed_issue", "key": key,
-                    "number": removed["number"], "payload": {"state": "closed"},
+                    "number": removed["number"], "payload": dict(CLOSED),
                 })
     return actions
 
@@ -214,6 +241,10 @@ def main() -> int:
     parser.add_argument("--snapshot", type=Path, help="use captured GitHub JSON instead of any network call")
     parser.add_argument("--apply", action="store_true", help="perform writes after explicit human approval")
     parser.add_argument("--approved-by", help="identity of the human who approved this exact sidecar")
+    parser.add_argument(
+        "--reopen-done", action="store_true",
+        help="also reopen issues closed with status:done or as completed (default: leave them closed)",
+    )
     args = parser.parse_args()
     if args.snapshot and args.apply:
         parser.error("--snapshot cannot be combined with --apply")
@@ -227,7 +258,7 @@ def main() -> int:
             state = json.loads(args.snapshot.read_text(encoding="utf-8"))
         else:
             state = read_state(plan["repo"])
-        actions = plan_actions(plan, state)
+        actions = plan_actions(plan, state, reopen_done=args.reopen_done)
         output = {
             "planId": plan["planId"],
             "repo": plan["repo"],

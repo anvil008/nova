@@ -8,8 +8,7 @@ import json
 import sys
 from pathlib import Path, PurePosixPath
 
-
-LENSES = {"correctness", "security", "performance", "tests", "api-contract"}
+LENSES = {"correctness", "security", "performance", "tests", "api-contract", "frontend"}
 SEVERITIES = ("critical", "high", "medium", "low", "nit")
 SEVERITY_RANK = {severity: rank for rank, severity in enumerate(SEVERITIES)}
 SOURCE_FIELDS = {"lens", "findings"}
@@ -166,26 +165,32 @@ def read_verifications(path: Path) -> dict[tuple[str, int, str], dict]:
     return verified
 
 
-def merge(candidates: list[dict], verifications: dict[tuple[str, int, str], dict]) -> list[dict]:
+def merge(
+    candidates: list[dict], verifications: dict[tuple[str, int, str], dict]
+) -> tuple[list[dict], list[dict]]:
+    """Split candidates into substantiated findings and refuted ones.
+
+    Refuted candidates are reported rather than discarded: the evidence that
+    killed a plausible finding is what shows the verification pass did work.
+    """
     candidate_keys = {finding_key(finding) for finding in candidates}
     missing = candidate_keys - verifications.keys()
     extra = verifications.keys() - candidate_keys
     if missing:
-        raise ReviewError(f"missing adversarial verification for {sorted(missing)[0]}")
+        raise ReviewError(f"missing adversarial verification for {min(missing)}")
     if extra:
-        raise ReviewError(f"adversarial verification has no candidate: {sorted(extra)[0]}")
-    output = []
+        raise ReviewError(f"adversarial verification has no candidate: {min(extra)}")
+    kept: list[dict] = []
+    refuted: list[dict] = []
     for finding in candidates:
         verification = verifications[finding_key(finding)]
-        if not verification["substantiated"]:
-            continue
         merged = dict(finding)
         merged["verification"] = {
             "refutationAttempt": verification["refutationAttempt"],
             "evidence": verification["evidence"],
         }
-        output.append(merged)
-    return ranked(output)
+        (kept if verification["substantiated"] else refuted).append(merged)
+    return ranked(kept), ranked(refuted)
 
 
 def verdict(findings: list[dict]) -> str:
@@ -213,13 +218,14 @@ def main() -> int:
                 "candidates": candidates,
             }
         else:
-            final_findings = merge(candidates, read_verifications(args.verification))
+            final_findings, refuted = merge(candidates, read_verifications(args.verification))
             output = {
                 "inputCount": len(source_findings),
                 "candidateCount": len(candidates),
                 "verifiedCount": len(final_findings),
-                "droppedCount": len(candidates) - len(final_findings),
+                "droppedCount": len(refuted),
                 "findings": final_findings,
+                "dropped": refuted,
                 "verdict": verdict(final_findings),
             }
         print(json.dumps(output, indent=2, sort_keys=False))

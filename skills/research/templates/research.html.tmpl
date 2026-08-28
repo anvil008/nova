@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>{{DOCUMENT_TITLE}}</title>
+  <style>{{INLINE_CSS}}</style>
+  <script>
+  document.documentElement.dataset.theme =
+    window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  </script>
+</head>
+<body>
+
+<div class="bar">
+  <span class="bar-name"><span class="bar-mark">FZ</span>Foundry Zero</span>
+  <span class="chip">Research</span>
+  <span class="bar-spacer"></span>
+  <span class="bar-note">{{SUBJECT}}</span>
+  <button type="button" id="hints-toggle">&#9671; hints</button>
+  <button type="button" id="theme-toggle" aria-label="Toggle colour theme">&#9788;</button>
+</div>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail-title">Contents</div>
+    <nav>
+      <a href="#summary"><span class="num">01</span><span>Summary</span></a>
+      <a href="#recommendations"><span class="num">02</span><span>Recommendations</span></a>
+      <a href="#findings"><span class="num">03</span><span>Findings</span></a>
+      <a href="#conflicts"><span class="num">04</span><span>Conflicts</span></a>
+      <a href="#coverage"><span class="num">05</span><span>Coverage &amp; Gaps</span></a>
+      <a href="#method"><span class="num">06</span><span>Method</span></a>
+    </nav>
+    <div class="rail-foot">
+      <div>repo · {{REPO}}</div>
+      <div>subject · {{SUBJECT}}</div>
+      <div>areas · {{AREA_COUNT}}</div>
+    </div>
+  </aside>
+
+  <main>
+
+    <section class="section" id="header">
+      <div class="doc-eyebrow">Research &middot; generated <time datetime="{{GENERATED_AT}}">{{DISPLAY_DATE}}</time></div>
+      <h1>{{TITLE}}</h1>
+      <p class="lede">{{LEDE}}</p>
+
+      <div class="verdict-row">
+        <div class="verdict {{VERDICT_CLASS}}">
+          <span class="verdict-dot pulse"></span>
+          <div>
+            <div class="verdict-label">Verdict</div>
+            <div class="verdict-value">{{VERDICT_TEXT}}</div>
+          </div>
+        </div>
+        <div class="verdict" style="flex: 0 0 auto;">
+          <div>
+            <div class="verdict-label">Coverage</div>
+            <div class="verdict-value">{{COVERAGE_TEXT}}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div><dt>Repository</dt><dd>{{REPO}}</dd></div>
+        <div><dt>Subject</dt><dd>{{SUBJECT}}</dd></div>
+        <div><dt>Areas</dt><dd>{{AREA_COUNT}}</dd></div>
+        <div><dt>Findings</dt><dd>{{FINDING_COUNT}}</dd></div>
+        <div><dt>Recommendations</dt><dd>{{REC_COUNT}}</dd></div>
+        <div><dt>Generated</dt><dd>{{GENERATED_AT}}</dd></div>
+      </div>
+    </section>
+
+    <section class="section" id="summary">
+      <div class="section-head"><span class="num">01</span><h2>Summary</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>metrics-row</b> &mdash; the funnel from raw per-area findings to the deduplicated packet, plus what the merge surfaced: conflicts, gaps, and open questions.</div>
+      </div>
+      {{METRICS}}
+      <h3>Areas researched</h3>
+      <div class="tags">{{AREAS}}</div>
+      {{SUMMARY}}
+    </section>
+
+    <section class="section" id="recommendations">
+      <div class="section-head"><span class="num">02</span><h2>Recommendations</h2><span class="count">{{REC_COUNT}}</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>recommendations</b> &mdash; the primary agent&rsquo;s synthesis over the evidence below. Subagent output is evidence, never the verdict; each recommendation cites the findings it rests on.</div>
+      </div>
+      {{RECOMMENDATIONS}}
+    </section>
+
+    <section class="section" id="findings">
+      <div class="section-head"><span class="num">03</span><h2>Findings</h2><span class="count">{{FINDING_COUNT}}</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>findings-list</b> &mdash; data: areas[]{area, findings[]{source, finding, evidence, topic, position}}. Deduplicated by (area, source, finding); declared-area order preserved.</div>
+      </div>
+      <div class="filters" data-filter-group="area">
+        <span class="filter-label">Area</span>{{AREA_FILTERS}}
+      </div>
+      <div class="rows" id="finding-rows">{{FINDINGS}}</div>
+      <div class="empty" id="no-matches" hidden>No findings match the active filters.</div>
+    </section>
+
+    <section class="section" id="conflicts">
+      <div class="section-head"><span class="num">04</span><h2>Conflicts</h2><span class="count">{{CONFLICT_COUNT}}</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>conflicts</b> &mdash; a shared topic carrying more than one position across areas. Both positions are kept; nothing is dropped to make the packet look tidy.</div>
+      </div>
+      {{CONFLICTS}}
+    </section>
+
+    <section class="section" id="coverage">
+      <div class="section-head"><span class="num">05</span><h2>Coverage &amp; Gaps</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>coverage</b> &mdash; declared areas with no report make the packet incomplete. Gaps are what an area could not resolve; open questions are what it raised.</div>
+      </div>
+      {{COVERAGE}}
+      <h3>Gaps</h3>
+      {{GAPS}}
+      <h3>Open questions</h3>
+      {{OPEN_QUESTIONS}}
+    </section>
+
+    <section class="section" id="method">
+      <div class="section-head"><span class="num">06</span><h2>Method</h2></div>
+      <div class="steps">
+        <article class="step-card"><div class="n">Step 1</div><h3>Area split</h3>
+          <p>The goal is decomposed into genuinely distinct areas &mdash; by subsystem, source type, or question. The fan-out count equals the number of real areas, never a fixed N.</p></article>
+        <article class="step-card"><div class="n">Step 2</div><h3>Blind fan-out</h3>
+          <p>One read-only research agent per area, in parallel. Each is confined to its area and returns a strict findings envelope with evidence.</p></article>
+        <article class="step-card"><div class="n">Step 3</div><h3>Deterministic merge</h3>
+          <p>Deduplicated by (area, source, finding). Conflicts are surfaced when a topic carries more than one position; coverage, gaps, and open questions are rolled up.</p></article>
+        <article class="step-card"><div class="n">Step 4</div><h3>Synthesis</h3>
+          <p>The primary agent owns the conclusion and recommendations. Evidence from the areas is cited, never inherited as a verdict.</p></article>
+      </div>
+      <div class="callout note"><span class="mark">&#9679;</span>
+        <p>Research output is evidence, not authority. The primary agent running the research owns the consolidated conclusion.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    document.getElementById("theme-toggle").innerHTML = next === "light" ? "&#9789;" : "&#9788;";
+  });
+
+  document.getElementById("hints-toggle").addEventListener("click", () => {
+    root.dataset.hints = root.dataset.hints === "off" ? "on" : "off";
+  });
+
+  const groups = [...document.querySelectorAll("[data-filter-group]")].map((node) => ({
+    key: node.dataset.filterGroup,
+    buttons: [...node.querySelectorAll(".filter")],
+  }));
+  const rows = [...document.querySelectorAll("#finding-rows .row")];
+  const empty = document.getElementById("no-matches");
+
+  function apply() {
+    let shown = 0;
+    for (const row of rows) {
+      const visible = groups.every((group) => {
+        const active = group.buttons.filter((b) => b.getAttribute("aria-pressed") === "true");
+        return active.some((b) => b.dataset.value === row.dataset[group.key]);
+      });
+      row.hidden = !visible;
+      if (visible) { shown += 1; }
+    }
+    empty.hidden = shown !== 0 || rows.length === 0;
+  }
+
+  for (const group of groups) {
+    for (const button of group.buttons) {
+      button.addEventListener("click", () => {
+        const on = button.getAttribute("aria-pressed") === "true";
+        button.setAttribute("aria-pressed", on ? "false" : "true");
+        apply();
+      });
+    }
+  }
+
+  let reopened = [];
+  window.addEventListener("beforeprint", () => {
+    reopened = [...document.querySelectorAll("details:not([open])")];
+    reopened.forEach((node) => { node.open = true; });
+  });
+  window.addEventListener("afterprint", () => {
+    reopened.forEach((node) => { node.open = false; });
+    reopened = [];
+  });
+})();
+</script>
+</body>
+</html>
