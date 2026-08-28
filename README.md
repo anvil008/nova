@@ -37,6 +37,7 @@ skill, so adding one needs no change to the install script.
 - **use-other-harness** — explicit headless run of a command or task in an alternative harness.
 - **builder-frontend** — the builder's focused UI skill: clean, accessible, responsive frontends.
 - **code-reviewer-frontend-review** — the method behind code-review's `frontend` lens, not a standalone review: static pass over changed components and styles, then Playwright across 4K, half-tiled 4K, QHD, 1080p, MacBook 16"/15"/13", small laptop, tablet, and phone.
+- **review-fix-loop** — review, fix, re-review on a dedicated `loop-branch`, bounded to ten passes. Driven by the harness `/loop`; the skill owns the stop conditions (`converged` / `stalled` / `exhausted`) in a state file, because `/loop` re-invokes with a fresh context each tick.
 - **jj** — Jujutsu VCS reference, vendored (MIT, © 2025 Josh Thomas). The builder's version control, including the workspace isolation the build waves rely on.
 
 ## Mechanical Gates & Hooks
