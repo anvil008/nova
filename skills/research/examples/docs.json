@@ -2,7 +2,7 @@
   "area": "docs",
   "coverage": {"scope": "Documented behavior and compatibility", "sourcesInspected": ["local documentation"]},
   "findings": [
-    {"source": "guide.md#retries", "finding": "Retries continue until success.", "evidence": "The guide describes retrying until success.", "topic": "retry-default", "position": "unbounded"},
+    {"source": "guide.md#retries", "finding": "Retries continue until success.", "evidence": "The guide describes retrying until success.", "topic": "retry-default", "position": "unbounded", "stance": "contradicts"},
     {"source": "guide.md#timeouts", "finding": "Each attempt has a five-second timeout.", "evidence": "The timeout section states five seconds.", "topic": "attempt-timeout", "position": "five-seconds"}
   ],
   "gaps": ["Version applicability is unresolved."],
