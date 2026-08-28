@@ -10,20 +10,49 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "merge_findings.py"
+RENDER = ROOT / "scripts" / "render_review.py"
+RECONCILE = ROOT / "scripts" / "reconcile_findings.py"
 EXAMPLES = ROOT / "examples"
 AGENT = ROOT.parents[1] / "agents" / "claude" / "code-reviewer.md"
 
 
-def run_helper(*args):
+def run_script(script, *args):
     environment = dict(os.environ)
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
     return subprocess.run(
-        [sys.executable, "-B", str(SCRIPT), *map(str, args)],
+        [sys.executable, "-B", str(script), *map(str, args)],
         cwd=ROOT,
         env=environment,
         text=True,
         capture_output=True,
     )
+
+
+def run_helper(*args):
+    return run_script(SCRIPT, *args)
+
+
+def run_render(*args):
+    return run_script(RENDER, *args)
+
+
+def run_reconcile(*args):
+    return run_script(RECONCILE, *args)
+
+
+def snapshot_from(actions):
+    """Simulate GitHub after the given create actions landed."""
+    return {"issues": [
+        {
+            "number": 100 + index,
+            "title": action["payload"]["title"],
+            "body": action["payload"]["body"],
+            "labels": [{"name": name} for name in action["payload"]["labels"]],
+            "milestone": None,
+            "state": "open",
+        }
+        for index, action in enumerate(actions)
+    ]}
 
 
 class CodeReviewSkillTests(unittest.TestCase):
@@ -83,6 +112,10 @@ class CodeReviewSkillTests(unittest.TestCase):
         self.assertEqual(expected["candidateCount"], 3)
         self.assertEqual(expected["droppedCount"], 1)
         self.assertEqual([finding["severity"] for finding in expected["findings"]], ["high", "low"])
+        self.assertEqual(len(expected["dropped"]), 1)
+        dropped = expected["dropped"][0]
+        self.assertEqual(dropped["claim"], "Cache key omits tenant identity")
+        self.assertIn("prefixes the tenant id", dropped["verification"]["evidence"])
 
     def test_dedupe_only_uses_tuple_key_and_strongest_representative(self):
         result = run_helper(
@@ -191,12 +224,288 @@ class CodeReviewSkillTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["verdict"], "approve")
 
+    def test_render_is_self_contained_and_carries_every_verified_finding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "review.html"
+            result = run_render(
+                EXAMPLES / "expected-review.json", output,
+                "--title", "Empty-token auth bypass",
+                "--repo", "acme/platform", "--subject", "PR #4821",
+                "--base", "a91f3c2", "--lenses", "correctness,tests,security",
+                "--generated-at", "2026-08-28T06:40:00Z",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = output.read_text(encoding="utf-8")
+
+        self.assertNotIn("https://", rendered)
+        self.assertNotIn("<link rel=", rendered)
+        for token in (
+            '[data-theme="light"]', "--sev-nit:", "@media print",
+            "prefers-reduced-motion", "@media (max-width: 900px)",
+        ):
+            self.assertIn(token, rendered)
+
+        expected = json.loads((EXAMPLES / "expected-review.json").read_text(encoding="utf-8"))
+        for finding in expected["findings"]:
+            self.assertIn(finding["claim"], rendered)
+            self.assertIn(finding["failureScenario"], rendered)
+            self.assertIn(finding["verification"]["evidence"], rendered)
+            self.assertIn(f'data-severity="{finding["severity"]}"', rendered)
+            self.assertIn(f'data-lens="{finding["lens"]}"', rendered)
+        for finding in expected["dropped"]:
+            self.assertIn(finding["claim"], rendered)
+            self.assertIn(finding["verification"]["evidence"], rendered)
+
+        headings = [
+            "Summary", "Findings", "Touched Files", "Refuted Candidates", "Method",
+        ]
+        positions = [rendered.index(f">{heading}</h2>") for heading in headings]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_render_is_deterministic_for_the_same_input(self):
+        arguments = ["--repo", "acme/platform", "--generated-at", "2026-08-28T06:40:00Z"]
+        outputs = []
+        for run in range(2):
+            with tempfile.TemporaryDirectory() as tmp:
+                output = Path(tmp) / "review.html"
+                result = run_render(EXAMPLES / "expected-review.json", output, *arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                outputs.append(output.read_text(encoding="utf-8"))
+        self.assertEqual(outputs[0], outputs[1])
+
+    def test_render_verdict_class_tracks_the_verdict(self):
+        review = json.loads((EXAMPLES / "expected-review.json").read_text(encoding="utf-8"))
+        cases = {"block": "verdict-block", "approve-with-nits": "verdict-nits", "approve": "verdict-approve"}
+        for verdict, css_class in cases.items():
+            payload = json.loads(json.dumps(review))
+            payload["verdict"] = verdict
+            if verdict == "approve":
+                payload["findings"] = []
+                payload["verifiedCount"] = 0
+            with self.subTest(verdict=verdict), tempfile.TemporaryDirectory() as tmp:
+                source = Path(tmp) / "review.json"
+                output = Path(tmp) / "review.html"
+                source.write_text(json.dumps(payload), encoding="utf-8")
+                result = run_render(source, output, "--generated-at", "2026-08-28T06:40:00Z")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                rendered = output.read_text(encoding="utf-8")
+            self.assertIn(css_class, rendered)
+
+    def test_render_rejects_input_that_did_not_come_from_the_pipeline(self):
+        review = json.loads((EXAMPLES / "expected-review.json").read_text(encoding="utf-8"))
+        cases = (
+            (lambda value: value.update({"unexpected": True}), "unknown field"),
+            (lambda value: value.pop("dropped"), "missing field"),
+            (lambda value: value.update({"verdict": "lgtm"}), "verdict must be one of"),
+            (lambda value: value.update({"verifiedCount": 9}), "verifiedcount does not match"),
+            (lambda value: value["findings"][0].update({"severity": "blocker"}), "severity must be one of"),
+            (lambda value: value["findings"][0].update({"lens": "style"}), "lens must be one of"),
+            (lambda value: value["findings"][0]["verification"].pop("evidence"), "missing field"),
+        )
+        for mutate, message in cases:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as tmp:
+                payload = json.loads(json.dumps(review))
+                mutate(payload)
+                source = Path(tmp) / "review.json"
+                output = Path(tmp) / "review.html"
+                source.write_text(json.dumps(payload), encoding="utf-8")
+                result = run_render(source, output, "--generated-at", "2026-08-28T06:40:00Z")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(message, result.stderr.lower())
+
+    def test_render_confidence_meter_and_label_never_disagree(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import render_review
+
+        for confidence in (0.0, 0.5, 0.71, 0.86, 0.97, 1.0):
+            bars, label = render_review.confidence_band(confidence)
+            self.assertEqual(render_review.meter_html(confidence).count('class="on"'), bars)
+            self.assertEqual(render_review.confidence_label(confidence), label)
+            self.assertGreaterEqual(bars, 1)
+            self.assertLessEqual(bars, 4)
+
+    def test_frontend_is_a_first_class_lens_end_to_end(self):
+        """A frontend envelope must survive dedupe, verification, and render with no
+        special-casing — that is the whole point of folding it into the pipeline."""
+        source = {
+            "lens": "frontend",
+            "findings": [{
+                "file": "src/components/Table.tsx", "line": 42, "severity": "high",
+                "lens": "frontend", "claim": "Table overflows the viewport below 1280px",
+                "failureScenario": "At 1280x800 the table forces 1418px of page scroll.",
+                "confidence": 0.93,
+            }],
+        }
+        verification = {"verifications": [{
+            "file": "src/components/Table.tsx", "line": 42,
+            "claim": "Table overflows the viewport below 1280px",
+            "substantiated": True,
+            "refutationAttempt": "Resized to every matrix row and measured scrollWidth against clientWidth.",
+            "evidence": "scrollWidth 1418 exceeds clientWidth 1280 at laptop-sm; the last column is unreachable.",
+        }]}
+        with tempfile.TemporaryDirectory() as tmp:
+            findings_path = Path(tmp) / "frontend.json"
+            verification_path = Path(tmp) / "verification.json"
+            review_path = Path(tmp) / "review.json"
+            output = Path(tmp) / "review.html"
+            findings_path.write_text(json.dumps(source), encoding="utf-8")
+            verification_path.write_text(json.dumps(verification), encoding="utf-8")
+            merged = run_helper("--verification", verification_path, findings_path)
+            self.assertEqual(merged.returncode, 0, merged.stderr)
+            review_path.write_text(merged.stdout, encoding="utf-8")
+            rendered = run_render(review_path, output, "--generated-at", "2026-08-28T06:40:00Z")
+            self.assertEqual(rendered.returncode, 0, rendered.stderr)
+            html = output.read_text(encoding="utf-8")
+
+        self.assertEqual(json.loads(merged.stdout)["verdict"], "block")
+        self.assertIn('data-lens="frontend"', html)
+        self.assertIn("Table overflows the viewport below 1280px", html)
+
+    def test_frontend_lens_publishes_its_viewport_matrix_and_envelope(self):
+        skill = (ROOT.parents[1] / "skills" / "code-reviewer-frontend-review" / "SKILL.md").read_text(encoding="utf-8")
+        for viewport in (
+            "3840 × 2160", "1920 × 2160", "2560 × 1440", "1920 × 1080",
+            "1728 × 1117", "1512 × 982", "1440 × 900", "1280 × 800",
+            "768 × 1024", "390 × 844",
+        ):
+            self.assertIn(viewport, skill, f"viewport matrix is missing {viewport}")
+        for phrase in (
+            "browser_resize", "browser_take_screenshot", "scrollWidth",
+            '"lens": "frontend"', "never point at production", "no code changes",
+        ):
+            self.assertIn(phrase, skill)
+
+        review = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        for phrase in (
+            "frontend applies when the change touches user-facing UI",
+            "code-reviewer-frontend-review", "Playwright",
+            "is not a frontend change",
+        ):
+            self.assertIn(phrase, review)
+
+    def test_reconcile_files_issues_above_the_threshold_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = Path(tmp) / "empty.json"
+            empty.write_text(json.dumps({"issues": []}), encoding="utf-8")
+            result = run_reconcile(
+                EXAMPLES / "expected-review.json", "--repo", "acme/platform",
+                "--review-id", "pr-4821", "--subject", "PR #4821", "--snapshot", empty,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = json.loads(result.stdout)
+
+            low = run_reconcile(
+                EXAMPLES / "expected-review.json", "--repo", "acme/platform",
+                "--review-id", "pr-4821", "--min-severity", "low", "--snapshot", empty,
+            )
+            self.assertEqual(low.returncode, 0, low.stderr)
+
+        # expected-review.json holds one high and one low finding.
+        self.assertEqual(output["mode"], "preview")
+        self.assertEqual([a["action"] for a in output["actions"]], ["create_issue"])
+        payload = output["actions"][0]["payload"]
+        self.assertEqual(payload["title"], "[high] Empty tokens bypass authentication")
+        self.assertEqual(payload["labels"], ["code-review", "lens:security", "severity:high"])
+        self.assertIn("Failure scenario", payload["body"])
+        self.assertIn("Independent verification", payload["body"])
+        self.assertIn("swarm-review reviewId=pr-4821 finding=", payload["body"])
+        self.assertEqual(len(json.loads(low.stdout)["actions"]), 2)
+
+    def test_reconcile_is_idempotent_and_closes_resolved_findings(self):
+        """Re-running an unchanged review must be a no-op, and a finding that stops
+        being reported must close its issue — otherwise the tracker only ever grows."""
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = Path(tmp) / "empty.json"
+            empty.write_text(json.dumps({"issues": []}), encoding="utf-8")
+            first = run_reconcile(
+                EXAMPLES / "expected-review.json", "--repo", "acme/platform",
+                "--review-id", "pr-4821", "--subject", "PR #4821", "--snapshot", empty,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr)
+
+            state = Path(tmp) / "state.json"
+            state.write_text(json.dumps(snapshot_from(json.loads(first.stdout)["actions"])), encoding="utf-8")
+
+            again = run_reconcile(
+                EXAMPLES / "expected-review.json", "--repo", "acme/platform",
+                "--review-id", "pr-4821", "--subject", "PR #4821", "--snapshot", state,
+            )
+            self.assertEqual(again.returncode, 0, again.stderr)
+            self.assertEqual(json.loads(again.stdout)["actions"], [], "re-run was not idempotent")
+
+            fixed = json.loads((EXAMPLES / "expected-review.json").read_text(encoding="utf-8"))
+            fixed["findings"] = []
+            fixed["verifiedCount"] = 0
+            fixed["verdict"] = "approve"
+            fixed_path = Path(tmp) / "fixed.json"
+            fixed_path.write_text(json.dumps(fixed), encoding="utf-8")
+            resolved = run_reconcile(
+                fixed_path, "--repo", "acme/platform",
+                "--review-id", "pr-4821", "--snapshot", state,
+            )
+            self.assertEqual(resolved.returncode, 0, resolved.stderr)
+
+        actions = json.loads(resolved.stdout)["actions"]
+        self.assertEqual([a["action"] for a in actions], ["close_resolved_issue"])
+        self.assertEqual(actions[0]["payload"], {"state": "closed"})
+
+    def test_finding_identity_survives_line_drift_but_not_a_different_claim(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import reconcile_findings
+
+        base = {"file": "src/auth.py", "line": 42, "claim": "Empty tokens bypass authentication"}
+        moved = dict(base, line=91)
+        other_claim = dict(base, claim="Tokens are logged in plaintext")
+        other_file = dict(base, file="src/session.py")
+
+        self.assertEqual(reconcile_findings.finding_key(base), reconcile_findings.finding_key(moved))
+        self.assertNotEqual(reconcile_findings.finding_key(base), reconcile_findings.finding_key(other_claim))
+        self.assertNotEqual(reconcile_findings.finding_key(base), reconcile_findings.finding_key(other_file))
+
+    def test_reconcile_apply_requires_an_approving_human(self):
+        cases = (
+            (["--apply"], "requires --approved-by"),
+            (["--approved-by", "someone"], "only valid with --apply"),
+            (["--apply", "--approved-by", "someone", "--snapshot", "x.json"], "cannot be combined"),
+        )
+        for extra, message in cases:
+            with self.subTest(extra=extra):
+                result = run_reconcile(
+                    EXAMPLES / "expected-review.json", "--repo", "acme/platform",
+                    "--review-id", "pr-4821", *extra,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr.lower())
+
+        for bad, message in ((["--review-id", "PR 4821"], "stable lowercase slug"),
+                             (["--review-id", "ok", "--repo", "not-a-repo"], "owner/name")):
+            with self.subTest(bad=bad), tempfile.TemporaryDirectory() as tmp:
+                empty = Path(tmp) / "empty.json"
+                empty.write_text(json.dumps({"issues": []}), encoding="utf-8")
+                args = ["--repo", "acme/platform"] if "--repo" not in bad else []
+                result = run_reconcile(
+                    EXAMPLES / "expected-review.json", *args, *bad, "--snapshot", empty,
+                )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(message, result.stderr.lower())
+
+    def test_skill_documents_the_issue_approval_gate(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        for phrase in (
+            "reconcile_findings.py", "--review-id", "--approved-by",
+            "Stop for explicit human approval", "swarm-review reviewId",
+            "close_resolved_issue", "deliberately not the line",
+            "Never run `--apply` merely to test the skill",
+        ):
+            self.assertIn(phrase, skill)
+
     def test_agent_and_skill_publish_required_role_and_orchestration_boundaries(self):
         agent = AGENT.read_text(encoding="utf-8")
         frontmatter = agent.split("---", 2)[1].strip().splitlines()
         self.assertEqual([line.split(":", 1)[0] for line in frontmatter], ["name", "description", "tools"])
         self.assertEqual(frontmatter[0], "name: code-reviewer")
-        self.assertEqual(frontmatter[2], "tools: Read, Grep, Glob, Bash, Skill")
+        tools = [t.strip() for t in frontmatter[2].split(":", 1)[1].split(",")]
+        self.assertEqual(tools[:5], ["Read", "Grep", "Glob", "Bash", "Skill"])
         for phrase in (
             "ONE review lens", "correctness | security | performance | tests | api-contract",
             "actively try to break or refute", "failureScenario", "confidence",

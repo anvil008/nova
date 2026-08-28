@@ -63,6 +63,16 @@ def sample_plan():
                 ],
             },
         ],
+        "risks": [
+            {
+                "id": "R-01",
+                "title": "Renderer and reconciler drift apart",
+                "likelihood": 2,
+                "impact": 3,
+                "owner": "planner",
+                "mitigation": "Both read the same validated sidecar.",
+            },
+        ],
     }
 
 
@@ -95,20 +105,17 @@ class PlannerSkillTests(unittest.TestCase):
             rendered = output.read_text(encoding="utf-8")
 
         for token in (
-            "--bg:#f7f6f3",
-            "--panel:#ffffff",
-            "--fg:#1a1a1a",
-            "--mut:#6b6b6b",
-            "--accent:#2b4c7e",
-            "--border:#e2e0da",
-            "--rule:#d8d5cd",
-            "--bg:#16171a",
-            "--panel:#1d1f24",
-            "--fg:#e8e8e6",
-            "--mut:#9a9a9a",
-            "--accent:#7aa2d6",
-            "--border:#2a2d33",
-            "--rule:#2a2d33",
+            '[data-theme="light"]',
+            "--sev-critical:",
+            "--sev-high:",
+            "--sev-medium:",
+            "--sev-low:",
+            "--sev-nit:",
+            "--wave-1:",
+            "--wave-stroke:",
+            "@media print",
+            "prefers-reduced-motion",
+            "@media (max-width: 900px)",
         ):
             self.assertIn(token, rendered)
         self.assertNotIn("https://cdn", rendered)
@@ -123,13 +130,14 @@ class PlannerSkillTests(unittest.TestCase):
         parser.feed(rendered)
         self.assertGreaterEqual(parser.mermaid_blocks, 3)
         headings = [
-            "Overview / Goal",
+            "Overview",
             "Architecture",
             "Task Breakdown",
-            "Risks &amp; Open Questions",
+            "Execution Waves",
+            "Risks",
             "Milestone &amp; Execution",
         ]
-        positions = [rendered.index(heading) for heading in headings]
+        positions = [rendered.index(f">{heading}</h2>") for heading in headings]
         self.assertEqual(positions, sorted(positions))
 
     def test_renderer_rejects_unknown_schema_fields(self):
@@ -303,6 +311,135 @@ class PlannerSkillTests(unittest.TestCase):
         self.assertIn("Definition of Done (tests)", body)
         self.assertIn("renders_offline", body)
         self.assertIn(oracle, body)
+
+    def test_risks_are_required_and_validated(self):
+        for mutate, message in (
+            (lambda plan: plan.pop("risks"), "missing field"),
+            (lambda plan: plan["risks"][0].update({"likelihood": 4}), "must be 1, 2, or 3"),
+            (lambda plan: plan["risks"][0].update({"impact": 0}), "must be 1, 2, or 3"),
+            (lambda plan: plan["risks"].append(dict(plan["risks"][0])), "duplicate risk id"),
+            (lambda plan: plan["risks"][0].update({"id": "bad id"}), "stable ascii slug"),
+        ):
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as tmp:
+                plan = sample_plan()
+                mutate(plan)
+                sidecar = Path(tmp) / "plan.sidecar.json"
+                output = Path(tmp) / "plan.html"
+                sidecar.write_text(json.dumps(plan), encoding="utf-8")
+                result = self.run_script(RENDER, sidecar, output)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(message, result.stderr.lower())
+
+    def test_empty_risks_render_an_explicit_empty_state(self):
+        plan = sample_plan()
+        plan["risks"] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "plan.html"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = output.read_text(encoding="utf-8")
+        self.assertIn("No risks recorded for this plan.", rendered)
+
+    def test_open_questions_are_not_a_sidecar_field_and_must_be_asked_first(self):
+        """A plan carrying unanswered questions is not ready for approval, so the
+        schema gives them nowhere to live and the skill says to ask instead."""
+        plan = sample_plan()
+        plan["openQuestions"] = [{"id": "Q-01", "text": "Who signs?", "blocking": True}]
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "plan.html"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unknown field", result.stderr.lower())
+        self.assertIn("openquestions", result.stderr.lower())
+
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Resolve open questions with the human before writing the plan", skill)
+        self.assertNotIn("openQuestions", skill)
+
+    def test_risks_are_plotted_on_the_matrix_at_their_likelihood_impact_cell(self):
+        plan = sample_plan()
+        plan["risks"] = [
+            {"id": "R-hi", "title": "Top band", "likelihood": 3, "impact": 3,
+             "owner": "planner", "mitigation": "Mitigate."},
+            {"id": "R-lo", "title": "Bottom band", "likelihood": 1, "impact": 1,
+             "owner": "planner", "mitigation": "Mitigate."},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "plan.html"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = output.read_text(encoding="utf-8")
+        self.assertIn('<div class="cell s9"><span class="pin">R-hi</span></div>', rendered)
+        self.assertIn('<div class="cell s1"><span class="pin">R-lo</span></div>', rendered)
+
+    def test_folio_lands_in_docs_plans_with_the_numbered_name(self):
+        plan = sample_plan()
+        plan["planName"] = "Ship the Offline Plan Folio!"
+        plan["generatedAt"] = "2026-08-26T12:00:00Z"
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            plans = Path(tmp) / "docs" / "plans"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, "--plans-dir", plans)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            written = sorted(plans.glob("*.html"))
+            self.assertEqual([p.name for p in written], ["plan01-20260826-ship-the-offline-plan-folio.html"])
+
+    def test_rerendering_a_plan_reuses_its_number_and_a_new_plan_takes_the_next(self):
+        """Numbers are allocated per planId, not per render: revising a plan must
+        overwrite its own folio, never scatter plan02/plan03 copies of the same plan."""
+        first = sample_plan()
+        with tempfile.TemporaryDirectory() as tmp:
+            plans = Path(tmp) / "docs" / "plans"
+            sidecar = Path(tmp) / "plan.sidecar.json"
+
+            sidecar.write_text(json.dumps(first), encoding="utf-8")
+            self.assertEqual(self.run_script(RENDER, sidecar, "--plans-dir", plans).returncode, 0)
+
+            first["summary"] = "A revised summary for the very same plan."
+            sidecar.write_text(json.dumps(first), encoding="utf-8")
+            self.assertEqual(self.run_script(RENDER, sidecar, "--plans-dir", plans).returncode, 0)
+            self.assertEqual(len(list(plans.glob("*.html"))), 1, "re-render claimed a new number")
+            self.assertIn("A revised summary", next(plans.glob("*.html")).read_text(encoding="utf-8"))
+
+            second = sample_plan()
+            second["planId"] = "a-second-plan"
+            second["planName"] = "A Second Plan"
+            second["generatedAt"] = "2026-09-02T09:00:00Z"
+            other = Path(tmp) / "second.sidecar.json"
+            other.write_text(json.dumps(second), encoding="utf-8")
+            self.assertEqual(self.run_script(RENDER, other, "--plans-dir", plans).returncode, 0)
+
+            names = sorted(p.name for p in plans.glob("*.html"))
+        self.assertEqual(names, [
+            "plan01-20260826-planner-v3.html",
+            "plan02-20260902-a-second-plan.html",
+        ])
+
+    def test_explicit_output_path_still_overrides_the_convention(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "scratch" / "somewhere-else.html"
+            sidecar.write_text(json.dumps(sample_plan()), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(output.exists())
+            self.assertFalse((Path(tmp) / "docs").exists())
+
+    def test_shared_report_css_is_byte_identical_across_skills(self):
+        repo_root = ROOT.parents[1]
+        planner = (repo_root / "skills" / "planner" / "templates" / "report.css").read_bytes()
+        review = (repo_root / "skills" / "code-review" / "templates" / "report.css").read_bytes()
+        self.assertEqual(
+            planner, review,
+            "report.css must stay byte-identical in skills/planner and skills/code-review",
+        )
 
     def test_skill_requires_approval_and_documents_milestones_only(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")

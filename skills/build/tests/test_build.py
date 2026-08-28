@@ -109,10 +109,52 @@ class BuildSkillTests(unittest.TestCase):
 
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for phrase in (
-            "GitHub is the source of truth", "current wave", "isolated worktrees",
+            "GitHub is the source of truth", "current wave", "jj workspace",
             "combined GREEN", "sole synthesis", "never force-push main",
         ):
             self.assertIn(phrase, skill)
+
+    def test_every_harness_builder_publishes_the_jj_workspace_lifecycle(self):
+        """jj setup, workspace isolation, bounded review, PR, teardown — in that order,
+        identically across harnesses. A builder that skips teardown leaks a working copy;
+        one that tears down before the PR exists strands the branch."""
+        builders = [
+            ROOT.parents[1] / "agents" / "claude" / "builder.md",
+            ROOT.parents[1] / "agents" / "codex" / "builder.md",
+            ROOT.parents[1] / "agents" / "agy" / "builder" / "agent.md",
+        ]
+        ordered = [
+            "jj git init --colocate",
+            "jj workspace add",
+            "tdd-guard verify",
+            "at most two passes",
+            "jj git push",
+            "jj workspace forget",
+        ]
+        for path in builders:
+            with self.subTest(builder=path.name):
+                self.assertTrue(path.exists(), path)
+                agent = path.read_text(encoding="utf-8")
+                positions = []
+                for phrase in ordered:
+                    self.assertIn(phrase, agent, f"{path}: missing {phrase!r}")
+                    positions.append(agent.index(phrase))
+                self.assertEqual(positions, sorted(positions), f"{path}: lifecycle out of order")
+                # Teardown must be gated on the PR existing.
+                self.assertIn("only after the PR exists", agent)
+                self.assertIn("never `jj abandon` the bookmark", agent)
+                # The single spawn exception, and its limit.
+                self.assertIn("read-only `code-reviewer` agents", agent)
+                self.assertIn("never spawn a builder", agent)
+
+    def test_claude_builder_can_actually_reach_the_code_reviewer(self):
+        """The review passes are unreachable unless the harness grants a spawn tool."""
+        agent = (ROOT.parents[1] / "agents" / "claude" / "builder.md").read_text(encoding="utf-8")
+        tools = next(
+            line.split(":", 1)[1] for line in agent.split("---", 2)[1].splitlines()
+            if line.startswith("tools:")
+        )
+        self.assertIn("Task", [tool.strip() for tool in tools.split(",")])
 
 
     def test_wave_ownership_overlap_detection(self):

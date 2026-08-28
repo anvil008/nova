@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# build-hooks — the builder agent's TDD build gate. Thin wrapper over tdd-guard.
+exec "$HOME/.local/bin/tdd-guard" hook \
+  --harness "${1:?usage: build-hooks <claude|codex|agy> <event>}" \
+  --event   "${2:?usage: build-hooks <claude|codex|agy> <event>}"

@@ -31,5 +31,20 @@
       }
     }
   ],
+  "dropped": [
+    {
+      "file": "src/cache.py",
+      "line": 18,
+      "severity": "medium",
+      "lens": "correctness",
+      "claim": "Cache key omits tenant identity",
+      "failureScenario": "Tenant B requests the same object id as tenant A and receives tenant A's cached value.",
+      "confidence": 0.84,
+      "verification": {
+        "refutationAttempt": "Traced every caller and reconstructed the effective key for two tenants sharing an object id.",
+        "evidence": "The caller prefixes the tenant id before invoking this cache helper, so the alleged collision is unreachable."
+      }
+    }
+  ],
   "verdict": "block"
 }
