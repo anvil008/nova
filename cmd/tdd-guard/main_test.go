@@ -121,3 +121,24 @@ func TestMainReadsTheHookPayloadFromStandardInput(t *testing.T) {
 		t.Fatalf("exit %d stdout %q stderr %q", denied.code, denied.stdout, denied.stderr)
 	}
 }
+
+// false-then-true-no-longer-passes: the process boundary must refuse the
+// original hole end to end, not just the in-process verify.
+func TestMainRefusesFalseThenTrue(t *testing.T) {
+	repository := newRepository(t)
+	sealed := runMain(t, repository, "", "seal", "--tests", "**/*_test.go", "--red-command", "false")
+	if sealed.code != 0 {
+		t.Fatalf("seal exit %d stderr %q", sealed.code, sealed.stderr)
+	}
+	verified := runMain(t, repository, "", "verify", "--green-command", "true")
+	if verified.code == 0 {
+		t.Fatalf("verify --green-command true passed after seal --red-command false: stdout %q stderr %q", verified.stdout, verified.stderr)
+	}
+	if !strings.Contains(verified.stderr, "argv") {
+		t.Fatalf("stderr %q does not explain the argv binding", verified.stderr)
+	}
+	status := runMain(t, repository, "", "status")
+	if status.code != 0 || strings.Contains(status.stdout, `"green":`) {
+		t.Fatalf("status after refused verify: exit %d stdout %q", status.code, status.stdout)
+	}
+}
