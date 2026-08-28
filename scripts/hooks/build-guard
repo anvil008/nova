@@ -17,8 +17,8 @@ esac
 [[ -n ${cmd:-} ]] || exit 0
 re(){ printf '%s' "$cmd" | grep -Eq "$1"; }
 # the builder owns an issue branch and must never touch main
-re '\bgit\b.*\bpush\b.*\bmain\b'           && deny "builder must not push to main — push your issue branch instead"
-re '\bgit\b.*\b(commit|merge)\b.*\bmain\b' && deny "builder must not commit/merge into main"
+re '(^|[^[:alnum:]_])git[^[:alnum:]_]+(.*[^[:alnum:]_]+)?push[^[:alnum:]_]+(.*[^[:alnum:]_]+)?main([^[:alnum:]_]|$)'           && deny "builder must not push to main — push your issue branch instead"
+re '(^|[^[:alnum:]_])git[^[:alnum:]_]+(.*[^[:alnum:]_]+)?(commit|merge)[^[:alnum:]_]+(.*[^[:alnum:]_]+)?main([^[:alnum:]_]|$)' && deny "builder must not commit/merge into main"
 # /tmp is a small RAM-backed tmpfs here — never park build artifacts there
 re 'CARGO_TARGET_DIR=[[:space:]]*/tmp'     && deny "don't point CARGO_TARGET_DIR at /tmp (RAM tmpfs) — use ~/.cache/cargo-target"
 re '\-\-target-dir[= ][[:space:]]*/tmp/'   && deny "don't write cargo artifacts under /tmp (RAM tmpfs)"

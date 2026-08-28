@@ -7,7 +7,7 @@
 # file, and sealed tests never reach here — tdd-guard's PreToolUse gate blocks edits
 # to them before this fires.
 set -uo pipefail
-f=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // .tool_response.filePath // empty' 2>/dev/null)
+f=$(jq -r '.toolCall.args.TargetFile // .toolCall.args.AbsolutePath // .args.TargetFile // .tool_input.file_path // .tool_input.notebook_path // .tool_response.filePath // empty' 2>/dev/null)
 [[ -n ${f:-} && -f $f ]] || exit 0
 case "$f" in
   *.go)  if command -v goimports >/dev/null 2>&1; then goimports -w "$f"

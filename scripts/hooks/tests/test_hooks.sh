@@ -49,5 +49,45 @@ elif command -v ruff >/dev/null 2>&1; then
     && ok "lint reports unused import" || no "lint reports unused import"
 else printf 'skip build-lint (no ruff/shellcheck)\n'; fi
 
+# --- New tests for issue T2-hook-portability ---
+
+# 1. jq bootstrap check
+grep -q "need jq" "$DIR/../bootstrap-tools.sh" && ok "bootstrap-tools has jq check" || no "bootstrap-tools has jq check"
+
+# 2. BSD grep word-boundary behavior
+! grep -q '\\b' "$GUARD" && ok "build-guard uses portable word boundaries" || no "build-guard uses portable word boundaries"
+
+# 3. Antigravity tool-call payload handling in format/lint hooks
+verify_jq_extraction(){
+  local payload=$1 expected=$2
+  local filter='.toolCall.args.TargetFile // .toolCall.args.AbsolutePath // .args.TargetFile // .tool_input.file_path // .tool_input.notebook_path // .tool_response.filePath // empty'
+  local actual
+  actual=$(echo "$payload" | jq -r "$filter" 2>/dev/null)
+  [[ "$actual" == "$expected" ]]
+}
+p1='{"toolCall":{"args":{"TargetFile":"/path/to/t1"}}}'
+p2='{"toolCall":{"args":{"AbsolutePath":"/path/to/t2"}}}'
+p3='{"args":{"TargetFile":"/path/to/t3"}}'
+p4='{"tool_input":{"file_path":"/path/to/t4"}}'
+p5='{"tool_input":{"notebook_path":"/path/to/t5"}}'
+p6='{"tool_response":{"filePath":"/path/to/t6"}}'
+
+verify_jq_extraction "$p1" "/path/to/t1" && ok "extract TargetFile" || no "extract TargetFile"
+verify_jq_extraction "$p2" "/path/to/t2" && ok "extract AbsolutePath" || no "extract AbsolutePath"
+verify_jq_extraction "$p3" "/path/to/t3" && ok "extract args.TargetFile" || no "extract args.TargetFile"
+verify_jq_extraction "$p4" "/path/to/t4" && ok "extract tool_input.file_path" || no "extract tool_input.file_path"
+verify_jq_extraction "$p5" "/path/to/t5" && ok "extract tool_input.notebook_path" || no "extract tool_input.notebook_path"
+verify_jq_extraction "$p6" "/path/to/t6" && ok "extract tool_response.filePath" || no "extract tool_response.filePath"
+
+grep -Fq 'toolCall.args.TargetFile' "$FMT" && ok "build-format extracts Antigravity payloads" || no "build-format extracts Antigravity payloads"
+grep -Fq 'toolCall.args.TargetFile' "$LINT" && ok "build-lint extracts Antigravity payloads" || no "build-lint extracts Antigravity payloads"
+
+# 4. .git/info directory creation
+pb_tmp="$TMP/pb_test"
+mkdir -p "$pb_tmp/.git"
+bash "$DIR/../project-bootstrap.sh" --with-hooks "$pb_tmp" >/dev/null 2>&1
+[[ -f "$pb_tmp/.git/info/exclude" ]] && grep -q ".claude/settings.local.json" "$pb_tmp/.git/info/exclude" && ok "project-bootstrap creates .git/info/exclude" || no "project-bootstrap creates .git/info/exclude"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]
+
