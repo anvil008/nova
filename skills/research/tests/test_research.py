@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "merge_research.py"
 RENDER = ROOT / "scripts" / "render_research.py"
@@ -24,6 +23,7 @@ def run_helper(*reports):
         env=environment,
         text=True,
         capture_output=True,
+        check=False,
     )
 
 
@@ -205,7 +205,7 @@ class ResearchSkillTests(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, "-B", str(RENDER), str(packet_path), str(output),
                  "--synthesis", str(synthesis_path), "--title", "Sample", "--generated-at", "2026-01-01T00:00:00Z"],
-                cwd=ROOT, text=True, capture_output=True,
+                cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             html_text = output.read_text(encoding="utf-8")
@@ -221,7 +221,7 @@ class ResearchSkillTests(unittest.TestCase):
             synthesis_path.write_text(json.dumps(bad), encoding="utf-8")
             result = subprocess.run(
                 [sys.executable, "-B", str(RENDER), str(packet_path), str(output), "--synthesis", str(synthesis_path)],
-                cwd=ROOT, text=True, capture_output=True,
+                cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(result.returncode, 1)
             self.assertIn("unknown finding F9-99", result.stderr)
@@ -230,7 +230,7 @@ class ResearchSkillTests(unittest.TestCase):
             synthesis_path.write_text(json.dumps(clean), encoding="utf-8")
             result = subprocess.run(
                 [sys.executable, "-B", str(RENDER), str(packet_path), str(output), "--synthesis", str(synthesis_path)],
-                cwd=ROOT, text=True, capture_output=True,
+                cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(result.returncode, 1)
             self.assertIn("clean verdict cannot carry recommendations", result.stderr)

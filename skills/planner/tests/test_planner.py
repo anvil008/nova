@@ -1,20 +1,18 @@
+# Load reconcile_github
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from html.parser import HTMLParser
 from pathlib import Path
-import sys
 from unittest.mock import patch
 
-# Load reconcile_github
-import importlib.util
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = str(ROOT / "scripts")
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 import reconcile_github
-
 
 ROOT = Path(__file__).resolve().parents[1]
 RENDER = ROOT / "scripts" / "render_plan.py"
@@ -93,6 +91,7 @@ class PlannerSkillTests(unittest.TestCase):
             cwd=ROOT,
             text=True,
             capture_output=True,
+            check=False,
         )
 
     def test_render_is_self_contained_structured_and_has_three_diagrams(self):
@@ -603,10 +602,10 @@ class PlannerSkillTests(unittest.TestCase):
             matches = script_pattern.findall(content)
             for match in matches:
                 # Every match must start with "skills/" to be explicit repo-relative
-                self.assertTrue(match.startswith("skills/"), f"Script path {repr(match)} in {skill_file.relative_to(repo_root)} is not an explicit repo-relative path starting with 'skills/\'")
+                self.assertTrue(match.startswith("skills/"), f"Script path {match!r} in {skill_file.relative_to(repo_root)} is not an explicit repo-relative path starting with 'skills/\'")
                 # And the file must exist
                 full_path = repo_root / match
-                self.assertTrue(full_path.exists(), f"Script path {repr(match)} in {skill_file.relative_to(repo_root)} does not exist on disk")
+                self.assertTrue(full_path.exists(), f"Script path {match!r} in {skill_file.relative_to(repo_root)} does not exist on disk")
 
 
 if __name__ == "__main__":

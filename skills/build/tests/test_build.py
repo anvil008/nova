@@ -1,20 +1,19 @@
 import contextlib
+
+# Load waves
 import io
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-import sys
 
-# Load waves
-import importlib.util
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = str(ROOT / "scripts")
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 import waves
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "waves.py"
@@ -28,6 +27,7 @@ def run_helper(sidecar, snapshot):
         cwd=ROOT,
         text=True,
         capture_output=True,
+        check=False,
     )
 
 
@@ -83,7 +83,6 @@ class BuildSkillTests(unittest.TestCase):
         self.assertIn("dependency cycle", result.stderr.lower())
 
     def test_done_label_unblocks_dependency_and_order_is_sidecar_stable(self):
-        sidecar = json.loads((EXAMPLES / "plan.sidecar.json").read_text(encoding="utf-8"))
         snapshot = json.loads((EXAMPLES / "issue-state.json").read_text(encoding="utf-8"))
         snapshot["issues"][0]["state"] = "open"
         snapshot["issues"][0]["labels"] = ["status:done"]

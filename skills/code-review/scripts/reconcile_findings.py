@@ -13,7 +13,6 @@ from pathlib import Path
 
 from render_review import SEVERITIES, ReviewError, validate_review
 
-
 FINDING_MARKER = "<!-- swarm-review reviewId={review_id} finding={key} severity={severity} -->"
 FINDING_MARKER_RE = re.compile(
     r"<!--\s*swarm-review\s+"
@@ -40,7 +39,7 @@ def finding_key(finding: dict) -> str:
     finding *is*; the line is where it happened to sit at review time and lives
     in the body instead.
     """
-    digest = hashlib.sha256(f"{finding['file']}\0{finding['claim']}".encode("utf-8"))
+    digest = hashlib.sha256(f"{finding['file']}\0{finding['claim']}".encode())
     return digest.hexdigest()[:12]
 
 
@@ -53,6 +52,7 @@ def gh_json(args: list[str], *, payload: dict | None = None, timeout: float = 30
             text=True,
             capture_output=True,
             timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired as error:
         raise ReconcileError(
@@ -90,8 +90,8 @@ def reportable(review: dict, min_severity: str) -> list[dict]:
 def issue_body(finding: dict, key: str, review_id: str, subject: str) -> str:
     verification = finding["verification"]
     lines = [
-        f"**{finding['file']}:{finding['line']}** · `{finding['lens']}` lens · "
-        f"severity `{finding['severity']}` · confidence {finding['confidence']:.2f}",
+        (f"**{finding['file']}:{finding['line']}** · `{finding['lens']}` lens · "
+        f"severity `{finding['severity']}` · confidence {finding['confidence']:.2f}"),
         "",
         "## Failure scenario",
         "",
@@ -102,8 +102,8 @@ def issue_body(finding: dict, key: str, review_id: str, subject: str) -> str:
         f"- **Refutation attempt** — {verification['refutationAttempt']}",
         f"- **Evidence** — {verification['evidence']}",
         "",
-        f"Raised by the `{finding['lens']}` lens reviewing {subject} and substantiated by an "
-        "independent verifier that tried to refute it.",
+        (f"Raised by the `{finding['lens']}` lens reviewing {subject} and substantiated by an "
+        "independent verifier that tried to refute it."),
         "",
         FINDING_MARKER.format(review_id=review_id, key=key, severity=finding["severity"]),
     ]

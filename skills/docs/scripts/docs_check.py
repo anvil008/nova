@@ -19,15 +19,14 @@ import re
 import sys
 from pathlib import Path
 
-
 INSTRUCTION_FILES = ("CLAUDE.md", "AGENTS.md", "GEMINI.md")
 ADR_NAME = re.compile(r"^(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 ADR_SECTIONS = ("Status", "Context", "Decision", "Consequences")
 SKIP_DIRS = {".git", "node_modules", ".venv", "dist", "build", "v1", "v2"}
-FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
-FRONTMATTER_SKILLS = re.compile(r"^skills:[ \t]*(\[.*\])?[ \t]*(?:\n((?:[ \t]+-[^\n]*\n)*))?", re.M)
+FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
+FRONTMATTER_SKILLS = re.compile(r"^skills:[ \t]*(\[.*\])?[ \t]*(?:\n((?:[ \t]+-[^\n]*\n)*))?", re.MULTILINE)
 SKILLS_SECTION = re.compile(r"(?ms)^## Skills\s*\n(.*?)(?=^## |\Z)")
-SECTION_SKILL = re.compile(r"^[ \t]*-\s+(.*?)(?:\s+—|$)", re.M)  # a bullet's head: the names before the em dash
+SECTION_SKILL = re.compile(r"^[ \t]*-\s+(.*?)(?:\s+—|$)", re.MULTILINE)  # a bullet's head: the names before the em dash
 
 
 def _iter_instruction_files(root: Path):

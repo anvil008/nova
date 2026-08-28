@@ -8,7 +8,6 @@ import json
 import sys
 from pathlib import Path, PurePosixPath
 
-
 LENSES = {"correctness", "security", "performance", "tests", "api-contract", "frontend"}
 SEVERITIES = ("critical", "high", "medium", "low", "nit")
 SEVERITY_RANK = {severity: rank for rank, severity in enumerate(SEVERITIES)}
@@ -178,9 +177,9 @@ def merge(
     missing = candidate_keys - verifications.keys()
     extra = verifications.keys() - candidate_keys
     if missing:
-        raise ReviewError(f"missing adversarial verification for {sorted(missing)[0]}")
+        raise ReviewError(f"missing adversarial verification for {min(missing)}")
     if extra:
-        raise ReviewError(f"adversarial verification has no candidate: {sorted(extra)[0]}")
+        raise ReviewError(f"adversarial verification has no candidate: {min(extra)}")
     kept: list[dict] = []
     refuted: list[dict] = []
     for finding in candidates:
