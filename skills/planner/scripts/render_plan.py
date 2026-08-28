@@ -54,6 +54,9 @@ def validate_plan(plan: object) -> dict:
     plan_id = nonempty_string(plan["planId"], "planId")
     if not PLAN_ID.fullmatch(plan_id):
         raise PlanError("planId must be a stable lowercase slug")
+    # Identifiers are stored stripped so markers round-trip byte-for-byte and a
+    # re-run of an unchanged plan is a no-op even if the sidecar carries padding.
+    plan["planId"] = plan_id
     nonempty_string(plan["planName"], "planName")
     repo = nonempty_string(plan["repo"], "repo")
     if not REPOSITORY.fullmatch(repo):
@@ -103,6 +106,7 @@ def validate_plan(plan: object) -> dict:
         if key in keys:
             raise PlanError(f"duplicate issue key: {key}")
         keys.add(key)
+        issue["key"] = key
         nonempty_string(issue["title"], f"issues[{index}].title")
         nonempty_string(issue["body"], f"issues[{index}].body")
         nonempty_string(issue["ownershipHint"], f"issues[{index}].ownershipHint")
@@ -112,11 +116,15 @@ def validate_plan(plan: object) -> dict:
             raise PlanError(f"issues[{index}].labels contains duplicates")
         if not isinstance(issue["dependsOn"], list):
             raise PlanError(f"issues[{index}].dependsOn must be an array of issue keys")
+        dependencies = []
         for dependency in issue["dependsOn"]:
-            if not isinstance(dependency, str) or not ISSUE_KEY.fullmatch(dependency):
+            dependency = dependency.strip() if isinstance(dependency, str) else ""
+            if not ISSUE_KEY.fullmatch(dependency):
                 raise PlanError(
                     f"issues[{index}].dependsOn entries must be stable ASCII slugs"
                 )
+            dependencies.append(dependency)
+        issue["dependsOn"] = dependencies
         if not isinstance(issue["wave"], int) or isinstance(issue["wave"], bool) or issue["wave"] < 0:
             raise PlanError(f"issues[{index}].wave must be a non-negative integer")
         tests = issue["acceptanceTests"]
@@ -161,6 +169,7 @@ def validate_risks(risks: object) -> None:
         if identifier in seen:
             raise PlanError(f"duplicate risk id: {identifier}")
         seen.add(identifier)
+        risk["id"] = identifier
         nonempty_string(risk["title"], f"{where}.title")
         nonempty_string(risk["owner"], f"{where}.owner")
         nonempty_string(risk["mitigation"], f"{where}.mitigation")
@@ -211,8 +220,16 @@ def plan_path(plan: dict, plans_dir: Path) -> Path:
     return plans_dir / f"plan{number:02d}-{date}-{title_slug(plan['planName'])}.html"
 
 
+MERMAID_UNSAFE = {
+    '"': "'", "\n": " ", "[": "(", "]": ")",
+    # Comments, statement separators, and markup would otherwise let a title
+    # inject directives or HTML into the diagram source.
+    "#": "-", ";": ",", "`": "'", "<": "(", ">": ")",
+}
+
+
 def mermaid_label(value: str) -> str:
-    return value.replace('"', "'").replace("\n", " ").replace("[", "(").replace("]", ")")
+    return "".join(MERMAID_UNSAFE.get(char, char) for char in value)
 
 
 def node_id(key: str) -> str:
@@ -468,12 +485,24 @@ def render(plan: dict) -> str:
         "WAVES_DIAGRAM": diagram(waves_source(plan["issues"]), "Execution waves"),
         "MERMAID_JS": mermaid_js,
     }
-    for key, value in replacements.items():
-        template = template.replace("{{" + key + "}}", value)
-    leftovers = sorted(set(re.findall(r"\{\{[A-Z_]+\}\}", template)))
+    return substitute_tokens(template, replacements)
+
+
+def substitute_tokens(template: str, replacements: dict[str, str]) -> str:
+    """Single pass: a token-shaped string inside user text is never re-substituted."""
+    leftovers: list[str] = []
+
+    def substitute(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key not in replacements:
+            leftovers.append(match.group(0))
+            return match.group(0)
+        return replacements[key]
+
+    rendered = re.sub(r"\{\{([A-Z_]+)\}\}", substitute, template)
     if leftovers:
-        raise PlanError(f"unresolved template token(s): {', '.join(leftovers)}")
-    return template
+        raise PlanError(f"unresolved template token(s): {', '.join(sorted(set(leftovers)))}")
+    return rendered
 
 
 def main() -> int:
