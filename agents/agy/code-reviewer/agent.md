@@ -7,7 +7,7 @@ tools:
   - find_by_name
   - list_dir
   - run_command
-mainAgent: true
+mainAgent: false
 subagent: true
 model: flash
 commandExecutionPolicy: sandbox
