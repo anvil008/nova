@@ -1,67 +1,81 @@
 #!/usr/bin/env bash
-# Report, and optionally install, the external verifier tools the Coding Fleet
-# toolchain checks call. Run this yourself: the codingfleet installer never
-# installs software, and a missing verifier makes its check unverified rather
-# than passed.
+# Bootstrap a fresh environment for the Swarm Coder harness: install the external
+# tools the agents/skills and the tdd-guard gate depend on, then build tdd-guard
+# and the build-hooks wrapper.
 #
-#   scripts/bootstrap-tools.sh           # report what is present
-#   scripts/bootstrap-tools.sh --install # install what is missing
-set -euo pipefail
+#   scripts/bootstrap-tools.sh            # report what is present / missing
+#   scripts/bootstrap-tools.sh --install  # install what is missing (best effort)
+#
+# Installs are best effort: they use the first of brew / apt / cargo / npm / uv
+# that is present, else print a manual hint. Only an apt fallback needs sudo.
+set -uo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+install=0; [[ ${1:-} == "--install" ]] && install=1
+have(){ command -v "$1" >/dev/null 2>&1; }
+mkdir -p "$HOME/.local/bin"
 
-install=0
-[[ ${1:-} == "--install" ]] && install=1
+# pick <pm:pkg>... -> the install command for the first available package manager
+pick(){
+  local spec pm pkg
+  for spec in "$@"; do
+    pm=${spec%%:*}; pkg=${spec#*:}
+    case "$pm" in
+      brew)  have brew    && { echo "brew install $pkg"; return; };;
+      apt)   have apt-get && { echo "sudo apt-get install -y $pkg"; return; };;
+      cargo) have cargo   && { echo "cargo install --locked $pkg"; return; };;
+      npm)   have npm     && { echo "npm install -g $pkg"; return; };;
+      uv)    have uv      && { echo "uv tool install $pkg"; return; };;
+      pipx)  have pipx    && { echo "pipx install $pkg"; return; };;
+    esac
+  done
+}
 
-# tool|what it verifies|install command
-tools=(
-  "ast-grep|structural search and deterministic multi-site AST rewrite|cargo install ast-grep --locked"
-  "golangci-lint|aggregate Go linters|go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
-  "ruff|Python lint and format check|uv tool install ruff"
-  "pyright|Python type checking (ships pyright-langserver LSP)|npm install -g pyright"
-  "tsc|TypeScript type checking|npm install -g typescript"
-  "actionlint|GitHub Actions workflow checking|go install github.com/rhysd/actionlint/cmd/actionlint@latest"
-  "shellcheck|shell script checking|sudo apt-get install -y shellcheck"
-  # Language servers: symbol resolution (go-to-definition, find-references) is
-  # ground truth the model cannot hallucinate. See the harness note below for
-  # how each harness consumes these.
-  "gopls|Go language server|go install golang.org/x/tools/gopls@latest"
-  "rust-analyzer|Rust language server|rustup component add rust-analyzer"
-  "typescript-language-server|TypeScript/JS language server|npm install -g typescript-language-server"
-)
+report(){ if p=$(command -v "$1" 2>/dev/null); then printf 'present  %-26s %s\n' "$1" "$p"; return 0; else printf 'missing  %-26s\n' "$1"; return 1; fi; }
+need(){ # name | install-cmd | purpose | required(0/1)
+  local n=$1 cmd=$2 why=$3 req=${4:-0}
+  report "$n" && return 0
+  printf '         %s%s\n' "$why" "$( ((req)) && echo '  [required]' )"
+  if [[ -z $cmd ]]; then printf '         install it manually for your OS\n'
+  elif ((install)); then printf '         + %s\n' "$cmd"; eval "$cmd" || printf '         (failed — install manually)\n'
+  else printf '         install: %s\n' "$cmd"; fi
+}
 
-missing=0
-for entry in "${tools[@]}"; do
-  IFS='|' read -r tool purpose command <<<"$entry"
-  if location=$(command -v "$tool" 2>/dev/null); then
-    printf 'present  %-16s %s\n' "$tool" "$location"
-    continue
-  fi
-  missing=$((missing + 1))
-  printf 'missing  %-16s %s\n' "$tool" "$purpose"
-  if ((install)); then
-    printf '         installing: %s\n' "$command"
-    eval "$command"
-  else
-    printf '         install with: %s\n' "$command"
-  fi
-done
+echo "== core (required) =="
+need go      "$(pick brew:go apt:golang-go)"                             "Go toolchain — builds tdd-guard" 1
+need git     "$(pick brew:git apt:git)"                                  "version control" 1
+need python3 "$(pick brew:python3 apt:python3)"                          "skill helpers (render / waves / docs-check)" 1
+need ast-grep "$(pick npm:@ast-grep/cli cargo:ast-grep brew:ast-grep)"  "structural search + tdd-guard arch-check"
+need jj      "$(pick brew:jj cargo:jj-cli)"                              "Jujutsu VCS — the builder's jj skill"
+need gh      "$(pick brew:gh apt:gh)"                                    "GitHub CLI — planner/build create issues + milestones"
 
-if ((missing == 0)); then
-  echo "all verifier tools are present"
-elif ((install == 0)); then
-  echo "$missing verifier tool(s) missing; re-run with --install or install them yourself"
-  echo "until then, report those checks as unverified, never as passed"
+echo
+echo "== build the tdd-guard gate =="
+if ! ((install)); then
+  echo "  would build ~/.local/bin/tdd-guard + build-hooks (run with --install)"
+elif have go; then
+  ( cd "$ROOT" && go build -o "$HOME/.local/bin/tdd-guard" ./cmd/tdd-guard ) && echo "  built ~/.local/bin/tdd-guard"
+  cat > "$HOME/.local/bin/build-hooks" <<'SH'
+#!/usr/bin/env bash
+# build-hooks — the builder agent's TDD build gate. Thin wrapper over tdd-guard.
+exec "$HOME/.local/bin/tdd-guard" hook \
+  --harness "${1:?usage: build-hooks <claude|codex|agy> <event>}" \
+  --event   "${2:?usage: build-hooks <claude|codex|agy> <event>}"
+SH
+  chmod +x "$HOME/.local/bin/build-hooks" && echo "  installed ~/.local/bin/build-hooks"
+else
+  echo "  skipped — install Go, then re-run"
 fi
 
-cat <<'NOTE'
+echo
+echo "== optional (language servers + linters; capability-aware, not required) =="
+need gopls "go install golang.org/x/tools/gopls@latest" "Go LSP"
+need rust-analyzer "rustup component add rust-analyzer" "Rust LSP"
+need pyright "$(pick npm:pyright)" "Python type-check + LSP"
+need typescript-language-server "$(pick npm:'typescript typescript-language-server')" "TS/JS LSP"
+need ruff "$(pick uv:ruff pipx:ruff)" "Python lint / format"
+need shellcheck "$(pick brew:shellcheck apt:shellcheck)" "shell script check"
 
-language-server enablement is per harness (installing the binaries above is
-necessary but not sufficient):
-  - Claude Code: LSP is plugin-driven and opt-in. Install the per-language
-    plugin so the agent (and its subagents) use it automatically:
-      claude plugin install gopls-lsp pyright-lsp rust-analyzer-lsp typescript-lsp
-  - Antigravity (agy): code intelligence is built into the runtime; nothing to
-    enable per run.
-  - Codex: no built-in LSP yet. It navigates by text search; rely on the
-    verifier type-checkers (pyright/tsc/go vet/clippy) for symbol-level ground
-    truth and on ast-grep for structural edits.
-NOTE
+echo
+echo "Next: install the agents + skills into your harness(es) — symlink"
+echo "agents/*/AGENT.md and skills/* (+ agents/*/skills/*) into ~/.claude, ~/.codex,"
+echo "and ~/.agents/skills. See README.md."
