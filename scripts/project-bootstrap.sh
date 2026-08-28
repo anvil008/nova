@@ -100,8 +100,11 @@ print(f"  wrote {p} (format + lint + guard; NOT the TDD seal ceremony)")
 PY
   # keep it out of any scored patch / commit
   ex=.git/info/exclude
-  if [[ -d .git ]] && ! grep -qxF '.claude/settings.local.json' "$ex" 2>/dev/null; then
-    echo '.claude/settings.local.json' >> "$ex"; echo "  local-ignored via .git/info/exclude (invisible to git diff)"
+  if [[ -d .git ]]; then
+    mkdir -p "$(dirname "$ex")"
+    if ! grep -qxF '.claude/settings.local.json' "$ex" 2>/dev/null; then
+      echo '.claude/settings.local.json' >> "$ex"; echo "  local-ignored via .git/info/exclude (invisible to git diff)"
+    fi
   fi
 fi
 echo "done."

@@ -44,6 +44,7 @@ echo "== core (required) =="
 need go      "$(pick brew:go apt:golang-go)"                             "Go toolchain — builds tdd-guard" 1
 need git     "$(pick brew:git apt:git)"                                  "version control" 1
 need python3 "$(pick brew:python3 apt:python3)"                          "skill helpers (render / waves / docs-check)" 1
+need jq      "$(pick brew:jq apt:jq)"                                    "JSON parser — hooks rely on it" 1
 need ast-grep "$(pick npm:@ast-grep/cli cargo:ast-grep brew:ast-grep)"  "structural search + tdd-guard arch-check"
 need jj      "$(pick brew:jj cargo:jj-cli)"                              "Jujutsu VCS — the builder's jj skill"
 need gh      "$(pick brew:gh apt:gh)"                                    "GitHub CLI — planner/build create issues + milestones"
