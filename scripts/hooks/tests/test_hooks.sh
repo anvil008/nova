@@ -1,93 +1,153 @@
 #!/usr/bin/env bash
-# Tests for the builder aux hooks (build-format / build-lint / build-guard).
-# Tool-dependent assertions skip gracefully when the formatter/linter is absent,
-# so this stays green in a minimal CI image; the tool-free guard checks always run.
+# Tests for the builder aux hooks (build-format / build-lint / build-guard / build-hooks).
+# Hermetic: everything that touches $HOME runs under a throwaway HOME whose .local/bin is
+# populated with symlinks, and the real ~/.local/bin is snapshotted before/after to prove it
+# was never written. Tool-dependent assertions skip gracefully when the formatter/linter is
+# absent, so this stays green in a minimal CI image; the guard corpus always runs.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIR="$(dirname "$HERE")"
-FMT="$DIR/build-format"; LINT="$DIR/build-lint"; GUARD="$DIR/build-guard"
+FMT="$DIR/build-format"; LINT="$DIR/build-lint"; GUARD="$DIR/build-guard"; HOOKS="$DIR/build-hooks"
+CORPUS="$HERE/guard-corpus.txt"
+REAL_HOME="$HOME"; REAL_BIN="$REAL_HOME/.local/bin"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 pass=0; fail=0
 ok(){ printf 'ok   %s\n' "$1"; pass=$((pass+1)); }
 no(){ printf 'FAIL %s\n' "$1"; fail=$((fail+1)); }
+check(){ if "$@"; then ok "$name"; else no "$name"; fi; }
+
+# --- snapshot the real ~/.local/bin so we can prove nothing below wrote to it ------------------
+snapshot_bin(){
+  [[ -d $REAL_BIN ]] || { echo absent; return; }
+  find "$REAL_BIN" -mindepth 1 -maxdepth 1 -print0 | sort -z \
+    | xargs -0 stat -c '%n %Y %F %N' 2>/dev/null \
+    || find "$REAL_BIN" -mindepth 1 -maxdepth 1 -exec stat -f '%N %m %HT %Y' {} +
+}
+before_bin="$(snapshot_bin)"
+
+# --- hermetic HOME + BIN: symlinks only, so a stray write lands here and not in the real one ---
+export HOME="$TMP/home"; BIN="$HOME/.local/bin"; mkdir -p "$BIN"
+for t in bash sh awk sed grep cat jq env printf tr sort find xargs stat mktemp python3 install; do
+  p=$(PATH="$PATH" command -v "$t" 2>/dev/null) && ln -sfn "$p" "$BIN/$t"
+done
+export PATH="$BIN:$PATH"
+
 j(){ jq -nc --arg f "$1" '{tool_input:{file_path:$f}}'; }        # Edit/Write payload
-jb(){ jq -nc --arg c "$1" '{tool_input:{command:$c}}'; }         # Bash payload
-denied(){ jq -e '.hookSpecificOutput.permissionDecision=="deny"' >/dev/null 2>&1; }
+jb(){ jq -nc --arg c "$1" '{tool_input:{command:$c}}'; }         # Claude Bash payload
+ja(){ jq -nc --arg c "$1" '{toolCall:{name:"run_command",args:{CommandLine:$c}}}'; }  # agy payload
+denied_claude(){ jq -e '.hookSpecificOutput.permissionDecision=="deny" and (.hookSpecificOutput.permissionDecisionReason|length>0)' >/dev/null 2>&1; }
+denied_agy(){ jq -e '.decision=="deny" and (.reason|length>0)' >/dev/null 2>&1; }
 
-# --- build-guard: deny policy violations, allow benign commands (no external tools) ---
-jb 'git push origin main'              | "$GUARD" | denied && ok "guard denies git push main"        || no "guard denies git push main"
-jb 'git commit -m x main'              | "$GUARD" | denied && ok "guard denies commit into main"      || no "guard denies commit into main"
-jb 'CARGO_TARGET_DIR=/tmp/x cargo b'   | "$GUARD" | denied && ok "guard denies cargo target in /tmp"  || no "guard denies cargo target in /tmp"
-out=$(jb 'git status'                  | "$GUARD"); [[ -z ${out//[[:space:]]/} ]] && ok "guard allows git status"          || no "guard allows git status"
-out=$(jb 'git push origin feat-branch' | "$GUARD"); [[ -z ${out//[[:space:]]/} ]] && ok "guard allows push feature branch" || no "guard allows push feature branch"
+# --- build-guard corpus: every probe, both payload shapes ----------------------------------------
+# verdict <harness> <command> -> prints allow|deny|error
+verdict(){
+  local harness=$1 cmd=$2 out rc
+  case $harness in
+    agy) out=$(ja "$cmd" | "$GUARD" agy 2>"$TMP/err"); rc=$? ;;
+    *)   out=$(jb "$cmd" | "$GUARD" 2>"$TMP/err"); rc=$? ;;
+  esac
+  [[ $rc -eq 0 ]] || { echo "error(rc=$rc)"; return; }
+  if [[ -z ${out//[[:space:]]/} ]]; then echo allow; return; fi
+  case $harness in
+    agy) printf '%s' "$out" | denied_agy && { echo deny; return; } ;;
+    *)   printf '%s' "$out" | denied_claude && { echo deny; return; } ;;
+  esac
+  echo "malformed($out)"
+}
+probes=0
+while IFS= read -r line || [[ -n $line ]]; do
+  [[ -z $line || $line == \#* ]] && continue
+  expected=${line%%|*}; cmd=${line#*|}
+  probes=$((probes+1))
+  for h in claude agy; do
+    got=$(verdict "$h" "$cmd")
+    if [[ $got == "$expected" ]]; then ok "guard($h) $expected: $cmd"
+    else no "guard($h) expected $expected got $got: $cmd"; fi
+  done
+done < "$CORPUS"
+name="corpus has >= 40 probes (has $probes)"; check [ "$probes" -ge 40 ]
+name="corpus has deny probes";  check grep -q '^deny|'  "$CORPUS"
+name="corpus has allow probes"; check grep -q '^allow|' "$CORPUS"
 
-# --- build-guard: Antigravity payload/output shape (.toolCall.args.CommandLine -> {decision:deny}) ---
-ja(){ jq -nc --arg c "$1" '{toolCall:{name:"run_command",args:{CommandLine:$c}}}'; }
-ja 'git push origin main' | "$GUARD" agy | jq -e '.decision=="deny"' >/dev/null 2>&1 && ok "guard(agy) denies push main"     || no "guard(agy) denies push main"
-out=$(ja 'cargo test'     | "$GUARD" agy); [[ -z ${out//[[:space:]]/} ]]                 && ok "guard(agy) allows cargo test" || no "guard(agy) allows cargo test"
+# --- build-guard fails closed: exit 2 + reason on stderr ----------------------------------------
+nojq="$TMP/nojq"; mkdir -p "$nojq"
+for t in bash sh awk sed grep cat env printf tr; do
+  p=$(command -v "$t" 2>/dev/null) && ln -sfn "$p" "$nojq/$t"
+done
+out=$(jb 'git status' | PATH="$nojq" "$GUARD" 2>"$TMP/err"); rc=$?
+name="guard exits 2 without jq";              check [ "$rc" -eq 2 ]
+name="guard prints a reason without jq";      check grep -qi 'jq' "$TMP/err"
+out=$(printf 'not json' | "$GUARD" 2>"$TMP/err"); rc=$?
+name="guard exits 2 on unparseable payload";  check [ "$rc" -eq 2 ]
+name="guard reason on unparseable payload";   check [ -s "$TMP/err" ]
+out=$(printf 'not json' | "$GUARD" agy 2>"$TMP/err"); rc=$?
+name="guard(agy) exits 2 on unparseable payload"; check [ "$rc" -eq 2 ]
+out=$(printf '{"tool_input":{}}' | "$GUARD" 2>"$TMP/err"); rc=$?
+name="guard exits 2 when payload has no command"; check [ "$rc" -eq 2 ]
+name="guard reason when payload has no command"; check [ -s "$TMP/err" ]
+out=$(printf '{"toolCall":{"args":{}}}' | "$GUARD" agy 2>"$TMP/err"); rc=$?
+name="guard(agy) exits 2 when payload has no command"; check [ "$rc" -eq 2 ]
 
-# --- build-format: reformats in place; missing file is a silent no-op ---
-if command -v gofmt >/dev/null 2>&1; then
+# --- build-hooks fails closed when tdd-guard is absent -------------------------------------------
+out=$(HOME="$TMP/nohome" "$HOOKS" claude PreToolUse </dev/null 2>"$TMP/err"); rc=$?
+name="build-hooks exits 2 without tdd-guard";   check [ "$rc" -eq 2 ]
+name="build-hooks names tdd-guard in reason";   check grep -q 'tdd-guard' "$TMP/err"
+out=$("$HOOKS" 2>"$TMP/err"); rc=$?
+name="build-hooks exits 2 on missing args";     check [ "$rc" -eq 2 ]
+
+# --- build-format: reformats in place; missing file is a silent no-op ---------------------------
+if command -v gofmt >/dev/null 2>&1 && printf 'package x\n' | gofmt >/dev/null 2>&1; then
   gf="$TMP/x.go"; printf 'package x\nfunc F(){\nreturn\n}\n' > "$gf"     # under-indented
   j "$gf" | "$FMT" >/dev/null
-  grep -q $'\treturn' "$gf" && ok "format tabs-indents go" || no "format tabs-indents go"
+  name="format tabs-indents go"; check grep -q $'\treturn' "$gf"
 else printf 'skip build-format go (gofmt absent)\n'; fi
 if command -v ruff >/dev/null 2>&1; then
   pf="$TMP/x.py"; printf 'x=1\n' > "$pf"; j "$pf" | "$FMT" >/dev/null
-  grep -q 'x = 1' "$pf" && ok "format spaces python" || no "format spaces python"
+  name="format spaces python"; check grep -q 'x = 1' "$pf"
 else printf 'skip build-format python (ruff absent)\n'; fi
-j "$TMP/nope.py" | "$FMT" >/dev/null && ok "format no-ops on missing file" || no "format no-ops on missing file"
+name="format no-ops on missing file"; check sh -c 'echo "$1" | "$2" >/dev/null' _ "$(j "$TMP/nope.py")" "$FMT"
 
-# --- build-lint: emits additionalContext on a violation, silent when clean ---
+# --- build-lint: emits additionalContext on a violation --------------------------------------------
 if command -v shellcheck >/dev/null 2>&1; then
   sl="$TMP/x.sh"; printf '#!/bin/sh\nrm $f\n' > "$sl"                    # SC2086 unquoted
-  out=$(j "$sl" | "$LINT"); echo "$out" | jq -e '.hookSpecificOutput.additionalContext' >/dev/null 2>&1 \
-    && ok "lint reports shell issue" || no "lint reports shell issue"
+  out=$(j "$sl" | "$LINT")
+  name="lint reports shell issue"; check sh -c 'printf "%s" "$1" | jq -e ".hookSpecificOutput.additionalContext" >/dev/null 2>&1' _ "$out"
 elif command -v ruff >/dev/null 2>&1; then
   pl="$TMP/y.py"; printf 'import os\n' > "$pl"
-  out=$(j "$pl" | "$LINT"); echo "$out" | jq -e '.hookSpecificOutput.additionalContext' >/dev/null 2>&1 \
-    && ok "lint reports unused import" || no "lint reports unused import"
+  out=$(j "$pl" | "$LINT")
+  name="lint reports unused import"; check sh -c 'printf "%s" "$1" | jq -e ".hookSpecificOutput.additionalContext" >/dev/null 2>&1' _ "$out"
 else printf 'skip build-lint (no ruff/shellcheck)\n'; fi
 
-# --- New tests for issue T2-hook-portability ---
+# --- portability: POSIX ERE only ------------------------------------------------------------------
+name="bootstrap-tools has jq check";           check grep -q "need jq" "$DIR/../bootstrap-tools.sh"
+name="build-guard has no \\b word boundaries"; check sh -c '! grep -q "\\\\b" "$1"' _ "$GUARD"
+name="build-guard has no grep -P";             check sh -c '! grep -Eq "grep[[:space:]]+(-[[:alnum:]]*P|--perl-regexp)" "$1"' _ "$GUARD"
 
-# 1. jq bootstrap check
-grep -q "need jq" "$DIR/../bootstrap-tools.sh" && ok "bootstrap-tools has jq check" || no "bootstrap-tools has jq check"
+# --- Antigravity tool-call payload handling in format/lint hooks ---------------------------------
+filter='.toolCall.args.TargetFile // .toolCall.args.AbsolutePath // .args.TargetFile // .tool_input.file_path // .tool_input.notebook_path // .tool_response.filePath // empty'
+for pair in \
+  '{"toolCall":{"args":{"TargetFile":"/path/to/t1"}}}|/path/to/t1' \
+  '{"toolCall":{"args":{"AbsolutePath":"/path/to/t2"}}}|/path/to/t2' \
+  '{"args":{"TargetFile":"/path/to/t3"}}|/path/to/t3' \
+  '{"tool_input":{"file_path":"/path/to/t4"}}|/path/to/t4' \
+  '{"tool_input":{"notebook_path":"/path/to/t5"}}|/path/to/t5' \
+  '{"tool_response":{"filePath":"/path/to/t6"}}|/path/to/t6'; do
+  payload=${pair%%|*}; expected=${pair#*|}
+  name="extract $expected"; check [ "$(printf '%s' "$payload" | jq -r "$filter")" = "$expected" ]
+done
+name="build-format extracts Antigravity payloads"; check grep -Fq 'toolCall.args.TargetFile' "$FMT"
+name="build-lint extracts Antigravity payloads";   check grep -Fq 'toolCall.args.TargetFile' "$LINT"
 
-# 2. BSD grep word-boundary behavior
-! grep -q '\\b' "$GUARD" && ok "build-guard uses portable word boundaries" || no "build-guard uses portable word boundaries"
-
-# 3. Antigravity tool-call payload handling in format/lint hooks
-verify_jq_extraction(){
-  local payload=$1 expected=$2
-  local filter='.toolCall.args.TargetFile // .toolCall.args.AbsolutePath // .args.TargetFile // .tool_input.file_path // .tool_input.notebook_path // .tool_response.filePath // empty'
-  local actual
-  actual=$(echo "$payload" | jq -r "$filter" 2>/dev/null)
-  [[ "$actual" == "$expected" ]]
-}
-p1='{"toolCall":{"args":{"TargetFile":"/path/to/t1"}}}'
-p2='{"toolCall":{"args":{"AbsolutePath":"/path/to/t2"}}}'
-p3='{"args":{"TargetFile":"/path/to/t3"}}'
-p4='{"tool_input":{"file_path":"/path/to/t4"}}'
-p5='{"tool_input":{"notebook_path":"/path/to/t5"}}'
-p6='{"tool_response":{"filePath":"/path/to/t6"}}'
-
-verify_jq_extraction "$p1" "/path/to/t1" && ok "extract TargetFile" || no "extract TargetFile"
-verify_jq_extraction "$p2" "/path/to/t2" && ok "extract AbsolutePath" || no "extract AbsolutePath"
-verify_jq_extraction "$p3" "/path/to/t3" && ok "extract args.TargetFile" || no "extract args.TargetFile"
-verify_jq_extraction "$p4" "/path/to/t4" && ok "extract tool_input.file_path" || no "extract tool_input.file_path"
-verify_jq_extraction "$p5" "/path/to/t5" && ok "extract tool_input.notebook_path" || no "extract tool_input.notebook_path"
-verify_jq_extraction "$p6" "/path/to/t6" && ok "extract tool_response.filePath" || no "extract tool_response.filePath"
-
-grep -Fq 'toolCall.args.TargetFile' "$FMT" && ok "build-format extracts Antigravity payloads" || no "build-format extracts Antigravity payloads"
-grep -Fq 'toolCall.args.TargetFile' "$LINT" && ok "build-lint extracts Antigravity payloads" || no "build-lint extracts Antigravity payloads"
-
-# 4. .git/info directory creation
-pb_tmp="$TMP/pb_test"
-mkdir -p "$pb_tmp/.git"
+# --- project-bootstrap under the hermetic HOME: writes only to $TMP ------------------------------
+pb_tmp="$TMP/pb_test"; git -c init.defaultBranch=main init -q "$pb_tmp"
 bash "$DIR/../project-bootstrap.sh" --with-hooks "$pb_tmp" >/dev/null 2>&1
-[[ -f "$pb_tmp/.git/info/exclude" ]] && grep -q ".claude/settings.local.json" "$pb_tmp/.git/info/exclude" && ok "project-bootstrap creates .git/info/exclude" || no "project-bootstrap creates .git/info/exclude"
+name="project-bootstrap writes the repository-resolved info/exclude"
+check sh -c 'cd "$1" && ex=$(git rev-parse --git-path info/exclude) && grep -qxF ".claude/settings.local.json" "$ex"' _ "$pb_tmp"
+name="project-bootstrap installs into the hermetic BIN"; check [ -x "$BIN/build-guard" ]
+
+# --- hermeticity: the real ~/.local/bin is untouched --------------------------------------------
+after_bin="$(HOME="$REAL_HOME" snapshot_bin)"
+name="real ~/.local/bin mtimes and link targets unchanged"; check [ "$before_bin" = "$after_bin" ]
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]
-
