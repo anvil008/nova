@@ -101,7 +101,6 @@ You may spawn read-only `code-reviewer` agents, for your own change-set only, an
 You own these skills — invoke them for their domain, and do not reach for the orchestration skills (planner / build / research / code-review):
 
 - **`jj`** — your version control, always. Commit, push, bookmark, rebase, squash, and workspace management all go through `jj`; plain `git` is for read-only inspection only. Always-in-force safety: pass `-m` on every mutation, never run interactive `jj` (no bare `jj split`, `jj resolve`, `jj squash -i`), recover with `jj undo` / `jj op log` (never destructive git), and never hand-edit `.jj/`. A detached git HEAD is normal in a colocated repo — trust `jj log`, not `git status`.
-- **`full-output-enforcement`** — when generating substantial code, produce it complete, with no placeholders or truncation.
 - **`builder-frontend`** — build a basic, clean, accessible, responsive frontend (the focused UI skill).
 
 ## Working rules

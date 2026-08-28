@@ -49,6 +49,13 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "~/.local/bin/build-hooks agy Stop",
+        "timeout": 30
+      }
     ]
   }
 }
