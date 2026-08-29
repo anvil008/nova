@@ -262,6 +262,33 @@ class CodeReviewSkillTests(unittest.TestCase):
         positions = [rendered.index(f">{heading}</h2>") for heading in headings]
         self.assertEqual(positions, sorted(positions))
 
+        for visual in ('aria-labelledby="topology-title"', 'aria-labelledby="impact-title"'):
+            self.assertIn(visual, rendered)
+        self.assertIn("Review topology", rendered)
+        self.assertIn("Verified impact map", rendered)
+        self.assertIn("after deterministic dedupe", rendered)
+        self.assertIn("impact-mark bar-high", rendered)
+
+    def test_zero_finding_report_keeps_accessible_topology_and_impact_visuals(self):
+        review = {
+            "inputCount": 0, "candidateCount": 0, "verifiedCount": 0, "droppedCount": 0,
+            "findings": [], "dropped": [], "verdict": "approve",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "review.json"
+            output = Path(tmp) / "review.html"
+            source.write_text(json.dumps(review), encoding="utf-8")
+            result = run_render(
+                source, output, "--lenses", "correctness,tests",
+                "--generated-at", "2026-08-28T06:40:00Z",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = output.read_text(encoding="utf-8")
+        self.assertIn("2 selected lenses produced 0 observations", rendered)
+        self.assertIn("No verified impact", rendered)
+        self.assertIn("No files carry verified findings.", rendered)
+        self.assertIn("The verdict is approve.", rendered)
+
     def test_render_is_deterministic_for_the_same_input(self):
         arguments = ["--repo", "acme/platform", "--generated-at", "2026-08-28T06:40:00Z"]
         outputs = []

@@ -82,6 +82,7 @@
         <div><b>metrics-row</b> &mdash; the funnel from raw lens output to verified findings. A large drop between candidates and verified means the adversarial pass is doing its job.</div>
       </div>
       {{METRICS}}
+      {{TOPOLOGY}}
       <h3>Lenses applied</h3>
       <div class="tags">{{LENSES}}</div>
       <p class="muted" style="margin-top:16px;">Lens count is chosen from the change, never a fixed N. Every finding below survived an independent refutation attempt by a reviewer that did not originate it.</p>
@@ -100,6 +101,7 @@
       </div>
       <div class="rows" id="finding-rows">{{FINDINGS}}</div>
       <div class="empty" id="no-matches" hidden>No findings match the active filters.</div>
+      {{IMPACT_MAP}}
     </section>
 
     <section class="section" id="files">
