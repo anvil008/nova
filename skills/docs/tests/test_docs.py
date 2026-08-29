@@ -32,35 +32,52 @@ class DocsCheckTests(unittest.TestCase):
 
     def test_oversized_instruction_file_flagged(self):
         with tempfile.TemporaryDirectory() as t:
-            Path(t, "CLAUDE.md").write_text("\n".join(f"line {i}" for i in range(200)), encoding="utf-8")
+            Path(t, "CLAUDE.md").write_text(
+                "\n".join(f"line {i}" for i in range(200)), encoding="utf-8"
+            )
             r = run(t, "--max-instruction-lines", "120")
             self.assertNotEqual(r.returncode, 0)
             out = json.loads(r.stdout)
             self.assertFalse(out["ok"])
-            self.assertTrue(any("CLAUDE.md" in v and "budget" in v for v in out["violations"]))
+            self.assertTrue(
+                any("CLAUDE.md" in v and "budget" in v for v in out["violations"])
+            )
 
     def test_malformed_adr_missing_section(self):
         with tempfile.TemporaryDirectory() as t:
-            adr = Path(t, "docs", "adr"); adr.mkdir(parents=True)
-            (adr / "0001-thing.md").write_text("# 1. Thing\n## Status\nA\n## Context\nx\n## Decision\ny\n", encoding="utf-8")
+            adr = Path(t, "docs", "adr")
+            adr.mkdir(parents=True)
+            (adr / "0001-thing.md").write_text(
+                "# 1. Thing\n## Status\nA\n## Context\nx\n## Decision\ny\n",
+                encoding="utf-8",
+            )
             r = run(t)
             self.assertNotEqual(r.returncode, 0)
             out = json.loads(r.stdout)
-            self.assertTrue(any("0001-thing.md" in v and "Consequences" in v for v in out["violations"]))
+            self.assertTrue(
+                any(
+                    "0001-thing.md" in v and "Consequences" in v
+                    for v in out["violations"]
+                )
+            )
 
     def test_duplicate_adr_number(self):
         with tempfile.TemporaryDirectory() as t:
-            adr = Path(t, "docs", "adr"); adr.mkdir(parents=True)
+            adr = Path(t, "docs", "adr")
+            adr.mkdir(parents=True)
             (adr / "0001-a.md").write_text("# 1. A\n" + GOOD_ADR, encoding="utf-8")
             (adr / "0001-b.md").write_text("# 1. B\n" + GOOD_ADR, encoding="utf-8")
             r = run(t)
             self.assertNotEqual(r.returncode, 0)
             out = json.loads(r.stdout)
-            self.assertTrue(any("duplicate" in v.lower() and "1" in v for v in out["violations"]))
+            self.assertTrue(
+                any("duplicate" in v.lower() and "1" in v for v in out["violations"])
+            )
 
     def test_bad_adr_filename_flagged(self):
         with tempfile.TemporaryDirectory() as t:
-            adr = Path(t, "docs", "adr"); adr.mkdir(parents=True)
+            adr = Path(t, "docs", "adr")
+            adr.mkdir(parents=True)
             (adr / "my-decision.md").write_text(GOOD_ADR, encoding="utf-8")
             r = run(t)
             self.assertNotEqual(r.returncode, 0)
@@ -68,7 +85,9 @@ class DocsCheckTests(unittest.TestCase):
             self.assertTrue(any("my-decision.md" in v for v in out["violations"]))
 
     def test_docs_agent_and_skill_declare_the_standard(self):
-        agent = (ROOT.parents[1] / "agents" / "claude" / "docs.md").read_text(encoding="utf-8")
+        agent = (ROOT.parents[1] / "agents" / "claude" / "docs.md").read_text(
+            encoding="utf-8"
+        )
         self.assertTrue(agent.startswith("---\nname: docs\n"))
         for phrase in ("Update, don't duplicate", "lean", "ADR", "docs_check"):
             self.assertIn(phrase, agent)
@@ -79,11 +98,17 @@ class DocsCheckTests(unittest.TestCase):
     def test_no_dangling_skill_refs(self):
         with tempfile.TemporaryDirectory() as t:
             Path(t, "skills", "real").mkdir(parents=True)
-            agents = Path(t, "agents", "x"); agents.mkdir(parents=True)
+            agents = Path(t, "agents", "x")
+            agents.mkdir(parents=True)
             (agents / "a.md").write_text(
                 "---\nname: a\nskills:\n  - skills/real\n  - skills/ghost\n---\n# A\n\n## Skills\n\n"
-                "- **`real`** — ok.\n- **`missing-one`** / **`real`** — gone.\n- **`real`**, **`comma-ghost`** — see `docs_check`.\n", encoding="utf-8")
-            (agents / "b.md").write_text("---\nname: b\nskills: [skills/real, inline-ghost]\n---\n# B\n", encoding="utf-8")
+                "- **`real`** — ok.\n- **`missing-one`** / **`real`** — gone.\n- **`real`**, **`comma-ghost`** — see `docs_check`.\n",
+                encoding="utf-8",
+            )
+            (agents / "b.md").write_text(
+                "---\nname: b\nskills: [skills/real, inline-ghost]\n---\n# B\n",
+                encoding="utf-8",
+            )
             (agents / "c.md").write_text(
                 "---\nname: c\nskills:\n  - real # known skill\n---\n# C\n\n## Skills\n\n"
                 "  - **`indented-ghost`** — gone.\n\n## Skills\n\n- **`second-ghost`** — gone.\n",
@@ -93,29 +118,73 @@ class DocsCheckTests(unittest.TestCase):
             self.assertNotEqual(r.returncode, 0)
             out = json.loads(r.stdout)
             self.assertFalse(out["ok"])
-            self.assertTrue(any("agents/x/a.md" in v and "`missing-one`" in v for v in out["violations"]))
-            self.assertTrue(any("agents/x/a.md" in v and "`ghost`" in v for v in out["violations"]))
-            self.assertTrue(any("agents/x/a.md" in v and "`comma-ghost`" in v for v in out["violations"]))
-            self.assertTrue(any("agents/x/b.md" in v and "`inline-ghost`" in v for v in out["violations"]))
-            self.assertTrue(any("agents/x/c.md" in v and "`indented-ghost`" in v for v in out["violations"]))
-            self.assertTrue(any("agents/x/c.md" in v and "`second-ghost`" in v for v in out["violations"]))
+            self.assertTrue(
+                any(
+                    "agents/x/a.md" in v and "`missing-one`" in v
+                    for v in out["violations"]
+                )
+            )
+            self.assertTrue(
+                any("agents/x/a.md" in v and "`ghost`" in v for v in out["violations"])
+            )
+            self.assertTrue(
+                any(
+                    "agents/x/a.md" in v and "`comma-ghost`" in v
+                    for v in out["violations"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    "agents/x/b.md" in v and "`inline-ghost`" in v
+                    for v in out["violations"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    "agents/x/c.md" in v and "`indented-ghost`" in v
+                    for v in out["violations"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    "agents/x/c.md" in v and "`second-ghost`" in v
+                    for v in out["violations"]
+                )
+            )
             self.assertEqual(len(out["violations"]), 6)
         out = json.loads(run(ROOT.parents[1]).stdout)
         self.assertGreaterEqual(len(out["skillRefs"]), 9)
         self.assertEqual([s for s in out["skillRefs"] if not s["ok"]], [])
         agent_dir = ROOT.parents[1] / "agents"
-        for name in ("read-the-damn-docs", "find-docs", "grill-with-docs", "full-output-enforcement"):
+        for name in (
+            "read-the-damn-docs",
+            "find-docs",
+            "grill-with-docs",
+            "full-output-enforcement",
+        ):
             for path in agent_dir.rglob("*.md"):
-                self.assertNotIn(name, path.read_text(encoding="utf-8"), f"{path} still references {name}")
+                self.assertNotIn(
+                    name,
+                    path.read_text(encoding="utf-8"),
+                    f"{path} still references {name}",
+                )
 
     def test_agy_builder_has_stop_gate_or_manual_verify(self):
         agy = ROOT.parents[1] / "agents" / "agy" / "builder"
         cfg = json.loads((agy / "hooks.json").read_text(encoding="utf-8"))
         stop_hooks = cfg["swarm-guard"].get("Stop", [])
-        has_stop_hook = any("build-hooks agy Stop" in h.get("command", "") for h in stop_hooks)
+        has_stop_hook = any(
+            "build-hooks agy Stop" in h.get("command", "") for h in stop_hooks
+        )
         agent = (agy / "agent.md").read_text(encoding="utf-8")
-        has_manual = "Stop-time verify gate is manual" in agent and "run `tdd-guard verify" in agent
-        self.assertTrue(has_stop_hook != has_manual, f"stop hook={has_stop_hook}, manual={has_manual}")
+        has_manual = (
+            "Stop-time verify gate is manual" in agent
+            and "run `tdd-guard verify" in agent
+        )
+        self.assertTrue(
+            has_stop_hook != has_manual,
+            f"stop hook={has_stop_hook}, manual={has_manual}",
+        )
 
     def test_model_tiers_aligned(self):
         agy = ROOT.parents[1] / "agents" / "agy"
@@ -123,20 +192,28 @@ class DocsCheckTests(unittest.TestCase):
         for path in sorted(agy.glob("*/agent.md")):
             front = path.read_text(encoding="utf-8").split("---")[1]
             if path.parent.name == "builder":
-                self.assertEqual(re.search(r"(?m)^model:\s*(\S+)$", front).group(1), "pro")
+                self.assertEqual(
+                    re.search(r"(?m)^model:\s*(\S+)$", front).group(1), "pro"
+                )
             elif path.parent.name in {"code-reviewer", "docs"}:
-                self.assertEqual(re.search(r"(?m)^model:\s*(\S+)$", front).group(1), "flash")
+                self.assertEqual(
+                    re.search(r"(?m)^model:\s*(\S+)$", front).group(1), "flash"
+                )
             if "mainAgent: true" in front:
                 main_agents.add(path.parent.name)
-        self.assertEqual(main_agents, {"builder", "docs"})
+        self.assertEqual(main_agents, {"builder", "code-reviewer", "docs", "research"})
 
     def test_gemini_instruction_file_budget(self):
         with tempfile.TemporaryDirectory() as t:
-            Path(t, "GEMINI.md").write_text("\n".join(f"line {i}" for i in range(200)), encoding="utf-8")
+            Path(t, "GEMINI.md").write_text(
+                "\n".join(f"line {i}" for i in range(200)), encoding="utf-8"
+            )
             r = run(t, "--max-instruction-lines", "120")
             self.assertNotEqual(r.returncode, 0)
             out = json.loads(r.stdout)
-            self.assertTrue(any("GEMINI.md" in v and "budget" in v for v in out["violations"]))
+            self.assertTrue(
+                any("GEMINI.md" in v and "budget" in v for v in out["violations"])
+            )
 
     def test_readme_contract_parity(self):
         documents = [
@@ -160,7 +237,9 @@ class DocsCheckTests(unittest.TestCase):
                 content = path.read_text(encoding="utf-8")
                 for phrase in required:
                     self.assertIn(phrase, content)
-                contracts.append(content.split("## README contract\n\n", 1)[1].split("\n\n", 1)[0])
+                contracts.append(
+                    content.split("## README contract\n\n", 1)[1].split("\n\n", 1)[0]
+                )
         self.assertTrue(all(contract == contracts[0] for contract in contracts[1:]))
 
     def test_visual_readme_has_textual_equivalent(self):
@@ -181,6 +260,7 @@ class DocsCheckTests(unittest.TestCase):
 
     def test_antigravity_builder_hooks_json(self):
         import json
+
         hooks_file = ROOT.parents[1] / "agents" / "agy" / "builder" / "hooks.json"
         self.assertTrue(hooks_file.exists())
         with open(hooks_file, "r", encoding="utf-8") as f:
@@ -197,28 +277,52 @@ class DocsCheckTests(unittest.TestCase):
         post_hooks = guard_cfg["PostToolUse"]
 
         # Verify build-guard, build-format, build-lint and build-hooks are defined correctly
-        pre_matchers = {h.get("matcher"): h.get("hooks") for h in pre_hooks if "matcher" in h}
-        post_matchers = {h.get("matcher"): h.get("hooks") for h in post_hooks if "matcher" in h}
+        pre_matchers = {
+            h.get("matcher"): h.get("hooks") for h in pre_hooks if "matcher" in h
+        }
+        post_matchers = {
+            h.get("matcher"): h.get("hooks") for h in post_hooks if "matcher" in h
+        }
 
         # 1. PreToolUse must contain run_command matching build-guard
         self.assertIn("run_command", pre_matchers)
-        guard_hook_cmd = [hk.get("command") for hk in pre_matchers["run_command"] if hk.get("type") == "command"]
+        guard_hook_cmd = [
+            hk.get("command")
+            for hk in pre_matchers["run_command"]
+            if hk.get("type") == "command"
+        ]
         self.assertTrue(any("build-guard" in cmd for cmd in guard_hook_cmd))
 
         # 2. PreToolUse must contain edit matcher matching build-hooks
         edit_matcher = "write_to_file|replace_file_content|multi_replace_file_content"
         self.assertIn(edit_matcher, pre_matchers)
-        edit_hook_cmd = [hk.get("command") for hk in pre_matchers[edit_matcher] if hk.get("type") == "command"]
-        self.assertTrue(any("build-hooks" in cmd and "PreToolUse" in cmd for cmd in edit_hook_cmd))
+        edit_hook_cmd = [
+            hk.get("command")
+            for hk in pre_matchers[edit_matcher]
+            if hk.get("type") == "command"
+        ]
+        self.assertTrue(
+            any("build-hooks" in cmd and "PreToolUse" in cmd for cmd in edit_hook_cmd)
+        )
 
         # 3. PostToolUse must contain run_command matcher matching build-hooks PostToolUse
         self.assertIn("run_command", post_matchers)
-        cmd_hook_cmd = [hk.get("command") for hk in post_matchers["run_command"] if hk.get("type") == "command"]
-        self.assertTrue(any("build-hooks" in cmd and "PostToolUse" in cmd for cmd in cmd_hook_cmd))
+        cmd_hook_cmd = [
+            hk.get("command")
+            for hk in post_matchers["run_command"]
+            if hk.get("type") == "command"
+        ]
+        self.assertTrue(
+            any("build-hooks" in cmd and "PostToolUse" in cmd for cmd in cmd_hook_cmd)
+        )
 
         # 4. PostToolUse must contain edit matcher matching build-format and build-lint
         self.assertIn(edit_matcher, post_matchers)
-        edit_post_cmds = [hk.get("command") for hk in post_matchers[edit_matcher] if hk.get("type") == "command"]
+        edit_post_cmds = [
+            hk.get("command")
+            for hk in post_matchers[edit_matcher]
+            if hk.get("type") == "command"
+        ]
         self.assertTrue(any("build-format" in cmd for cmd in edit_post_cmds))
         self.assertTrue(any("build-lint" in cmd for cmd in edit_post_cmds))
 
@@ -226,7 +330,11 @@ class DocsCheckTests(unittest.TestCase):
         # Verifies docs_check.py passes on all ADRs in the real repository.
         repo_root = ROOT.parents[1]
         r = run(repo_root)
-        self.assertEqual(r.returncode, 0, f"docs_check failed with stdout:\n{r.stdout}\nstderr:\n{r.stderr}")
+        self.assertEqual(
+            r.returncode,
+            0,
+            f"docs_check failed with stdout:\n{r.stdout}\nstderr:\n{r.stderr}",
+        )
         out = json.loads(r.stdout)
         self.assertTrue(out["ok"])
         self.assertEqual(out["violations"], [])
@@ -250,18 +358,20 @@ class DocsCheckTests(unittest.TestCase):
         # Every present and future skill suite is discovered; none is hard-coded.
         self.assertIn("for d in skills/*/tests; do", content)
         self.assertIn("python3 -m unittest discover -s \"$d\" -p 'test_*.py'", content)
-        self.assertNotRegex(content, r"python3 -m unittest discover -s skills/[^\s]+/tests")
+        self.assertNotRegex(
+            content, r"python3 -m unittest discover -s skills/[^\s]+/tests"
+        )
 
         # Python and lint tooling are explicit CI gates.
         self.assertIn("actions/setup-python@v5", content)
         self.assertRegex(content, r"python-version:\s*[\"']?3\.13[\"']?")
         self.assertIn("ruff check skills/", content)
-        self.assertIn("shellcheck -S warning scripts/*.sh scripts/hooks/build-*", content)
+        self.assertIn(
+            "shellcheck -S warning scripts/*.sh scripts/hooks/build-*", content
+        )
 
         # Check for docs check
         self.assertIn("skills/docs/scripts/docs_check.py", content)
-
-
 
     def test_readme_documents_plugin_architecture(self):
         readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
@@ -271,5 +381,7 @@ class DocsCheckTests(unittest.TestCase):
         self.assertIn("antigravity-cli", readme_lower)
         self.assertIn(".claude", readme_lower)
         self.assertIn(".codex", readme_lower)
+
+
 if __name__ == "__main__":
     unittest.main()
