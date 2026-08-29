@@ -68,7 +68,7 @@ elif have go; then
   # The binary is a build artifact, so it is built into the repo's gitignored
   # bin/ and linked — same rule as everything else: the repo is the source.
   mkdir -p "$ROOT/bin" "$HOME/.local/bin"
-  ( cd "$ROOT" && go build -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) || die "go build ./cmd/tdd-guard failed"
+  ( cd "$ROOT" && go build -buildvcs=false -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) || die "go build ./cmd/tdd-guard failed"
   link_owned "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard" || die "could not link tdd-guard into ~/.local/bin"
   echo "  built $ROOT/bin/tdd-guard -> ~/.local/bin/tdd-guard"
 else
