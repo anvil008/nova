@@ -1,0 +1,20 @@
+{
+  "name": "swarm-coder-local",
+  "interface": {
+    "displayName": "Swarm Coder (Local)"
+  },
+  "plugins": [
+    {
+      "name": "swarm-coder",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

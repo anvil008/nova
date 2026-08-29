@@ -374,13 +374,28 @@ class DocsCheckTests(unittest.TestCase):
         self.assertIn("skills/docs/scripts/docs_check.py", content)
 
     def test_readme_documents_plugin_architecture(self):
+        # The layout section, the one wrapper path per harness it has to name, and both
+        # bootstrap commands. Bare ".claude"/".codex" would match anywhere and never fail.
         readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
-        readme_lower = readme.lower()
-        self.assertIn("plugin architecture", readme_lower)
-        self.assertIn("migration", readme_lower)
-        self.assertIn("antigravity-cli", readme_lower)
-        self.assertIn(".claude", readme_lower)
-        self.assertIn(".codex", readme_lower)
+        self.assertIn("## How the repository is laid out", readme)
+        for phrase in (
+            "plugins/agy/",
+            "plugins/claude/",
+            "plugins/codex/",
+            "antigravity-cli",
+            "scripts/bootstrap-tools.sh --install",
+            "scripts/bootstrap-plugins.sh --uninstall",
+        ):
+            self.assertIn(phrase, readme)
+
+    def test_readme_diagrams_are_vertical(self):
+        # GitHub renders a README in a narrow column, so every mermaid graph has to run
+        # top-to-bottom. `flowchart LR` fits the page by shrinking the text.
+        readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
+        fences = [b.lstrip("\n").split("\n", 1)[0].strip() for b in readme.split("```mermaid")[1:]]
+        self.assertTrue(fences, "README has no mermaid diagram")
+        for first_line in fences:
+            self.assertIn("TB", first_line, f"non-vertical mermaid diagram: {first_line!r}")
 
 
 if __name__ == "__main__":

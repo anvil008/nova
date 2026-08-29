@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0006](0006-plugins-install-through-local-marketplaces.md). The `plugins/` wrapper layout stands; the install mechanism and the wrapper paths recorded below have changed.
 
 ## Context
 
@@ -17,7 +17,7 @@ We introduce a unified cross-harness plugin architecture. All agents, skills, an
 - `plugins/claude/swarm-coder`
 - `plugins/codex/swarm-coder`
 
-The global installation command (`scripts/install-harness.sh --install`) links these plugin wrappers into their respective harness plugin directories (e.g., `~/.claude/plugins/swarm-coder`). 
+The global installation command (`scripts/install-harness.sh --install`) links these plugin wrappers into their respective harness plugin directories (e.g., `~/.claude/plugins/swarm-coder`).
 The workspace local setup (`scripts/project-bootstrap.sh --install`) links them directly into `.agents/plugins`, `.claude/plugins`, and `.codex/plugins` within a given project repository, automatically ignoring them from Git.
 
 ## Consequences

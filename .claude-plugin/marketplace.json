@@ -1,0 +1,17 @@
+{
+  "name": "swarm-coder-local",
+  "owner": {
+    "name": "Foundry Zero"
+  },
+  "metadata": {
+    "description": "Local marketplace for the Swarm Coder Claude Code plugin."
+  },
+  "plugins": [
+    {
+      "name": "swarm-coder",
+      "source": "./plugins/claude",
+      "description": "Swarm Coder: multi-agent planning, building, review, and docs for Claude Code.",
+      "category": "Developer Tools"
+    }
+  ]
+}

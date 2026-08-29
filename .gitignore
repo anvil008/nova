@@ -3,9 +3,17 @@ bin/
 .DS_Store
 .claude/
 .agents/
+!/.agents/
+!/.agents/plugins/
+!/.agents/plugins/marketplace.json
 skills-lock.json
 .anvil/
 __pycache__/
 *.pyc
 dist/
 .swarm/
+findings.json
+findings.txt
+empty-findings.txt
+diff.patch
+diff.txt

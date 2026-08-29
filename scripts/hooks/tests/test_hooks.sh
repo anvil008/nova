@@ -138,12 +138,12 @@ done
 name="build-format extracts Antigravity payloads"; check grep -Fq 'toolCall.args.TargetFile' "$FMT"
 name="build-lint extracts Antigravity payloads";   check grep -Fq 'toolCall.args.TargetFile' "$LINT"
 
-# --- project-bootstrap under the hermetic HOME: writes only to $TMP ------------------------------
+# --- bootstrap-project under the hermetic HOME: writes only to $TMP ------------------------------
 pb_tmp="$TMP/pb_test"; git -c init.defaultBranch=main init -q "$pb_tmp"
-bash "$DIR/../project-bootstrap.sh" --with-hooks "$pb_tmp" >/dev/null 2>&1
-name="project-bootstrap writes the repository-resolved info/exclude"
+bash "$DIR/../bootstrap-project.sh" --with-hooks "$pb_tmp" >/dev/null 2>&1
+name="bootstrap-project writes the repository-resolved info/exclude"
 check sh -c 'cd "$1" && ex=$(git rev-parse --git-path info/exclude) && grep -qxF ".claude/settings.local.json" "$ex"' _ "$pb_tmp"
-name="project-bootstrap installs into the hermetic BIN"; check [ -x "$BIN/build-guard" ]
+name="bootstrap-project installs into the hermetic BIN"; check [ -x "$BIN/build-guard" ]
 
 # --- hermeticity: the real ~/.local/bin is untouched --------------------------------------------
 after_bin="$(HOME="$REAL_HOME" snapshot_bin)"
@@ -152,39 +152,36 @@ name="real ~/.local/bin mtimes and link targets unchanged"; check [ "$before_bin
 
 # --- Acceptance Tests (Issue #45) ---
 
-# 1. plugin-hooks-validity
-for plugin_dir in "$DIR/../../plugins"/*/*; do
+# plugin_hooks DIR -> the wrapper's hooks file. Claude Code reads hooks/hooks.json;
+# Codex and Antigravity read hooks.json at the plugin root.
+plugin_hooks(){
+  if [[ -f "$1/hooks/hooks.json" ]]; then echo "$1/hooks/hooks.json"
+  elif [[ -f "$1/hooks.json" ]]; then echo "$1/hooks.json"; fi
+}
+
+# 1. plugin-hooks-validity — every hook command in every wrapper resolves through
+# ~/.local/bin, whatever shape that harness wraps its matchers in.
+for plugin_dir in "$DIR/../../plugins"/*; do
   [[ -d $plugin_dir ]] || continue
-  hjson="$plugin_dir/hooks.json"
+  hjson=$(plugin_hooks "$plugin_dir")
   name="plugin has hooks.json: $plugin_dir"
-  check [ -f "$hjson" ]
-  if [[ -f $hjson ]]; then
-    name="plugin hooks validity (path resolution): $hjson"
-    # Every command must use ~/.local/bin/
-    check sh -c '! jq -e ".[] | .. | .command? | select(. != null) | select(startswith(\"~/.local/bin/\") | not)" "$1" >/dev/null' _ "$hjson"
-  fi
+  check [ -n "$hjson" ]
+  [[ -n $hjson ]] || continue
+  name="plugin hooks validity (path resolution): $hjson"
+  check sh -c '! jq -e ".. | .command? | select(. != null) | select(startswith(\"~/.local/bin/\") | not)" "$1" >/dev/null' _ "$hjson"
 done
 
-# 2. tdd-guard-executes-via-plugin
-# Invoking tool operations through a plugin-configured harness triggers build-hooks and enforces TDD seal verification.
-# For each plugin, we simulate the hook execution.
-# We will just verify that 'build-hooks' when triggered correctly interacts with tdd-guard.
-# Actually, the test says: "Invoking tool operations through a plugin-configured harness triggers build-hooks and enforces TDD seal verification."
-# Let's write a mock payload and pass it to the hook command from the json.
-
-# 2. tdd-guard-executes-via-plugin
-# We will invoke the PreToolUse hook from each plugin's hooks.json for write_to_file and verify it calls build-hooks and errors because of tdd-guard.
-# Or better, just verify that parsing hooks.json gives us the correct build-hooks command, and we can run it.
+# 2. tdd-guard-executes-via-plugin — the PreToolUse build-hooks command each wrapper
+# declares really runs, and fails closed when tdd-guard is not on PATH. Found by command
+# rather than by matcher: the three harnesses name their edit tools differently.
 name="tdd-guard-executes-via-plugin"
-for plugin_dir in "$DIR/../../plugins"/*/*; do
+for plugin_dir in "$DIR/../../plugins"/*; do
   [[ -d $plugin_dir ]] || continue
-  hjson="$plugin_dir/hooks.json"
-  [[ -f $hjson ]] || continue
-  # Extract the PreToolUse write_to_file command
-  cmd=$(jq -r '.["swarm-guard"].PreToolUse[] | select(.matcher | contains("write_to_file")) | .hooks[] | select(.type=="command") | .command' "$hjson" | head -n 1)
-  # Ensure it calls build-hooks with the right args
+  hjson=$(plugin_hooks "$plugin_dir")
+  [[ -n $hjson ]] || continue
+  cmd=$(jq -r '.. | .command? | select(. != null) | select(contains("build-hooks") and contains("PreToolUse"))' "$hjson" | head -n 1)
   if [[ -n $cmd ]]; then
-    # eval the command in our sandbox where tdd-guard is missing -> should get exit 2 and "tdd-guard" in stderr
+    # eval the command in our sandbox where tdd-guard is missing -> exit 2 and "tdd-guard" in stderr
     ln -sfn "$HOOKS" "$TMP/home/.local/bin/build-hooks"
     out=$(eval HOME="$TMP/nohome" $cmd </dev/null 2>"$TMP/err")
     rc=$?

@@ -101,7 +101,6 @@ need prettier "$(pick npm:prettier)" "JS/TS/JSON/MD format (build-format)"
 need eslint "$(pick npm:eslint)" "JS/TS lint (build-lint)"
 
 echo
-echo "Next: install the agents + skills into your harness(es) via:"
-echo "  scripts/install-harness.sh --install"
-echo "Agents are organized under agents/{claude,codex,agy} and deployed to ~/.claude,"
-echo "\$HOME/.codex, and \$HOME/.gemini/config/agents. See README.md."
+echo "Next: install the Swarm Coder plugin into your harness(es) via:"
+echo "  scripts/bootstrap-plugins.sh"
+echo "That is the second and last bootstrap step. See README.md."

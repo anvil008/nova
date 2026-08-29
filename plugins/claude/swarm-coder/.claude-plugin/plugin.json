@@ -1,6 +1,0 @@
-{
-  "name": "swarm-coder",
-  "version": "0.1.0",
-  "description": "Foundry Zero Swarm Coder Plugin",
-  "capabilities": ["tools", "agents", "skills"]
-}

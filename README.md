@@ -1,139 +1,200 @@
 # Swarm Coder
 
-Swarm Coder is a small multi-agent coding system for Claude Code, Codex, and
-Antigravity. It turns a goal into a reviewable plan, gives each implementation task to
-an isolated builder, and uses mechanical gates to keep the combined result verifiable.
+A multi-agent coding system for **Claude Code**, **Codex**, and **Antigravity**.
 
-It exists so teams can use parallel coding agents without losing human approval,
+It turns a goal into a reviewable plan, hands each implementation task to an isolated
+builder, and uses mechanical gates — not promises — to keep the combined result
+verifiable. The point is to run coding agents in parallel without losing human approval,
 test evidence, ownership boundaries, or a resumable GitHub record.
 
-## Quickstart
+One repository, three harnesses, the same agents and skills in each.
 
-From this repository, install the agents, skills, and guard commands into every
-supported harness already present on your machine:
+---
+
+## Install
+
+Two commands. The first installs the external tools, the second installs the plugin.
 
 ```sh
-scripts/install-harness.sh --install
+git clone https://github.com/anvil008/swarm-coder
+cd swarm-coder
+
+scripts/bootstrap-tools.sh --install     # 1. external dependencies + the tdd-guard gate
+scripts/bootstrap-plugins.sh             # 2. the swarm-coder plugin, into every harness found
 ```
 
-To install one harness only, add `--harness claude`, `--harness codex`, or
-`--harness agy`. Run `scripts/install-harness.sh --uninstall` to remove only the
-symlinks owned by this repository.
+That is the whole setup. Run either script with no flags to see what it *would* do
+before it does anything (`bootstrap-tools.sh` reports; `bootstrap-plugins.sh --help`
+explains).
+
+| | What it does |
+|---|---|
+| `scripts/bootstrap-tools.sh --install` | Installs Go, jq, `jj`, `gh`, formatters and linters where a package manager is available, builds `tdd-guard`, and links the `build-*` hook commands into `~/.local/bin`. |
+| `scripts/bootstrap-plugins.sh` | Installs the `swarm-coder` plugin into Claude Code, Codex, and Antigravity — whichever are present. |
+
+Useful flags for the second command:
+
+```sh
+scripts/bootstrap-plugins.sh --harness claude   # one harness only (claude | codex | agy)
+scripts/bootstrap-plugins.sh --uninstall        # remove everything it installed
+```
+
+It never overwrites something it does not own. A real file or directory where a link
+should go is refused by name, and the run exits non-zero rather than clobbering it.
+
+### Per-project install
+
+To set up one repository instead of your whole machine:
+
+```sh
+scripts/bootstrap-project.sh --install --with-hooks /path/to/project
+```
+
+This detects the project's stack, installs the formatters and linters that stack needs,
+installs the plugin at project scope, and wires the advisory format/lint/guard hooks
+into the project. Everything it writes is added to the repository's `info/exclude`, so
+none of it shows up in `git diff` or a commit.
+
+---
 
 ## How work moves
 
 ```mermaid
-flowchart LR
-    Goal[Goal] --> Plan[Planner folio]
-    Plan --> Gate{Human approval}
-    Gate -->|approved| Issues[GitHub milestone and issues]
-    Issues --> Builders[Isolated jj builders]
-    Builders --> Verify[Review and combined tests]
-    Verify --> Ship[Human-gated deploy]
+flowchart TB
+    Goal["Goal"]
+    Plan["Planner folio<br/><i>HTML + plan.sidecar.json</i>"]
+    Gate{"Human approval"}
+    Issues["GitHub milestone<br/>and issues"]
+    Builders["Isolated jj builders<br/><i>one workspace per issue</i>"]
+    Verify["Review and<br/>combined tests"]
+    Ship["Human-gated deploy"]
+
+    Goal --> Plan
+    Plan --> Gate
     Gate -->|changes requested| Plan
+    Gate -->|approved| Issues
+    Issues --> Builders
+    Builders --> Verify
+    Verify --> Ship
 ```
 
-In words: the planner turns a goal into an HTML folio and machine-readable sidecar.
-A human reviews that plan before GitHub resources are written. Approved issues run in
-dependency waves, with each builder isolated in its own Jujutsu workspace. Review and
-combined tests must pass before integration, and deployment remains a separate human
+In words: the planner turns a goal into an HTML folio plus a machine-readable sidecar.
+A human reviews that plan before any GitHub resource is written. Approved issues then
+run in dependency waves, each builder isolated in its own Jujutsu workspace. Review and
+the combined test suite must pass before integration. Deployment stays a separate human
 decision.
 
-## What is included
+---
 
-| Area | Purpose |
+## How the repository is laid out
+
+```mermaid
+flowchart TB
+    subgraph source["Single source"]
+        direction TB
+        A["<b>agents/</b><br/>claude · codex · agy"]
+        S["<b>skills/</b><br/>planner · build · code-review · docs · deploy · …"]
+        H["<b>scripts/hooks/</b> + <b>cmd/tdd-guard/</b><br/>the mechanical gates"]
+    end
+
+    subgraph wrappers["plugins/ — one thin wrapper per harness"]
+        direction TB
+        PC["<b>plugins/claude/</b><br/>.claude-plugin/plugin.json<br/>hooks/hooks.json"]
+        PX["<b>plugins/codex/</b><br/>.codex-plugin/plugin.json<br/>hooks.json"]
+        PA["<b>plugins/agy/</b><br/>plugin.json · rules/<br/>hooks.json"]
+    end
+
+    subgraph harness["Installed"]
+        direction TB
+        IC["Claude Code<br/><i>swarm-coder@swarm-coder-local</i>"]
+        IX["Codex<br/><i>swarm-coder@swarm-coder-local</i>"]
+        IA["Antigravity<br/><i>~/.gemini/antigravity-cli/plugins/</i>"]
+    end
+
+    source -->|"symlinked into"| wrappers
+    PC -->|"marketplace · claude CLI"| IC
+    PX -->|"marketplace · codex CLI"| IX
+    PA -->|"symlink"| IA
+```
+
+In words: `agents/` and `skills/` hold the real content once. Each `plugins/<harness>/`
+directory is a thin wrapper — a manifest, a `hooks.json`, and symlinks back to the
+agents and skills it exposes. Claude Code and Codex install that wrapper through a local
+marketplace declared at the repository root, using their own CLIs. Antigravity has no
+plugin CLI, so its wrapper is symlinked into place and stays live.
+
+| Directory | What lives there |
 |---|---|
-| [`agents/`](agents/) | Harness-specific definitions for research, building, review, and docs work. |
-| [`skills/`](skills/) | The shared planner, build, review, docs, deploy, and supporting workflows. |
-| [`cmd/tdd-guard/`](cmd/tdd-guard/) | Binds failing tests, passing tests, and review evidence to the exact change. |
-| [`scripts/hooks/`](scripts/hooks/) | Blocks unsafe commands and provides formatting, lint, and TDD feedback. |
-| [`docs/adr/`](docs/adr/) | Durable architecture decisions and their consequences. |
+| [`agents/`](agents/) | Agent definitions per harness: research, builder, code-reviewer, docs. |
+| [`skills/`](skills/) | The shared workflows: planner, build, code-review, docs, deploy, and support skills. |
+| [`plugins/`](plugins/) | One thin wrapper per harness. No content of its own. |
+| [`scripts/`](scripts/) | The three bootstrap commands, plus the hook scripts they install. |
+| [`cmd/tdd-guard/`](cmd/tdd-guard/) | The gate binary that binds failing tests, passing tests, and review evidence to an exact change. |
+| [`docs/adr/`](docs/adr/) | Architecture decisions and their consequences. |
 
-The repository is the single source of truth. The installer projects agents and skills
-into each harness with symlinks, so most source edits take effect immediately. Codex
-agent definitions are the exception: the installer renders their Markdown into
-gitignored TOML before linking it into the harness.
+Adding a skill means adding a directory under `skills/` — no manifest edit. Claude and
+Codex link `skills/` whole; the Antigravity wrapper's per-skill links are regenerated on
+every install from `skills/` minus the skills owned by one of its agents.
+
+---
+
+## What you get
+
+Once installed, these workflows are available in each harness:
+
+- **`planner`** — investigates a substantial change and produces an offline HTML plan
+  plus `plan.sidecar.json`. GitHub reconciliation waits for explicit approval.
+- **`build`** — executes an approved milestone as resumable dependency waves in isolated
+  Jujutsu workspaces.
+- **`code-review`** — runs independent assurance lenses, verifies candidates, renders an
+  offline report, and reconciles approved findings.
+- **`docs`** — keeps READMEs newcomer-friendly, updates documentation in place, records
+  ADRs, and runs the documentation gate.
+- **`deploy`** — preflight checks, an approved release, post-deploy verification, and
+  rollback preparation.
+
+Supporting skills cover research, frontend implementation and review, bounded review/fix
+loops, Jujutsu, and explicitly requested alternate harnesses.
 
 ## Core guarantees
 
-- **Human gates:** planning approval and deployment approval are explicit; silence is
+- **Human gates.** Planning approval and deployment approval are explicit. Silence is
   never treated as consent.
-- **Isolated parallel work:** the build skill schedules non-overlapping issues into
+- **Isolated parallel work.** The build skill schedules non-overlapping issues into
   dependency waves and gives each builder its own `jj` workspace.
-- **Evidence-bound integration:** builders prove RED then GREEN, review their own diff,
+- **Evidence-bound integration.** Builders prove RED then GREEN, review their own diff,
   and return command-linked evidence. The primary agent retests the combined wave.
-- **Resumable tracking:** stable markers connect planner sidecars, GitHub milestones,
-  issues, reports, and review findings without using GitHub Projects.
-- **Accessible communication:** user-facing docs and reports pair meaningful visuals
-  with concise text that conveys the same relationships. Planner folios compare current
-  and proposed states; code-review reports show how candidates become verified findings.
-- **Cross-harness parity:** centralized skills are installed into Claude Code, Codex,
-  and Antigravity, while role-specific capabilities remain explicit in agent definitions.
-
-## Use the workflows
-
-- `planner` investigates a substantial change and produces an offline HTML plan plus
-  `plan.sidecar.json`. GitHub reconciliation waits for explicit approval.
-- `build` executes an approved milestone as resumable dependency waves in isolated
-  Jujutsu workspaces.
-- `code-review` runs independent assurance lenses, verifies candidates, renders an
-  offline report, and reconciles approved findings.
-- `docs` keeps READMEs newcomer-friendly, updates documentation in place, records ADRs,
-  and runs the documentation gate.
-- `deploy` performs preflight checks, an approved release, post-deploy verification,
-  and rollback preparation.
-
-Supporting skills cover research, frontend implementation and review, bounded
-review/fix loops, Jujutsu, and explicitly requested alternate harnesses. Every directory
-under `skills/` is discovered automatically; adding a skill does not require an
-installer manifest change.
-
-To prepare a target repository after installing the harness, run:
-
-```sh
-scripts/project-bootstrap.sh --install --with-hooks /path/to/project
-```
-
-The bootstrap detects the project stack, installs available hook tools, and connects the
-advisory formatting and lint feedback supported by that harness.
-
-## Unified Plugin Architecture
-
-Swarm Coder provides a unified cross-harness plugin architecture. The plugin layout is structured under the `plugins/` directory, which contains harness-specific plugin wrappers:
-- `plugins/agy/swarm-coder` for Antigravity (`~/.gemini/antigravity-cli/plugins/swarm-coder`)
-- `plugins/claude/swarm-coder` for Claude Code
-- `plugins/codex/swarm-coder` for Codex
-
-Installation commands for all three harnesses:
-- **Global Install**: Run `scripts/install-harness.sh --install` to link the plugin into your home directory for each detected harness.
-- **Workspace Local**: Run `scripts/project-bootstrap.sh --install` to link the plugin directly into `.agents/plugins`, `.claude/plugins`, and `.codex/plugins` within the current project repository. These links are automatically excluded from Git tracking.
-
-**Migration Notes**: Earlier versions placed agents and skills directly in `~/.claude/agents` or `~/.codex/skills`. The new architecture installs everything via the unified `plugins/` directory. Run `scripts/install-harness.sh --uninstall` to clean up any legacy artifacts before running the new install command.
+- **Resumable tracking.** Stable markers connect planner sidecars, GitHub milestones,
+  issues, reports, and review findings — without GitHub Projects.
+- **Accessible communication.** Every meaningful visual is paired with text that conveys
+  the same relationships ([ADR 0004](docs/adr/0004-visuals-require-text-equivalents.md)).
+- **Cross-harness parity.** The same skills reach all three harnesses; role-specific
+  capabilities stay explicit in the agent definitions.
 
 ## Mechanical gates
 
-The guard and hooks enforce the boundaries that prose alone cannot:
+The guard and hooks enforce what prose cannot:
 
-1. `tdd-guard seal` records an exact failing test command and sealed test digest.
-2. `tdd-guard verify` accepts that same command only after it passes without test
+1. `tdd-guard seal` records an exact failing test command and a sealed test digest.
+2. `tdd-guard verify` accepts that same command only after it passes, with no test
    tampering.
 3. `tdd-guard diff-review record` binds review findings to the current diff.
-4. `tdd-guard status --json` exposes whether the evidence is fresh and integration-ready.
+4. `tdd-guard status --json` reports whether the evidence is fresh and integration-ready.
 
 The build guard also fails closed on malformed tool payloads, protected-branch
 mutations, unsafe Git/jj/GitHub operations, and RAM-tmpfs build targets. Formatting and
-lint hooks provide file-level feedback. Claude and Antigravity wire supported events
-natively; Codex builders run the equivalent guard commands explicitly.
+lint hooks give file-level feedback. Claude and Antigravity wire the supported events
+natively; Codex builders call the equivalent guard commands explicitly.
+
+---
 
 ## Verify the repository
 
-Run the same substantive checks used by CI:
+The same substantive checks CI runs:
 
 ```sh
-go mod tidy
-go build ./...
-go vet ./...
-go test -count=1 -race ./...
+go mod tidy && git diff --exit-code -- go.mod go.sum
+go build ./... && go vet ./... && go test -count=1 -race ./...
 bash scripts/hooks/tests/test_hooks.sh
 bash scripts/tests/test_install.sh
 ruff check skills/
@@ -142,9 +203,19 @@ for d in skills/*/tests; do python3 -m unittest discover -s "$d" -p 'test_*.py';
 python3 skills/docs/scripts/docs_check.py .
 ```
 
-CI also checks that `go mod tidy` leaves `go.mod` and `go.sum` unchanged. Generated
-planner folios live in [`docs/plans/`](docs/plans/), and the root
-[`plan.sidecar.json`](plan.sidecar.json) describes the current plan.
+Architecture decisions live in [`docs/adr/`](docs/adr/); notable changes are summarized
+in [`CHANGELOG.md`](CHANGELOG.md).
 
-Architecture decisions are recorded in [`docs/adr/`](docs/adr/), and notable changes
-are summarized in [`CHANGELOG.md`](CHANGELOG.md).
+## Upgrading from an earlier install
+
+Earlier versions linked agents and skills straight into `~/.claude/agents`,
+`~/.codex/skills`, and friends, and later linked plugin wrappers into
+`~/.claude/plugins/`. Neither Claude Code nor Codex ever discovered those links.
+
+```sh
+scripts/bootstrap-plugins.sh --uninstall   # sweeps the legacy links
+scripts/bootstrap-plugins.sh               # installs through the marketplaces
+```
+
+See [ADR 0006](docs/adr/0006-plugins-install-through-local-marketplaces.md) for why the
+mechanism changed.
