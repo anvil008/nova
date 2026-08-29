@@ -1,135 +1,137 @@
 # Swarm Coder
 
-A small, native multi-agent coding system for **Claude Code, Codex, and Antigravity**.
-You give a goal; a skill turns it into a plan and GitHub tasks; specialist agents do the
-work — some in parallel — and mechanical gates keep them honest.
+Swarm Coder is a small multi-agent coding system for Claude Code, Codex, and
+Antigravity. It turns a goal into a reviewable plan, gives each implementation task to
+an isolated builder, and uses mechanical gates to keep the combined result verifiable.
 
-## Agents (`agents/`)
-Organized by harness under `agents/claude/`, `agents/codex/`, and `agents/agy/` with platform-tailored frontmatter, tools, and gate instructions:
-- **research** — explore code / docs / runtime / prior-art; read-only.
-- **builder** — implement one issue end-to-end (branch → change → PR); the only code writer, never commits to `main`. Owns `jj` and `builder-frontend`.
-- **code-reviewer** — read-only assurance, one instance per review lens (correctness / security / performance / tests / api-contract / frontend). The `frontend` lens runs `code-reviewer-frontend-review` over a Playwright viewport matrix.
-- **docs** — the docs-scoped writer: update-don't-duplicate, lean `CLAUDE.md`/`AGENTS.md`, and ADRs.
+It exists so teams can use parallel coding agents without losing human approval,
+test evidence, ownership boundaries, or a resumable GitHub record.
 
-Deploy agents and skills into all present harnesses with:
+## Quickstart
+
+From this repository, install the agents, skills, and guard commands into every
+supported harness already present on your machine:
+
 ```sh
 scripts/install-harness.sh --install
 ```
-Or target a specific harness with `--harness <claude|codex|agy>`. `--uninstall`
-removes only symlinks owned by this repository: harness agents, skills, generated Codex
-TOMLs, and the `~/.local/bin/build-*` and `tdd-guard` links. Foreign files, directories,
-and symlinks are refused or left in place and reported. The installers avoid GNU-only
-shell features and are tested with the Bash 3.2 shipped on stock macOS.
 
-**This repository is the single source.** Everything a harness sees is a symlink back into
-it — agents, skills, and the `~/.local/bin/build-*` hooks — so editing a file here takes
-effect immediately with no re-install. Codex is the one exception: its harness requires a
-generated TOML with the agent body embedded as an escaped string, so it cannot read the
-markdown directly. That file is generated into `dist/` (gitignored) and symlinked from
-`~/.codex`, which means a change to `agents/codex/*.md` does need a re-run.
+To install one harness only, add `--harness claude`, `--harness codex`, or
+`--harness agy`. Run `scripts/install-harness.sh --uninstall` to remove only the
+symlinks owned by this repository.
 
-## Centralized Skills (`skills/`)
-Skills live in a harness-agnostic structure under `skills/`, and the installer symlinks them
-into each harness. The set is *discovered*, not listed — every directory under `skills/` is a
-skill, so adding one needs no change to the install script.
-- **planner** — investigate a goal and produce an offline HTML implementation plan (`docs/plans/plan<NN>-<YYYYMMDD>-<title>.html`) and strict JSON sidecar, then reconcile into GitHub milestones/issues.
-- **build** — execute approved plan waves in parallel across isolated jj workspaces. Features programmatic glob overlap detection to prevent concurrent builder collisions. Each builder reviews its own change-set (two passes) before opening a PR, then tears its workspace down.
-- **research** — area fan-out and informational merging.
-- **code-review** — adversarial code verification and multi-lens review aggregation, rendered to a self-contained HTML report and reconciled into GitHub issues (idempotent, marker-based, approval-gated — resolved findings auto-close).
-- **docs** — standardize documentation in place, record ADRs, and run mechanical gate checks.
-- **deploy** — human-gated production releases.
-- **use-other-harness** — explicit headless run of a command or task in an alternative harness.
-- **builder-frontend** — the builder's focused UI skill: clean, accessible, responsive frontends.
-- **code-reviewer-frontend-review** — the method behind code-review's `frontend` lens, not a standalone review: static pass over changed components and styles, then Playwright across 4K, half-tiled 4K, QHD, 1080p, MacBook 16"/15"/13", small laptop, tablet, and phone.
-- **review-fix-loop** — review, fix, re-review on a dedicated `loop-branch`, bounded to ten passes. Driven by the harness `/loop`; the skill owns the stop conditions (`converged` / `stalled` / `exhausted`) in a state file, because `/loop` re-invokes with a fresh context each tick.
-- **jj** — Jujutsu VCS reference, vendored (MIT, © 2025 Josh Thomas). The builder's version control, including the workspace isolation the build waves rely on.
+## How work moves
 
-## Mechanical Gates & Hooks
-The system combines blocking boundaries with explicitly advisory signals:
+```mermaid
+flowchart LR
+    Goal[Goal] --> Plan[Planner folio]
+    Plan --> Gate{Human approval}
+    Gate -->|approved| Issues[GitHub milestone and issues]
+    Issues --> Builders[Isolated jj builders]
+    Builders --> Verify[Review and combined tests]
+    Verify --> Ship[Human-gated deploy]
+    Gate -->|changes requested| Plan
+```
 
-### Go Guard Gates (`cmd/tdd-guard`, `guard/`)
-The `tdd-guard` executable is the harness-neutral guard (its runtime messages use the
-historical `anvil-guard` name). Its enforced TDD contract is:
+In words: the planner turns a goal into an HTML folio and machine-readable sidecar.
+A human reviews that plan before GitHub resources are written. Approved issues run in
+dependency waves, with each builder isolated in its own Jujutsu workspace. Review and
+combined tests must pass before integration, and deployment remains a separate human
+decision.
 
-1. `seal` runs a failing RED command and binds its exact argument vector and digest to
-   the sealed test files.
-2. `verify` accepts only the same argument vector, requires it to pass after the seal,
-   and rejects sealed tests changed before or during the run.
-3. A necessary test amendment must use `reseal --reason <text>`, which records the
-   before/after digests and invalidates older GREEN and diff-review evidence.
-4. `diff-review record` binds findings to the current diff. `status --json` exposes the
-   seal, bound argv, GREEN evidence, amendments, review freshness, and readiness used by
-   the Stop gate.
+## What is included
 
-`arch-check` records structural assertions (or an unverified result when `ast-grep` is
-missing), but architecture results and optional coverage thresholds are advisory: they
-do not make the Stop gate fail.
+| Area | Purpose |
+|---|---|
+| [`agents/`](agents/) | Harness-specific definitions for research, building, review, and docs work. |
+| [`skills/`](skills/) | The shared planner, build, review, docs, deploy, and supporting workflows. |
+| [`cmd/tdd-guard/`](cmd/tdd-guard/) | Binds failing tests, passing tests, and review evidence to the exact change. |
+| [`scripts/hooks/`](scripts/hooks/) | Blocks unsafe commands and provides formatting, lint, and TDD feedback. |
+| [`docs/adr/`](docs/adr/) | Durable architecture decisions and their consequences. |
 
-- **Hardened Security & Performance**:
-  - *Streaming SHA-256 digests*: Hashes the complete content and byte length of each
-    regular untracked file with bounded memory, so changes beyond the first 10 MiB still
-    invalidate diff-review evidence. Tracked diffs come from Git, while sealed tests and
-    small state records still read their inputs directly; non-regular untracked entries
-    are ignored.
-  - *Cross-platform path normalization*: Normalizes backslash/forward-slash paths to prevent platform-specific bypasses of test/conformance rules.
-  - *In-memory directory caching*: Caches repository directory walking during architecture compliance checks (`arch-check`) to avoid quadratic filesystem traversals.
+The repository is the single source of truth. The installer projects agents and skills
+into each harness with symlinks, so most source edits take effect immediately. Codex
+agent definitions are the exception: the installer renders their Markdown into
+gitignored TOML before linking it into the harness.
 
-### Shell Hooks (`scripts/hooks/`)
-Harness-aware pre-tool-use and post-tool-use scripts execute in response to agent actions:
-- **build-format** — automatically runs formatting tools on modified source files.
-- **build-lint** — triggers single-file linters and feeds advisory, non-blocking feedback directly into the agent's context.
-- **build-guard** — a failing-closed command boundary: missing parsers, malformed or
-  empty payloads, protected-branch mutations, and RAM-tmpfs build targets are denied.
-  Its tokenizer corpus exercises quoting, wrappers, shell segments, Git, jj, and GitHub
-  CLI bypass forms in `scripts/hooks/tests/test_hooks.sh`.
-- **build-hooks** — wires test-first `tdd-guard` execution into writing or executing operations.
-- **Cross-Platform Portability**:
-  - Verified `jq` command availability at bootstrap.
-  - Uses highly portable POSIX character-class regular expressions (e.g. `[[:alnum:]_]`, `[[:space:]]`) ensuring seamless execution across GNU (Linux) and BSD (macOS) grep implementations.
-  - Integrates a robust multi-field tool-call payload extraction to parse JSON commands for both Claude (`.tool_input.command`) and Antigravity (`.toolCall.args.CommandLine` or `.toolCall.args.command`).
-  - Automatically creates `.git/info/exclude` in `project-bootstrap.sh` to local-ignore configuration files invisibly to git diff.
+## Core guarantees
 
-Gate delivery differs by harness. Claude wires `build-guard` and the guard's
-PreToolUse/PostToolUse/Stop/SubagentStop events, plus write-time format and advisory
-lint hooks. Antigravity wires `build-guard`, guard PreToolUse/PostToolUse/Stop events,
-and write-time format/lint hooks (it has no SubagentStop entry). Codex has no native
-hook wiring in this repository: its builder instructions require explicit
-`build-guard`, `tdd-guard seal/verify/diff-review`, and `status` calls.
+- **Human gates:** planning approval and deployment approval are explicit; silence is
+  never treated as consent.
+- **Isolated parallel work:** the build skill schedules non-overlapping issues into
+  dependency waves and gives each builder its own `jj` workspace.
+- **Evidence-bound integration:** builders prove RED then GREEN, review their own diff,
+  and return command-linked evidence. The primary agent retests the combined wave.
+- **Resumable tracking:** stable markers connect planner sidecars, GitHub milestones,
+  issues, reports, and review findings without using GitHub Projects.
+- **Accessible communication:** user-facing docs and reports pair meaningful visuals
+  with concise text that conveys the same relationships. Planner folios compare current
+  and proposed states; code-review reports show how candidates become verified findings.
+- **Cross-harness parity:** centralized skills are installed into Claude Code, Codex,
+  and Antigravity, while role-specific capabilities remain explicit in agent definitions.
 
-### Docs Compliance (`skills/docs/scripts/docs_check.py`)
-Enforces instruction file budgets (ensuring lean global files) and verifies proper formatting of ADRs.
+## Use the workflows
 
-## Bootstrap Setup
-Ready a project folder (detect stack, install hook tools, and wire advisory gates) with:
+- `planner` investigates a substantial change and produces an offline HTML plan plus
+  `plan.sidecar.json`. GitHub reconciliation waits for explicit approval.
+- `build` executes an approved milestone as resumable dependency waves in isolated
+  Jujutsu workspaces.
+- `code-review` runs independent assurance lenses, verifies candidates, renders an
+  offline report, and reconciles approved findings.
+- `docs` keeps READMEs newcomer-friendly, updates documentation in place, records ADRs,
+  and runs the documentation gate.
+- `deploy` performs preflight checks, an approved release, post-deploy verification,
+  and rollback preparation.
+
+Supporting skills cover research, frontend implementation and review, bounded
+review/fix loops, Jujutsu, and explicitly requested alternate harnesses. Every directory
+under `skills/` is discovered automatically; adding a skill does not require an
+installer manifest change.
+
+To prepare a target repository after installing the harness, run:
+
 ```sh
-scripts/project-bootstrap.sh [--install] [--with-hooks] [DIR]
+scripts/project-bootstrap.sh --install --with-hooks /path/to/project
 ```
 
-## Flagship Workflow
+The bootstrap detects the project stack, installs available hook tools, and connects the
+advisory formatting and lint feedback supported by that harness.
+
+## Mechanical gates
+
+The guard and hooks enforce the boundaries that prose alone cannot:
+
+1. `tdd-guard seal` records an exact failing test command and sealed test digest.
+2. `tdd-guard verify` accepts that same command only after it passes without test
+   tampering.
+3. `tdd-guard diff-review record` binds review findings to the current diff.
+4. `tdd-guard status --json` exposes whether the evidence is fresh and integration-ready.
+
+The build guard also fails closed on malformed tool payloads, protected-branch
+mutations, unsafe Git/jj/GitHub operations, and RAM-tmpfs build targets. Formatting and
+lint hooks provide file-level feedback. Claude and Antigravity wire supported events
+natively; Codex builders run the equivalent guard commands explicitly.
+
+## Verify the repository
+
+Run the same substantive checks used by CI:
+
+```sh
+go mod tidy
+go build ./...
+go vet ./...
+go test -count=1 -race ./...
+bash scripts/hooks/tests/test_hooks.sh
+bash scripts/tests/test_install.sh
+ruff check skills/
+shellcheck -S warning scripts/*.sh scripts/hooks/build-*
+for d in skills/*/tests; do python3 -m unittest discover -s "$d" -p 'test_*.py'; done
+python3 skills/docs/scripts/docs_check.py .
 ```
-planner ──> human approval ──> GitHub issues ──> parallel builders (with wave overlap check) ──> review ──> integrate + retest ──> deploy
-```
-GitHub serves as the durable, resumable task board.
-The planner's reviewable HTML folios live in [`docs/plans/`](docs/plans/); the root
-`plan.sidecar.json` is the machine-readable sidecar for the current approved plan.
-Closed issues labelled `status:done` are durable completed work: planner reconciliation
-does not reopen them unless explicitly asked, and build-wave derivation treats them as done.
 
-## CI/CD Quality Gates
-The `.github/workflows/ci.yml` pipeline runs on every push and pull request:
+CI also checks that `go mod tidy` leaves `go.mod` and `go.sum` unchanged. Generated
+planner folios live in [`docs/plans/`](docs/plans/), and the root
+[`plan.sidecar.json`](plan.sidecar.json) describes the current plan.
 
-1. **Go verification**: Confirms `go mod tidy` leaves `go.mod` and `go.sum` unchanged,
-   builds all packages, and runs `go vet ./...`.
-2. **Go tests**: Runs every package test with a fresh result and the race detector
-   (`go test -count=1 -race ./...`).
-3. **Hook and installer tests**: Exercises the hook command corpus and the harness
-   install/uninstall safety contract.
-4. **Static analysis**: Runs Ruff across `skills/` and ShellCheck across the bootstrap,
-   installer, and hook scripts.
-5. **Skill tests**: Discovers every `skills/*/tests` suite, including future skills,
-   instead of maintaining a fixed list.
-6. **Docs enforcement**: Runs `docs_check.py` to enforce instruction-file budgets, ADR
-   structure and numbering, and valid agent-to-skill references.
-
----
-Decisions are recorded as ADRs under [`docs/adr/`](docs/adr/).
+Architecture decisions are recorded in [`docs/adr/`](docs/adr/), and notable changes
+are summarized in [`CHANGELOG.md`](CHANGELOG.md).
