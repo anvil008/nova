@@ -151,7 +151,7 @@ if [[ ! -f "$ROOT/plugins/agy/swarm-coder/hooks.json" || ! -d "$ROOT/plugins/agy
   bad_links=1
   echo "Missing hooks.json or rules in agy plugin"
 fi
-if find "$ROOT/plugins" -type l -exec test ! -e {} \; -print | grep -q .; then
+if find "$ROOT/plugins" -type l ! -exec test -e {} \; -print | grep -q .; then
   bad_links=1
   echo "Broken symlinks found in plugins/"
 fi
