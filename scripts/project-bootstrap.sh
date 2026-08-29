@@ -66,6 +66,22 @@ if ((install)); then
   # Symlinked, not copied (same as bootstrap-tools.sh): editing scripts/hooks/* takes effect immediately.
   for b in build-format build-lint build-guard; do link_owned "$ROOT/scripts/hooks/$b" "$BIN/$b" || die "could not link $b into $BIN"; done
   echo "  linked build-{format,lint,guard} -> $ROOT/scripts/hooks/"
+
+  echo "== workspace plugins =="
+  mkdir -p .agents/plugins .claude/plugins .codex/plugins
+  link_owned "$ROOT/plugins/agy/swarm-coder" ".agents/plugins/swarm-coder" || true
+  link_owned "$ROOT/plugins/claude/swarm-coder" ".claude/plugins/swarm-coder" || true
+  link_owned "$ROOT/plugins/codex/swarm-coder" ".codex/plugins/swarm-coder" || true
+  echo "  linked workspace plugins into .agents / .claude / .codex"
+  
+  if ex=$(git rev-parse --git-path info/exclude 2>/dev/null); then
+    mkdir -p "$(dirname "$ex")"
+    for p in ".agents/plugins" ".claude/plugins" ".codex/plugins"; do
+      if ! grep -qxF "$p" "$ex" 2>/dev/null; then
+        echo "$p" >> "$ex"; echo "  local-ignored $p via $ex"
+      fi
+    done
+  fi
 fi
 for b in build-format build-lint build-guard; do
   [[ -x $BIN/$b ]] && printf '  present  %s\n' "$b" || printf '  missing  %s  (run scripts/project-bootstrap.sh --install)\n' "$b"; done
