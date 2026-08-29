@@ -66,9 +66,11 @@ missing), but architecture results and optional coverage thresholds are advisory
 do not make the Stop gate fail.
 
 - **Hardened Security & Performance**:
-  - *Bounded streaming SHA-256 digests*: Streams untracked-file content used by the
-    working-diff digest through a 10 MiB limit; tracked diffs come from Git, while sealed
-    tests and small state records still read their inputs directly.
+  - *Streaming SHA-256 digests*: Hashes the complete content and byte length of each
+    regular untracked file with bounded memory, so changes beyond the first 10 MiB still
+    invalidate diff-review evidence. Tracked diffs come from Git, while sealed tests and
+    small state records still read their inputs directly; non-regular untracked entries
+    are ignored.
   - *Cross-platform path normalization*: Normalizes backslash/forward-slash paths to prevent platform-specific bypasses of test/conformance rules.
   - *In-memory directory caching*: Caches repository directory walking during architecture compliance checks (`arch-check`) to avoid quadratic filesystem traversals.
 
@@ -114,12 +116,20 @@ Closed issues labelled `status:done` are durable completed work: planner reconci
 does not reopen them unless explicitly asked, and build-wave derivation treats them as done.
 
 ## CI/CD Quality Gates
-Our `.github/workflows/ci.yml` pipeline enforces 100% compliance across all commits and PRs:
-1. **Go Verification**: Runs `go mod tidy` verification (verifying `go.mod` and `go.sum` match), builds all modules (`go build ./...`), and runs analysis (`go vet ./...`).
-2. **Go Unit Testing**: Executes all tests under `./...` (including tdd-guard and repository state/lookups checks).
-3. **Shell Hook Testing**: Runs `scripts/hooks/tests/test_hooks.sh` to verify hook script correctness and cross-platform compatibility.
-4. **Python Skill Testing**: Runs automated unit tests for centralized skills (`planner`, `build`, `code-review`, `docs`, `research`).
-5. **Docs Enforcement**: Executes `docs_check.py` to prevent any documentation or ADR regression.
+The `.github/workflows/ci.yml` pipeline runs on every push and pull request:
+
+1. **Go verification**: Confirms `go mod tidy` leaves `go.mod` and `go.sum` unchanged,
+   builds all packages, and runs `go vet ./...`.
+2. **Go tests**: Runs every package test with a fresh result and the race detector
+   (`go test -count=1 -race ./...`).
+3. **Hook and installer tests**: Exercises the hook command corpus and the harness
+   install/uninstall safety contract.
+4. **Static analysis**: Runs Ruff across `skills/` and ShellCheck across the bootstrap,
+   installer, and hook scripts.
+5. **Skill tests**: Discovers every `skills/*/tests` suite, including future skills,
+   instead of maintaining a fixed list.
+6. **Docs enforcement**: Runs `docs_check.py` to enforce instruction-file budgets, ADR
+   structure and numbering, and valid agent-to-skill references.
 
 ---
 Decisions are recorded as ADRs under [`docs/adr/`](docs/adr/).

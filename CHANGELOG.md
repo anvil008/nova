@@ -5,7 +5,7 @@ All notable changes to Swarm Coder will be documented in this file.
 ## [Harness Gate Integrity and Cross-Harness Parity] - 2026-08-28
 
 ### Added
-- **Gate-integrity milestone**: Added argv-bound RED-to-GREEN evidence, tamper-resistant sealed-test checks, physical-path target resolution, authenticated guard records, and control-plane contract validation.
+- **Gate-integrity milestone**: Added argv-bound RED-to-GREEN evidence, tamper-resistant sealed-test checks, physical-path target resolution, authenticated guard records, full-stream untracked-file digests, concurrent touch-log protection, and control-plane contract validation.
 - **Build boundary corpus**: Added fail-closed hook parsing and adversarial command tests covering protected Git/jj/GitHub operations, shell wrappers, quoting, and tmpfs targets.
 - **Research assurance**: Added stance-driven conflict detection that separates corroboration from genuine contradictions in merged research.
 
