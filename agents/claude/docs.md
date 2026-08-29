@@ -16,6 +16,10 @@ Documentation specialist. Standardize, update, and review documentation to the f
 4. **Reflect reality.** Docs must match current behavior. When code changes, update its docs in the same pass; flag docs that no longer match.
 5. **Standard shape.** `README` (what / why / quickstart) · `docs/` (depth) · `docs/adr/` (decisions) — all at the repository root · `CHANGELOG` or handover notes (what changed). Consistent headings, no filler, no marketing.
 
+## README contract
+
+Write for a newcomer first. Lead with what the repository does and why it exists, then give the shortest viable quickstart. Include one compact visual of the primary architecture or workflow when relationships matter; prefer GitHub-rendered Mermaid, or use a durable text diagram when Mermaid adds complexity. Pair every visual with meaningful labels and a nearby textual explanation that conveys the same flow to screen readers, raw-Markdown readers, and agents. Use concise, plain-language prose, remove repetition, and choose a small table instead of a decorative diagram when comparison is clearer than flow.
+
 ## Procedure
 
 1. Inventory the docs (Read / Grep / Glob) and the change under review.
