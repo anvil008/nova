@@ -87,11 +87,20 @@
     <section class="section" id="architecture">
       <div class="section-head"><span class="num">02</span><h2>Architecture</h2></div>
       <div class="spec"><span class="mark">&#9671;</span>
-        <div><b>components + target</b> &mdash; data: architecture.components[]{name, purpose} and architecture.diagramsMermaid.targetArchitecture.</div>
+        <div><b>current + proposed</b> &mdash; compare the smallest meaningful system boundary, then state the operational change in plain language.</div>
       </div>
       <div class="cards">{{COMPONENTS}}</div>
-      <h3>Target architecture</h3>
-      {{ARCHITECTURE_DIAGRAM}}
+      <div class="architecture-delta"><span class="k">What changes</span><p>{{ARCHITECTURE_DELTA}}</p></div>
+      <div class="architecture-comparison">
+        <article class="architecture-state current">
+          <h3>Current</h3>
+          {{CURRENT_ARCHITECTURE_DIAGRAM}}
+        </article>
+        <article class="architecture-state proposed">
+          <h3>Proposed</h3>
+          {{PROPOSED_ARCHITECTURE_DIAGRAM}}
+        </article>
+      </div>
     </section>
 
     <section class="section" id="tasks">
