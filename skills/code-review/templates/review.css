@@ -82,6 +82,59 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
 }
 
+/* ── Review visuals ───────────────────────────────────────────── */
+
+.review-visual {
+  margin: 20px 0; padding: 16px; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2);
+}
+.review-visual figcaption { margin-bottom: 4px; font-size: 14px; font-weight: 600; }
+.visual-description {
+  margin: 0 0 14px; color: var(--txt-3); font-size: 12.5px; max-width: none;
+}
+.topology-track { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px; }
+.topology-node {
+  position: relative; min-width: 0; padding: 12px; display: flex; flex-direction: column;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg-3);
+}
+.topology-node:not(:last-child)::after {
+  content: "\2192"; position: absolute; right: -18px; top: 50%; transform: translateY(-50%);
+  color: var(--txt-3); font-weight: 700;
+}
+.topology-value {
+  overflow-wrap: anywhere; color: var(--acc); font-size: 20px; font-weight: 650; line-height: 1.2;
+}
+.topology-node strong { margin-top: 5px; font-size: 12px; }
+.topology-node small { color: var(--txt-3); font-size: 10.5px; }
+.topology-outcome .topology-value { font-size: 13px; text-transform: capitalize; }
+
+.impact-grid { display: flex; flex-direction: column; gap: 1px; background: var(--line); }
+.impact-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(210px, auto);
+  gap: 12px; align-items: center; padding: 10px 12px; background: var(--bg-3);
+}
+.impact-path { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.impact-total { color: var(--txt-3); font-size: 11px; }
+.impact-marks { display: flex; justify-content: flex-end; gap: 5px; flex-wrap: wrap; }
+.impact-mark { display: inline-flex; gap: 4px; align-items: baseline; padding: 3px 7px; border-left: 4px solid currentColor; background: var(--bg-2); }
+.impact-mark b { font-size: 12px; }
+.impact-mark small { color: var(--txt-2); font-size: 9px; text-transform: uppercase; }
+.impact-mark.bar-critical { color: var(--sev-critical); background: var(--sev-critical-bg); }
+.impact-mark.bar-high { color: var(--sev-high); background: var(--sev-high-bg); }
+.impact-mark.bar-medium { color: var(--sev-medium); background: var(--sev-medium-bg); }
+.impact-mark.bar-low { color: var(--sev-low); background: var(--sev-low-bg); }
+.impact-mark.bar-nit { color: var(--sev-nit); background: var(--sev-nit-bg); }
+.impact-zero { padding: 18px; display: grid; grid-template-columns: auto 1fr; gap: 0 10px; background: var(--ok-bg); }
+.impact-zero > span { grid-row: 1 / 3; color: var(--ok); font-size: 22px; }
+.impact-zero small { color: var(--txt-2); }
+
+@media (max-width: 900px) {
+  .topology-track { grid-template-columns: 1fr; gap: 18px; }
+  .topology-node:not(:last-child)::after { content: "\2193"; right: 50%; top: auto; bottom: -19px; transform: translateX(50%); }
+  .impact-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .impact-marks { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
 /* ── Method ────────────────────────────────────────────────────── */
 
 .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
@@ -99,4 +152,5 @@
 @media print {
   .filters { display: none !important; }
   .row[hidden] { display: block !important; }
+  .review-visual { break-inside: avoid; }
 }
