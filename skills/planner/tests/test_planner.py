@@ -27,11 +27,13 @@ def sample_plan():
         "generatedAt": "2026-08-26T12:00:00Z",
         "summary": "Ship an offline plan report and approved GitHub milestone.",
         "architecture": {
+            "changeSummary": "Move from a sidecar that feeds an unlabeled target view to an explicit current-versus-proposed review before approval.",
             "components": [
                 {"name": "Renderer", "purpose": "Build the offline report."},
                 {"name": "Reconciler", "purpose": "Apply approved GitHub state."},
             ],
             "diagramsMermaid": {
+                "currentArchitecture": "flowchart LR\n  Plan[Sidecar] --> Report[Target-only HTML]\n  Plan --> GitHub[GitHub]",
                 "targetArchitecture": "flowchart LR\n  Plan[Sidecar] --> Report[HTML]\n  Plan --> GitHub[GitHub]"
             },
         },
@@ -94,7 +96,7 @@ class PlannerSkillTests(unittest.TestCase):
             check=False,
         )
 
-    def test_render_is_self_contained_structured_and_has_three_diagrams(self):
+    def test_render_is_self_contained_structured_and_has_visual_comparison(self):
         with tempfile.TemporaryDirectory() as tmp:
             sidecar = Path(tmp) / "plan.sidecar.json"
             output = Path(tmp) / "plan.html"
@@ -123,11 +125,17 @@ class PlannerSkillTests(unittest.TestCase):
         self.assertIn("flowchart LR", rendered)
         self.assertIn("flowchart TD", rendered)
         self.assertIn("diagram-fallback", rendered)
+        self.assertIn('class="architecture-state current"', rendered)
+        self.assertIn('class="architecture-state proposed"', rendered)
+        self.assertIn(">Current</h3>", rendered)
+        self.assertIn(">Proposed</h3>", rendered)
+        self.assertIn("Target-only HTML", rendered)
+        self.assertIn("explicit current-versus-proposed review", rendered)
         self.assertIn("data-theme", rendered)
 
         parser = StructureParser()
         parser.feed(rendered)
-        self.assertGreaterEqual(parser.mermaid_blocks, 3)
+        self.assertGreaterEqual(parser.mermaid_blocks, 4)
         headings = [
             "Overview",
             "Architecture",
@@ -138,6 +146,49 @@ class PlannerSkillTests(unittest.TestCase):
         ]
         positions = [rendered.index(f">{heading}</h2>") for heading in headings]
         self.assertEqual(positions, sorted(positions))
+
+    def test_renderer_requires_current_and_proposed_visuals(self):
+        for missing in ("currentArchitecture", "targetArchitecture"):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as tmp:
+                plan = sample_plan()
+                del plan["architecture"]["diagramsMermaid"][missing]
+                sidecar = Path(tmp) / "plan.sidecar.json"
+                output = Path(tmp) / "plan.html"
+                sidecar.write_text(json.dumps(plan), encoding="utf-8")
+                result = self.run_script(RENDER, sidecar, output)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(f"architecture.diagramsmermaid.{missing.lower()} is required", result.stderr.lower())
+
+    def test_renderer_requires_textual_architecture_delta(self):
+        plan = sample_plan()
+        plan["architecture"]["changeSummary"] = "  "
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "plan.html"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("architecture.changesummary must be a non-empty string", result.stderr.lower())
+
+    def test_two_renders_are_byte_identical_and_offline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            first = Path(tmp) / "first.html"
+            second = Path(tmp) / "second.html"
+            sidecar.write_text(json.dumps(sample_plan()), encoding="utf-8")
+            first_result = self.run_script(RENDER, sidecar, first)
+            second_result = self.run_script(RENDER, sidecar, second)
+            self.assertEqual(first_result.returncode, 0, first_result.stderr)
+            self.assertEqual(second_result.returncode, 0, second_result.stderr)
+            first_bytes = first.read_bytes()
+            second_bytes = second.read_bytes()
+        self.assertEqual(first_bytes, second_bytes)
+        rendered = first_bytes.decode("utf-8")
+        self.assertNotIn("<script src=", rendered)
+        self.assertNotIn("<link rel=", rendered)
+        self.assertIn("@media print", rendered)
+        self.assertIn("Proposed &mdash; awaiting explicit human approval", rendered)
+        self.assertIn("<!-- swarm-planner planId=planner-v3 -->", rendered)
 
     def test_renderer_rejects_unknown_schema_fields(self):
         plan = sample_plan()

@@ -18,7 +18,7 @@ TOP_FIELDS = {
     "architecture", "issues", "risks",
 }
 RISK_FIELDS = {"id", "title", "likelihood", "impact", "owner", "mitigation"}
-ARCH_FIELDS = {"components", "diagramsMermaid"}
+ARCH_FIELDS = {"components", "changeSummary", "diagramsMermaid"}
 ISSUE_FIELDS = {"key", "title", "body", "labels", "dependsOn", "ownershipHint", "wave", "acceptanceTests"}
 ACC_REQUIRED = {"name", "kind", "oracle"}
 ACC_ALLOWED = {"name", "kind", "oracle", "testPath", "stub"}
@@ -72,6 +72,7 @@ def validate_plan(plan: object) -> dict:
     if not isinstance(architecture, dict):
         raise PlanError("architecture must be an object")
     require_exact_fields(architecture, ARCH_FIELDS, "architecture")
+    nonempty_string(architecture["changeSummary"], "architecture.changeSummary")
     if not isinstance(architecture["components"], list) or not architecture["components"]:
         raise PlanError("architecture.components must be a non-empty array")
     for index, component in enumerate(architecture["components"]):
@@ -89,8 +90,9 @@ def validate_plan(plan: object) -> dict:
     for key, source in diagrams.items():
         nonempty_string(key, "architecture.diagramsMermaid key")
         nonempty_string(source, f"architecture.diagramsMermaid.{key}")
-    if "targetArchitecture" not in diagrams:
-        raise PlanError("architecture.diagramsMermaid.targetArchitecture is required")
+    for required_diagram in ("currentArchitecture", "targetArchitecture"):
+        if required_diagram not in diagrams:
+            raise PlanError(f"architecture.diagramsMermaid.{required_diagram} is required")
 
     issues = plan["issues"]
     if not isinstance(issues, list) or not issues:
@@ -476,7 +478,9 @@ def render(plan: dict) -> str:
         "RISK_COUNT": escaped(len(plan["risks"])),
         "METRICS": metrics_html(plan),
         "COMPONENTS": components_html(plan["architecture"]["components"]),
-        "ARCHITECTURE_DIAGRAM": diagram(plan["architecture"]["diagramsMermaid"]["targetArchitecture"], "Target architecture"),
+        "ARCHITECTURE_DELTA": escaped(plan["architecture"]["changeSummary"]),
+        "CURRENT_ARCHITECTURE_DIAGRAM": diagram(plan["architecture"]["diagramsMermaid"]["currentArchitecture"], "Current architecture"),
+        "PROPOSED_ARCHITECTURE_DIAGRAM": diagram(plan["architecture"]["diagramsMermaid"]["targetArchitecture"], "Proposed architecture"),
         "ISSUE_CARDS": issues_html(plan["issues"]),
         "DEPENDENCY_DIAGRAM": diagram(dependency_source(plan["issues"]), "Issue dependency DAG"),
         "ISSUE_TABLE": issue_table(plan["issues"]),
