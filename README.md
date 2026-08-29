@@ -2,9 +2,9 @@
 
 A multi-agent coding system for **Claude Code**, **Codex**, and **Antigravity**.
 
-It turns a goal into a reviewable plan, hands each implementation task to an isolated
-builder, and uses mechanical gates — not promises — to keep the combined result
-verifiable. The point is to run coding agents in parallel without losing human approval,
+It turns a goal into a reviewable plan, has one agent write each task's tests and a
+different one make them pass, and uses mechanical gates — not promises — to keep the
+combined result verifiable. The point is to run coding agents in parallel without losing human approval,
 test evidence, ownership boundaries, or a resumable GitHub record.
 
 One repository, three harnesses, the same agents and skills in each.
@@ -42,6 +42,44 @@ scripts/bootstrap-plugins.sh --uninstall        # remove everything it installed
 It never overwrites something it does not own. A real file or directory where a link
 should go is refused by name, and the run exits non-zero rather than clobbering it.
 
+### Choosing models and thinking levels
+
+[`agents/models.json`](agents/models.json) is the single source for which model and thinking
+level every agent runs at, on every harness. Edit it and re-run `scripts/bootstrap-plugins.sh`;
+the installer applies it before installing anything.
+
+```json
+"planner": {
+  "claude": { "model": "opus", "effort": "xhigh" },
+  "codex":  { "effort": "high" },
+  "agy":    { "model": "pro" }
+}
+```
+
+Each harness gets only the knobs it actually honours, which differ more than they look:
+
+| Harness | Model | Thinking level | Where it takes effect |
+|---|---|---|---|
+| Claude | `opus` / `sonnet` / `haiku` / `inherit` | `low` – `xhigh` | agent frontmatter — fully per-agent |
+| Codex | any model id | `low` – `xhigh` | a **profile**, `codex --profile swarm-<agent>` |
+| Antigravity | `pro` / `flash` / `inherit` | *(none per-agent)* | agent frontmatter |
+
+Codex reads no per-agent model surface at all — its plugin manifest has no `agents` key, and a
+skill's `agents/openai.yaml` is UI metadata only. So the installer also writes
+`$CODEX_HOME/swarm-<agent>.config.toml`, which `codex --profile swarm-<agent>` layers over your
+base config; that is the half that works today. It never touches a profile it did not write, and
+`--uninstall` removes only its own.
+
+Antigravity does have reasoning effort, but session-wide via `/effort` or `--effort` — there is no
+frontmatter key, so the manifest deliberately offers none rather than writing a value that does
+nothing. Anything an agent leaves out falls back to `defaults`. To apply or verify by hand:
+
+```sh
+scripts/sync-agent-models.py                    # write into every agent's frontmatter
+scripts/sync-agent-models.py --codex-profiles   # ...and emit the Codex profiles
+scripts/sync-agent-models.py --check            # report drift, exit non-zero (what CI runs)
+```
+
 ### Per-project install
 
 To set up one repository instead of your whole machine:
@@ -63,59 +101,84 @@ none of it shows up in `git diff` or a commit.
 flowchart TB
     Goal["Goal"]
 
-    subgraph primary["Primary agent — plans, integrates, never writes issue code"]
+    subgraph orch["Orchestrator — dispatches, gates, merges. Writes no code."]
         direction TB
-        Plan["<b>planner</b> skill<br/><i>HTML folio + plan.sidecar.json</i>"]
-        Issues["GitHub milestone<br/>and issues, in waves"]
-        Integrate["serial merge + retest<br/><i>combined GREEN</i>"]
+        Dispatch["selects lenses and waves<br/>reads gates, never runs them"]
+        Merge["merge on combined GREEN"]
     end
 
+    P["<b>planner</b> agent<br/><i>read-only · folio + sidecar<br/>+ acceptanceTests</i>"]
     Gate{"Human approval"}
+    Issues["GitHub milestone<br/>and issues, in waves"]
 
-    subgraph wave["One wave — disjoint ownership, parallel"]
-        direction LR
-        B1["<b>builder</b> agent<br/><i>jj workspace · issue A</i>"]
-        B2["<b>builder</b> agent<br/><i>jj workspace · issue B</i>"]
+    subgraph wave["One issue — two phases, never concurrent"]
+        direction TB
+        TA["<b>test-author</b> agent<br/><i>writes tests · proves RED · seals</i>"]
+        B["<b>builder</b> agent<br/><i>implements · cannot edit sealed tests</i>"]
+        TA -->|"seal exists"| B
     end
 
-    R1["<b>code-reviewer</b> agents<br/><i>read-only · 2 passes</i>"]
+    R["<b>code-reviewer</b> agents<br/><i>read-only · one lens each · 2 passes</i>"]
     PRs["Pull requests<br/><i>--base main</i>"]
-    Ship["<b>deploy</b> skill<br/><i>human-gated</i>"]
+    I["<b>integrator</b> agent<br/><i>combined suite · evidence only</i>"]
+    D["<b>docs</b> agent"]
+    Dep["<b>deploy</b> agent<br/><i>runs the approved release</i>"]
 
-    Goal --> Plan
-    Plan --> Gate
-    Gate -->|changes requested| Plan
+    Goal --> P
+    P -->|"needs-decision"| Dispatch
+    P --> Gate
+    Gate -->|changes requested| P
     Gate -->|approved| Issues
-    Issues --> B1 & B2
-    B1 & B2 --> R1
-    R1 -->|"critical/high clear"| PRs
-    R1 -.->|"still critical/high"| Blocked["returns <b>blocked</b><br/>no PR"]
-    PRs --> Integrate
-    Blocked -.-> Issues
-    Integrate --> Ship
+    Issues --> TA
+    B --> R
+    R -->|"critical/high clear"| PRs
+    R -.->|"still critical/high"| Blocked["returns <b>blocked</b><br/>no PR"]
+    PRs --> I
+    I -->|"evidence"| Merge
+    I -.->|"names offending PR"| B
+    Blocked -.-> Dispatch
+    Merge --> D
+    D --> Dep
 ```
 
-In words: the **primary agent** runs the `planner` skill to turn a goal into an HTML folio plus
-a machine-readable sidecar, and a human approves that plan before any GitHub resource is written.
-Approved issues run in dependency waves. Each **builder** agent owns exactly one issue in its own
-Jujutsu workspace, branched from the same integration base — `trunk()` unless the primary agent is
-deliberately stacking — and it opens its PR with an explicit `--base main`. Before any PR exists a
-builder hands its change-set to read-only **code-reviewer** agents for at most two passes; if a
-`critical` or `high` finding still stands it returns `blocked` with no PR, and the primary agent
-decides whether to re-dispatch, re-scope, or escalate. The primary agent then integrates the wave by
-serial merge plus retest and must see a combined GREEN before marking issues done. It never writes
-issue code, never merges before combined green, and never force-pushes `main`. Deployment is a
-separate human decision.
+In words: the **orchestrator** is the only thing that persists across the whole run, and it
+writes nothing. It dispatches a read-only **planner** agent, which investigates and produces the
+folio, the sidecar, and each issue's `acceptanceTests` — the TDD Definition of Done. Questions the
+planner cannot answer come back as `needs-decision` and the orchestrator puts them to the human; a
+plan carrying an unanswered question is not ready for approval. A human approves the folio before
+any GitHub resource is written, and that write is the orchestrator's.
+
+Each issue then runs in two phases that never overlap. A **test-author** agent creates the jj
+workspace, writes the acceptance tests against the real codebase, proves they fail *on their
+assertions* rather than on an import error, and seals them. Only then does a **builder** enter the
+same workspace and implement. It cannot weaken what it is judged by: the guard denies edits to
+sealed paths outright. Before any PR exists the builder hands its change-set to read-only
+**code-reviewer** agents — one per applicable lens, at most two passes — and returns `blocked` with
+no PR if a `critical` or `high` finding still stands.
+
+An **integrator** agent then merges the wave's PRs together and runs the full suite on the combined
+state, because every PR was tested on its own base. It returns evidence and gate output, never a
+verdict. The orchestrator merges on the evidence — visible `commandId`s, `tdd-guard status --json`,
+`gh pr checks` — and never on an agent's claim of success. Documentation and deployment follow the
+same shape, and deploying stays a separate, explicit human decision.
 
 ### Who does what
 
-| Agent | Writes code | Owns | Never |
+| Agent | Writes | Owns | Never |
 |---|---|---|---|
-| primary (you, in the harness) | no | planning, wave scheduling, integration, final verification | writes issue code, merges before combined GREEN |
-| `builder` | yes | one issue, one workspace, one PR | touches another issue's files, pushes `main`, merges its own PR |
-| `code-reviewer` | no | assurance lenses over one change-set | edits anything it reviews |
-| `research` | no | investigation that feeds a plan | changes behaviour |
-| `docs` | yes | READMEs, ADRs, the documentation gate | product code |
+| orchestrator (you, in the harness) | nothing | dispatch, gates, wave scheduling, merges, verdicts | reads or edits project code, runs test suites, authors artifacts |
+| `planner` | plan artifacts | investigation, folio, sidecar, acceptance tests | touches the target project; writes GitHub; answers for the human |
+| `test-author` | tests | the Definition of Done: real RED, then the seal | writes an implementation, makes its own test pass |
+| `builder` | implementation | one issue, one workspace, one PR | edits sealed tests, pushes `main`, merges its own PR |
+| `code-reviewer` | nothing | one assurance lens over one change-set | edits anything it reviews |
+| `debugger` | temporary instrumentation only | reproducing a symptom and finding its cause by experiment | ships the fix, leaves instrumentation behind |
+| `benchmarker` | nothing | measurement: distributions, run counts, conditions | edits anything it measures, reports a single run |
+| `integrator` | nothing | the combined-wave run and its evidence | merges to `main`, fixes what it finds, decides |
+| `research` | report artifacts | one assigned area, evidence-backed | changes behaviour; draws the conclusion |
+| `docs` | docs | READMEs, ADRs, changelogs, the docs gate | product code |
+| `deploy` | release artifacts | one approved release, verify, rollback | deploys without a fresh, explicit approval |
+
+The boundary is written down in [ADR 0007](docs/adr/0007-primary-agent-is-a-pure-orchestrator.md).
 
 ---
 
@@ -158,7 +221,7 @@ plugin CLI, so its wrapper is symlinked into place and stays live.
 
 | Directory | What lives there |
 |---|---|
-| [`agents/`](agents/) | Agent definitions per harness: research, builder, code-reviewer, docs. |
+| [`agents/`](agents/) | Agent definitions per harness: planner, test-author, builder, code-reviewer, debugger, benchmarker, integrator, research, docs, deploy. |
 | [`skills/`](skills/) | The shared workflows: planner, build, code-review, docs, deploy, and support skills. |
 | [`plugins/`](plugins/) | One thin wrapper per harness. No content of its own. |
 | [`scripts/`](scripts/) | The three bootstrap commands, plus the hook scripts they install. |
@@ -173,14 +236,34 @@ every install from `skills/` minus the skills owned by one of its agents.
 
 ## What you get
 
-Once installed, these workflows are available in each harness:
+Once installed, these workflows are available in each harness.
 
-- **`planner`** — investigates a substantial change and produces an offline HTML plan
-  plus `plan.sidecar.json`. GitHub reconciliation waits for explicit approval.
+**Start here — one entry point per kind of work:**
+
+- **`new-feature`** — interviews you first (at least five clarifying questions, unless you
+  say skip), then plans, builds test-first, reviews, and opens one PR.
+- **`code-analysis`** — hunts real defects, reproduces each as a failing test, fixes it,
+  and opens one PR. Correctness only.
+- **`code-refactor`** — simplifies without changing behaviour: consolidates modules,
+  deletes dead paths, and refuses to touch a test file. One PR.
+- **`debug`** — starts from a *reported* symptom: reproduces it, finds the root cause by
+  experiment, fixes it test-first, and opens one PR. No reproduction, no fix.
+- **`perf`** — measures a baseline, optimizes, and proves the gain is outside the noise.
+  Refuses to run without a benchmark harness.
+- **`repo-setup`** — makes a repository ready for agentic work: instruction files, build
+  runner, version control, and lint/format gates. Existing repo or new one.
+
+**The stages they compose:**
+
+- **`planner`** — dispatches a read-only planner agent that produces an offline HTML plan,
+  `plan.sidecar.json`, and each issue's acceptance tests. GitHub reconciliation waits for
+  explicit approval.
 - **`build`** — executes an approved milestone as resumable dependency waves in isolated
-  Jujutsu workspaces.
-- **`code-review`** — runs independent assurance lenses, verifies candidates, renders an
-  offline report, and reconciles approved findings.
+  Jujutsu workspaces, two agents per issue: tests first, then the implementation.
+- **`code-review`** — runs independent assurance lenses — correctness and tests always,
+  plus security, performance, api-contract, backend, integrations, or frontend as the change
+  warrants — verifies candidates adversarially, renders an offline report, and reconciles
+  approved findings.
 - **`docs`** — keeps READMEs newcomer-friendly, updates documentation in place, records
   ADRs, and runs the documentation gate.
 - **`deploy`** — preflight checks, an approved release, post-deploy verification, and
@@ -189,14 +272,23 @@ Once installed, these workflows are available in each harness:
 Supporting skills cover research, frontend implementation and review, bounded review/fix
 loops, Jujutsu, and explicitly requested alternate harnesses.
 
+`code-refactor` is the one stage that deliberately swaps the TDD gate rather than using it:
+`tdd-guard seal` requires a **non-zero** red command, and a refactor's suite is green from the
+start. It gates on a captured green baseline plus a diff that touches no test file instead.
+
 ## Core guarantees
 
 - **Human gates.** Planning approval and deployment approval are explicit. Silence is
   never treated as consent.
 - **Isolated parallel work.** The build skill schedules non-overlapping issues into
-  dependency waves and gives each builder its own `jj` workspace.
-- **Evidence-bound integration.** Builders prove RED then GREEN, review their own diff,
-  and return command-linked evidence. The primary agent retests the combined wave.
+  dependency waves and gives each issue its own `jj` workspace.
+- **A conductor that plays nothing.** The primary agent dispatches, gates, and merges; it
+  never reads or edits project code and never runs a suite
+  ([ADR 0007](docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
+- **Separated authorship.** The agent that writes an issue's tests is never the agent judged
+  by them, and the guard enforces it: sealed test paths are denied to the builder.
+- **Evidence-bound integration.** An `integrator` retests the combined wave and returns
+  command-linked evidence; the orchestrator merges on gate output, never on a claim.
 - **Resumable tracking.** Stable markers connect planner sidecars, GitHub milestones,
   issues, reports, and review findings — without GitHub Projects.
 - **Accessible communication.** Every meaningful visual is paired with text that conveys
@@ -206,15 +298,15 @@ loops, Jujutsu, and explicitly requested alternate harnesses.
 
 ## Mechanical gates
 
-Every builder is bound by `tdd-guard`, which turns TDD from a promise into a state machine. The
+The build wave is bound by `tdd-guard`, which turns TDD from a promise into a state machine — and, because the `test-author` seals and the `builder` implements, into a state machine two different agents pass through. The
 guard is a real binary (`cmd/tdd-guard/`, `guard/`), installed by `bootstrap-tools.sh`; the
 `scripts/hooks/build-*` commands are what wire it into a harness's tool events.
 
 ```mermaid
 flowchart TB
-    Red["Write the acceptance<br/>tests · run RED"]
+    Red["<b>test-author</b>: write the<br/>acceptance tests · run RED"]
     Seal["<b>seal</b><br/><i>--tests · --red-command</i>"]
-    Impl["Implement"]
+    Impl["<b>builder</b>: implement"]
     Verify["<b>verify</b><br/><i>--green-command</i>"]
     Review["<b>diff-review record</b><br/><i>--findings</i>"]
     Stop{"Stop hook<br/><i>evidence fresh?</i>"}
@@ -227,11 +319,13 @@ flowchart TB
     Denied -.-> Impl
 ```
 
-In words, and in the order a builder hits them:
+In words, and in the order the wave hits them:
 
 1. **`tdd-guard seal --tests <globs> --red-command <argv...>`** records the exact failing command and
-   a digest of every sealed test file. RED has to be real and non-zero before the seal is taken.
-2. **While implementing, sealed tests are read-only.** A `PreToolUse` edit of a sealed path is
+   a digest of every sealed test file. RED has to be real and non-zero before the seal is taken — and
+   *honest*: a test failing with `ImportError` proves nothing about behaviour, so the `test-author`
+   writes signature-only stubs where needed to make the failure land on the assertion.
+2. **While implementing, sealed tests are read-only** — and they are not the builder's tests. A `PreToolUse` edit of a sealed path is
    *denied*, not warned about; changing one out-of-band is flagged the moment the guard sees it. The
    only legitimate amendment is `tdd-guard reseal --reason <text>`, after proving the amended test
    fails for the intended reason.
@@ -240,10 +334,13 @@ In words, and in the order a builder hits them:
    add a coverage floor; `tdd-guard arch-check --assertions <file>` asserts structural invariants.
 4. **`tdd-guard diff-review record --findings <file>`** binds review findings to the current diff. Change
    the diff afterwards and the record goes stale.
-5. **The Stop hook refuses to let a builder finish** while any of that is missing: sealed tests changed
+5. **`tdd-guard handoff --to builder`** ends the `test-author`'s turn. The Stop gate is written for an
+   implementer, so without this a sealing agent would deadlock on GREEN evidence it is not allowed to
+   produce. It relaxes the Stop gate only — `ready` stays false until the implementation exists.
+6. **The Stop hook refuses to let a builder finish** while any of that is missing: sealed tests changed
    without a recorded amendment, no green evidence, green evidence older than the current seal, or a
    missing/stale diff review. `tdd-guard status --json` reports the same state for a human or the
-   primary agent.
+   orchestrator, and it is the gate that decides a merge — a handoff never satisfies it.
 
 Alongside the TDD state machine, `build-guard` inspects each shell command *before* it runs and fails
 closed on malformed tool payloads, protected-branch mutations, unsafe Git/jj/GitHub operations, and

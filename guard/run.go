@@ -122,6 +122,12 @@ func dispatch(options Options, args []string) (int, error) {
 			return 1, err
 		}
 		return 0, recordDiffReview(loaded, flags.values["--findings"])
+	case "handoff":
+		flags, err := parseFlags(rest, map[string]bool{"--to": true})
+		if err != nil {
+			return 1, err
+		}
+		return 0, handoff(loaded, flags.values["--to"])
 	case "arch-check":
 		flags, err := parseFlags(rest, map[string]bool{"--assertions": true})
 		if err != nil {

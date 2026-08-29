@@ -5,16 +5,20 @@ description: Run a multi-lens, adversarially verified review of a pull request, 
 
 # Code review
 
-Review one pull request, diff, or integrated change-set before merge. The primary agent running this skill owns the consolidated report and verdict.
+Review one pull request, diff, or integrated change-set before merge.
+
+You are the orchestrator: you select the lenses, dispatch the reviewers and verifiers, and own the consolidated verdict. You never inspect the change yourself — every finding comes from a read-only `code-reviewer` agent, and a lens you would have covered by reading the diff yourself is a lens you failed to dispatch ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
 
 ## Lens selection and fan-out
 
-Inspect the change, then select lenses from its actual risks:
+Read the change-set's **file list** — paths, extensions, and the shape of the diffstat, not the contents of the files — then select lenses from its actual risks. Reading a manifest of what changed is orchestration; reading the code to judge it is the reviewer's job:
 
 - correctness and tests are always selected;
 - security applies when trust boundaries, authentication or authorization, dependencies, secrets, or input handling change;
 - performance applies to hot paths, loops, allocations, concurrency, or materially larger data flow;
 - api-contract applies when a public surface, wire format, schema, CLI, or compatibility promise changes;
+- backend applies when server-side behaviour changes — request handling, business logic, persistence, migrations, jobs, or caching;
+- integrations applies when the change crosses a boundary this repository does not own — a third-party API, message broker, webhook, auth provider, or another internal service — where the failure modes are timeouts, retries, partial writes, and contract drift rather than logic errors;
 - frontend applies when the change touches user-facing UI — see below.
 
 The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-only `code-reviewer` per selected lens in parallel. Give each reviewer the same change-set and exactly one lens. Reviewers return structured findings and never edit.
@@ -37,7 +41,7 @@ Only verified findings reach the report. The helper ranks `critical`, `high`, `m
 
 ## Report
 
-Return the verified findings ranked by severity and the verdict: `block` / `approve-with-nits` / `approve`. Include the selected lenses and verification evidence. The primary agent is the sole synthesis and completion authority; reviewer or verifier output is evidence, not the verdict.
+Return the verified findings ranked by severity and the verdict: `block` / `approve-with-nits` / `approve`. Include the selected lenses and verification evidence. The orchestrator is the sole synthesis and completion authority; reviewer or verifier output is evidence, not the verdict. Deciding what the evidence means is orchestration; producing it is not.
 
 `--verification` emits both `findings` (substantiated) and `dropped` (refuted), each carrying its `verification{refutationAttempt, evidence}`. Refuted candidates are reported rather than discarded: the evidence that killed a plausible finding is what shows the verification pass did work.
 

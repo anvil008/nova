@@ -64,13 +64,46 @@ func seal(loaded *state, patterns []string, redCommand []string) error {
 // or amended seal describes different tests, so a green run and a diff review
 // recorded before it prove nothing about the tests now in force.
 func dropSupersededEvidence(loaded *state) error {
-	for _, stale := range []string{loaded.greenPath(), loaded.diffReviewPath()} {
+	for _, stale := range []string{loaded.greenPath(), loaded.diffReviewPath(), loaded.handoffPath()} {
 		if err := os.Remove(stale); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
-	loaded.green, loaded.diffReview = nil, nil
+	loaded.green, loaded.diffReview, loaded.handoff = nil, nil, nil
 	return nil
+}
+
+// handoff marks the sealing agent's work finished with the implementation still
+// owed. It requires a seal (there is nothing to hand off otherwise), refuses
+// once GREEN exists (the work is already implemented), and refuses while the
+// sealed tests differ from the seal, so it cannot be used to park a broken one.
+func handoff(loaded *state, to string) error {
+	to = strings.TrimSpace(to)
+	if to == "" {
+		return fmt.Errorf("handoff requires --to <role>")
+	}
+	if loaded.seal == nil {
+		return fmt.Errorf("nothing to hand off: seal the tests first with `anvil-guard seal`")
+	}
+	if loaded.green != nil {
+		return fmt.Errorf("green evidence already exists; the implementation is done, so there is nothing to hand off")
+	}
+	changed, err := loaded.changedTests()
+	if err != nil {
+		return err
+	}
+	if len(changed) > 0 {
+		return fmt.Errorf("sealed tests changed since the seal: %s; hand off the tests you sealed, or reseal them explicitly", strings.Join(changed, ", "))
+	}
+	base, _, err := currentBase(loaded.repository)
+	if err != nil {
+		return err
+	}
+	return writeJSON(loaded.handoffPath(), Handoff{
+		HandedOffAt: time.Now().UTC().Format(time.RFC3339Nano),
+		To:          to,
+		Base:        base,
+	})
 }
 
 // verify records GREEN. The passing run must be the command the seal bound,
@@ -365,6 +398,47 @@ func archReviewStale(loaded *state) (bool, error) {
 }
 
 // stopBlockers lists every reason the writer may not finish yet.
+// stopGateBlockers is what the Stop hook enforces: whether *this agent* may
+// finish. A handed-off state is mid-wave, not incomplete -- the sealing agent
+// owes nothing more -- so it stops cleanly. This deliberately differs from
+// stopBlockers, which answers whether the change is ready to merge and stays
+// unsatisfied until GREEN and a fresh diff review exist.
+func stopGateBlockers(loaded *state) ([]string, error) {
+	blockers, err := stopBlockers(loaded)
+	if err != nil {
+		return nil, err
+	}
+	if loaded.green == nil && loaded.handoff != nil {
+		changed, err := loaded.changedTests()
+		if err != nil {
+			return nil, err
+		}
+		untouched, err := handoffTreeUntouched(loaded)
+		if err != nil {
+			return nil, err
+		}
+		if len(changed) == 0 && untouched {
+			return nil, nil
+		}
+	}
+	return blockers, nil
+}
+
+// handoffTreeUntouched reports whether the working tree still matches what was
+// handed over. It is what stops the relaxation leaking past the agent that
+// recorded it: an implementer who wrote anything has moved the tree, so the
+// handoff no longer describes the state it is stopping in.
+func handoffTreeUntouched(loaded *state) (bool, error) {
+	if loaded.handoff == nil {
+		return false, nil
+	}
+	base, _, err := currentBase(loaded.repository)
+	if err != nil {
+		return false, err
+	}
+	return base == loaded.handoff.Base, nil
+}
+
 func stopBlockers(loaded *state) ([]string, error) {
 	blockers := make([]string, 0, 3)
 	changed, err := loaded.changedTests()
@@ -404,7 +478,7 @@ func status(loaded *state) (Status, error) {
 	report := Status{
 		APIVersion: APIVersion, Repository: loaded.repository, StateDir: loaded.directory,
 		Sealed: loaded.seal != nil, Seal: loaded.seal, Green: loaded.green, DiffReview: loaded.diffReview,
-		ArchReview: loaded.archReview, ChangedTests: []string{}, Records: loaded.records(),
+		ArchReview: loaded.archReview, Handoff: loaded.handoff, ChangedTests: []string{}, Records: loaded.records(),
 	}
 	// The arch review is independent of the test seal, so its staleness is
 	// reported whether or not the repository is sealed.

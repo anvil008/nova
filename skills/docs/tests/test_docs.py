@@ -187,21 +187,124 @@ class DocsCheckTests(unittest.TestCase):
         )
 
     def test_model_tiers_aligned(self):
-        agy = ROOT.parents[1] / "agents" / "agy"
+        """agents/models.json is the single source for model and thinking level.
+        Every agent file must agree with it, on every harness."""
+        repo = ROOT.parents[1]
+        manifest = json.loads((repo / "agents" / "models.json").read_text(encoding="utf-8"))
+        defaults = manifest["defaults"]
+        keys = {
+            "claude": {"model": "model", "effort": "effort"},
+            "codex": {"model": "model", "effort": "model_reasoning_effort"},
+            "agy": {"model": "model"},
+        }
+        for agent, spec in manifest["agents"].items():
+            if agent.startswith("_"):
+                continue
+            for harness, fields in keys.items():
+                path = (
+                    repo / "agents" / "agy" / agent / "agent.md"
+                    if harness == "agy"
+                    else repo / "agents" / harness / f"{agent}.md"
+                )
+                with self.subTest(agent=agent, harness=harness):
+                    self.assertTrue(path.exists(), path)
+                    front = path.read_text(encoding="utf-8").split("---")[1]
+                    merged = dict(defaults.get(harness, {}))
+                    merged.update(
+                        {k: v for k, v in spec.get(harness, {}).items()
+                         if not k.startswith("_")}
+                    )
+                    for knob, key in fields.items():
+                        if knob not in merged:
+                            continue
+                        found = re.search(rf"(?m)^{key}:\s*(\S+)$", front)
+                        self.assertIsNotNone(found, f"{path}: no {key}")
+                        self.assertEqual(found.group(1), merged[knob], f"{path}: {key}")
+
+        agy = repo / "agents" / "agy"
         main_agents = set()
         for path in sorted(agy.glob("*/agent.md")):
             front = path.read_text(encoding="utf-8").split("---")[1]
-            if path.parent.name == "builder":
-                self.assertEqual(
-                    re.search(r"(?m)^model:\s*(\S+)$", front).group(1), "pro"
-                )
-            elif path.parent.name in {"code-reviewer", "docs"}:
-                self.assertEqual(
-                    re.search(r"(?m)^model:\s*(\S+)$", front).group(1), "flash"
-                )
             if "mainAgent: true" in front:
                 main_agents.add(path.parent.name)
-        self.assertEqual(main_agents, {"builder", "code-reviewer", "docs", "research"})
+        self.assertEqual(main_agents, {
+            "builder", "code-reviewer", "docs", "research",
+            "planner", "test-author", "integrator", "deploy",
+            "debugger", "benchmarker",
+        })
+
+    def test_every_skill_declares_itself(self):
+        """A skill is discovered by directory, so its frontmatter name must match the
+        directory or the harness and the docs disagree about what it is called."""
+        skills = ROOT.parents[1] / "skills"
+        found = sorted(p for p in skills.glob("*/SKILL.md"))
+        self.assertTrue(found, "no skills found")
+        for path in found:
+            with self.subTest(skill=path.parent.name):
+                text = path.read_text(encoding="utf-8")
+                self.assertTrue(text.startswith("---\n"), f"{path}: no frontmatter")
+                end = text.find("\n---\n", 3)
+                self.assertNotEqual(end, -1, f"{path}: unterminated frontmatter")
+                front = text[4:end]
+                name = re.search(r"(?m)^name:\s*(\S+)$", front)
+                self.assertIsNotNone(name, f"{path}: no name")
+                self.assertEqual(name.group(1), path.parent.name, f"{path}: name/dir mismatch")
+                description = re.search(r"(?m)^description:\s*(\S.*)$", front)
+                self.assertIsNotNone(description, f"{path}: no description")
+
+    def test_entry_point_skills_publish_their_distinguishing_contract(self):
+        """The four entry points differ by what they refuse to do. If those clauses
+        drift out, they collapse into four names for the same pipeline."""
+        skills = ROOT.parents[1] / "skills"
+        required = {
+            "code-refactor": (
+                "Behaviour does not change",
+                "no test file is modified",
+                # A refactor cannot seal: tdd-guard seal demands a non-zero red command.
+                "does not use the TDD gate",
+                "code-analysis",
+            ),
+            "code-analysis": (
+                "failure scenario",
+                "test-author",
+                "refute",
+                "code-refactor",
+            ),
+            "new-feature": (
+                "at least five clarifying questions",
+                "Skip this only when the user explicitly says to skip",
+                "needs-decision",
+            ),
+            "repo-setup": (
+                "AGENTS.md",
+                "bootstrap-project.sh",
+                "jj git init --colocate",
+            ),
+            "debug": (
+                # Reproduction is the gate: without it a "fix" is a guess that shipped.
+                "No reproduction, no fix",
+                "debugger",
+                "test-author",
+                "code-analysis",
+            ),
+            "perf": (
+                # A benchmark harness is a precondition, not a nice-to-have.
+                "No harness, no run",
+                "outside the baseline's spread",
+                "benchmarker",
+                "no write tools",
+            ),
+        }
+        for skill, phrases in required.items():
+            path = skills / skill / "SKILL.md"
+            with self.subTest(skill=skill):
+                self.assertTrue(path.exists(), path)
+                text = path.read_text(encoding="utf-8")
+                for phrase in phrases:
+                    self.assertIn(phrase, text, f"{skill}: missing {phrase!r}")
+                # Every entry point is orchestration: it dispatches, it does not do.
+                self.assertIn("You are the orchestrator", text)
+                self.assertIn("0007-primary-agent-is-a-pure-orchestrator", text)
 
     def test_gemini_instruction_file_budget(self):
         with tempfile.TemporaryDirectory() as t:

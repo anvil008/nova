@@ -5,7 +5,9 @@ description: Investigate a repository task and produce an offline HTML implement
 
 # Planner
 
-Turn a repository change into an evidence-backed, reviewable plan. Investigate the target repository and task read-only. Do not modify product code while planning.
+Turn a repository change into an evidence-backed, reviewable plan.
+
+You are the orchestrator. The `planner` agent does the investigating and writes both artifacts; you relay its open questions to the human, hold the approval gate, and are the only one who writes GitHub ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)). Nothing here has you read the target project yourself.
 
 ## Deliverables
 
@@ -69,7 +71,7 @@ Risk ids use the same mixed-case ASCII slug format as issue keys and must be uni
 A risk is something that may go wrong during execution and has a mitigation. It is not a question
 you have not asked yet — see below.
 
-Each issue carries a non-empty `acceptanceTests` list — its TDD **Definition of Done**. Each entry needs `name`, `kind` (`unit`/`integration`/`e2e`), and `oracle` (the observable pass condition); `testPath` and `stub` are optional. These are specifications, not runnable code: they render into the **GitHub issue body** as a "Definition of Done (tests)" checklist (never into the HTML folio), and the builder authors, red-proves, and seals exactly these tests.
+Each issue carries a non-empty `acceptanceTests` list — its TDD **Definition of Done**. Each entry needs `name`, `kind` (`unit`/`integration`/`e2e`), and `oracle` (the observable pass condition); `testPath` and `stub` are optional. These are specifications, not runnable code: they render into the **GitHub issue body** as a "Definition of Done (tests)" checklist (never into the HTML folio), and the `test-author` agent turns exactly these into real failing tests, proves RED, and seals them before any builder starts.
 
 Keep `planId` and every issue `key` stable across revisions. `planId` uses the lowercase slug format `[a-z0-9]+(?:-[a-z0-9]+)*`. Issue keys and every `dependsOn` entry use the conservative mixed-case ASCII slug format `[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*`, so identifiers such as `T0` and `T1` are valid. Dependencies name issue keys, not issue numbers. A syntactically valid dependency key that is absent from `issues` is allowed as an external dependency and renders as an unknown neutral node using the `--mut` theme token. Malformed dependency text is rejected before Mermaid source is generated. Each issue body sent to GitHub receives `<!-- swarm-planner planId=<planId> issue=<key> -->`; that marker is the durable reconciliation identity. Validation stores `planId`, issue keys, `dependsOn` entries, and risk ids stripped of surrounding whitespace, so a padded value never reaches a marker and re-running an unchanged sidecar stays a no-op.
 
@@ -85,32 +87,25 @@ to fill the diagrams.
 
 ## Plan workflow
 
-1. Read repository guidance, relevant code, tests, architecture, and current state without changing the target project.
-2. **Resolve open questions with the human before writing the plan.** If something material is
-   undecided — scope boundaries, which of two approaches to take, an unowned dependency, an
-   ambiguous requirement — ask, and wait for the answer. Do not encode the uncertainty into the
-   plan and hand it over: a plan carrying unanswered questions is not ready for approval, and the
-   sidecar has nowhere to put them by design. Interpret ordinary ambiguity the way a careful
-   colleague would and state the assumption in `summary`; ask only where different readings produce
-   materially different plans.
-3. Define the goal, current and proposed architecture (or the closest meaningful flow comparison), textual delta, dependency-ordered issues, ownership hints, execution waves, and risks. Prefer one independently deliverable concern per issue.
-4. Write the strict sidecar, then render it. Omit the output path to get the `docs/plans/` naming
-   convention; pass one explicitly only for a scratch render you do not intend to keep:
+1. **Dispatch the `planner` agent** with the goal and any decisions the human has already made. It investigates read-only, defines the architecture delta and dependency-ordered issues, authors each issue's `acceptanceTests`, writes the strict sidecar, renders the folio, and runs the read-only reconciliation preview.
 
    ```bash
    python3 skills/planner/scripts/render_plan.py plan.sidecar.json
    python3 skills/planner/scripts/render_plan.py plan.sidecar.json --plans-dir docs/plans
    ```
 
-5. Open or otherwise present the HTML folio for review. The planner **must stop for explicit human approval** here. Approval to plan is not approval to write GitHub resources.
-6. Before approval, a read-only reconciliation preview is allowed. Use a captured API snapshot for an offline preview, or omit `--snapshot` to query GitHub read-only:
+   Omit the output path to get the `docs/plans/` naming convention; pass one explicitly only for a scratch render nobody intends to keep.
+
+2. **Resolve open questions with the human before writing the plan.** Carry them yourself — the agent cannot. An agent that returns disposition `needs-decision` found something material undecided — scope boundaries, a choice between two approaches, an unowned dependency, an ambiguous requirement. Put the question to the human, wait for the answer, and re-dispatch the agent with it. Never answer on the human's behalf, and never let an unanswered question through: a plan carrying one is not ready for approval, and the sidecar has nowhere to put it by design.
+3. Present the HTML folio for review. You **must stop** here for explicit human approval. Approval to plan is not approval to write GitHub resources.
+4. Before approval, a read-only reconciliation preview is allowed — the agent runs one, and you may run another against a captured snapshot:
 
    ```bash
    python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json --snapshot github-state.json
    python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json
    ```
 
-7. Only after the human approves the reviewed artifacts, apply the exact approved sidecar with an approval identity:
+5. **Only after the human approves the reviewed artifacts**, apply the exact approved sidecar yourself with an approval identity. This write is the orchestrator's, never the agent's:
 
    ```bash
    python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<human identity>"

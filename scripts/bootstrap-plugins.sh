@@ -55,6 +55,27 @@ while read -r f; do
   check_frontmatter "$f" || die "invalid agent frontmatter in $f"
 done < <(agent_files)
 
+# ---- one source for per-agent model and thinking level ----
+# agents/models.json decides both, per harness. Applying it here means editing that
+# file and re-running this script is the whole workflow; an uninstall leaves the
+# definitions alone, since they are repository content rather than something we
+# installed. Missing python3 is not fatal: the frontmatter already in the tree is
+# what ships, and CI checks it separately.
+if command -v python3 >/dev/null; then
+  if [[ $MODE == install ]]; then
+    # --codex-profiles also writes $CODEX_HOME/swarm-<agent>.config.toml. Codex has no
+    # per-agent model surface in a plugin, so a profile (`codex --profile swarm-builder`)
+    # is the only place its model and reasoning effort actually take effect. The script
+    # refuses to touch a profile it did not write.
+    python3 "$ROOT/scripts/sync-agent-models.py" --codex-profiles \
+      || die "agents/models.json could not be applied"
+  else
+    python3 "$ROOT/scripts/sync-agent-models.py" --remove-codex-profiles || true
+  fi
+else
+  echo "note: python3 not found — skipping agents/models.json sync"
+fi
+
 # ---- keep the Antigravity wrapper's skill links in step with skills/ ----
 # Claude and Codex link skills/ whole. Antigravity cannot: a skill owned by one of its
 # agents lives under agents/agy/<agent>/skills/ and must not also be offered globally

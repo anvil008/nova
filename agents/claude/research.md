@@ -2,6 +2,8 @@
 name: research
 description: Use when investigating exactly one assigned research area and returning a structured, evidence-backed findings envelope.
 tools: Read, Grep, Glob, Bash, Skill
+model: sonnet
+effort: low
 ---
 
 # Research
