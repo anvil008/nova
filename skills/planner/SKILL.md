@@ -31,8 +31,12 @@ The sidecar has exactly these top-level fields:
   "generatedAt": "2026-08-26T12:00:00Z",
   "summary": "Goal and outcome",
   "architecture": {
+    "changeSummary": "Concise explanation of what changes and why",
     "components": [{"name": "Component", "purpose": "Responsibility"}],
-    "diagramsMermaid": {"targetArchitecture": "flowchart LR\n  A --> B"}
+    "diagramsMermaid": {
+      "currentArchitecture": "flowchart LR\n  A --> B",
+      "targetArchitecture": "flowchart LR\n  A --> C"
+    }
   },
   "issues": [{
     "key": "stable-issue-key",
@@ -71,6 +75,14 @@ Keep `planId` and every issue `key` stable across revisions. `planId` uses the l
 
 Each `architecture.components` entry may be either a `{ "name": "...", "purpose": "..." }` object or a non-empty string shorthand when a named component needs no separate purpose. Both forms are treated as text and HTML-escaped by the renderer.
 
+Architecture is a required change story, not a decorative target diagram. Model the smallest
+meaningful system boundary in both `currentArchitecture` and `targetArchitecture`; the folio labels
+these views **Current** and **Proposed**. Keep nodes and orientation comparable wherever possible so
+the difference is immediately visible, and explain that difference concisely in `changeSummary`.
+When work is not structural, use the pair to compare the relevant state transition, request/data
+flow, responsibility handoff, or user journey instead. Do not invent a wider architecture merely
+to fill the diagrams.
+
 ## Plan workflow
 
 1. Read repository guidance, relevant code, tests, architecture, and current state without changing the target project.
@@ -81,7 +93,7 @@ Each `architecture.components` entry may be either a `{ "name": "...", "purpose"
    sidecar has nowhere to put them by design. Interpret ordinary ambiguity the way a careful
    colleague would and state the assumption in `summary`; ask only where different readings produce
    materially different plans.
-3. Define the goal, target architecture, dependency-ordered issues, ownership hints, execution waves, and risks. Prefer one independently deliverable concern per issue.
+3. Define the goal, current and proposed architecture (or the closest meaningful flow comparison), textual delta, dependency-ordered issues, ownership hints, execution waves, and risks. Prefer one independently deliverable concern per issue.
 4. Write the strict sidecar, then render it. Omit the output path to get the `docs/plans/` naming
    convention; pass one explicitly only for a scratch render you do not intend to keep:
 
@@ -131,6 +143,11 @@ section order — 01 Overview, 02 Architecture, 03 Task Breakdown, 04 Execution 
 remain useful without JavaScript: every Mermaid diagram starts as a Claude-Artifact-compatible
 `<pre class="mermaid">` source block and includes a source-details fallback that becomes visible if
 rendering fails.
+
+Section 02 renders the strict `currentArchitecture` and `targetArchitecture` pair side by side as
+**Current** and **Proposed**, followed by responsive stacking on narrow screens. It also renders the
+escaped `changeSummary`, so the visual remains understandable to people while the sidecar remains
+precise enough for machine consumers.
 
 Styling comes from two files. [templates/report.css](templates/report.css) is the shared Foundry
 Zero report design system — colour tokens, severity ramp, chrome, print rules — and is

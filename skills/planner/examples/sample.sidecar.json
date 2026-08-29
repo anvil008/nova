@@ -5,6 +5,7 @@
   "generatedAt": "2026-08-26T12:00:00Z",
   "summary": "Demonstrate the offline planner folio and approval-gated GitHub reconciliation.",
   "architecture": {
+    "changeSummary": "Replace an implicit planning handoff with one sidecar that visibly carries investigation through human approval to deterministic GitHub reconciliation.",
     "components": [
       {
         "name": "Plan sidecar",
@@ -20,6 +21,7 @@
       }
     ],
     "diagramsMermaid": {
+      "currentArchitecture": "flowchart LR\n  Research[Read-only investigation] --> Notes[Ad hoc planning notes]\n  Notes --> Manual[Manual GitHub setup]",
       "targetArchitecture": "flowchart LR\n  Research[Read-only investigation] --> Sidecar[Plan sidecar]\n  Sidecar --> Folio[Offline HTML folio]\n  Sidecar --> Gate{Human approval}\n  Gate --> GitHub[Milestone and issues]"
     }
   },
@@ -27,7 +29,7 @@
     {
       "key": "render-folio",
       "title": "Render the offline plan folio",
-      "body": "Render the fixed publication sections and the three Mermaid views without external resources.",
+      "body": "Render the fixed publication sections and four Mermaid views without external resources.",
       "labels": [
         "planning"
       ],
@@ -36,9 +38,9 @@
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "three_mermaid_blocks",
+          "name": "four_mermaid_blocks",
           "kind": "unit",
-          "oracle": "rendered HTML contains exactly three mermaid blocks",
+          "oracle": "rendered HTML contains exactly four mermaid blocks",
           "testPath": "tests/test_planner.py"
         }
       ]

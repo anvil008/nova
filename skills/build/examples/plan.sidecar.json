@@ -5,6 +5,7 @@
   "generatedAt": "2026-08-26T12:00:00Z",
   "summary": "Demonstrate deterministic offline build-wave selection.",
   "architecture": {
+    "changeSummary": "Move from independent API and UI work to dependency-ordered waves that integrate both surfaces after their shared foundation is complete.",
     "components": [
       {
         "name": "Foundation",
@@ -16,6 +17,7 @@
       }
     ],
     "diagramsMermaid": {
+      "currentArchitecture": "flowchart LR\n  API[Independent API work]\n  UI[Independent UI work]\n  API -. manual coordination .- UI",
       "targetArchitecture": "flowchart LR\n  Foundation --> API\n  Foundation --> UI\n  API --> Integration\n  UI --> Integration"
     }
   },
