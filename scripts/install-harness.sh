@@ -81,6 +81,7 @@ if want agy; then
   for a in "${AGENTS[@]}"; do [[ -d $ROOT/agents/agy/$a ]] && plan "$ROOT/agents/agy/$a" "$HOME/.gemini/config/agents/$a"; done
   plan_skills "$HOME/.gemini/config/skills"
   [[ -d $HOME/.agents ]] && plan_skills "$HOME/.agents/skills"
+  [[ -d "$ROOT/plugins/agy/swarm-coder" ]] && plan "$ROOT/plugins/agy/swarm-coder" "$HOME/.gemini/config/plugins/swarm-coder"
   [[ -d "$ROOT/plugins/agy/swarm-coder" ]] && plan "$ROOT/plugins/agy/swarm-coder" "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
 fi
 
