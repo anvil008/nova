@@ -70,15 +70,18 @@ DIST="$ROOT/dist/codex"
 if want claude && [[ -d $HOME/.claude ]]; then
   for a in "${AGENTS[@]}"; do plan "$ROOT/agents/claude/$a.md" "$HOME/.claude/agents/$a.md"; done
   plan_skills "$HOME/.claude/skills"
+  [[ -d "$ROOT/plugins/claude/swarm-coder" ]] && plan "$ROOT/plugins/claude/swarm-coder" "$HOME/.claude/plugins/swarm-coder"
 fi
 if want codex && [[ -d $HOME/.codex ]]; then
   plan_skills "$HOME/.codex/skills"
   for a in "${AGENTS[@]}"; do plan "$DIST/$a.config.toml" "$HOME/.codex/$a.config.toml"; done
+  [[ -d "$ROOT/plugins/codex/swarm-coder" ]] && plan "$ROOT/plugins/codex/swarm-coder" "$HOME/.codex/plugins/swarm-coder"
 fi
 if want agy; then
   for a in "${AGENTS[@]}"; do [[ -d $ROOT/agents/agy/$a ]] && plan "$ROOT/agents/agy/$a" "$HOME/.gemini/config/agents/$a"; done
   plan_skills "$HOME/.gemini/config/skills"
   [[ -d $HOME/.agents ]] && plan_skills "$HOME/.agents/skills"
+  [[ -d "$ROOT/plugins/agy/swarm-coder" ]] && plan "$ROOT/plugins/agy/swarm-coder" "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
 fi
 
 if [[ $MODE == install ]]; then
@@ -117,7 +120,7 @@ else
   for i in "${!PLAN_DST[@]}"; do unlink_owned "${PLAN_DST[$i]}"; done
   for h in build-hooks build-format build-lint build-guard tdd-guard; do unlink_owned "$BIN/$h"; done
   [[ -d $DIST ]] && rm -f "$DIST"/*.config.toml
-  echo "links into $ROOT removed (harness agents, skills, codex toml, ~/.local/bin/build-* and tdd-guard)"
+  echo "links into $ROOT removed (harness plugins, agents, skills, codex toml, ~/.local/bin/build-* and tdd-guard)"
 fi
 
 # ---- Codex config.toml: the [agents.*] block pointing at the linked TOMLs ----
