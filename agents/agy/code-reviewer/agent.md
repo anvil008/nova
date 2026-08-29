@@ -7,7 +7,7 @@ tools:
   - find_by_name
   - list_dir
   - run_command
-mainAgent: false
+mainAgent: true
 subagent: true
 model: flash
 commandExecutionPolicy: sandbox
@@ -41,7 +41,7 @@ Return exactly one JSON object and no prose. The object has exactly the top-leve
 Use repository-relative files and the most relevant changed line. `confidence` is between 0 and 1. When the assigned lens yields no substantiated issue, return the same exact envelope with an empty list:
 
 ```json
-{"lens": "tests", "findings": []}
+{ "lens": "tests", "findings": [] }
 ```
 
 No edits, ever. Never mutate code or repository state. Return findings and control to the caller; do not spawn other units, synthesize other lenses, or declare overall completion.

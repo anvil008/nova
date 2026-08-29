@@ -7,7 +7,7 @@ tools:
   - find_by_name
   - list_dir
   - run_command
-mainAgent: false
+mainAgent: true
 subagent: true
 model: flash
 commandExecutionPolicy: sandbox
@@ -26,7 +26,10 @@ Return exactly one JSON object and no prose:
 ```json
 {
   "area": "code",
-  "coverage": {"scope": "what this area covers", "sourcesInspected": ["path or surface inspected"]},
+  "coverage": {
+    "scope": "what this area covers",
+    "sourcesInspected": ["path or surface inspected"]
+  },
   "findings": [
     {
       "source": "file:line or url",

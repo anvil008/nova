@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# project-bootstrap.sh — make ONE project folder ready for the Swarm Coder builder,
+# bootstrap-project.sh — make ONE project folder ready for the Swarm Coder builder,
 # idempotently and non-interactively (safe to call from a benchmark / SWE-eval setup step).
 #
-#   scripts/project-bootstrap.sh [DIR]              report: detected stack + tool readiness
-#   scripts/project-bootstrap.sh --install [DIR]    install the aux hooks + missing per-stack tools
-#   scripts/project-bootstrap.sh --with-hooks [DIR] also wire format/lint/guard INTO the repo, so a
+#   scripts/bootstrap-project.sh [DIR]              report: detected stack + tool readiness
+#   scripts/bootstrap-project.sh --install [DIR]    install the aux hooks + missing per-stack tools
+#   scripts/bootstrap-project.sh --with-hooks [DIR] also wire format/lint/guard INTO the repo, so a
 #                                                   single-agent run in DIR gets them without the
 #                                                   builder subagent's frontmatter
 #
@@ -40,7 +40,7 @@ need(){ # name | install-cmd | purpose
   elif ((install)); then printf '  install  %-14s %s\n           + %s\n' "$n" "$why" "$cmd"; run_install "$cmd" || printf '           (failed — do it manually)\n'
   else printf '  missing  %-14s %s\n           install: %s\n' "$n" "$why" "$cmd"; fi; }
 
-echo "project-bootstrap: $DIR"
+echo "bootstrap-project: $DIR"
 
 # --- detect stacks by manifest -----------------------------------------------------------------
 stacks=()
@@ -67,24 +67,33 @@ if ((install)); then
   for b in build-format build-lint build-guard; do link_owned "$ROOT/scripts/hooks/$b" "$BIN/$b" || die "could not link $b into $BIN"; done
   echo "  linked build-{format,lint,guard} -> $ROOT/scripts/hooks/"
 
-  echo "== workspace plugins =="
-  mkdir -p .agents/plugins .claude/plugins .codex/plugins
-  link_owned "$ROOT/plugins/agy/swarm-coder" ".agents/plugins/swarm-coder" || true
-  link_owned "$ROOT/plugins/claude/swarm-coder" ".claude/plugins/swarm-coder" || true
-  link_owned "$ROOT/plugins/codex/swarm-coder" ".codex/plugins/swarm-coder" || true
-  echo "  linked workspace plugins into .agents / .claude / .codex"
-  
-  if ex=$(git rev-parse --git-path info/exclude 2>/dev/null); then
-    mkdir -p "$(dirname "$ex")"
-    for p in ".agents/plugins" ".claude/plugins" ".codex/plugins"; do
-      if ! grep -qxF "$p" "$ex" 2>/dev/null; then
-        echo "$p" >> "$ex"; echo "  local-ignored $p via $ex"
-      fi
-    done
-  fi
+  # The plugin, installed for this project only, so a repo gets exactly the agents and
+  # hooks it needs without a global install. Refusals are reported, not fatal: this
+  # script is best-effort by design, but it must not claim work it did not do.
+  echo "== workspace plugin =="
+  # Antigravity has no plugin CLI, so it reads a symlink in the workspace.
+  mkdir -p .agents/plugins
+  link_owned "$ROOT/plugins/agy" "$PWD/.agents/plugins/swarm-coder" \
+    && echo "  linked the Antigravity plugin into .agents/plugins"
+  # Claude and Codex install from the marketplace at the repository root. Local scope
+  # keeps the declaration in .claude/settings.local.json / .codex, never a tracked file.
+  for cli in claude codex; do
+    if command -v "$cli" >/dev/null; then
+      case "$cli" in claude) add=install;; codex) add=add;; esac
+      "$cli" plugin marketplace add "$ROOT" --scope local >/dev/null 2>&1 \
+        || "$cli" plugin marketplace add "$ROOT" >/dev/null
+      "$cli" plugin "$add" swarm-coder@swarm-coder-local --scope local >/dev/null 2>&1 \
+        || "$cli" plugin "$add" swarm-coder@swarm-coder-local >/dev/null
+      echo "  installed the $cli plugin from the local swarm-coder marketplace"
+    else
+      echo "  skipped $cli plugin registration ($cli CLI not found)"
+    fi
+  done
+  git_exclude_add .agents/plugins .claude/settings.local.json \
+    || echo "  not a git repository: the workspace plugin files are not local-ignored"
 fi
 for b in build-format build-lint build-guard; do
-  [[ -x $BIN/$b ]] && printf '  present  %s\n' "$b" || printf '  missing  %s  (run scripts/project-bootstrap.sh --install)\n' "$b"; done
+  [[ -x $BIN/$b ]] && printf '  present  %s\n' "$b" || printf '  missing  %s  (run scripts/bootstrap-project.sh --install)\n' "$b"; done
 [[ -x $BIN/tdd-guard ]] && printf '  present  tdd-guard (TDD gate, builder-subagent only)\n' \
                         || printf '  missing  tdd-guard  (run scripts/bootstrap-tools.sh --install)\n'
 
@@ -118,15 +127,8 @@ for ev, entries in want.items():
 json.dump(cfg, open(p, "w"), indent=2); open(p, "a").write("\n")
 print(f"  wrote {p} (format + lint + guard; NOT the TDD seal ceremony)")
 PY
-  # keep it out of any scored patch / commit; --git-path resolves to the common dir, so a
-  # worktree (.git is a file) or jj workspace gets the shared info/exclude, not a dead path
-  if ex=$(git rev-parse --git-path info/exclude 2>/dev/null); then
-    mkdir -p "$(dirname "$ex")"
-    if ! grep -qxF '.claude/settings.local.json' "$ex" 2>/dev/null; then
-      echo '.claude/settings.local.json' >> "$ex"; echo "  local-ignored via $ex (invisible to git diff)"
-    fi
-  else
-    echo "  not a git repository: .claude/settings.local.json is not local-ignored"
-  fi
+  # keep it out of any scored patch / commit
+  git_exclude_add .claude/settings.local.json \
+    || echo "  not a git repository: .claude/settings.local.json is not local-ignored"
 fi
 echo "done."

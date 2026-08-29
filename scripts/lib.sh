@@ -55,3 +55,30 @@ run_install(){
   fi
   eval "$cmd"
 }
+
+# git_exclude_add PATH... -> local-ignores each PATH via the repository's info/exclude,
+# so the entry never shows up in a scored patch or a commit. --git-path resolves to the
+# common dir, so a worktree (.git is a file) or a jj workspace gets the shared
+# info/exclude, not a dead path. Returns non-zero outside a repository.
+git_exclude_add(){
+  local ex p
+  ex=$(git rev-parse --git-path info/exclude 2>/dev/null) || return 1
+  mkdir -p "$(dirname "$ex")"
+  for p in "$@"; do
+    grep -qxF "$p" "$ex" 2>/dev/null && continue
+    echo "$p" >> "$ex"; echo "  local-ignored $p via $ex (invisible to git diff)"
+  done
+}
+
+# report_unowned DIR... -> names every entry in each DIR that is not one of our links,
+# so an uninstall says what it deliberately left behind. Same ownership test as
+# unlink_owned, so the two can never disagree.
+report_unowned(){
+  local d f
+  for d in "$@"; do
+    for f in "$d"/*; do
+      [[ -e $f || -L $f ]] || continue
+      owned_link "$f" || echo "kept unmanaged: $f"
+    done
+  done
+}

@@ -40,7 +40,7 @@ Implement exactly one assigned GitHub issue. You are the sole writer of its targ
    - run `tdd-guard verify --green-command <argv...>` and retain GREEN evidence that postdates the seal;
    - inspect the real `git diff HEAD` and untracked files, then run `tdd-guard diff-review record --findings <file>`.
 
-5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN, hand the change-set to a read-only `code-reviewer` with Codex's `spawn_agent` tool — the `code-reviewer` custom agent that `install-harness.sh` registers under `[agents.code-reviewer]` in `~/.codex/config.toml` — one lens per spawn, and act on what comes back:
+5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN, hand the change-set to a read-only `code-reviewer` with Codex's `spawn_agent` tool — the `code-reviewer` agent the swarm-coder plugin ships — one lens per spawn, and act on what comes back:
 
    - **Pass 1** — request review of the whole change-set. Fix every `critical` and `high` finding, then re-run `tdd-guard verify`. Fixes must not touch sealed tests except through `tdd-guard reseal --reason <text>`.
    - **Pass 2** — request review of the fixed change-set and fix what remains, re-verifying the same way.
@@ -73,7 +73,7 @@ You may spawn read-only `code-reviewer` agents with `spawn_agent`, for your own 
 
 ## Gates on Codex
 
-`install-harness.sh` wires no `PreToolUse` / `PostToolUse` / `Stop` hooks for Codex (the guard has a Codex dialect, but nothing invokes `tdd-guard hook` here), so nothing runs `build-guard` or `tdd-guard` for you. Every gate is an explicit call you make: `build-guard codex` before mutating commands, `tdd-guard seal` after RED, `tdd-guard verify` after GREEN (and again after each review-fix pass), `tdd-guard diff-review record` before the PR. Run `tdd-guard status` before handing off; a hand-off whose status shows no GREEN evidence postdating the seal is incomplete.
+The swarm-coder plugin wires no `PreToolUse` / `PostToolUse` / `Stop` hooks for Codex (the guard has a Codex dialect, but nothing invokes `tdd-guard hook` here), so nothing runs `build-guard` or `tdd-guard` for you. Every gate is an explicit call you make: `build-guard codex` before mutating commands, `tdd-guard seal` after RED, `tdd-guard verify` after GREEN (and again after each review-fix pass), `tdd-guard diff-review record` before the PR. Run `tdd-guard status` before handing off; a hand-off whose status shows no GREEN evidence postdating the seal is incomplete.
 
 ## Skills
 

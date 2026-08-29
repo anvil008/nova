@@ -1,6 +1,10 @@
 name: CI
+# A bare `push:` alongside `pull_request:` builds every branch twice while a PR is open:
+# once for the branch tip, once for its synthetic merge into the base. Direct pushes are
+# scoped to the default branch; every other branch is covered by its pull request.
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
