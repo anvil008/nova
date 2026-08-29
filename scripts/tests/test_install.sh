@@ -143,7 +143,7 @@ for plugin_dir in "$ROOT/plugins/agy/swarm-coder" "$ROOT/plugins/claude/swarm-co
     echo "Missing skills in $plugin_dir"
   fi
 done
-if [[ ! -d "$ROOT/plugins/agy/swarm-coder/agents" || ! -d "$ROOT/plugins/claude/swarm-coder/agents" ]]; then
+if [[ ! -d "$ROOT/plugins/agy/swarm-coder/agents" || ! -d "$ROOT/plugins/claude/swarm-coder/agents" || ! -d "$ROOT/plugins/codex/swarm-coder/agents" ]]; then
   bad_links=1
   echo "Missing agents in plugin directories"
 fi
