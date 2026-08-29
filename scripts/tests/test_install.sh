@@ -169,5 +169,20 @@ out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -ne 0 ]] && ok "install refuses foreign plugin directory" || no "install refuses foreign plugin directory (rc=$rc): $out"
 [[ -f "$HOME/.claude/plugins/swarm-coder/foreign.txt" ]] && ok "foreign plugin untouched" || no "foreign plugin untouched"
 
-printf '\n%d passed, %d failed\n' "$pass" "$fail"
+
+# --- project-bootstrap-installs-local-plugins (integration) --------------------------------------
+fresh_home pb_plugins
+git_repo "$TMP/pb-plugins-proj"
+out=$("$BOOTSTRAP" --install "$TMP/pb-plugins-proj" 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "project-bootstrap --install exits zero" || no "project-bootstrap --install exits zero (rc=$rc): $out"
+
+[[ -L "$TMP/pb-plugins-proj/.agents/plugins/swarm-coder" && $(readlink "$TMP/pb-plugins-proj/.agents/plugins/swarm-coder") == "$ROOT/plugins/agy/swarm-coder" ]] && ok "project-bootstrap agy workspace plugin linked" || no "project-bootstrap agy workspace plugin linked"
+[[ -L "$TMP/pb-plugins-proj/.claude/plugins/swarm-coder" && $(readlink "$TMP/pb-plugins-proj/.claude/plugins/swarm-coder") == "$ROOT/plugins/claude/swarm-coder" ]] && ok "project-bootstrap claude workspace plugin linked" || no "project-bootstrap claude workspace plugin linked"
+[[ -L "$TMP/pb-plugins-proj/.codex/plugins/swarm-coder" && $(readlink "$TMP/pb-plugins-proj/.codex/plugins/swarm-coder") == "$ROOT/plugins/codex/swarm-coder" ]] && ok "project-bootstrap codex workspace plugin linked" || no "project-bootstrap codex workspace plugin linked"
+
+ex=$(cd "$TMP/pb-plugins-proj" && git rev-parse --git-path info/exclude)
+grep -qxF '.agents/plugins' "$TMP/pb-plugins-proj/$ex" && ok "exclude .agents/plugins written" || no "exclude .agents/plugins written"
+grep -qxF '.claude/plugins' "$TMP/pb-plugins-proj/$ex" && ok "exclude .claude/plugins written" || no "exclude .claude/plugins written"
+grep -qxF '.codex/plugins' "$TMP/pb-plugins-proj/$ex" && ok "exclude .codex/plugins written" || no "exclude .codex/plugins written"
+printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]

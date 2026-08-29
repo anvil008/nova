@@ -97,6 +97,19 @@ scripts/project-bootstrap.sh --install --with-hooks /path/to/project
 The bootstrap detects the project stack, installs available hook tools, and connects the
 advisory formatting and lint feedback supported by that harness.
 
+## Unified Plugin Architecture
+
+Swarm Coder provides a unified cross-harness plugin architecture. The plugin layout is structured under the `plugins/` directory, which contains harness-specific plugin wrappers:
+- `plugins/agy/swarm-coder` for Antigravity (`~/.gemini/antigravity-cli/plugins/swarm-coder`)
+- `plugins/claude/swarm-coder` for Claude Code
+- `plugins/codex/swarm-coder` for Codex
+
+Installation commands for all three harnesses:
+- **Global Install**: Run `scripts/install-harness.sh --install` to link the plugin into your home directory for each detected harness.
+- **Workspace Local**: Run `scripts/project-bootstrap.sh --install` to link the plugin directly into `.agents/plugins`, `.claude/plugins`, and `.codex/plugins` within the current project repository. These links are automatically excluded from Git tracking.
+
+**Migration Notes**: Earlier versions placed agents and skills directly in `~/.claude/agents` or `~/.codex/skills`. The new architecture installs everything via the unified `plugins/` directory. Run `scripts/install-harness.sh --uninstall` to clean up any legacy artifacts before running the new install command.
+
 ## Mechanical gates
 
 The guard and hooks enforce the boundaries that prose alone cannot:
