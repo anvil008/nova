@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "docs_check.py"
 EXAMPLES = ROOT / "examples"
+VISUAL_README = EXAMPLES / "visual-readme.md"
 GOOD_ADR = "## Status\nAccepted\n## Context\nx\n## Decision\ny\n## Consequences\nz\n"
 
 
@@ -137,17 +138,58 @@ class DocsCheckTests(unittest.TestCase):
             out = json.loads(r.stdout)
             self.assertTrue(any("GEMINI.md" in v and "budget" in v for v in out["violations"]))
 
+    def test_readme_contract_parity(self):
+        documents = [
+            ROOT / "SKILL.md",
+            ROOT.parents[1] / "agents" / "claude" / "docs.md",
+            ROOT.parents[1] / "agents" / "codex" / "docs.md",
+            ROOT.parents[1] / "agents" / "agy" / "docs" / "agent.md",
+        ]
+        required = (
+            "what the repository does",
+            "why it exists",
+            "shortest viable quickstart",
+            "compact visual",
+            "nearby textual explanation",
+            "meaningful labels",
+            "concise, plain-language prose",
+        )
+        contracts = []
+        for path in documents:
+            with self.subTest(path=path):
+                content = path.read_text(encoding="utf-8")
+                for phrase in required:
+                    self.assertIn(phrase, content)
+                contracts.append(content.split("## README contract\n\n", 1)[1].split("\n\n", 1)[0])
+        self.assertTrue(all(contract == contracts[0] for contract in contracts[1:]))
+
+    def test_visual_readme_has_textual_equivalent(self):
+        content = VISUAL_README.read_text(encoding="utf-8")
+        self.assertIn("```mermaid", content)
+        self.assertIn("flowchart LR", content)
+        self.assertIn("In words:", content)
+        explanation = content.split("In words:", 1)[1].lower()
+        for label in ("contributor", "test", "package", "user"):
+            self.assertIn(label, explanation)
+
+    def test_docs_gate_does_not_semantically_lint_readmes(self):
+        with tempfile.TemporaryDirectory() as t:
+            Path(t, "README.md").write_text("# Tiny\n", encoding="utf-8")
+            r = run(t)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertTrue(json.loads(r.stdout)["ok"])
+
     def test_antigravity_builder_hooks_json(self):
         import json
         hooks_file = ROOT.parents[1] / "agents" / "agy" / "builder" / "hooks.json"
         self.assertTrue(hooks_file.exists())
         with open(hooks_file, "r", encoding="utf-8") as f:
             cfg = json.load(f)
-        
+
         self.assertIn("swarm-guard", cfg)
         guard_cfg = cfg["swarm-guard"]
         self.assertTrue(guard_cfg.get("enabled", False))
-        
+
         self.assertIn("PreToolUse", guard_cfg)
         self.assertIn("PostToolUse", guard_cfg)
 
@@ -194,17 +236,17 @@ class DocsCheckTests(unittest.TestCase):
         ci_yaml_path = ROOT.parents[1] / ".github" / "workflows" / "ci.yml"
         self.assertTrue(ci_yaml_path.exists(), "ci.yml does not exist")
         content = ci_yaml_path.read_text(encoding="utf-8")
-        
+
         # Check for go vet
         self.assertIn("go vet ./...", content)
-        
+
         # Check for uncached race-enabled Go tests and installer coverage.
         self.assertIn("go test -count=1 -race ./...", content)
         self.assertIn("bash scripts/tests/test_install.sh", content)
-        
+
         # Check for hook tests
         self.assertIn("bash scripts/hooks/tests/test_hooks.sh", content)
-        
+
         # Every present and future skill suite is discovered; none is hard-coded.
         self.assertIn("for d in skills/*/tests; do", content)
         self.assertIn("python3 -m unittest discover -s \"$d\" -p 'test_*.py'", content)
@@ -215,7 +257,7 @@ class DocsCheckTests(unittest.TestCase):
         self.assertRegex(content, r"python-version:\s*[\"']?3\.13[\"']?")
         self.assertIn("ruff check skills/", content)
         self.assertIn("shellcheck -S warning scripts/*.sh scripts/hooks/build-*", content)
-            
+
         # Check for docs check
         self.assertIn("skills/docs/scripts/docs_check.py", content)
 
