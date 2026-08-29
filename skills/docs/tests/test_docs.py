@@ -262,5 +262,14 @@ class DocsCheckTests(unittest.TestCase):
         self.assertIn("skills/docs/scripts/docs_check.py", content)
 
 
+
+    def test_readme_documents_plugin_architecture(self):
+        readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
+        readme_lower = readme.lower()
+        self.assertIn("plugin architecture", readme_lower)
+        self.assertIn("migration", readme_lower)
+        self.assertIn("antigravity-cli", readme_lower)
+        self.assertIn(".claude", readme_lower)
+        self.assertIn(".codex", readme_lower)
 if __name__ == "__main__":
     unittest.main()
