@@ -25,37 +25,35 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
 # --- install-refuses-foreign-target --------------------------------------------------------------
 fresh_home foreign
-mkdir -p "$HOME/.claude/skills/jj" "$HOME/.claude/agents"
-echo "user's own jj skill" > "$HOME/.claude/skills/jj/SKILL.md"
-echo "user's own builder" > "$HOME/.claude/agents/builder.md"
+mkdir -p "$HOME/.claude/plugins/swarm-coder"
+echo "user's own plugin" > "$HOME/.claude/plugins/swarm-coder/plugin.json"
 cp -R "$HOME/.claude" "$TMP/foreign-before"
 out=$("$INSTALL" --install --harness claude 2>&1); rc=$?
 [[ $rc -ne 0 ]] && ok "install exits non-zero on foreign targets" || no "install exits non-zero on foreign targets (rc=$rc)"
-grep -q "skills/jj" <<<"$out" && grep -q "agents/builder.md" <<<"$out" && ok "refusal names both foreign targets" || no "refusal names both foreign targets: $out"
+grep -q "plugins/swarm-coder" <<<"$out" && ok "refusal names foreign target" || no "refusal names foreign target: $out"
 grep -q "done\." <<<"$out" && no "refused install must not print done." || ok "refused install does not print done."
-[[ ! -L $HOME/.claude/skills/jj && ! -L $HOME/.claude/agents/builder.md ]] \
-  && cmp -s "$TMP/foreign-before/skills/jj/SKILL.md" "$HOME/.claude/skills/jj/SKILL.md" \
-  && cmp -s "$TMP/foreign-before/agents/builder.md" "$HOME/.claude/agents/builder.md" \
+[[ ! -L $HOME/.claude/plugins/swarm-coder ]] \
+  && cmp -s "$TMP/foreign-before/plugins/swarm-coder/plugin.json" "$HOME/.claude/plugins/swarm-coder/plugin.json" \
   && ok "foreign targets left byte-identical" || no "foreign targets left byte-identical"
 
 # --- uninstall-removes-only-owned-links ----------------------------------------------------------
 fresh_home owned
-mkdir -p "$TMP/elsewhere"; echo foreign > "$TMP/elsewhere/research.md"
+mkdir -p "$TMP/elsewhere" "$HOME/.claude/plugins"; echo foreign > "$TMP/elsewhere/foreign-plugin"
 out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -eq 0 ]] && grep -q "done\." <<<"$out" && ok "install into fresh HOME succeeds" || no "install into fresh HOME succeeds (rc=$rc): $out"
-[[ -L $HOME/.claude/agents/builder.md && -L $HOME/.codex/skills/jj && -L $HOME/.gemini/config/skills/jj && -L $HOME/.codex/builder.config.toml ]] \
-  && ok "install links agents, skills and codex toml" || no "install links agents, skills and codex toml"
+[[ -L $HOME/.claude/plugins/swarm-coder && -L $HOME/.codex/plugins/swarm-coder && -L $HOME/.gemini/antigravity-cli/plugins/swarm-coder ]] \
+  && ok "install links plugins across all harnesses" || no "install links plugins across all harnesses"
 git_repo "$TMP/owned-proj"
 "$BOOTSTRAP" --install "$TMP/owned-proj" >/dev/null 2>&1
 ln -sfn "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard"; ln -sfn "$ROOT/scripts/hooks/build-hooks" "$HOME/.local/bin/build-hooks"
-ln -sfn "$TMP/elsewhere/research.md" "$HOME/.claude/agents/research.md"      # foreign link, same name as ours
+ln -sfn "$TMP/elsewhere/foreign-plugin" "$HOME/.claude/plugins/foreign-plugin"      # foreign link
 out=$("$INSTALL" --uninstall 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "uninstall exits zero" || no "uninstall exits zero (rc=$rc): $out"
 left=$(links_into_root "$HOME")
 [[ -z $left ]] && ok "uninstall removes every link into ROOT (incl. ~/.local/bin/build-* and tdd-guard)" || no "links into ROOT left behind: $left"
-[[ -L $HOME/.claude/agents/research.md && $(readlink "$HOME/.claude/agents/research.md") == "$TMP/elsewhere/research.md" ]] \
-  && ok "uninstall leaves the foreign research.md link" || no "uninstall leaves the foreign research.md link"
-grep -q "research.md" <<<"$out" && ok "uninstall reports what it left behind" || no "uninstall reports what it left behind: $out"
+[[ -L $HOME/.claude/plugins/foreign-plugin && $(readlink "$HOME/.claude/plugins/foreign-plugin") == "$TMP/elsewhere/foreign-plugin" ]] \
+  && ok "uninstall leaves the foreign plugin link" || no "uninstall leaves the foreign plugin link"
+grep -q "foreign-plugin" <<<"$out" && ok "uninstall reports what it left behind" || no "uninstall reports what it left behind: $out"
 
 # --- hooks-are-symlinks-after-project-bootstrap --------------------------------------------------
 fresh_home hooks
@@ -73,11 +71,23 @@ grep -qxF '.claude/settings.local.json' "$TMP/hooks-proj/.git/info/exclude" && o
 # --- no-gnu-only-constructs ----------------------------------------------------------------------
 bad=$(grep -nE 'mapfile|find .*-printf|readlink -f|sed -i' "$ROOT"/scripts/*.sh || true)
 [[ -z $bad ]] && ok "no GNU-only constructs in scripts/*.sh" || no "GNU-only constructs: $bad"
-synok=1; for f in "$ROOT"/scripts/*.sh "$ROOT"/scripts/tests/*.sh; do bash -n "$f" || synok=0; done
-[[ $synok -eq 1 ]] && ok "bash -n passes for every script" || no "bash -n passes for every script"
-grep -q 'set -euo pipefail' "$INSTALL" && grep -q 'set -euo pipefail' "$BOOTSTRAP" && grep -q 'set -euo pipefail' "$ROOT/scripts/bootstrap-tools.sh" \
-  && ok "installers use set -euo pipefail" || no "installers use set -euo pipefail"
-grep -q 'install -m' "$BOOTSTRAP" && no "project-bootstrap still copies hooks with install -m" || ok "project-bootstrap has no install -m copy"
+
+# --- bash -n syntax check on all scripts ---------------------------------------------------------
+bad_syntax=0
+for s in "$ROOT"/scripts/*.sh "$ROOT"/scripts/hooks/build-*; do
+  bash -n "$s" || bad_syntax=1
+done
+[[ $bad_syntax -eq 0 ]] && ok "bash -n passes for every script" || no "bash -n failed on one or more scripts"
+
+# --- installers use set -euo pipefail -----------------------------------------------------------
+bad_flags=0
+for s in "$INSTALL" "$BOOTSTRAP" "$ROOT/scripts/bootstrap-tools.sh"; do
+  grep -q 'set -euo pipefail' "$s" || bad_flags=1
+done
+[[ $bad_flags -eq 0 ]] && ok "installers use set -euo pipefail" || no "set -euo pipefail missing in one or more scripts"
+
+# --- project-bootstrap has no install -m copy ---------------------------------------------------
+grep -q 'install -m' "$BOOTSTRAP" && no "project-bootstrap still contains install -m" || ok "project-bootstrap has no install -m copy"
 
 # --- exclude-written-in-worktree -----------------------------------------------------------------
 fresh_home wt
@@ -91,13 +101,13 @@ grep -qxF '.claude/settings.local.json' "$ex" && ok "exclude written to common-d
 
 # --- --force replaces only symlinks, never real files/dirs ---------------------------------------
 fresh_home force
-mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills"
-ln -sfn "$TMP/elsewhere/research.md" "$HOME/.claude/agents/builder.md"
-mkdir -p "$HOME/.claude/skills/jj"; echo real > "$HOME/.claude/skills/jj/SKILL.md"
-out=$("$INSTALL" --install --harness claude --force 2>&1); rc=$?
-[[ -L $HOME/.claude/agents/builder.md && $(readlink "$HOME/.claude/agents/builder.md") == "$ROOT/agents/claude/builder.md" ]] \
+mkdir -p "$HOME/.claude/plugins" "$HOME/.codex/plugins/swarm-coder"
+ln -sfn "$TMP/elsewhere/foreign-plugin" "$HOME/.claude/plugins/swarm-coder"
+echo real > "$HOME/.codex/plugins/swarm-coder/plugin.json"
+out=$("$INSTALL" --install --force 2>&1); rc=$?
+[[ -L $HOME/.claude/plugins/swarm-coder && $(readlink "$HOME/.claude/plugins/swarm-coder") == "$ROOT/plugins/claude/swarm-coder" ]] \
   && ok "--force replaces a foreign symlink" || no "--force replaces a foreign symlink"
-[[ $rc -ne 0 && ! -L $HOME/.claude/skills/jj && -f $HOME/.claude/skills/jj/SKILL.md ]] \
+[[ $rc -ne 0 && ! -L $HOME/.codex/plugins/swarm-coder && -f $HOME/.codex/plugins/swarm-coder/plugin.json ]] \
   && ok "--force still refuses a real directory" || no "--force still refuses a real directory (rc=$rc): $out"
 
 # --- frontmatter validated before any harness is touched -----------------------------------------
