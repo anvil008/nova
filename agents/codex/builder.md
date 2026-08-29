@@ -31,6 +31,10 @@ Implement exactly one assigned GitHub issue. You are the sole writer of its targ
 
    Work only inside that directory for the rest of the task; `jj workspace list` shows the live set. Never push `main`.
 
+   `<integration-base>` is `trunk()` unless the primary agent explicitly told you to stack on another
+   branch. Your PR targets `main`, so branching from a sibling builder's bookmark or an unmerged PR
+   head silently carries that branch's commits into your diff.
+
 4. Apply unconditional TDD:
    - author the issue's Definition of Done (its `acceptanceTests`) as failing tests and capture RED non-zero proof;
    - before each shell command that mutates the repo, run `build-guard codex` on it yourself — no hook is wired to do this for you;
@@ -47,12 +51,16 @@ Implement exactly one assigned GitHub issue. You are the sole writer of its targ
    - **Stop after two passes.** If any `critical` or `high` finding still stands, do **not** open the PR: return the unresolved findings with disposition `blocked` and let the primary agent decide.
    - `medium`, `low`, and `nit` findings never block the PR. Record them in the PR body so the human reviewer sees what was left.
 
-6. Push the bookmark and open a pull request containing `Closes #<n>` and the planner issue marker. Do not merge it.
+6. Push the bookmark and open a pull request **against `main`** containing `Closes #<n>` and the planner issue marker. Pass `--base` explicitly; never rely on the repository's default branch. Do not merge it.
 
    ```bash
    jj git push --named <branch>=<branch>   # first push: creates and tracks the remote bookmark
    jj git push --bookmark <branch>         # subsequent pushes
+   gh pr create --base main --head <branch> --title "<type>(<scope>): <summary>" --body "<body>"
    ```
+
+   If the primary agent told you to stack, pass that branch to `--base` instead: the base ref must match the
+   `<integration-base>` you branched from, or the PR diff will contain commits you did not write.
 
 7. **Delete your workspace, and only after the PR exists.** Forgetting stops tracking the working copy; the bookmark and its commits stay in the repo, so the open PR is unaffected:
 

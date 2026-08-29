@@ -62,27 +62,60 @@ none of it shows up in `git diff` or a commit.
 ```mermaid
 flowchart TB
     Goal["Goal"]
-    Plan["Planner folio<br/><i>HTML + plan.sidecar.json</i>"]
+
+    subgraph primary["Primary agent — plans, integrates, never writes issue code"]
+        direction TB
+        Plan["<b>planner</b> skill<br/><i>HTML folio + plan.sidecar.json</i>"]
+        Issues["GitHub milestone<br/>and issues, in waves"]
+        Integrate["serial merge + retest<br/><i>combined GREEN</i>"]
+    end
+
     Gate{"Human approval"}
-    Issues["GitHub milestone<br/>and issues"]
-    Builders["Isolated jj builders<br/><i>one workspace per issue</i>"]
-    Verify["Review and<br/>combined tests"]
-    Ship["Human-gated deploy"]
+
+    subgraph wave["One wave — disjoint ownership, parallel"]
+        direction LR
+        B1["<b>builder</b> agent<br/><i>jj workspace · issue A</i>"]
+        B2["<b>builder</b> agent<br/><i>jj workspace · issue B</i>"]
+    end
+
+    R1["<b>code-reviewer</b> agents<br/><i>read-only · 2 passes</i>"]
+    PRs["Pull requests<br/><i>--base main</i>"]
+    Ship["<b>deploy</b> skill<br/><i>human-gated</i>"]
 
     Goal --> Plan
     Plan --> Gate
     Gate -->|changes requested| Plan
     Gate -->|approved| Issues
-    Issues --> Builders
-    Builders --> Verify
-    Verify --> Ship
+    Issues --> B1 & B2
+    B1 & B2 --> R1
+    R1 -->|"critical/high clear"| PRs
+    R1 -.->|"still critical/high"| Blocked["returns <b>blocked</b><br/>no PR"]
+    PRs --> Integrate
+    Blocked -.-> Issues
+    Integrate --> Ship
 ```
 
-In words: the planner turns a goal into an HTML folio plus a machine-readable sidecar.
-A human reviews that plan before any GitHub resource is written. Approved issues then
-run in dependency waves, each builder isolated in its own Jujutsu workspace. Review and
-the combined test suite must pass before integration. Deployment stays a separate human
-decision.
+In words: the **primary agent** runs the `planner` skill to turn a goal into an HTML folio plus
+a machine-readable sidecar, and a human approves that plan before any GitHub resource is written.
+Approved issues run in dependency waves. Each **builder** agent owns exactly one issue in its own
+Jujutsu workspace, branched from the same integration base — `trunk()` unless the primary agent is
+deliberately stacking — and it opens its PR with an explicit `--base main`. Before any PR exists a
+builder hands its change-set to read-only **code-reviewer** agents for at most two passes; if a
+`critical` or `high` finding still stands it returns `blocked` with no PR, and the primary agent
+decides whether to re-dispatch, re-scope, or escalate. The primary agent then integrates the wave by
+serial merge plus retest and must see a combined GREEN before marking issues done. It never writes
+issue code, never merges before combined green, and never force-pushes `main`. Deployment is a
+separate human decision.
+
+### Who does what
+
+| Agent | Writes code | Owns | Never |
+|---|---|---|---|
+| primary (you, in the harness) | no | planning, wave scheduling, integration, final verification | writes issue code, merges before combined GREEN |
+| `builder` | yes | one issue, one workspace, one PR | touches another issue's files, pushes `main`, merges its own PR |
+| `code-reviewer` | no | assurance lenses over one change-set | edits anything it reviews |
+| `research` | no | investigation that feeds a plan | changes behaviour |
+| `docs` | yes | READMEs, ADRs, the documentation gate | product code |
 
 ---
 
@@ -173,18 +206,53 @@ loops, Jujutsu, and explicitly requested alternate harnesses.
 
 ## Mechanical gates
 
-The guard and hooks enforce what prose cannot:
+Every builder is bound by `tdd-guard`, which turns TDD from a promise into a state machine. The
+guard is a real binary (`cmd/tdd-guard/`, `guard/`), installed by `bootstrap-tools.sh`; the
+`scripts/hooks/build-*` commands are what wire it into a harness's tool events.
 
-1. `tdd-guard seal` records an exact failing test command and a sealed test digest.
-2. `tdd-guard verify` accepts that same command only after it passes, with no test
-   tampering.
-3. `tdd-guard diff-review record` binds review findings to the current diff.
-4. `tdd-guard status --json` reports whether the evidence is fresh and integration-ready.
+```mermaid
+flowchart TB
+    Red["Write the acceptance<br/>tests · run RED"]
+    Seal["<b>seal</b><br/><i>--tests · --red-command</i>"]
+    Impl["Implement"]
+    Verify["<b>verify</b><br/><i>--green-command</i>"]
+    Review["<b>diff-review record</b><br/><i>--findings</i>"]
+    Stop{"Stop hook<br/><i>evidence fresh?</i>"}
+    PR["PR allowed"]
 
-The build guard also fails closed on malformed tool payloads, protected-branch
-mutations, unsafe Git/jj/GitHub operations, and RAM-tmpfs build targets. Formatting and
-lint hooks give file-level feedback. Claude and Antigravity wire the supported events
-natively; Codex builders call the equivalent guard commands explicitly.
+    Red --> Seal --> Impl --> Verify --> Review --> Stop
+    Stop -->|yes| PR
+    Stop -->|no| Impl
+    Impl -.->|"edit a sealed test"| Denied["denied<br/><i>reseal --reason</i>"]
+    Denied -.-> Impl
+```
+
+In words, and in the order a builder hits them:
+
+1. **`tdd-guard seal --tests <globs> --red-command <argv...>`** records the exact failing command and
+   a digest of every sealed test file. RED has to be real and non-zero before the seal is taken.
+2. **While implementing, sealed tests are read-only.** A `PreToolUse` edit of a sealed path is
+   *denied*, not warned about; changing one out-of-band is flagged the moment the guard sees it. The
+   only legitimate amendment is `tdd-guard reseal --reason <text>`, after proving the amended test
+   fails for the intended reason.
+3. **`tdd-guard verify --green-command <argv...>`** accepts the run only if the tests are byte-identical
+   to the seal and the GREEN run *postdates* it. Optional `--coverage-command` and `--min-coverage`
+   add a coverage floor; `tdd-guard arch-check --assertions <file>` asserts structural invariants.
+4. **`tdd-guard diff-review record --findings <file>`** binds review findings to the current diff. Change
+   the diff afterwards and the record goes stale.
+5. **The Stop hook refuses to let a builder finish** while any of that is missing: sealed tests changed
+   without a recorded amendment, no green evidence, green evidence older than the current seal, or a
+   missing/stale diff review. `tdd-guard status --json` reports the same state for a human or the
+   primary agent.
+
+Alongside the TDD state machine, `build-guard` inspects each shell command *before* it runs and fails
+closed on malformed tool payloads, protected-branch mutations, unsafe Git/jj/GitHub operations, and
+RAM-tmpfs build targets. `build-format` and `build-lint` auto-format written files and feed
+single-file lint findings back to the agent.
+
+Claude Code and Antigravity wire these to native tool events; Codex has no equivalent hook surface, so
+its builder calls `build-guard codex` and the `tdd-guard` commands explicitly — the codex builder
+definition says so in its own procedure.
 
 ---
 
