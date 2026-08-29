@@ -68,7 +68,7 @@ elif have go; then
   # The binary is a build artifact, so it is built into the repo's gitignored
   # bin/ and linked — same rule as everything else: the repo is the source.
   mkdir -p "$ROOT/bin" "$HOME/.local/bin"
-  ( cd "$ROOT" && go build -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) || die "go build ./cmd/tdd-guard failed"
+  ( cd "$ROOT" && go build -buildvcs=false -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) || die "go build ./cmd/tdd-guard failed"
   link_owned "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard" || die "could not link tdd-guard into ~/.local/bin"
   echo "  built $ROOT/bin/tdd-guard -> ~/.local/bin/tdd-guard"
 else
@@ -101,7 +101,6 @@ need prettier "$(pick npm:prettier)" "JS/TS/JSON/MD format (build-format)"
 need eslint "$(pick npm:eslint)" "JS/TS lint (build-lint)"
 
 echo
-echo "Next: install the agents + skills into your harness(es) via:"
-echo "  scripts/install-harness.sh --install"
-echo "Agents are organized under agents/{claude,codex,agy} and deployed to ~/.claude,"
-echo "\$HOME/.codex, and \$HOME/.gemini/config/agents. See README.md."
+echo "Next: install the Swarm Coder plugin into your harness(es) via:"
+echo "  scripts/bootstrap-plugins.sh"
+echo "That is the second and last bootstrap step. See README.md."

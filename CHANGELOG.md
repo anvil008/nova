@@ -2,6 +2,39 @@
 
 All notable changes to Swarm Coder will be documented in this file.
 
+## [Plugins install through local marketplaces] - 2026-08-29
+
+### Fixed
+- **Claude Code and Codex now actually load the plugin.** Both discover plugins through a
+  registry, never by scanning their plugin directory, so the symlink the installer wrote
+  into `~/.claude/plugins/swarm-coder` was inert: `claude plugin list` did not show it and
+  none of its agents, skills, or hooks reached a session. Both harnesses now install
+  through a local marketplace using their own CLI (ADR-0006).
+- **Claude plugin hooks.** `plugins/claude/hooks.json` was a copy of the Codex file: Codex
+  tool names (`run_command`, `write_to_file`) inside a `swarm-guard` module wrapper, which
+  Claude Code parsed as zero hooks. Rewritten in Claude's schema at
+  `plugins/claude/hooks/hooks.json`, matching `Bash` and `Edit|Write|NotebookEdit`.
+- **Restored files deleted from the working copy.** `agents/agy/builder/agent.md`,
+  `agents/agy/builder/hooks.json`, `plugins/agy/plugin.json`, and
+  `skills/builder-frontend/SKILL.md` were missing, leaving the Antigravity plugin without
+  a manifest or a builder agent.
+
+### Changed
+- **Flatter layout.** Wrappers moved from `plugins/<harness>/swarm-coder` to
+  `plugins/<harness>`, and `plugins/codex-marketplace/` is gone — both marketplace
+  manifests now live at the repository root (`.claude-plugin/marketplace.json` and
+  `.agents/plugins/marketplace.json`), which is also what keeps each wrapper's `agents/`
+  and `skills/` symlinks inside the marketplace root.
+- **Two bootstrap commands, symmetrically named.** `install-harness.sh` is now
+  `bootstrap-plugins.sh` and `project-bootstrap.sh` is now `bootstrap-project.sh`, joining
+  `bootstrap-tools.sh`: one command for the external tools, one for the plugin, one for a
+  single project.
+- **Antigravity skill links are derived.** `bootstrap-plugins.sh` regenerates
+  `plugins/agy/skills/` from `skills/` minus the skills owned by an agent, so adding a
+  skill no longer means editing the installer.
+- **Ownership refusal now covers Antigravity only**, the one harness this repository still
+  writes a symlink for. Claude and Codex targets belong to their own CLIs.
+
 ## [Human-friendly visual skill outputs] - 2026-08-29
 
 ### Added

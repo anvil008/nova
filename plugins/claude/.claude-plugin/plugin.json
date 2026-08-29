@@ -1,0 +1,8 @@
+{
+  "name": "swarm-coder",
+  "version": "0.1.0",
+  "description": "Swarm Coder: multi-agent planning, building, review, and docs for Claude Code.",
+  "author": {
+    "name": "Foundry Zero"
+  }
+}
