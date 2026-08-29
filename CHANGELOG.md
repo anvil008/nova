@@ -2,6 +2,23 @@
 
 All notable changes to Swarm Coder will be documented in this file.
 
+## [Human-friendly visual skill outputs] - 2026-08-29
+
+### Added
+- **Accessible visual contract**: Recorded ADR-0004, requiring meaningful visuals to
+  have concise nearby text equivalents and generated views to share authoritative data.
+- **Planner change story**: Planner folios now compare current and proposed states and
+  explain the architectural delta in text.
+- **Review topology**: Code-review reports now show how review lenses and raw candidates
+  become verified findings and affected files, including zero-finding outcomes.
+
+### Changed
+- **Newcomer documentation**: The docs skill and all docs-agent definitions now require
+  a concise what/why/quickstart README shape with an accessible workflow or architecture
+  visual when relationships matter.
+- **Repository README**: Reorganized the root guide around a short installation path,
+  a visual-plus-text workflow explanation, core guarantees, and executable verification.
+
 ## [Harness Gate Integrity and Cross-Harness Parity] - 2026-08-28
 
 ### Added
