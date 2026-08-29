@@ -109,5 +109,43 @@ out=$("$BROKEN/scripts/install-harness.sh" --install 2>&1); rc=$?
 [[ $rc -ne 0 ]] && grep -q "agents/codex/docs.md" <<<"$out" && ok "invalid frontmatter fails and is named" || no "invalid frontmatter fails and is named (rc=$rc): $out"
 [[ -z $(find "$HOME/.claude" "$HOME/.codex" "$HOME/.gemini" -type l) ]] && ok "invalid frontmatter: no harness touched" || no "invalid frontmatter: no harness touched"
 
+# --- manifest-schema-validity --------------------------------------------------------------------
+bad_json=0
+for manifest in "$ROOT"/plugins/agy/swarm-coder/plugin.json "$ROOT"/plugins/claude/swarm-coder/.claude-plugin/plugin.json "$ROOT"/plugins/codex/swarm-coder/.codex-plugin/plugin.json; do
+  if ! jq . "$manifest" >/dev/null 2>&1; then
+    bad_json=1
+    echo "Invalid JSON or missing: $manifest"
+  fi
+done
+[[ $bad_json -eq 0 ]] && ok "manifests are valid JSON" || no "manifests are valid JSON"
+
+bad_schema=0
+jq -e '.name == "swarm-coder" and .version and .description and .capabilities' "$ROOT/plugins/agy/swarm-coder/plugin.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "swarm-coder" and .version and .description and (.capabilities | length > 0)' "$ROOT/plugins/claude/swarm-coder/.claude-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "swarm-coder" and .version and .description' "$ROOT/plugins/codex/swarm-coder/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
+[[ $bad_schema -eq 0 ]] && ok "manifests satisfy schema requirements" || no "manifests satisfy schema requirements"
+
+# --- plugin-structure-integrity ------------------------------------------------------------------
+bad_links=0
+for plugin_dir in "$ROOT/plugins/agy/swarm-coder" "$ROOT/plugins/claude/swarm-coder" "$ROOT/plugins/codex/swarm-coder"; do
+  if [[ ! -d "$plugin_dir/skills" ]]; then
+    bad_links=1
+    echo "Missing skills in $plugin_dir"
+  fi
+done
+if [[ ! -d "$ROOT/plugins/agy/swarm-coder/agents" || ! -d "$ROOT/plugins/claude/swarm-coder/agents" ]]; then
+  bad_links=1
+  echo "Missing agents in plugin directories"
+fi
+if [[ ! -f "$ROOT/plugins/agy/swarm-coder/hooks.json" || ! -d "$ROOT/plugins/agy/swarm-coder/rules" ]]; then
+  bad_links=1
+  echo "Missing hooks.json or rules in agy plugin"
+fi
+if find "$ROOT/plugins" -type l -exec test ! -e {} \; -print | grep -q .; then
+  bad_links=1
+  echo "Broken symlinks found in plugins/"
+fi
+[[ $bad_links -eq 0 ]] && ok "plugin structure integrity" || no "plugin structure integrity"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]

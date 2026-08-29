@@ -1,82 +1,164 @@
 {
-  "planId": "human-friendly-visual-skill-outputs",
-  "planName": "Human-Friendly Visual Skill Outputs",
+  "planId": "unified-cross-harness-plugin-architecture",
+  "planName": "Unified Cross-Harness Plugin Architecture",
   "repo": "anvil008/swarm-coder",
-  "generatedAt": "2026-08-29T00:47:02Z",
-  "summary": "Update the docs, planner, and code-review capabilities so every primary human-facing artifact communicates its main idea visually and then supplies concise, precise text for humans and downstream agents. README work will use a compact repository-flow visual; planner folios will compare current and proposed architecture; code-review reports will visualize the review funnel and affected surface. Existing approval gates, strict machine-readable inputs, offline rendering, and harness parity remain intact.",
+  "generatedAt": "2026-08-29T01:18:00Z",
+  "summary": "Transform Swarm Coder's delivery model from flat, individual file symlinks into native, self-contained plugin bundles for Google Antigravity, Anthropic Claude Code, and OpenAI Codex. Package agents, skills, rules, and mechanical hooks into harness-compliant plugin structures while retaining this repository as the single source of truth, enabling cleaner encapsulation, namespacing, and project/global plugin installation.",
   "architecture": {
+    "changeSummary": "Migrate from individual flat agent/skill symlinks across ~/.claude, ~/.gemini, and ~/.codex to structured plugin bundles (plugins/agy, plugins/claude, plugins/codex) with native manifests, unified lifecycle hook integration, and project/global installation support.",
     "components": [
-      {"name": "Docs contract", "purpose": "Guides all harness-specific docs agents to write short, approachable READMEs with a durable visual explanation of the repository."},
-      {"name": "Planner sidecar and folio", "purpose": "Carries explicit current and proposed architecture sources and renders them as a before/after change story alongside dependency and risk detail."},
-      {"name": "Code-review renderer", "purpose": "Derives an always-present visual review topology and impact summary from the strictly validated review JSON."},
-      {"name": "Parity and regression gates", "purpose": "Keep Claude, Codex, and Antigravity instructions aligned and verify visuals remain accessible, offline, printable, and backed by textual detail."}
+      {
+        "name": "Plugin Manifests & Structure",
+        "purpose": "Defines native plugin manifests (plugin.json, .claude-plugin/plugin.json, .codex-plugin/plugin.json) and bundles agents, skills, and rules into harness-compliant directory trees."
+      },
+      {
+        "name": "Harness Plugin Installer",
+        "purpose": "Manages idempotent installation, updates, and uninstallation of plugin bundles into Antigravity, Claude Code, and Codex configuration directories with foreign-asset refusal."
+      },
+      {
+        "name": "Mechanical Hook Integration",
+        "purpose": "Integrates tdd-guard and build-hooks directly into plugin lifecycle configurations across all supported harnesses."
+      },
+      {
+        "name": "Project Bootstrap & Verification",
+        "purpose": "Enables workspace-level plugin deployment into target repositories and tests installation parity across all three environments."
+      }
     ],
     "diagramsMermaid": {
-      "targetArchitecture": "flowchart LR\n  subgraph Before[Current output]\n    B1[README prose blocks]\n    B2[Planner target only]\n    B3[Review tables and metrics]\n  end\n  subgraph After[Proposed output]\n    A1[README repository flow]\n    A2[Planner current to proposed comparison]\n    A3[Review funnel and impact map]\n  end\n  B1 -->|docs contract| A1\n  B2 -->|sidecar plus renderer| A2\n  B3 -->|derived visual summary| A3\n  A1 --> H[Fast human understanding]\n  A2 --> H\n  A3 --> H\n  A1 --> M[Precise machine-readable detail]\n  A2 --> M\n  A3 --> M"
+      "currentArchitecture": "flowchart TD\n  subgraph SingleSource[Single Source in Repository]\n    A[agents/ claude, codex, agy]\n    S[skills/ planner, build, review, etc.]\n    H[scripts/hooks/ and bin/tdd-guard]\n  end\n  subgraph FlatSymlinks[Flat Global Symlinks]\n    C[~/.claude/agents/ & ~/.claude/skills/]\n    G[~/.gemini/config/agents/ & skills/]\n    X[~/.codex/*.config.toml & skills/]\n  end\n  A -->|individual symlinks| FlatSymlinks\n  S -->|individual symlinks| FlatSymlinks\n  H -->|~/.local/bin symlinks| FlatSymlinks",
+      "targetArchitecture": "flowchart TD\n  subgraph SingleSource[Single Source in Repository]\n    A[agents/ and skills/]\n    H[scripts/hooks/ and bin/tdd-guard]\n  end\n  subgraph Plugins[Cross-Harness Plugin Bundles]\n    P_AGY[\"plugins/agy/swarm-coder/<br/>plugin.json + skills + agents + hooks\"]\n    P_CLAUDE[\"plugins/claude/swarm-coder/<br/>.claude-plugin/plugin.json + skills + agents\"]\n    P_CODEX[\"plugins/codex/swarm-coder/<br/>.codex-plugin/plugin.json + skills\"]\n  end\n  subgraph HarnessDeployment[Harness Plugin Directories]\n    D_AGY[\"~/.gemini/antigravity-cli/plugins/ or .agents/plugins/\"]\n    D_CLAUDE[\"~/.claude/plugins/ or .claude/plugins/\"]\n    D_CODEX[\"~/.codex/plugins/ or .codex/plugins/\"]\n  end\n  SingleSource --> Plugins\n  P_AGY -->|install-harness.sh| D_AGY\n  P_CLAUDE -->|install-harness.sh| D_CLAUDE\n  P_CODEX -->|install-harness.sh| D_CODEX"
     }
   },
   "issues": [
     {
-      "key": "docs-visual-readme",
-      "title": "Define and enforce the visual-first README standard",
-      "body": "Update the docs skill and the Claude, Codex, and Antigravity docs-agent definitions with one consistent README contract. A README must lead with a plain-language statement of what the repository does, explain why it exists, provide the shortest viable quickstart, and include a compact visual of the primary architecture or workflow. Prefer GitHub-rendered Mermaid when relationships matter and a durable text diagram when Mermaid would add complexity; every visual needs a nearby textual explanation and meaningful labels so it remains understandable to screen readers, raw-Markdown readers, and agents. Keep prose concise, remove repetition, and do not invent a decorative diagram for information that is clearer as a small table. Add focused contract tests and a representative README fixture or reference example without turning docs_check into a brittle semantic linter for arbitrary repositories.",
-      "labels": ["planning", "documentation", "ux"],
+      "key": "plugin-manifests-and-structures",
+      "title": "Define cross-harness plugin structures and manifest specifications",
+      "body": "Establish unified, harness-compliant plugin directory layouts for Antigravity, Claude Code, and Codex. Create plugins/agy/swarm-coder/plugin.json (mapping agents, skills, hooks, and rules), plugins/claude/swarm-coder/.claude-plugin/plugin.json (mapping skills, subagents, commands, and hooks), and plugins/codex/swarm-coder/.codex-plugin/plugin.json (mapping skills and tools). Ensure all skills and agent definitions project cleanly from the centralized skills/ and agents/ directories into their respective plugin structures without duplicate source code.",
+      "labels": ["planning", "plugins", "architecture"],
       "dependsOn": [],
-      "ownershipHint": "skills/docs/**, agents/claude/docs.md, agents/codex/docs.md, agents/agy/docs/agent.md",
+      "ownershipHint": "plugins/**, scripts/lib.sh",
       "wave": 1,
       "acceptanceTests": [
-        {"name": "readme-contract-parity", "kind": "unit", "oracle": "All three harness-specific docs agents and the docs skill require the same what/why/quickstart/visual structure and concise human-friendly prose.", "testPath": "skills/docs/tests/test_docs.py"},
-        {"name": "visual-has-textual-equivalent", "kind": "unit", "oracle": "The documented README example pairs its Mermaid or text diagram with labels and nearby prose that conveys the same repository flow without relying on rendered graphics.", "testPath": "skills/docs/tests/test_docs.py"},
-        {"name": "docs-gate-remains-compatible", "kind": "integration", "oracle": "Existing clean sample repositories and the real repository still pass docs_check; arbitrary repositories are not rejected solely because semantic visual quality cannot be mechanically inferred.", "testPath": "skills/docs/tests/test_docs.py"}
+        {
+          "name": "manifest-schema-validity",
+          "kind": "unit",
+          "oracle": "All plugin manifests (plugin.json, .claude-plugin/plugin.json, .codex-plugin/plugin.json) parse as valid JSON and satisfy harness-specific schema requirements.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "plugin-structure-integrity",
+          "kind": "unit",
+          "oracle": "Each harness plugin directory correctly references all repository skills, agents, and hook definitions without broken symlinks or missing files.",
+          "testPath": "scripts/tests/test_install.sh"
+        }
       ]
     },
     {
-      "key": "planner-before-after",
-      "title": "Make planner folios show the architectural change story",
-      "body": "Extend the planner's strict architecture contract and renderer so every plan contains a visual current-state and proposed-state comparison, not only a target diagram. Keep both diagram sources in the machine-readable sidecar, validate them before rendering, and present them with explicit Current and Proposed labels plus a concise textual explanation of the delta. Preserve the existing dependency graph, wave diagram, risks, approval gate, offline Mermaid bundle, source fallback, print behavior, deterministic naming, and GitHub reconciliation. Update examples and the planner contract so agents know to model the smallest meaningful system boundary and use a non-architectural state or data-flow comparison when the change is not structural.",
-      "labels": ["planning", "planner", "ux"],
-      "dependsOn": [],
-      "ownershipHint": "skills/planner/**",
-      "wave": 1,
-      "acceptanceTests": [
-        {"name": "requires-current-and-proposed-visuals", "kind": "unit", "oracle": "The strict sidecar validator rejects an architecture missing either the current-state or proposed-state Mermaid source and accepts a valid pair.", "testPath": "skills/planner/tests/test_planner.py"},
-        {"name": "renders-labeled-comparison", "kind": "unit", "oracle": "The HTML folio renders distinct Current and Proposed visuals, preserves both source fallbacks, and includes concise textual change context without removing the other required sections.", "testPath": "skills/planner/tests/test_planner.py"},
-        {"name": "planner-remains-offline-and-deterministic", "kind": "integration", "oracle": "Two renders of the same sidecar are byte-identical, load no external resources, print cleanly, and retain approval and reconciliation identity semantics.", "testPath": "skills/planner/tests/test_planner.py"}
-      ]
-    },
-    {
-      "key": "review-visual-topology",
-      "title": "Add an always-present visual summary to code-review reports",
-      "body": "Add a compact, accessible visual to the self-contained code-review report that shows the path from selected lenses through raw candidates and independent verification to surviving findings and affected files. Derive it entirely from the existing strict review JSON and render context so the machine contract stays authoritative. The visual must remain meaningful for blocked, approve-with-nits, and zero-finding reviews; use semantic HTML and CSS or another fully inline technique with a nearby textual summary and print-safe fallback. Preserve ranked expandable findings, refuted-candidate evidence, filters, strict validation, deterministic output, and GitHub issue reconciliation. Update the skill report contract so the visual is mandatory and clarify that architecture before/after is appropriate only when review evidence supports it; the topology/impact view is the reliable default.",
-      "labels": ["planning", "code-review", "ux"],
-      "dependsOn": [],
-      "ownershipHint": "skills/code-review/**",
-      "wave": 1,
-      "acceptanceTests": [
-        {"name": "renders-review-topology", "kind": "unit", "oracle": "A populated review renders a labeled visual connecting lenses, candidate counts, verification outcome, severity, and affected files using only validated report data.", "testPath": "skills/code-review/tests/test_code_review.py"},
-        {"name": "renders-clean-review-visual", "kind": "unit", "oracle": "An approved review with zero verified findings still renders an honest visual that communicates completed verification and no affected files, without empty or misleading nodes.", "testPath": "skills/code-review/tests/test_code_review.py"},
-        {"name": "review-visual-is-accessible-offline-and-printable", "kind": "integration", "oracle": "The report has a textual equivalent and semantic labels, contains no external loads, remains deterministic, and exposes the visual meaning in print and without JavaScript.", "testPath": "skills/code-review/tests/test_code_review.py"}
-      ]
-    },
-    {
-      "key": "visual-contract-integration",
-      "title": "Document the visual communication contract and run the full skill suite",
-      "body": "After the three skill surfaces are implemented, update the repository README and changelog or handover material to describe the new output guarantees. Record an ADR if the implementation establishes a durable cross-skill rule about visual-plus-text equivalents. Verify shared report CSS parity remains byte-identical where required, generated examples demonstrate the behavior, all affected skill tests pass, docs_check passes, and no live harness instructions drift from the source skill contracts. Keep the repository README itself concise and use its own workflow visual as the dogfood example.",
-      "labels": ["planning", "integration", "documentation"],
-      "dependsOn": ["docs-visual-readme", "planner-before-after", "review-visual-topology"],
-      "ownershipHint": "README.md, CHANGELOG.md, docs/adr/**, .github/workflows/ci.yml",
+      "key": "installer-plugin-migration",
+      "title": "Upgrade harness installer to deploy and manage plugins",
+      "body": "Update scripts/install-harness.sh to support deploying Swarm Coder as native plugins into ~/.gemini/antigravity-cli/plugins/swarm-coder, ~/.claude/plugins/swarm-coder, and ~/.codex/plugins/swarm-coder. Support targeting individual harnesses via --harness <agy|claude|codex>, retain strict ownership checks, refuse foreign unowned directories, and provide idempotent --uninstall that removes created plugin symlinks and registrations cleanly.",
+      "labels": ["planning", "installer", "cli"],
+      "dependsOn": ["plugin-manifests-and-structures"],
+      "ownershipHint": "scripts/install-harness.sh, scripts/lib.sh",
       "wave": 2,
       "acceptanceTests": [
-        {"name": "affected-skill-suites-pass", "kind": "integration", "oracle": "The docs, planner, and code-review unittest suites all pass together after the contract changes.", "testPath": ".github/workflows/ci.yml"},
-        {"name": "shared-report-style-parity", "kind": "unit", "oracle": "Planner and code-review shared report.css files remain byte-identical and their existing parity assertion passes.", "testPath": "skills/code-review/tests/test_code_review.py"},
-        {"name": "repository-docs-demonstrate-standard", "kind": "e2e", "oracle": "The root README gives a newcomer a concise what/why/quickstart explanation plus a visual workflow with a textual equivalent, and docs_check reports no violations.", "testPath": "README.md"}
+        {
+          "name": "install-all-plugins",
+          "kind": "integration",
+          "oracle": "Running install-harness.sh --install in a fresh test environment creates valid plugin directory symlinks and manifests across Antigravity, Claude Code, and Codex.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "uninstall-cleans-plugins",
+          "kind": "integration",
+          "oracle": "Running install-harness.sh --uninstall completely removes all installed plugin links without leaving orphaned files or touching foreign assets.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "refuses-foreign-plugin",
+          "kind": "unit",
+          "oracle": "Installation refuses to overwrite an existing foreign directory at the target plugin location and exits non-zero.",
+          "testPath": "scripts/tests/test_install.sh"
+        }
+      ]
+    },
+    {
+      "key": "guard-and-hook-plugin-integration",
+      "title": "Integrate mechanical gates and hook configurations into plugins",
+      "body": "Wire tdd-guard, build-hooks, build-format, and build-lint into the plugin lifecycle manifests. Ensure Antigravity's hooks.json registers pre/post tool hooks within the plugin bundle, Claude Code's plugin hooks wire directly to the verification binaries, and Codex configurations reference the guard tools. Ensure that execution inside plugin environments triggers mechanical gates identically to standalone setups.",
+      "labels": ["planning", "guard", "hooks"],
+      "dependsOn": ["plugin-manifests-and-structures"],
+      "ownershipHint": "plugins/**/hooks.json, scripts/hooks/**, cmd/tdd-guard/**",
+      "wave": 2,
+      "acceptanceTests": [
+        {
+          "name": "plugin-hooks-validity",
+          "kind": "unit",
+          "oracle": "Plugin hook configurations correctly map lifecycle events to guard binaries without path resolution errors.",
+          "testPath": "scripts/hooks/tests/test_hooks.sh"
+        },
+        {
+          "name": "tdd-guard-executes-via-plugin",
+          "kind": "integration",
+          "oracle": "Invoking tool operations through a plugin-configured harness triggers build-hooks and enforces TDD seal verification.",
+          "testPath": "scripts/hooks/tests/test_hooks.sh"
+        }
+      ]
+    },
+    {
+      "key": "workspace-bootstrap-and-docs",
+      "title": "Update project bootstrap, verification tests, and documentation",
+      "body": "Update scripts/project-bootstrap.sh to support workspace-scoped plugin installation (.agents/plugins/swarm-coder and .claude/plugins/swarm-coder). Expand the test suite in scripts/tests/test_install.sh to comprehensively test plugin installations across all harnesses. Update README.md and documentation in docs/ to describe plugin architecture, installation steps, and cross-harness namespaces.",
+      "labels": ["planning", "bootstrap", "documentation"],
+      "dependsOn": ["installer-plugin-migration", "guard-and-hook-plugin-integration"],
+      "ownershipHint": "scripts/project-bootstrap.sh, scripts/tests/**, README.md, docs/**",
+      "wave": 3,
+      "acceptanceTests": [
+        {
+          "name": "project-bootstrap-installs-local-plugins",
+          "kind": "integration",
+          "oracle": "Running project-bootstrap.sh in a target workspace sets up local plugin links and excludes them from git tracking.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "test-install-suite-passes",
+          "kind": "unit",
+          "oracle": "The complete install test suite in scripts/tests/test_install.sh passes 100% with all plugin test cases.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "readme-documents-plugin-architecture",
+          "kind": "unit",
+          "oracle": "README.md documents the plugin layout, installation commands for all three harnesses, and migration notes.",
+          "testPath": "skills/docs/tests/test_docs.py"
+        }
       ]
     }
   ],
   "risks": [
-    {"id": "R-01", "title": "Visual requirements produce decorative noise", "likelihood": 2, "impact": 2, "owner": "docs and report owners", "mitigation": "Require each visual to answer a named reader question, permit tables or text diagrams where they communicate better, and pair every visual with concise prose."},
-    {"id": "R-02", "title": "Planner schema evolution breaks existing sidecars", "likelihood": 2, "impact": 3, "owner": "planner owner", "mitigation": "Make the schema transition explicit, update fixtures and examples together, provide a clear validation error, and test the chosen compatibility behavior before release."},
-    {"id": "R-03", "title": "Visual and textual representations drift", "likelihood": 2, "impact": 3, "owner": "renderer owners", "mitigation": "Derive report visuals and nearby summaries from the same validated data, and add assertions that both carry the same labels, counts, and states."},
-    {"id": "R-04", "title": "Harness-specific docs instructions diverge", "likelihood": 2, "impact": 2, "owner": "docs skill owner", "mitigation": "Add parity assertions covering the shared README contract across Claude, Codex, and Antigravity agent definitions."}
+    {
+      "id": "R-01",
+      "title": "Harness plugin path or manifest format drift across CLI versions",
+      "likelihood": 2,
+      "impact": 2,
+      "owner": "harness-integration-engineer",
+      "mitigation": "Target standard canonical plugin manifest paths and maintain fallback symlinking options in install-harness.sh."
+    },
+    {
+      "id": "R-02",
+      "title": "Migration conflict with existing flat symlinks in user configuration directories",
+      "likelihood": 2,
+      "impact": 2,
+      "owner": "harness-integration-engineer",
+      "mitigation": "Detect existing flat symlinks during install, report them cleanly, and provide seamless migration/cleanup in --uninstall."
+    },
+    {
+      "id": "R-03",
+      "title": "Hook execution path differences inside containerized or sandboxed plugin environments",
+      "likelihood": 1,
+      "impact": 3,
+      "owner": "guard-engineer",
+      "mitigation": "Use absolute paths or standardized ~/.local/bin resolution for all hook binary invocations."
+    }
   ]
 }
