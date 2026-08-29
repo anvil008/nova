@@ -149,6 +149,97 @@ def metrics_html(review: dict) -> str:
     return f'<div class="metrics">{"".join(tiles)}</div>'
 
 
+def topology_html(review: dict, declared_lenses: list[str]) -> str:
+    """Render the review pipeline from validated counts and context only."""
+    lenses = sorted(
+        {finding["lens"] for finding in review["findings"] + review["dropped"]}
+        | set(declared_lenses),
+        key=LENSES.index,
+    )
+    lens_label = ", ".join(lenses) if lenses else "none recorded"
+    verdict_label = review["verdict"].replace("-", " ")
+    stages = (
+        ("Lenses", len(lenses), lens_label),
+        ("Observations", review["inputCount"], "raw reviewer output"),
+        ("Candidates", review["candidateCount"], "after deterministic dedupe"),
+        ("Verified", review["verifiedCount"], "survived refutation"),
+    )
+    nodes = []
+    for label, count, detail in stages:
+        nodes.append(
+            '<div class="topology-node">'
+            f'<span class="topology-value">{escaped(count)}</span>'
+            f'<strong>{escaped(label)}</strong><small>{escaped(detail)}</small></div>'
+        )
+    nodes.append(
+        '<div class="topology-node topology-outcome">'
+        f'<span class="topology-value">{escaped(verdict_label)}</span>'
+        f'<strong>Verdict</strong><small>{escaped(review["droppedCount"])} refuted</small></div>'
+    )
+    verified_verb = "was" if review["verifiedCount"] == 1 else "were"
+    dropped_verb = "was" if review["droppedCount"] == 1 else "were"
+    accessible = (
+        f'{len(lenses)} selected lenses produced {review["inputCount"]} observations; '
+        f'{review["candidateCount"]} candidates remained after deduplication; '
+        f'{review["verifiedCount"]} {verified_verb} verified and '
+        f'{review["droppedCount"]} {dropped_verb} refuted. '
+        f'The verdict is {verdict_label}.'
+    )
+    return (
+        '<figure class="review-visual topology" aria-labelledby="topology-title" '
+        'aria-describedby="topology-description">'
+        '<figcaption id="topology-title">Review topology</figcaption>'
+        f'<p id="topology-description" class="visual-description">{escaped(accessible)}</p>'
+        f'<div class="topology-track">{"".join(nodes)}</div></figure>'
+    )
+
+
+def impact_html(findings: list[dict]) -> str:
+    """Render verified impact by file and severity, including the zero state."""
+    grouped: dict[str, dict[str, int]] = {}
+    for finding in findings:
+        counts = grouped.setdefault(finding["file"], {severity: 0 for severity in SEVERITIES})
+        counts[finding["severity"]] += 1
+    if not grouped:
+        rows = (
+            '<div class="impact-zero"><span aria-hidden="true">&#10003;</span>'
+            '<strong>No verified impact</strong><small>No file carries a finding that survived refutation.</small></div>'
+        )
+        description = "No files carry verified findings."
+    else:
+        rows_list = []
+        descriptions = []
+        for path in sorted(grouped):
+            counts = grouped[path]
+            total = sum(counts.values())
+            marks = []
+            readable = []
+            for severity in SEVERITIES:
+                count = counts[severity]
+                if count:
+                    marks.append(
+                        f'<span class="impact-mark bar-{escaped(severity)}">'
+                        f'<b>{escaped(count)}</b><small>{escaped(severity)}</small></span>'
+                    )
+                    readable.append(f"{count} {severity}")
+            descriptions.append(f'{path}: {", ".join(readable)}')
+            rows_list.append(
+                '<div class="impact-row">'
+                f'<span class="impact-path">{escaped(path)}</span>'
+                f'<span class="impact-total">{escaped(total)} total</span>'
+                f'<span class="impact-marks">{"".join(marks)}</span></div>'
+            )
+        rows = "".join(rows_list)
+        description = "Verified findings by file and severity. " + "; ".join(descriptions) + "."
+    return (
+        '<figure class="review-visual impact-map" aria-labelledby="impact-title" '
+        'aria-describedby="impact-description">'
+        '<figcaption id="impact-title">Verified impact map</figcaption>'
+        f'<p id="impact-description" class="visual-description">{escaped(description)}</p>'
+        f'<div class="impact-grid">{rows}</div></figure>'
+    )
+
+
 def filters_html(findings: list[dict], group: str, order: tuple[str, ...]) -> str:
     counts: dict[str, int] = {}
     for finding in findings:
@@ -269,6 +360,8 @@ def render(review: dict, context: dict) -> str:
         "LENS_COUNT": escaped(lens_count),
         "LENSES": chips,
         "METRICS": metrics_html(review),
+        "TOPOLOGY": topology_html(review, context["lenses"]),
+        "IMPACT_MAP": impact_html(findings),
         "SEVERITY_FILTERS": filters_html(findings, "severity", SEVERITIES),
         "LENS_FILTERS": filters_html(findings, "lens", LENSES),
         "FINDINGS": finding_rows(findings, "F", refuted=False),
