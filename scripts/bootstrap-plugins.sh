@@ -143,7 +143,9 @@ for spec in "${MARKET_HARNESSES[@]}"; do
   want "$h" || continue
   if [[ $MODE == install ]]; then
     [[ -d $guard ]] || continue
-    command -v "$cli" >/dev/null || die "the $cli CLI is required to register the swarm-coder plugin"
+    # The harness directory exists but its CLI does not: nothing can register the plugin,
+    # and that is the user's situation to fix, not a reason to fail the whole run.
+    command -v "$cli" >/dev/null || { echo "$h: skipped — $guard exists but the $cli CLI is not on PATH"; continue; }
     # Pre-marketplace layout: a bare symlink in the harness's plugin directory, which
     # neither CLI ever discovers. Remove it so it cannot shadow the real install.
     unlink_owned "$HOME/.$h/plugins/swarm-coder"

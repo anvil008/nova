@@ -24,6 +24,14 @@ links_into_root(){ local l; find "$1" -type l | while read -r l; do
 # git_repo DIR -> initialised repo with one commit, so worktrees can be added
 git_repo(){ mkdir -p "$1" && ( cd "$1" && git init -q && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m init ); }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+# registered CLI LABEL -> asserts CLI lists the plugin, or reports a skip when the CLI is
+# absent. A CI runner has neither claude nor codex, and their absence is not a defect.
+registered(){ local cli=$1 label=$2
+  if ! command -v "$cli" >/dev/null; then printf 'skip %s (no %s CLI)\n' "$label" "$cli"; return 0; fi
+  "$cli" plugin list 2>/dev/null | grep -q 'swarm-coder@swarm-coder-local' && ok "$label" || no "$label"; }
+not_registered(){ local cli=$1
+  command -v "$cli" >/dev/null || return 0
+  ! "$cli" plugin list 2>/dev/null | grep -q 'swarm-coder@swarm-coder-local'; }
 
 # --- install-refuses-foreign-target --------------------------------------------------------------
 fresh_home foreign
@@ -45,10 +53,8 @@ out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -eq 0 ]] && grep -q "done\." <<<"$out" && ok "install into fresh HOME succeeds" || no "install into fresh HOME succeeds (rc=$rc): $out"
 [[ -L $HOME/.gemini/config/plugins/swarm-coder && -L $HOME/.gemini/antigravity-cli/plugins/swarm-coder ]] \
   && ok "install links the Antigravity plugin" || no "install links the Antigravity plugin"
-codex plugin list 2>/dev/null | grep -q '^swarm-coder@swarm-coder-local' \
-  && ok "install registers the Codex plugin" || no "install registers the Codex plugin"
-claude plugin list 2>/dev/null | grep -q 'swarm-coder@swarm-coder-local' \
-  && ok "install registers the Claude plugin" || no "install registers the Claude plugin"
+registered codex "install registers the Codex plugin"
+registered claude "install registers the Claude plugin"
 git_repo "$TMP/owned-proj"
 "$BOOTSTRAP" --install "$TMP/owned-proj" >/dev/null 2>&1
 ln -sfn "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard"; ln -sfn "$ROOT/scripts/hooks/build-hooks" "$HOME/.local/bin/build-hooks"
@@ -190,17 +196,14 @@ mkdir -p "$HOME/.gemini/antigravity-cli"
 out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "install exits zero" || no "install exits zero (rc=$rc): $out"
 is_link_to "$HOME/.gemini/antigravity-cli/plugins/swarm-coder" "$ROOT/plugins/agy" "agy plugin linked"
-codex plugin list 2>/dev/null | grep -q '^swarm-coder@swarm-coder-local' \
-  && ok "codex plugin installed from local marketplace" || no "codex plugin installed from local marketplace"
-claude plugin list 2>/dev/null | grep -q 'swarm-coder@swarm-coder-local' \
-  && ok "claude plugin installed from local marketplace" || no "claude plugin installed from local marketplace"
+registered codex "codex plugin installed from local marketplace"
+registered claude "claude plugin installed from local marketplace"
 
 # --- uninstall-cleans-plugins (integration) ------------------------------------------------------
 out=$("$INSTALL" --uninstall 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "uninstall exits zero" || no "uninstall exits zero (rc=$rc): $out"
 [[ ! -L "$HOME/.gemini/antigravity-cli/plugins/swarm-coder" ]] \
-  && ! codex plugin list 2>/dev/null | grep -q '^swarm-coder@swarm-coder-local' \
-  && ! claude plugin list 2>/dev/null | grep -q 'swarm-coder@swarm-coder-local' \
+  && not_registered codex && not_registered claude \
   && ok "uninstall removes all plugins" || no "uninstall removes all plugins"
 
 # --- refuses-foreign-plugin (unit) ---------------------------------------------------------------
@@ -222,7 +225,6 @@ ex=$(cd "$TMP/pb-plugins-proj" && git rev-parse --git-path info/exclude)
 is_link_to "$TMP/pb-plugins-proj/.agents/plugins/swarm-coder" "$ROOT/plugins/agy" \
   "bootstrap-project agy workspace plugin linked"
 grep -qxF ".agents/plugins" "$TMP/pb-plugins-proj/$ex" && ok "exclude .agents/plugins written" || no "exclude .agents/plugins written"
-codex plugin list 2>/dev/null | grep -q '^swarm-coder@swarm-coder-local' \
-  && ok "bootstrap-project registers the Codex plugin" || no "bootstrap-project registers the Codex plugin"
+registered codex "bootstrap-project registers the Codex plugin"
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]
