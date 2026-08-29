@@ -147,5 +147,27 @@ if find "$ROOT/plugins" -type l -exec test ! -e {} \; -print | grep -q .; then
 fi
 [[ $bad_links -eq 0 ]] && ok "plugin structure integrity" || no "plugin structure integrity"
 
+# --- install-all-plugins (integration) -----------------------------------------------------------
+fresh_home plugins
+mkdir -p "$HOME/.gemini/antigravity-cli"
+out=$("$INSTALL" --install 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "install exits zero" || no "install exits zero (rc=$rc): $out"
+[[ -L "$HOME/.gemini/antigravity-cli/plugins/swarm-coder" && $(readlink "$HOME/.gemini/antigravity-cli/plugins/swarm-coder") == "$ROOT/plugins/agy/swarm-coder" ]] && ok "agy plugin linked" || no "agy plugin linked"
+[[ -L "$HOME/.claude/plugins/swarm-coder" && $(readlink "$HOME/.claude/plugins/swarm-coder") == "$ROOT/plugins/claude/swarm-coder" ]] && ok "claude plugin linked" || no "claude plugin linked"
+[[ -L "$HOME/.codex/plugins/swarm-coder" && $(readlink "$HOME/.codex/plugins/swarm-coder") == "$ROOT/plugins/codex/swarm-coder" ]] && ok "codex plugin linked" || no "codex plugin linked"
+
+# --- uninstall-cleans-plugins (integration) ------------------------------------------------------
+out=$("$INSTALL" --uninstall 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "uninstall exits zero" || no "uninstall exits zero (rc=$rc): $out"
+[[ ! -L "$HOME/.gemini/antigravity-cli/plugins/swarm-coder" && ! -L "$HOME/.claude/plugins/swarm-coder" && ! -L "$HOME/.codex/plugins/swarm-coder" ]] && ok "uninstall removes all plugins" || no "uninstall removes all plugins"
+
+# --- refuses-foreign-plugin (unit) ---------------------------------------------------------------
+fresh_home foreign_plugin
+mkdir -p "$HOME/.claude/plugins/swarm-coder"
+echo "foreign" > "$HOME/.claude/plugins/swarm-coder/foreign.txt"
+out=$("$INSTALL" --install 2>&1); rc=$?
+[[ $rc -ne 0 ]] && ok "install refuses foreign plugin directory" || no "install refuses foreign plugin directory (rc=$rc): $out"
+[[ -f "$HOME/.claude/plugins/swarm-coder/foreign.txt" ]] && ok "foreign plugin untouched" || no "foreign plugin untouched"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]
