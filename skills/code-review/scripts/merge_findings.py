@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path, PurePosixPath
 
-LENSES = {"correctness", "security", "performance", "tests", "api-contract", "frontend"}
+LENSES = {"correctness", "security", "performance", "tests", "api-contract", "frontend", "backend", "integrations"}
 SEVERITIES = ("critical", "high", "medium", "low", "nit")
 SEVERITY_RANK = {severity: rank for rank, severity in enumerate(SEVERITIES)}
 SOURCE_FIELDS = {"lens", "findings"}

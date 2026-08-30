@@ -354,7 +354,7 @@ func stopGate(decoded payload, workingDirectory string) response {
 	resolved := sessionScope(decoded, workingDirectory)
 	blockers := make([]string, 0, 3)
 	for _, loaded := range resolved.states {
-		found, err := stopBlockers(loaded)
+		found, err := stopGateBlockers(loaded)
 		if err != nil {
 			continue
 		}

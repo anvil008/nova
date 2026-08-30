@@ -121,7 +121,10 @@ class ResearchSkillTests(unittest.TestCase):
     def test_agent_is_portable_blind_read_only_and_returns_strict_envelope(self):
         agent = AGENT.read_text(encoding="utf-8")
         frontmatter = agent.split("---", 2)[1].strip().splitlines()
-        self.assertEqual([line.split(":", 1)[0] for line in frontmatter], ["name", "description", "tools"])
+        keys = [line.split(":", 1)[0] for line in frontmatter]
+        self.assertEqual(keys[:3], ["name", "description", "tools"])
+        # model and effort come from agents/models.json; test_docs owns their values.
+        self.assertEqual(set(keys) - {"name", "description", "tools"}, {"model", "effort"})
         self.assertEqual(frontmatter[0], "name: research")
         self.assertEqual(frontmatter[2], "tools: Read, Grep, Glob, Bash, Skill")
         for phrase in (
@@ -140,7 +143,7 @@ class ResearchSkillTests(unittest.TestCase):
         for phrase in (
             "real research areas", "never a fixed N", "one read-only `research` agent per area",
             "in parallel", "blind", "(area, source, finding)", "without dropping",
-            "coverage", "gaps", "open questions", "primary agent", "owns synthesis",
+            "coverage", "gaps", "open questions", "orchestrator", "owns synthesis",
         ):
             self.assertIn(phrase, skill)
 

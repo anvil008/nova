@@ -102,16 +102,19 @@ class BuildSkillTests(unittest.TestCase):
         for required in ("name", "description", "tools"):
             self.assertIn(required, keys)
         for phrase in (
-            "exactly one assigned GitHub issue", "status:in-progress", "tdd-guard seal",
+            "exactly one assigned GitHub issue", "status:in-progress", "sealed tests",
             "tdd-guard reseal --reason", "tdd-guard verify", "git diff HEAD",
             "diff-review record", "Closes #", "anvil.agent-handoff/v1", "ownershipHint",
         ):
             self.assertIn(phrase, agent)
+        # Authorship moved to the test-author: a builder that can seal can define its own
+        # Definition of Done, which is the loophole the split exists to close.
+        self.assertNotIn("tdd-guard seal", agent)
 
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for phrase in (
             "GitHub is the source of truth", "current wave", "jj workspace",
-            "combined GREEN", "sole synthesis", "never force-push main",
+            "combined GREEN", "sole completion authority", "force-push `main`",
         ):
             self.assertIn(phrase, skill)
 
@@ -125,8 +128,7 @@ class BuildSkillTests(unittest.TestCase):
             ROOT.parents[1] / "agents" / "agy" / "builder" / "agent.md",
         ]
         ordered = [
-            "jj git init --colocate",
-            "jj workspace add",
+            "jj workspace list",
             "tdd-guard verify",
             "at most two passes",
             "jj git push",
@@ -283,9 +285,46 @@ class BuildSkillTests(unittest.TestCase):
             waves.derive(sidecar, waves.validate_snapshot(snapshot, sidecar))
         self.assertEqual(stderr.getvalue(), "")
 
+    def test_every_harness_ships_a_test_author_that_owns_the_seal(self):
+        """The test-author creates the workspace, proves honest RED, and seals. If any of
+        that drifts back into the builder, the agent judged by the tests wrote them."""
+        authors = [
+            ROOT.parents[1] / "agents" / "claude" / "test-author.md",
+            ROOT.parents[1] / "agents" / "codex" / "test-author.md",
+            ROOT.parents[1] / "agents" / "agy" / "test-author" / "agent.md",
+        ]
+        ordered = [
+            "jj git init --colocate",
+            "jj workspace add",
+            "tdd-guard seal",
+        ]
+        for path in authors:
+            with self.subTest(agent=path.parent.name if path.name == "agent.md" else path.name):
+                self.assertTrue(path.exists(), path)
+                agent = path.read_text(encoding="utf-8")
+                positions = []
+                for phrase in ordered:
+                    self.assertIn(phrase, agent, f"{path}: missing {phrase!r}")
+                    positions.append(agent.index(phrase))
+                self.assertEqual(positions, sorted(positions), f"{path}: lifecycle out of order")
+                # An import error is not RED; sealing one hands over a hollow gate.
+                self.assertIn("ImportError", agent)
+                self.assertIn("signature-only stub", agent)
+                # It writes tests, never the implementation, and never merges.
+                self.assertIn("never write an implementation", agent.lower())
+                self.assertIn("anvil.agent-handoff/v1", agent)
+                self.assertNotIn("tdd-guard verify", agent)
+
+    def test_skill_dispatches_the_two_phases_in_order(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        for phrase in ("`test-author`", "Phase 1", "Phase 2", "integrator"):
+            self.assertIn(phrase, skill)
+        self.assertLess(skill.index("Phase 1"), skill.index("Phase 2"))
+        self.assertIn("never dispatch a builder for an issue with no seal", skill)
+
     def test_skill_documents_redispatch_cap(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        for phrase in ("`status:done`", "at most twice", "stalled", "escalates to the human"):
+        for phrase in ("`status:done`", "at most twice", "stalled", "escalate to the human"):
             self.assertIn(phrase, skill)
 
 

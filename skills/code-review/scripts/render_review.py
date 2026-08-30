@@ -22,7 +22,7 @@ FINDING_FIELDS = {
 }
 VERIFICATION_FIELDS = {"refutationAttempt", "evidence"}
 SEVERITIES = ("critical", "high", "medium", "low", "nit")
-LENSES = ("correctness", "security", "performance", "tests", "api-contract", "frontend")
+LENSES = ("correctness", "security", "performance", "tests", "api-contract", "frontend", "backend", "integrations")
 VERDICTS = {
     "block": ("verdict-block", "Block — resolve the blocking findings before merge"),
     "approve-with-nits": ("verdict-nits", "Approve with nits — nothing blocks merge"),

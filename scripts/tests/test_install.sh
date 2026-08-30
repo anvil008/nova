@@ -226,5 +226,38 @@ is_link_to "$TMP/pb-plugins-proj/.agents/plugins/swarm-coder" "$ROOT/plugins/agy
   "bootstrap-project agy workspace plugin linked"
 grep -qxF ".agents/plugins" "$TMP/pb-plugins-proj/$ex" && ok "exclude .agents/plugins written" || no "exclude .agents/plugins written"
 registered codex "bootstrap-project registers the Codex plugin"
+# --- codex-model-profiles ------------------------------------------------------------------------
+# Codex reads no per-agent model surface, so agents/models.json only takes effect there
+# through a profile. These are machine state, so ownership rules apply exactly as they do
+# to links: we write ours, refuse to touch anyone else's, and remove only our own.
+fresh_home codex_profiles
+"$INSTALL" --install >/dev/null 2>&1 || true
+
+[[ -f "$HOME/.codex/swarm-builder.config.toml" ]] \
+  && ok "install writes a codex profile per agent" \
+  || no "install writes a codex profile per agent"
+grep -q 'model_reasoning_effort = "high"' "$HOME/.codex/swarm-builder.config.toml" 2>/dev/null \
+  && ok "codex profile carries the manifest effort" \
+  || no "codex profile carries the manifest effort"
+grep -q 'model_reasoning_effort = "low"' "$HOME/.codex/swarm-research.config.toml" 2>/dev/null \
+  && ok "codex profile is per-agent, not one blanket value" \
+  || no "codex profile is per-agent, not one blanket value"
+
+# A profile we did not write is never overwritten, even under our own name prefix.
+printf 'model = "mine"\n' > "$HOME/.codex/swarm-builder.config.toml"
+out=$(python3 "$ROOT/scripts/sync-agent-models.py" --codex-profiles 2>&1); rc=$?
+[[ $rc -ne 0 ]] && grep -q "refusing to overwrite" <<<"$out" \
+  && ok "foreign codex profile refused by name" \
+  || no "foreign codex profile refused by name (rc=$rc): $out"
+grep -q 'model = "mine"' "$HOME/.codex/swarm-builder.config.toml" \
+  && ok "foreign codex profile untouched" || no "foreign codex profile untouched"
+
+# Uninstall sweeps ours and leaves theirs, including the foreign one just written.
+"$INSTALL" --uninstall >/dev/null 2>&1 || true
+[[ -f "$HOME/.codex/swarm-builder.config.toml" ]] \
+  && ok "uninstall leaves a foreign codex profile" || no "uninstall leaves a foreign codex profile"
+[[ ! -f "$HOME/.codex/swarm-research.config.toml" ]] \
+  && ok "uninstall removes our codex profiles" || no "uninstall removes our codex profiles"
+
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]

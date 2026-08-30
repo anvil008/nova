@@ -5,7 +5,9 @@ description: Ship a verified change safely — pre-flight checks, versioning, CI
 
 # Deploy
 
-Take verified, merged code to a running environment — safely and reversibly. The primary agent owns the gate and is the sole release authority.
+Take verified, merged code to a running environment — safely and reversibly.
+
+You are the orchestrator: you own the human gate and are the sole release authority, and the `deploy` agent executes the release you approved ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
 
 ## Human gate
 
@@ -13,14 +15,14 @@ Deployment is outward-facing and hard to reverse. **Never deploy without explici
 
 ## Procedure
 
-1. **Pre-flight.** Full test suite green on the target commit; clean working tree; correct branch; the diff contains no secrets; migrations and dependency/config changes are accounted for. Stop if any fails.
-2. **Version + changelog.** Bump semver, update the `CHANGELOG` and release notes (via the `docs` agent), tag the release.
-3. **CI/CD.** Ensure or adjust the pipeline; any config/workflow code goes through the `builder` (test-first where testable).
-4. **Approve → deploy.** After explicit human approval, deploy via the project's real mechanism; record the exact command and target.
-5. **Verify.** Run health/smoke checks; watch error rates, metrics, and logs for a bounded window; confirm the new version is actually serving.
-6. **Rollback.** Know the rollback command *before* deploying; on any failed check, roll back immediately and record what happened.
-7. **Record.** Write an ADR for a non-trivial release decision and a handover/changelog entry (via the `docs` agent).
+Every step below is a dispatch. You sequence the agents, read their evidence, and hold the gate; you run none of it yourself.
+
+1. **Version + changelog.** Dispatch the `docs` agent to bump semver, update the `CHANGELOG`, and write the release notes. Tag the release yourself — tagging is a git operation, not authorship.
+2. **CI/CD.** If the pipeline needs creating or adjusting, dispatch a `builder` for it: workflow and config code is code, and goes through the same test-first path where it is testable.
+3. **Pre-flight and deploy.** After explicit human approval naming *this* target and *this* commit, dispatch the `deploy` agent with the target, the commit, the verification window, and the approval. It runs pre-flight, confirms the rollback command, deploys, verifies, and rolls back on any failed check.
+4. **Read the evidence, not the summary.** The agent returns exact commands with `commandId`s, what it observed in the verification window, and whether it rolled back. A claim that the deploy "looks good" is not verification. A rollback is a successful outcome of the procedure, not a failure of it.
+5. **Record.** Dispatch the `docs` agent for an ADR on any non-trivial release decision and for the handover entry.
 
 ## Boundaries
 
-The primary agent never infers approval, never deploys secrets, and never treats a green pre-flight as permission to deploy. Deploy targets, credentials, and rollback steps come from the project — never invented.
+The orchestrator never infers approval, never deploys secrets, and never treats a green pre-flight as permission to deploy. Deploy targets, credentials, and rollback steps come from the project — never invented.

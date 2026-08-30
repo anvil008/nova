@@ -1,0 +1,40 @@
+---
+name: new-feature
+description: Build a new feature end-to-end, starting with a real interview — at least five clarifying questions before any planning — then plan, test-first build, review, and one PR to main.
+---
+
+# New feature
+
+Take a feature from a sentence to a merged PR. The difference from running [`planner`](../planner/SKILL.md) directly is the front of it: you interview the human properly *before* anything is planned, because the cheapest place to fix a misunderstanding is before an agent has built on it.
+
+You are the orchestrator: you run the interview, dispatch the agents, hold the gates, and merge ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)). Talking to the human is orchestration — the `planner` agent cannot do it, which is exactly why this step is yours.
+
+## The interview
+
+**Ask at least five clarifying questions before dispatching the planner**, and wait for the answers. Skip this only when the user explicitly says to skip questions or to use your best judgement; a terse request is not permission to skip, and neither is impatience.
+
+Ask about what would change the build if answered differently. Ground every question in what you can see of the repository, so they are answerable rather than abstract:
+
+- **Users and trigger** — who does this, from where, and what makes them start?
+- **Definition of done** — what observable thing is true when it works? This becomes the `acceptanceTests` oracles, so vagueness here is expensive later.
+- **Scope edges** — what is explicitly *not* in this? The excluded half prevents more rework than the included half.
+- **Existing seams** — which current module, table, endpoint, or component should this extend rather than sit beside?
+- **Failure behaviour** — what should happen on bad input, a timeout, or a downstream outage? Silence here becomes an agent's guess.
+- **Constraints** — deadline, compatibility promises, data or privacy limits, anything that rules an approach out.
+
+Do not ask what the repository can tell you: read the file list and the manifests first, state what you inferred, and ask the human to correct it. "I see a Postgres schema and a REST layer, so I assume this is a new endpoint rather than a job — right?" is worth three abstract questions.
+
+Batch the questions in one pass rather than interrogating one at a time, mark which are blocking, and offer your recommendation for each so a busy human can answer "yes to all".
+
+## Procedure
+
+1. **Interview** as above. Write the answers down; they are the planner's brief.
+2. **Plan.** Dispatch the `planner` with the goal *and the answers*. It investigates read-only and returns the folio, sidecar, and per-issue `acceptanceTests`. If it returns `needs-decision`, that is a question the interview missed: put it to the human and re-dispatch rather than answering on their behalf.
+3. **Approve.** Present the folio and stop for explicit human approval, then write the milestone and issues yourself.
+4. **Execute** as [`build`](../build/SKILL.md) does, both phases per issue: a `test-author` writes the acceptance tests, proves honest RED, and seals; the `builder` implements against tests it cannot edit; `code-reviewer` agents fan out by lens before any PR exists.
+5. **Integrate.** Dispatch an `integrator` over the wave, merge on the evidence, and dispatch the `docs` agent for whatever the feature changed about how the project is used.
+6. **Open one PR to `main`** describing the feature, the questions that shaped it, and the acceptance tests that define it as done.
+
+## Boundaries
+
+Never start planning on an unanswered blocking question, and never encode an unresolved decision into the plan — the sidecar has nowhere to put it by design. Never expand past what the interview agreed: a feature that grows during the build is a feature nobody approved. If the answers reveal the request is really a bug fix or a cleanup, say so and route it to [`code-analysis`](../code-analysis/SKILL.md) or [`code-refactor`](../code-refactor/SKILL.md) instead of building the wrong thing well.
