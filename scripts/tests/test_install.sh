@@ -290,5 +290,80 @@ else
   ok "staged tree is symlink-free"
 fi
 
+# --- plugin-cache-refresh (T-PLUGIN-REFRESH / #76) ------------------------------------------------
+# A marketplace harness refreshes a cached plugin only when plugin.json's version changes,
+# so a plain re-install can leave yesterday's agents/ tree installed against today's hooks.
+# The install must therefore remove the plugin before adding it, every run. The harness CLIs
+# are stubbed first on PATH so the exact call sequence is observable without a real CLI and
+# without ever touching the real ~/.claude or ~/.codex.
+#
+# stub_cli NAME DIR LOG -> writes an executable NAME into DIR that appends its argv to LOG
+# (one call per line) and exits 0. Put DIR first on PATH for the run under test.
+stub_cli(){ local name=$1 dir=$2 log=$3
+  mkdir -p "$dir"; : > "$log"
+  { printf '#!/usr/bin/env bash\n'
+    printf 'printf "%%s\\n" "$*" >> %q\n' "$log"
+    printf 'exit 0\n'; } > "$dir/$name"
+  chmod +x "$dir/$name"; }
+# call_line LOG TEXT -> 1-based line number of the first logged call containing TEXT ("" if none)
+call_line(){ grep -n -F -- "$2" "$1" 2>/dev/null | head -1 | cut -d: -f1; }
+
+# --- install-removes-the-cached-plugin-before-adding-it -------------------------------------------
+fresh_home refresh_claude
+CLAUDE_STUBS="$TMP/stubs-claude"; CLAUDE_LOG="$TMP/claude-calls.log"
+stub_cli claude "$CLAUDE_STUBS" "$CLAUDE_LOG"
+out=$(PATH="$CLAUDE_STUBS:$PATH" "$INSTALL" --install --harness claude 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "claude install with a stubbed CLI exits zero" \
+  || no "claude install with a stubbed CLI exits zero (rc=$rc): $out"
+add_at=$(call_line "$CLAUDE_LOG" "plugin install swarm-coder@swarm-coder-local")
+rm_at=$(call_line "$CLAUDE_LOG" "plugin uninstall swarm-coder@swarm-coder-local")
+[[ -n $rm_at ]] || rm_at=$(call_line "$CLAUDE_LOG" "plugin marketplace remove swarm-coder-local")
+[[ -n $add_at && -n $rm_at && $rm_at -lt $add_at ]] \
+  && ok "claude install removes the cached plugin before adding it" \
+  || no "claude install removes the cached plugin before adding it (remove=${rm_at:-none} install=${add_at:-none}) calls: $(tr '\n' ';' < "$CLAUDE_LOG")"
+
+# --- codex-install-refreshes-too ------------------------------------------------------------------
+fresh_home refresh_codex
+CODEX_STUBS="$TMP/stubs-codex"; CODEX_LOG="$TMP/codex-calls.log"
+stub_cli codex "$CODEX_STUBS" "$CODEX_LOG"
+out=$(PATH="$CODEX_STUBS:$PATH" "$INSTALL" --install --harness codex 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "codex install with a stubbed CLI exits zero" \
+  || no "codex install with a stubbed CLI exits zero (rc=$rc): $out"
+cx_add_at=$(call_line "$CODEX_LOG" "plugin add swarm-coder@swarm-coder-local")
+cx_rm_at=$(call_line "$CODEX_LOG" "plugin remove swarm-coder@swarm-coder-local")
+[[ -n $cx_add_at && -n $cx_rm_at && $cx_rm_at -lt $cx_add_at ]] \
+  && ok "codex install removes the cached plugin before adding it" \
+  || no "codex install removes the cached plugin before adding it (remove=${cx_rm_at:-none} add=${cx_add_at:-none}) calls: $(tr '\n' ';' < "$CODEX_LOG")"
+
+# --- reinstall-stays-idempotent -------------------------------------------------------------------
+# Forcing a refresh must not cost idempotence or the exit-status semantics: two runs in a row
+# both succeed and both announce "done.", and a foreign target is still refused non-zero and
+# still never announces "done.".
+fresh_home reinstall
+BOTH_STUBS="$TMP/stubs-both"; BOTH_LOG="$TMP/both-calls.log"
+stub_cli claude "$BOTH_STUBS" "$BOTH_LOG"; stub_cli codex "$BOTH_STUBS" "$BOTH_LOG"
+out1=$(PATH="$BOTH_STUBS:$PATH" "$INSTALL" --install 2>&1); rc1=$?
+out2=$(PATH="$BOTH_STUBS:$PATH" "$INSTALL" --install 2>&1); rc2=$?
+[[ $rc1 -eq 0 ]] && grep -q "done\." <<<"$out1" && [[ $rc2 -eq 0 ]] && grep -q "done\." <<<"$out2" \
+  && ok "two consecutive installs both exit zero and print done." \
+  || no "two consecutive installs both exit zero and print done. (rc1=$rc1 rc2=$rc2): $out1 || $out2"
+# A HOME of its own: the run above already linked ~/.gemini/.../swarm-coder into ROOT, and
+# writing a "foreign" file through that link would land in the repository.
+fresh_home reinstall_foreign
+mkdir -p "$HOME/.gemini/config/plugins/swarm-coder"
+echo "user's own plugin" > "$HOME/.gemini/config/plugins/swarm-coder/plugin.json"
+out3=$(PATH="$BOTH_STUBS:$PATH" "$INSTALL" --install --harness agy 2>&1); rc3=$?
+[[ $rc3 -ne 0 ]] && ! grep -q "done\." <<<"$out3" \
+  && ok "refresh keeps the foreign-target refusal non-zero and silent about done." \
+  || no "refresh keeps the foreign-target refusal non-zero and silent about done. (rc=$rc3): $out3"
+
+# --- claude-plugin-version-is-past-the-stale-cache ------------------------------------------------
+# 0.1.0 is the version pinned by the stale cache in the wild; leaving it there means existing
+# installs never refresh on a version bump.
+claude_ver=$(jq -r .version "$ROOT/plugins/claude/.claude-plugin/plugin.json" 2>/dev/null)
+[[ $claude_ver =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $claude_ver != "0.1.0" ]] \
+  && ok "claude plugin.json version is semver and past the stale 0.1.0 cache" \
+  || no "claude plugin.json version is semver and past the stale 0.1.0 cache (got '$claude_ver')"
+
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]

@@ -22,8 +22,10 @@
 #
 # Both marketplaces are rooted at this repository so the wrappers' agents/ and skills/
 # symlinks resolve inside the marketplace: an install drops any symlink escaping the root.
-# Claude and Codex install a copy, so edits here reach them on the next run of this
-# script; the Antigravity links are live and need no re-install.
+# Claude and Codex install a copy, and Claude refreshes that copy only when the plugin's
+# version changes, so every install here removes the plugin before adding it back: edits to
+# this tree reach both of them on the next run of this script whatever the version string
+# says. The Antigravity links are live and need no re-install.
 #
 # A target that already exists and is not one of our links (a real file or directory, or
 # a symlink elsewhere) is never replaced: it is refused by name and the run exits
@@ -115,11 +117,14 @@ for spec in "${PLUGIN_TARGETS[@]}"; do
 done
 
 # ---- marketplace-installed harnesses ----
-# Fields: harness | CLI | directory that must exist first | install verb | remove verb.
-# The two CLIs agree on everything but the word for "install" and "uninstall".
+# Fields: harness | CLI | directory that must exist first | install verb | remove verb |
+# one extra flag for the remove that precedes an install (empty if none).
+# The two CLIs agree on everything but the word for "install" and "uninstall". Claude's
+# uninstall can also delete ~/.claude/plugins/data/{id}/, which is the user's data rather
+# than a cache, so the refresh below passes --keep-data; a real --uninstall does not.
 MARKET_HARNESSES=(
-  "claude|claude|$HOME/.claude|install|uninstall"
-  "codex|codex|$HOME/.codex|add|remove"
+  "claude|claude|$HOME/.claude|install|uninstall|--keep-data"
+  "codex|codex|$HOME/.codex|add|remove|"
 )
 
 if [[ $MODE == install ]]; then
@@ -164,8 +169,7 @@ PY
 fi
 
 for spec in "${MARKET_HARNESSES[@]}"; do
-  h=${spec%%|*}; rest=${spec#*|}; cli=${rest%%|*}; rest=${rest#*|}
-  guard=${rest%%|*}; rest=${rest#*|}; add=${rest%%|*}; del=${rest#*|}
+  IFS='|' read -r h cli guard add del keep <<<"$spec"
   want "$h" || continue
   if [[ $MODE == install ]]; then
     [[ -d $guard ]] || continue
@@ -184,7 +188,23 @@ for spec in "${MARKET_HARNESSES[@]}"; do
       python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null || die "codex: staging failed"
       root="$ROOT/dist/codex"
     fi
+    # Force a refresh. Claude re-materializes a cached plugin only when plugin.json's
+    # version changes, so installing over an existing copy would leave yesterday's agents/
+    # and skills/ in place against today's hooks; removing the plugin first makes the
+    # install below copy the tree as it stands. Codex re-copies on every add, so its
+    # remove is belt-and-braces — and the check the sealed tests pin for both harnesses.
+    #
+    # The marketplace is registered *first* and never removed. A local marketplace is read
+    # from its path rather than snapshotted, so removing it would refresh nothing, and an
+    # `add` that fails (a malformed manifest, or a registration pointing at a different
+    # checkout) is fatal under `set -e`: doing it before the removal means such a run
+    # leaves the existing install untouched instead of stranding the user with neither.
+    #
+    # The removal is best-effort — claude exits non-zero when the plugin is not installed,
+    # codex reports success either way. A plugin the user had disabled comes back enabled;
+    # that is the price of an install that is guaranteed to be current.
     "$cli" plugin marketplace add "$root" >/dev/null
+    "$cli" plugin "$del" swarm-coder@swarm-coder-local ${keep:+"$keep"} >/dev/null 2>&1 || true
     "$cli" plugin "$add" swarm-coder@swarm-coder-local >/dev/null
     echo "$h: swarm-coder plugin installed from the local marketplace"
   else
