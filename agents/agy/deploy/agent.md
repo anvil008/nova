@@ -24,7 +24,7 @@ Execute one approved release against one named target. You never decide to deplo
 3. **Deploy** via the project's real mechanism. Record the exact command, the target, and the version that results.
 4. **Verify.** Run the health and smoke checks; watch error rates, metrics, and logs for the bounded window you were given; confirm the new version is actually serving rather than assuming the deploy command's exit code settled it.
 5. **On any failed check, roll back immediately** using the command from step 2, then report what happened. A rollback is a successful outcome of this procedure, not a failure of it.
-6. Return one `anvil.agent-handoff/v1` record with the target, the commit and resulting version, the exact commands with their `commandId`s, the verification window and what was observed in it, the rollback command held ready or the rollback performed, result, and disposition.
+6. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with the target, the commit and resulting version, the exact commands with their `commandId`s, the verification window and what was observed in it, the rollback command held ready or the rollback performed, result, and disposition.
 
 ## Boundaries
 

@@ -36,6 +36,31 @@ class GeneratorTests(unittest.TestCase):
                 shutil.copy2(source, target)
         return temporary, root
 
+    def agent_variants(self, name: str) -> list[tuple[str, str]]:
+        paths = {
+            "body": ROOT / f"agents/bodies/{name}.md",
+            "claude": ROOT / f"agents/claude/{name}.md",
+            "codex": ROOT / f"agents/codex/{name}.md",
+            "agy": ROOT / f"agents/agy/{name}/agent.md",
+        }
+        return [(label, path.read_text(encoding="utf-8")) for label, path in paths.items()]
+
+    def assert_mode_section(self, text: str, mode: str) -> None:
+        lines = text.splitlines()
+        headings = [
+            index
+            for index, line in enumerate(lines)
+            if line.startswith("### ") and mode in line
+        ]
+        self.assertEqual(len(headings), 1, f"expected one section heading for {mode!r}")
+        start = headings[0] + 1
+        end = next(
+            (index for index in range(start, len(lines)) if lines[index].startswith("## ")),
+            len(lines),
+        )
+        rules = [line for line in lines[start:end] if line.strip() and not line.startswith("#")]
+        self.assertTrue(rules, f"section {mode!r} has no rule line")
+
     def test_sync_agents_check_detects_real_drift(self):
         temporary, root = self.copy_root("agents", "scripts/sync-agents.py")
         with temporary:
@@ -110,6 +135,92 @@ class GeneratorTests(unittest.TestCase):
         with temporary:
             clean = run(root, "scripts/sync-agent-models.py", "--check")
             self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+
+    def test_handoff_contract_exists(self):
+        contract = (ROOT / "agents/handoff.md").read_text(encoding="utf-8")
+        for field in (
+            "issue",
+            "brief",
+            "workspace",
+            "branch",
+            "base",
+            "ownership",
+            "mode",
+            "sealedTests",
+            "redCommand",
+            "baselineCommand",
+            "devServer",
+            "approval",
+        ):
+            self.assertIn(f"`{field}`", contract)
+        self.assertIn("`anvil.agent-handoff/v1`", contract)
+        self.assertIn("exactly one of `done`, `blocked`, or `needs-decision`", contract)
+        self.assertIn("`commands[]`", contract)
+        self.assertIn("`commandId`", contract)
+        self.assertIn("## Dispatch brief example", contract)
+        self.assertIn("## Handoff record example", contract)
+
+    def test_every_body_links_the_contract(self):
+        bodies = sorted((ROOT / "agents/bodies").glob("*.md"))
+        self.assertEqual(len(bodies), 10)
+        for body in bodies:
+            with self.subTest(body=body.name):
+                text = body.read_text(encoding="utf-8")
+                self.assertIn("anvil.agent-handoff/v1", text)
+                self.assertIn("(../handoff.md)", text)
+                name = body.stem
+                for harness in ("claude", "codex"):
+                    generated = (ROOT / f"agents/{harness}/{name}.md").read_text(encoding="utf-8")
+                    self.assertIn("(../handoff.md)", generated)
+                agy = (ROOT / f"agents/agy/{name}/agent.md").read_text(encoding="utf-8")
+                self.assertIn("(../../handoff.md)", agy)
+
+    def test_builder_and_integrator_have_modes(self):
+        for harness, text in self.agent_variants("builder"):
+            with self.subTest(agent="builder", harness=harness):
+                self.assert_mode_section(text, "mode: refactor")
+                self.assert_mode_section(text, "mode: loop")
+        for harness, text in self.agent_variants("integrator"):
+            with self.subTest(agent="integrator", harness=harness):
+                self.assert_mode_section(text, "mode: baseline")
+        for name in ("builder", "test-author"):
+            for harness, text in self.agent_variants(name):
+                with self.subTest(agent=name, harness=harness, check="no-issue"):
+                    self.assertIn("`issue` is `null`", text)
+                    self.assertIn("instead of `Closes #<n>`", text)
+
+    def test_reviewer_never_asks(self):
+        for harness, reviewer in self.agent_variants("code-reviewer"):
+            with self.subTest(harness=harness):
+                self.assertIn("devServer", reviewer)
+                self.assertNotIn("Ask before starting a dev server", reviewer)
+
+    def test_planner_links_reference_contract(self):
+        for harness, planner in self.agent_variants("planner"):
+            with self.subTest(harness=harness):
+                self.assertIn("skills/planner/references/sidecar-contract.md", planner)
+                self.assertNotIn("skills/planner/SKILL.md", planner)
+
+    def test_rationalization_tables_present(self):
+        for name in ("builder", "test-author", "planner"):
+            for harness, text in self.agent_variants(name):
+                with self.subTest(agent=name, harness=harness):
+                    section = text.split("## Rationalizations", 1)
+                    self.assertEqual(len(section), 2)
+                    table = section[1].split("\n## ", 1)[0]
+                    rows = [line for line in table.splitlines() if line.startswith("|")]
+                    self.assertGreaterEqual(len(rows), 6)
+                    self.assertEqual(rows[0], "| Rationalization | Reality |")
+
+    def test_claude_builder_tool_is_agent(self):
+        builder = (ROOT / "agents/claude/builder.md").read_text(encoding="utf-8")
+        frontmatter = builder.split("---", 2)[1]
+        tools = next(
+            line.split(":", 1)[1] for line in frontmatter.splitlines() if line.startswith("tools:")
+        )
+        tool_names = [tool.strip() for tool in tools.split(",")]
+        self.assertIn("Agent", tool_names)
+        self.assertNotIn("Task", tool_names)
 
     def test_build_codex_plugin_rejects_malformed_sources_without_partial_output(self):
         for case in ("missing skill", "no frontmatter", "missing name"):

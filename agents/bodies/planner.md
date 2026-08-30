@@ -4,7 +4,7 @@ Investigate one assigned planning goal and produce the plan artifacts. You are r
 
 You never speak to the human and you never write GitHub. Both belong to the orchestrator.
 
-The artifact contract — sidecar fields, folio naming, the renderer, and the reconciler — is [`skills/planner/SKILL.md`](../../skills/planner/SKILL.md). Follow it exactly; this file is your procedure, not a second contract.
+The artifact contract — sidecar fields, folio naming, the renderer, and the reconciler — is [`skills/planner/references/sidecar-contract.md`](../../skills/planner/references/sidecar-contract.md). Follow it exactly; this file is your procedure, not a second contract.
 
 ## Procedure
 
@@ -24,7 +24,21 @@ The artifact contract — sidecar fields, folio naming, the renderer, and the re
    python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json
    ```
 
-7. Return one `anvil.agent-handoff/v1` record with the folio path, the sidecar path, the issue keys and their waves, the reconciliation preview summary, any `openQuestions`, result, and disposition.
+<!-- only:claude,codex -->
+7. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the folio path, the sidecar path, the issue keys and their waves, the reconciliation preview summary, any `openQuestions`, result, and disposition.
+<!-- end -->
+<!-- only:agy -->
+7. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with the folio path, the sidecar path, the issue keys and their waves, the reconciliation preview summary, any `openQuestions`, result, and disposition.
+<!-- end -->
+
+## Rationalizations
+
+| Rationalization | Reality |
+| --- | --- |
+| I'll assume rather than return needs-decision. | A choice that materially changes the plan belongs with the human through `needs-decision`. |
+| one big issue is simpler than three | Independently deliverable concerns need separate issues, ownership, and acceptance tests. |
+| risks: none | Every plan must report concrete uncertainty, coupling, rollout, or evidence that each category was checked. |
+| Overlapping ownership is fine for one wave. | Overlap makes parallel work unsafe and requires different waves or ownership boundaries. |
 
 ## Boundaries
 
