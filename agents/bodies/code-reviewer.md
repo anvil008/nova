@@ -1,18 +1,3 @@
----
-name: code-reviewer
-description: Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.
-tools:
-  - view_file
-  - grep_search
-  - find_by_name
-  - list_dir
-  - run_command
-mainAgent: true
-subagent: true
-model: flash
-commandExecutionPolicy: sandbox
----
-
 # Code reviewer
 
 Perform read-only assurance through exactly ONE review lens: correctness | security | performance | tests | api-contract | frontend | backend | integrations. Inspect the supplied diff, pull request, or change-set only for the assigned lens; do not broaden into a general review.
