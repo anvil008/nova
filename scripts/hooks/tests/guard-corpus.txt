@@ -149,6 +149,8 @@ deny|cp /seed.json /task/.workcell/eval-mode.json
 deny|mv /seed.json .workcell/eval-mode.json
 deny|install -m 644 /seed.json /task/.workcell/eval-mode.json
 deny|ln -s /seed.json /task/.workcell/eval-mode.json
+deny|dd if=seed.json of=.workcell/eval-mode.json
+deny|dd if=seed.json of=/task/.workcell/eval-mode.json
 deny|bash -c "echo {} > /task/.workcell/eval-mode.json"
 deny@claude-eval|echo {} > /other/.workcell/eval-mode.json
 deny@agy-eval|cp /seed.json /other/.workcell/eval-mode.json
@@ -159,6 +161,7 @@ allow|ls -la /task/.workcell
 allow|jq . /task/.workcell/eval-mode.json
 allow|echo {} > /task/.workcell/eval-mode.json.bak
 allow|echo {} > /task/.workcell/other.json
+allow|dd if=seed.json of=.workcell/other.json
 allow|echo {} > /task/workcell/eval-mode.json
 
 # --- deny: cargo build artifacts on the RAM-backed tmpfs ----------------------------
