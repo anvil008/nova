@@ -61,6 +61,16 @@ closed on malformed tool payloads, protected-branch mutations, unsafe Git/jj/Git
 RAM-tmpfs build targets. `build-format` and `build-lint` auto-format written files and feed
 single-file lint findings back to the agent.
 
+Merging is the one thing it decides by _who asked_. `gh pr merge` and the `pulls/<n>/merge` API path
+belong to the main conversation: Claude Code and Codex stamp the calling subagent's `agent_id` and
+`agent_type` into the hook payload and omit both for their own top-level session, so the payload —
+not the environment, which is identical either way — is the discriminator, and the rule is uniform
+across those two harnesses. Antigravity registers hooks session-wide and names no caller at all, so
+merges there stay denied whoever asked. `--admin` and `--auto` are denied for everyone, the main
+conversation included: an orchestrator's merge is an ordinary merge of a reviewed, green pull
+request, never an override of a red check nor one armed to fire on checks no human has read. ADR
+0011 records the decision and its residual risk.
+
 Claude Code, Antigravity, and Codex wire these to native tool events. Codex plugin hooks remain
 inactive until the user trusts them with `/hooks`, so its agent definitions also document explicit
 `build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions.

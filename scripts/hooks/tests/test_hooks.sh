@@ -34,37 +34,47 @@ export PATH="$BIN:$PATH"
 export GIT_CONFIG_NOSYSTEM=1
 
 j(){ jq -nc --arg f "$1" '{tool_input:{file_path:$f}}'; }        # Edit/Write payload
-jb(){ jq -nc --arg c "$1" '{tool_input:{command:$c}}'; }         # Claude Bash payload
+jb(){ jq -nc --arg c "$1" '{tool_input:{command:$c}}'; }         # Claude/Codex Bash payload
+jbi(){ jq -nc --arg c "$1" --arg a "$2" '{agent_id:$a,tool_input:{command:$c}}'; }    # ... from a subagent
+jbt(){ jq -nc --arg c "$1" --arg a "$2" '{agent_type:$a,tool_input:{command:$c}}'; }  # ... naming only its type
 ja(){ jq -nc --arg c "$1" '{toolCall:{name:"run_command",args:{CommandLine:$c}}}'; }  # agy payload
 denied_claude(){ jq -e '.hookSpecificOutput.permissionDecision=="deny" and (.hookSpecificOutput.permissionDecisionReason|length>0)' >/dev/null 2>&1; }
 denied_agy(){ jq -e '.decision=="deny" and (.reason|length>0)' >/dev/null 2>&1; }
 
-# --- build-guard corpus: every probe, both payload shapes ----------------------------------------
+# --- build-guard corpus: every probe, every payload shape ----------------------------------------
 CORPUS_CWD="$TMP/corpus-repo"
 git -c init.defaultBranch=issue-1 init -q "$CORPUS_CWD"
 mkdir -p "$CORPUS_CWD/.agents/plugins/workcell"
 
-# verdict <harness> <command> -> prints allow|deny|error
+# verdict <shape> <command> -> prints allow|deny|error. A shape is the payload one caller sends:
+# a harness's own session names nobody, a subagent's names it with agent_id or agent_type.
 verdict(){
-  local harness=$1 cmd=$2 out rc
-  case $harness in
-    agy) out=$(ja "$cmd" | (cd "$CORPUS_CWD" && "$GUARD" agy) 2>"$TMP/err"); rc=$? ;;
-    *)   out=$(jb "$cmd" | (cd "$CORPUS_CWD" && "$GUARD") 2>"$TMP/err"); rc=$? ;;
+  local shape=$1 cmd=$2 out rc
+  case $shape in
+    agy)          out=$(ja "$cmd" | (cd "$CORPUS_CWD" && "$GUARD" agy) 2>"$TMP/err"); rc=$? ;;
+    claude-agent) out=$(jbi "$cmd" agent_01 | (cd "$CORPUS_CWD" && "$GUARD") 2>"$TMP/err"); rc=$? ;;
+    codex-agent)  out=$(jbt "$cmd" workcell:builder | (cd "$CORPUS_CWD" && "$GUARD" codex) 2>"$TMP/err"); rc=$? ;;
+    codex)        out=$(jb "$cmd" | (cd "$CORPUS_CWD" && "$GUARD" codex) 2>"$TMP/err"); rc=$? ;;
+    *)            out=$(jb "$cmd" | (cd "$CORPUS_CWD" && "$GUARD") 2>"$TMP/err"); rc=$? ;;
   esac
   [[ $rc -eq 0 ]] || { echo "error(rc=$rc)"; return; }
   if [[ -z ${out//[[:space:]]/} ]]; then echo allow; return; fi
-  case $harness in
+  case $shape in
     agy) printf '%s' "$out" | denied_agy && { echo deny; return; } ;;
     *)   printf '%s' "$out" | denied_claude && { echo deny; return; } ;;
   esac
   echo "malformed($out)"
 }
+# Shapes an unscoped probe must satisfy: a top-level session, a subagent, and Antigravity. A probe
+# scoped with `@shape` runs in that shape alone, which is how the merge-authority split is pinned.
+shapes=(claude claude-agent agy)
 probes=0
 while IFS= read -r line || [[ -n $line ]]; do
   [[ -z $line || $line == \#* ]] && continue
   expected=${line%%|*}; cmd=${line#*|}
+  run=("${shapes[@]}"); [[ $expected == *@* ]] && { run=("${expected#*@}"); expected=${expected%%@*}; }
   probes=$((probes+1))
-  for h in claude agy; do
+  for h in "${run[@]}"; do
     got=$(verdict "$h" "$cmd")
     if [[ $got == "$expected" ]]; then ok "guard($h) $expected: $cmd"
     else no "guard($h) expected $expected got $got: $cmd"; fi
@@ -145,6 +155,38 @@ guard_out=$(printf '%s' '{"toolCall":{"name":"run_command","args":{}}}' | (cd "$
 set -u
 name="malformed Agy payload still fails closed before scoping"; check [ "$guard_rc" -eq 2 ]
 name="malformed Agy payload explains the failure"; check grep -q 'no command' "$TMP/err"
+
+# --- merge authority: the payload's caller identity decides, and nothing else --------------------
+# Same repository, same environment, same command: only the payload differs between a harness's
+# own session and one of its subagents, so these assertions pin the wording of both verdicts.
+for h in claude codex; do
+  guard_out=$(jb 'gh pr merge 12 --merge' | (cd "$plain" && "$GUARD" "$h") 2>"$TMP/err"); guard_rc=$?
+  name="$h session may merge a pull request"; check is_allow "$guard_out"
+  guard_out=$(jbi 'gh pr merge 12 --merge' agent_01 | (cd "$plain" && "$GUARD" "$h") 2>"$TMP/err"); guard_rc=$?
+  name="$h subagent may not merge (agent_id)"; check is_deny_claude "$guard_out"
+  name="$h subagent merge reason hands the PR back"
+  check sh -c 'printf %s "$1" | grep -qF "must not merge pull requests — hand the PR back for review"' _ "$(reason_of "$guard_out")"
+  guard_out=$(jbt 'gh pr merge 12 --merge' workcell:builder | (cd "$plain" && "$GUARD" "$h") 2>"$TMP/err"); guard_rc=$?
+  name="$h subagent may not merge (agent_type alone)"; check is_deny_claude "$guard_out"
+  guard_out=$(jb 'gh pr merge 12 --merge --admin' | (cd "$plain" && "$GUARD" "$h") 2>"$TMP/err"); guard_rc=$?
+  name="$h session may not merge with --admin"; check is_deny_claude "$guard_out"
+  name="$h --admin reason names the checks it would bypass"
+  check sh -c 'printf %s "$1" | grep -qF "bypasses the checks the pull request exists for"' _ "$(reason_of "$guard_out")"
+  guard_out=$(jb 'gh pr merge 12 --auto' | (cd "$plain" && "$GUARD" "$h") 2>"$TMP/err"); guard_rc=$?
+  name="$h session may not arm --auto"; check is_deny_claude "$guard_out"
+  guard_out=$(jb 'gh api -X PUT repos/o/r/pulls/12/merge' | (cd "$plain" && "$GUARD" "$h") 2>"$TMP/err"); guard_rc=$?
+  name="$h session may merge through the API"; check is_allow "$guard_out"
+  guard_out=$(jbi 'gh api -X PUT repos/o/r/pulls/12/merge' agent_01 | (cd "$plain" && "$GUARD" "$h") 2>"$TMP/err"); guard_rc=$?
+  name="$h subagent may not merge through the API"; check is_deny_claude "$guard_out"
+  name="$h API merge reason names the API"
+  check sh -c 'printf %s "$1" | grep -qF "merge pull requests via the API"' _ "$(reason_of "$guard_out")"
+done
+# Antigravity hooks are session-wide, so no merge there is attributable: deny with or without a name.
+guard_in "$agy_scope" agy 'gh pr merge 12 --merge'
+name="agy denies a merge from an unnamed caller"; check is_deny_agy "$guard_out"
+guard_out=$(jq -nc '{agent_type:"workcell:builder",toolCall:{args:{CommandLine:"gh pr merge 12 --merge"}}}' \
+  | (cd "$plain" && "$GUARD" agy) 2>"$TMP/err"); guard_rc=$?
+name="agy denies a merge from a named builder"; check is_deny_agy "$guard_out"
 
 # --- build-guard fails closed: exit 2 + reason on stderr ----------------------------------------
 nojq="$TMP/nojq"; mkdir -p "$nojq"
