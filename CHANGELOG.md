@@ -2,9 +2,28 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [README diagrams are generated SVG] - 2026-08-30
+
+### Added
+
+- **`scripts/render-diagrams.py`:** A stdlib-only layered renderer that turns
+  `docs/diagrams/src/*.json` into a light and a dark SVG per diagram, deterministically.
+  `--check` fails and names any file that differs from a fresh render; CI runs it as
+  `Diagrams in sync` (ADR-0010).
+
+### Changed
+
+- **README "How it works".** Both Mermaid fences are now theme-aware `<picture>` elements over
+  generated SVG — one for how work moves from a goal to a merge, one for the mechanical gates —
+  each still paired with its "In words" text equivalent (ADR-0004).
+- **Docs README contract.** The `docs` agent body now prefers a generated theme-aware SVG for the
+  README, GitHub-rendered Mermaid elsewhere, and a durable text diagram when either adds
+  complexity. `docs/gates.md` keeps its Mermaid.
+
 ## [Skill instruction review — contracts, disclosure, evals] - 2026-08-30
 
 ### Added
+
 - **Dispatch contracts (#85):** Made orchestration skills explicit dispatch-and-gate contracts,
   including single-PR integration and green baseline seals for behavior-preserving work.
 - **Agent contracts (#86):** Added the canonical dispatch/handoff schema, specialist modes, and
@@ -13,12 +32,14 @@ All notable changes to Workcell will be documented in this file.
   executor/grader behavioral tiers for all 17 skills and 10 agents, with free tiers wired into CI.
 
 ### Changed
+
 - **Repository guidance:** Synchronized the workflow, agent ownership table, mechanical gates,
   verification commands, and milestone history with the reviewed contracts.
 
 ## [Plugins install through local marketplaces] - 2026-08-29
 
 ### Fixed
+
 - **Claude Code and Codex now actually load the plugin.** Both discover plugins through a
   registry, never by scanning their plugin directory, so the symlink the installer wrote
   into `~/.claude/plugins/workcell` was inert: `claude plugin list` did not show it and
@@ -34,6 +55,7 @@ All notable changes to Workcell will be documented in this file.
   a manifest or a builder agent.
 
 ### Changed
+
 - **Flatter layout.** Wrappers moved from `plugins/<harness>/workcell` to
   `plugins/<harness>`, and `plugins/codex-marketplace/` is gone — both marketplace
   manifests now live at the repository root (`.claude-plugin/marketplace.json` and
@@ -52,6 +74,7 @@ All notable changes to Workcell will be documented in this file.
 ## [Human-friendly visual skill outputs] - 2026-08-29
 
 ### Added
+
 - **Accessible visual contract**: Recorded ADR-0004, requiring meaningful visuals to
   have concise nearby text equivalents and generated views to share authoritative data.
 - **Planner change story**: Planner folios now compare current and proposed states and
@@ -60,6 +83,7 @@ All notable changes to Workcell will be documented in this file.
   become verified findings and affected files, including zero-finding outcomes.
 
 ### Changed
+
 - **Newcomer documentation**: The docs skill and all docs-agent definitions now require
   a concise what/why/quickstart README shape with an accessible workflow or architecture
   visual when relationships matter.
@@ -69,11 +93,13 @@ All notable changes to Workcell will be documented in this file.
 ## [Harness Gate Integrity and Cross-Harness Parity] - 2026-08-28
 
 ### Added
+
 - **Gate-integrity milestone**: Added argv-bound RED-to-GREEN evidence, tamper-resistant sealed-test checks, physical-path target resolution, authenticated guard records, full-stream untracked-file digests, concurrent touch-log protection, and control-plane contract validation.
 - **Build boundary corpus**: Added fail-closed hook parsing and adversarial command tests covering protected Git/jj/GitHub operations, shell wrappers, quoting, and tmpfs targets.
 - **Research assurance**: Added stance-driven conflict detection that separates corroboration from genuine contradictions in merged research.
 
 ### Changed
+
 - **Cross-harness parity**: Removed dangling skill references, aligned agent capabilities and model tiers, wired the Antigravity Stop gate, and documented Codex's explicit manual gates.
 - **Install and CI hardening**: Made installs symlink-only, ownership-checked, Bash-3.2-portable, and fail-fast; CI now discovers every skill test suite and enforces Ruff, ShellCheck, Go race tests, installer tests, and docs checks.
 - **Build and review orchestration**: Corrected recursive ownership-glob overlap detection, normalized planner/review finding identities, and made the review-fix loop severity threshold part of convergence.
@@ -88,12 +114,14 @@ All notable changes to Workcell will be documented in this file.
 This release focuses on hardening the Go-based guard mechanical gates, improving the portability of shell hooks across GNU/Linux and BSD/macOS environments, enhancing Python skill orchestration, ensuring complete agent parity across Claude, Codex, and Antigravity, and introducing comprehensive CI/CD quality gates.
 
 ### Added
+
 - **Centralized Skills Layout**: Centralized skill structure (`skills/`) at the repository root, projected dynamically into Claude, Codex, and Antigravity harnesses via `scripts/install-harness.sh` (documented in ADR-0002).
 - **CI/CD Quality Gates**: Automated GitHub Actions workflow (`.github/workflows/ci.yml`) performing Go building, testing, vetting, hook testing (`test_hooks.sh`), Python skill unittest discoveries, and mechanical docs checks (`docs_check.py`) on push and PR.
 - **Wave Ownership Overlap Detection**: Programmatic check (`waves.py`) to detect and reject overlapping `ownershipHint` globs for parallel issues within the same wave to prevent concurrent builder worktree collisions.
 - **Bootstrapping Enhancements**: Auto-creation of `.git/info/exclude` in `project-bootstrap.sh` to local-ignore configuration files invisibly to `git diff`.
 
 ### Changed
+
 - **Go Guard Mechanical Gates Hardening**:
   - Implemented streaming SHA-256 digests bounded by a strict 10MB limit (`maxBytes` limit reader) in the policy engine and untracked file check to eliminate unbounded memory consumption during diff digesting.
   - Added cross-platform path normalization for backslash-separated (Windows) paths in test-driven development checks.
