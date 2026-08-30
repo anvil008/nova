@@ -1,0 +1,112 @@
+[
+  {
+    "id": 3300000104,
+    "node_id": "I_kwDOUDOzh86Aaaaa",
+    "number": 104,
+    "title": "Verify API and UI together",
+    "body": "Verify API and UI together.\n\n<!-- swarm-planner planId=builder-v3-demo issue=Integration -->",
+    "labels": [
+      {"id": 8100000001, "node_id": "LA_kwDOUDOzh88AAAAB", "name": "build", "color": "ededed", "default": false, "description": "Milestone build work"}
+    ],
+    "state": "open",
+    "state_reason": null,
+    "repository_url": "https://api.github.com/repos/foundry-zero/swarm-coder",
+    "html_url": "https://github.com/foundry-zero/swarm-coder/issues/104",
+    "milestone": {"id": 1200000001, "number": 7, "title": "Builder v3 wave demo", "state": "open"},
+    "user": {"login": "anvil008", "id": 1000001},
+    "assignees": [],
+    "comments": 0,
+    "created_at": "2026-08-27T09:00:00Z",
+    "updated_at": "2026-08-27T09:00:00Z",
+    "closed_at": null
+  },
+  {
+    "id": 3300000105,
+    "node_id": "PR_kwDOUDOzh86Abbbb",
+    "number": 105,
+    "title": "feat(api): add the API surface",
+    "body": "Implements the API surface.\n\nCloses #102",
+    "labels": [
+      {"id": 8100000001, "node_id": "LA_kwDOUDOzh88AAAAB", "name": "build", "color": "ededed", "default": false, "description": "Milestone build work"}
+    ],
+    "state": "open",
+    "state_reason": null,
+    "repository_url": "https://api.github.com/repos/foundry-zero/swarm-coder",
+    "html_url": "https://github.com/foundry-zero/swarm-coder/pull/105",
+    "milestone": {"id": 1200000001, "number": 7, "title": "Builder v3 wave demo", "state": "open"},
+    "pull_request": {
+      "url": "https://api.github.com/repos/foundry-zero/swarm-coder/pulls/105",
+      "html_url": "https://github.com/foundry-zero/swarm-coder/pull/105",
+      "merged_at": null
+    },
+    "user": {"login": "anvil008", "id": 1000001},
+    "assignees": [],
+    "comments": 0,
+    "created_at": "2026-08-27T10:00:00Z",
+    "updated_at": "2026-08-27T10:00:00Z",
+    "closed_at": null
+  },
+  {
+    "id": 3300000103,
+    "node_id": "I_kwDOUDOzh86Acccc",
+    "number": 103,
+    "title": "Add the UI surface",
+    "body": "Add the UI surface.\n\n<!-- swarm-planner planId=builder-v3-demo issue=UI -->",
+    "labels": [
+      {"id": 8100000001, "node_id": "LA_kwDOUDOzh88AAAAB", "name": "build", "color": "ededed", "default": false, "description": "Milestone build work"}
+    ],
+    "state": "open",
+    "state_reason": null,
+    "repository_url": "https://api.github.com/repos/foundry-zero/swarm-coder",
+    "html_url": "https://github.com/foundry-zero/swarm-coder/issues/103",
+    "milestone": {"id": 1200000001, "number": 7, "title": "Builder v3 wave demo", "state": "open"},
+    "user": {"login": "anvil008", "id": 1000001},
+    "assignees": [],
+    "comments": 0,
+    "created_at": "2026-08-27T08:00:00Z",
+    "updated_at": "2026-08-27T08:00:00Z",
+    "closed_at": null
+  },
+  {
+    "id": 3300000102,
+    "node_id": "I_kwDOUDOzh86Adddd",
+    "number": 102,
+    "title": "Add the API surface",
+    "body": "Add the API surface.\n\n<!-- swarm-planner planId=builder-v3-demo issue=API -->",
+    "labels": [
+      {"id": 8100000001, "node_id": "LA_kwDOUDOzh88AAAAB", "name": "build", "color": "ededed", "default": false, "description": "Milestone build work"}
+    ],
+    "state": "open",
+    "state_reason": null,
+    "repository_url": "https://api.github.com/repos/foundry-zero/swarm-coder",
+    "html_url": "https://github.com/foundry-zero/swarm-coder/issues/102",
+    "milestone": {"id": 1200000001, "number": 7, "title": "Builder v3 wave demo", "state": "open"},
+    "user": {"login": "anvil008", "id": 1000001},
+    "assignees": [],
+    "comments": 0,
+    "created_at": "2026-08-27T07:00:00Z",
+    "updated_at": "2026-08-27T07:00:00Z",
+    "closed_at": null
+  },
+  {
+    "id": 3300000101,
+    "node_id": "I_kwDOUDOzh86Aeeee",
+    "number": 101,
+    "title": "Create the shared primitives",
+    "body": "Create the shared primitives.\n\n<!-- swarm-planner planId=builder-v3-demo issue=Foundation -->",
+    "labels": [
+      {"id": 8100000001, "node_id": "LA_kwDOUDOzh88AAAAB", "name": "build", "color": "ededed", "default": false, "description": "Milestone build work"}
+    ],
+    "state": "closed",
+    "state_reason": "completed",
+    "repository_url": "https://api.github.com/repos/foundry-zero/swarm-coder",
+    "html_url": "https://github.com/foundry-zero/swarm-coder/issues/101",
+    "milestone": {"id": 1200000001, "number": 7, "title": "Builder v3 wave demo", "state": "open"},
+    "user": {"login": "anvil008", "id": 1000001},
+    "assignees": [],
+    "comments": 2,
+    "created_at": "2026-08-27T06:00:00Z",
+    "updated_at": "2026-08-28T06:00:00Z",
+    "closed_at": "2026-08-28T06:00:00Z"
+  }
+]
