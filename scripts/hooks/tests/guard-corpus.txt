@@ -1,8 +1,11 @@
 # build-guard probe corpus — one probe per line, `expected|command`.
 # expected is `allow` or `deny`; everything after the first `|` is the raw shell command.
-# test_hooks.sh runs every probe through build-guard for both the Claude and the
-# Antigravity payload shapes and asserts the verdict. Keep the deny set to unambiguous
-# policy violations and the allow set to the false positives we have actually hit.
+# test_hooks.sh runs every probe through build-guard for each default payload shape and
+# asserts the verdict. An expectation may name one shape instead, as `expected@shape`:
+# `claude` / `codex` for a harness's own top-level session, `claude-agent` / `codex-agent`
+# for a payload naming the subagent that made the call, `agy` for Antigravity's. Keep the
+# deny set to unambiguous policy violations and the allow set to the false positives we
+# have actually hit.
 
 # --- deny: pushing to / rewriting main and master -----------------------------------
 deny|git push
@@ -36,9 +39,6 @@ deny|git branch -D main
 deny|git update-ref refs/heads/main HEAD
 deny|git update-ref refs/heads/master abc123
 deny|git update-ref -d refs/heads/main
-deny|gh pr merge 42 --squash
-deny|gh pr merge --auto
-deny|gh api -X PUT repos/o/r/pulls/42/merge
 deny|git checkout main && git merge feat
 deny|git checkout main; git merge --no-ff feat
 deny|git switch main && git merge issue-12
@@ -57,6 +57,32 @@ deny|jj git push --named main=@
 deny|jj git push --all
 deny|jj git push --tracked
 deny|jj git push
+
+# --- merge authority: merging belongs to the top-level session (ADR 0011) ------------
+# Claude Code and Codex name the calling subagent in the payload and name nobody for
+# their own session; Antigravity names nobody either way, so it fails closed.
+allow@claude|gh pr merge 12 --merge
+allow@codex|gh pr merge 12 --merge
+deny@claude-agent|gh pr merge 12 --merge
+deny@codex-agent|gh pr merge 12 --merge
+deny@agy|gh pr merge 12 --merge
+allow@claude|gh pr merge 42 --squash
+allow@codex|gh pr merge 42 --squash
+deny@claude-agent|gh pr merge 42 --squash
+deny@codex-agent|gh pr merge 42 --squash
+deny@agy|gh pr merge 42 --squash
+allow@claude|gh api -X PUT repos/o/r/pulls/42/merge
+allow@codex|gh api -X PUT repos/o/r/pulls/42/merge
+deny@claude-agent|gh api -X PUT repos/o/r/pulls/42/merge
+deny@codex-agent|gh api -X PUT repos/o/r/pulls/42/merge
+deny@agy|gh api -X PUT repos/o/r/pulls/42/merge
+
+# --- deny: an override or a deferred merge, whoever asks for it ----------------------
+deny|gh pr merge 12 --merge --admin
+deny|gh pr merge 42 --squash --auto
+deny|gh pr merge --auto
+deny@codex|gh pr merge 12 --merge --admin
+deny@codex|gh pr merge 12 --auto
 
 # --- deny: cargo build artifacts on the RAM-backed tmpfs ----------------------------
 deny|CARGO_TARGET_DIR=/tmp cargo build
