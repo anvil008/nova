@@ -83,16 +83,23 @@ python3 skills/code-review/scripts/reconcile_findings.py review.json \
 # Apply — only after a human approves this exact review.
 python3 skills/code-review/scripts/reconcile_findings.py review.json \
   --repo owner/name --review-id pr-4821 --subject "PR #4821" \
-  --apply --approved-by "<human identity>"
+  --apply --approved-by "<github-login>"
 ```
 
 **Stop for explicit human approval before `--apply`.** Issues are outward-facing and land in a
 shared tracker; approval to review is not approval to file. Do not infer approval from silence or
 from approval of an earlier revision.
 
+`--approved-by` must equal the login `gh` is authenticated as (`gh api user`). A mismatch exits
+before any write. Apply output records that login as `approvedBy` and the exact approved review
+bytes as `approvedSha256`.
+
 `--review-id` is the durable identity of this review — a stable lowercase slug you keep across
 re-runs (`pr-4821`, not a timestamp). Each issue carries
-`<!-- swarm-review reviewId=<id> finding=<key> severity=<sev> -->`, and that marker is what makes re-running safe.
+`<!-- workcell-review reviewId=<id> finding=<key> severity=<sev> -->`, and that marker is what makes re-running safe.
+
+Identity comes from the last marker in the body. Marker delimiters in quoted review prose are
+escaped while composing the issue, so an excerpt cannot squat the issue's identity.
 
 A finding's key is a hash of **(file, claim)** — deliberately not the line. Line numbers move
 whenever anything above them changes, so keying on them would file a duplicate for the same defect

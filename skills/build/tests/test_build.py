@@ -3,6 +3,10 @@ import contextlib
 # Load waves
 import io
 import json
+import os
+import re
+import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -18,6 +22,13 @@ import waves
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "waves.py"
 EXAMPLES = ROOT / "examples"
+SIDECAR = EXAMPLES / "plan.sidecar.json"
+STATE = EXAMPLES / "issue-state.json"
+# The unedited response of `gh api repos/{owner}/{repo}/issues` for the demo milestone:
+# label objects, snake_case `state_reason`, and a pull request among the issues.
+GH_RAW = EXAMPLES / "gh-issues-raw.json"
+# The only inputs the documented capture command may assume.
+CAPTURE_ENV = {"REPO": "foundry-zero/workcell", "MILESTONE": "Builder v3 wave demo"}
 AGENT = ROOT.parents[1] / "agents" / "claude" / "builder.md"
 
 
@@ -82,18 +93,207 @@ class BuildSkillTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("dependency cycle", result.stderr.lower())
 
-    def test_done_label_unblocks_dependency_and_order_is_sidecar_stable(self):
-        snapshot = json.loads((EXAMPLES / "issue-state.json").read_text(encoding="utf-8"))
-        snapshot["issues"][0]["state"] = "open"
-        snapshot["issues"][0]["labels"] = ["status:done"]
+    # --- snapshot helpers -------------------------------------------------
+    def _snapshot(self):
+        return json.loads(STATE.read_text(encoding="utf-8"))
+
+    def _run_snapshot(self, snapshot):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp) / "state.json"
             state.write_text(json.dumps(snapshot), encoding="utf-8")
-            result = run_helper(EXAMPLES / "plan.sidecar.json", state)
+            return run_helper(SIDECAR, state)
+
+    def test_done_label_unblocks_dependency_and_order_is_sidecar_stable(self):
+        """`status:done` marks a *closed* issue finished. Doneness is agreed with
+        skills/planner/scripts/reconcile_github.py: closed AND (status:done OR completed)."""
+        snapshot = self._snapshot()
+        snapshot["issues"][0].update(state="closed", state_reason="not_planned", labels=["status:done"])
+        result = self._run_snapshot(snapshot)
         self.assertEqual(result.returncode, 0, result.stderr)
         output = json.loads(result.stdout)
         self.assertEqual([item["key"] for item in output["unblocked"]], ["API", "UI"])
         self.assertIn("Foundation", output["done"])
+
+        # An open issue is never done, however it is labelled: GitHub state is the truth.
+        snapshot["issues"][0].update(state="open", state_reason=None, labels=["status:done"])
+        result = self._run_snapshot(snapshot)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output["done"], [])
+        self.assertEqual(output["currentWave"], 1)
+        self.assertEqual([item["key"] for item in output["unblocked"]], ["Foundation"])
+
+    def test_snapshot_accepts_ghs_object_labels(self):
+        """Every capture route hands back label objects, never bare strings:
+        `gh api repos/{repo}/issues` and `gh issue list --json labels` both yield
+        {id, name, color, description}. Normalising them is what makes the first real
+        (non-fixture) snapshot usable at all."""
+        snapshot = self._snapshot()
+        # not_planned + no string labels: only honouring the object label can mark it done.
+        snapshot["issues"][0].update(
+            state="closed",
+            state_reason="not_planned",
+            labels=[
+                {"id": "1", "name": "build", "color": "ededed", "description": ""},
+                {"id": "2", "name": "status:done", "color": "fff", "description": None},
+            ],
+        )
+        result = self._run_snapshot(snapshot)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertIn("Foundation", output["done"])
+        self.assertEqual(output["currentWave"], 2)
+        self.assertEqual([item["key"] for item in output["unblocked"]], ["API", "UI"])
+
+        # Strings and objects may be mixed, as label_names() in the reconciler allows.
+        snapshot["issues"][0]["labels"] = ["build", {"id": "2", "name": "status:done", "color": "fff"}]
+        result = self._run_snapshot(snapshot)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Foundation", json.loads(result.stdout)["done"])
+
+    def test_snapshot_still_rejects_malformed_labels(self):
+        """Accepting gh's objects must not turn the label check into a rubber stamp."""
+        cases = (
+            ([1], "labels"),
+            ([{}], "labels"),
+            ([{"name": ""}], "labels"),
+            ("build", "labels"),
+            ([{"name": "build"}, {"name": "build"}], "duplicates"),
+        )
+        for labels, expected in cases:
+            with self.subTest(labels=labels):
+                snapshot = self._snapshot()
+                issue = snapshot["issues"][0]
+                issue.pop("state_reason", None)  # isolate the label check
+                issue["labels"] = labels
+                result = self._run_snapshot(snapshot)
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("snapshot.issues[0].labels", result.stderr)
+                self.assertIn(expected, result.stderr)
+
+    def test_not_planned_closure_is_not_done(self):
+        """reconcile_github.py closes housekeeping issues with state_reason=not_planned
+        exactly so they are never mistaken for finished work; waves.py must agree."""
+        snapshot = self._snapshot()
+        snapshot["issues"][0].update(state="closed", state_reason="not_planned", labels=["build"])
+        result = self._run_snapshot(snapshot)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertNotIn("Foundation", output["done"])
+        self.assertEqual(output["done"], [])
+        self.assertEqual(output["currentWave"], 1)
+        keys = [item["key"] for item in output["unblocked"]]
+        self.assertEqual(keys, ["Foundation"])
+        for dependent in ("API", "UI"):
+            self.assertNotIn(dependent, keys)
+
+    def test_completed_closure_and_status_done_label_are_done(self):
+        cases = (
+            (["build"], "completed"),
+            (["build", "status:done"], "not_planned"),
+            ([{"id": "2", "name": "status:done", "color": "fff"}], None),
+        )
+        for labels, state_reason in cases:
+            with self.subTest(labels=labels, state_reason=state_reason):
+                snapshot = self._snapshot()
+                snapshot["issues"][0].update(state="closed", state_reason=state_reason, labels=labels)
+                result = self._run_snapshot(snapshot)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                output = json.loads(result.stdout)
+                self.assertEqual(output["done"], ["Foundation"])
+                self.assertEqual(output["currentWave"], 2)
+                self.assertEqual([item["key"] for item in output["unblocked"]], ["API", "UI"])
+
+    def test_snapshot_rejects_unknown_issue_fields_even_beside_state_reason(self):
+        """state_reason becomes an optional field, not an open door."""
+        snapshot = self._snapshot()
+        snapshot["issues"][0]["stateReason"] = "completed"
+        result = self._run_snapshot(snapshot)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("unknown field", result.stderr.lower())
+        self.assertIn("stateReason", result.stderr)
+
+        snapshot = self._snapshot()
+        snapshot["issues"][0]["state_reason"] = "abandoned"
+        result = self._run_snapshot(snapshot)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("snapshot.issues[0].state_reason", result.stderr)
+
+    # --- the documented capture command -----------------------------------
+    @staticmethod
+    def _first_shell_pipe(command):
+        """Index of the first shell `|`, ignoring the many pipes inside a jq filter."""
+        quote = None
+        for index, char in enumerate(command):
+            if quote is not None:
+                if char == quote:
+                    quote = None
+            elif char in "'\"":
+                quote = char
+            elif char == "|":
+                return index
+        return -1
+
+    def _documented_capture_command(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        blocks = [
+            block for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
+            if "gh " in block and "jq" in block
+        ]
+        self.assertEqual(
+            len(blocks), 1,
+            "SKILL.md must document exactly one copy-pasteable `gh ... | jq ...` capture "
+            "command that turns gh output into the waves.py snapshot",
+        )
+        lines = [
+            line for line in blocks[0].splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        return "\n".join(lines).strip()
+
+    def test_documented_capture_command_produces_a_valid_snapshot(self):
+        """Run the command SKILL.md actually publishes over a real gh response, rather
+        than a restatement of it: a documented transform nobody executes is a guess."""
+        self.assertIsNotNone(shutil.which("jq"), "jq is required to run the documented capture command")
+        command = self._documented_capture_command()
+        self.assertRegex(
+            command, r"^gh\s+api\b",
+            "the capture command must read repos/{owner}/{repo}/issues via `gh api`; "
+            f"{GH_RAW.name} is that response, and the test substitutes it for the gh call",
+        )
+        pipe = self._first_shell_pipe(command)
+        self.assertGreater(pipe, 0, "the capture command must pipe gh's output into a jq transform")
+        transform = "cat " + shlex.quote(str(GH_RAW)) + " " + command[pipe:]
+        with tempfile.TemporaryDirectory() as tmp:
+            # $REPO and $MILESTONE are the only inputs the command may assume.
+            run = subprocess.run(
+                ["bash", "-c", transform], cwd=tmp, text=True, capture_output=True,
+                env={**os.environ, **CAPTURE_ENV}, check=False,
+            )
+            self.assertEqual(run.returncode, 0, run.stderr)
+            produced = run.stdout.strip()
+            if not produced:
+                written = sorted(Path(tmp).glob("*.json"))
+                self.assertEqual(len(written), 1, "the capture command produced no snapshot")
+                produced = written[0].read_text(encoding="utf-8")
+            snapshot = json.loads(produced)
+            self.assertEqual(set(snapshot), {"repo", "milestone", "issues"})
+            self.assertEqual(snapshot["repo"], CAPTURE_ENV["REPO"])
+            self.assertEqual(snapshot["milestone"], CAPTURE_ENV["MILESTONE"])
+            self.assertEqual(
+                sorted(issue["number"] for issue in snapshot["issues"]), [101, 102, 103, 104],
+                "pull requests come back from the issues endpoint and carry no planner marker",
+            )
+            for issue in snapshot["issues"]:
+                self.assertEqual(set(issue), {"number", "body", "labels", "state", "state_reason"})
+            captured = Path(tmp) / "captured-snapshot.json"
+            captured.write_text(json.dumps(snapshot), encoding="utf-8")
+            result = run_helper(SIDECAR, captured)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            json.loads(result.stdout),
+            json.loads((EXAMPLES / "expected-waves.json").read_text(encoding="utf-8")),
+        )
 
     def test_builder_agent_and_skill_publish_required_boundaries(self):
         agent = AGENT.read_text(encoding="utf-8")
@@ -206,13 +406,13 @@ class BuildSkillTests(unittest.TestCase):
             "issues": [
                 {
                     "number": 1,
-                    "body": "Body A\n\n<!-- swarm-planner planId=overlap-test issue=A -->",
+                    "body": "Body A\n\n<!-- workcell-planner planId=overlap-test issue=A -->",
                     "labels": [],
                     "state": "open"
                 },
                 {
                     "number": 2,
-                    "body": "Body B\n\n<!-- swarm-planner planId=overlap-test issue=B -->",
+                    "body": "Body B\n\n<!-- workcell-planner planId=overlap-test issue=B -->",
                     "labels": [],
                     "state": "open"
                 }
@@ -260,7 +460,7 @@ class BuildSkillTests(unittest.TestCase):
         snapshot = {
             "repo": "owner/repo", "milestone": "Overlap test",
             "issues": [
-                {"number": n, "body": f"Body {k}\n\n<!-- swarm-planner planId=overlap-test issue={k} -->",
+                {"number": n, "body": f"Body {k}\n\n<!-- workcell-planner planId=overlap-test issue={k} -->",
                  "labels": [], "state": "open"}
                 for n, k in ((1, "A"), (2, "B"))
             ],

@@ -3,8 +3,7 @@ name: debugger
 description: Use when reproducing one reported symptom, narrowing it to a root cause by experiment, and returning the diagnosis without fixing it.
 model: gpt-5.6-sol
 model_reasoning_effort: high
-sandbox_mode: workspace-write
-# No hooks are wired for Codex — see "Gates on Codex" in the body.
+# Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.
 ---
 
 # Debugger
@@ -49,4 +48,4 @@ Do not spawn other agents, do not broaden into defects nobody reported, and neve
 
 ## Gates on Codex
 
-The swarm-coder plugin wires no `PreToolUse` / `PostToolUse` / `Stop` hooks for Codex, so nothing runs `build-guard` for you. Call `build-guard codex` yourself before each mutating command — instrumentation and bisect runs are exactly the operations it exists to check.
+Workcell wires Codex `PreToolUse`, `PostToolUse`, and `Stop` hooks, including `build-guard` for shell commands. They run only after the user trusts the plugin hooks with `/hooks`; in an untrusted or ad-hoc session, call `build-guard codex` yourself before each mutating command — instrumentation and bisect runs are exactly the operations it exists to check.

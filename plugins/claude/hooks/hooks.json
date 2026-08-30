@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.local/bin/build-guard claude",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/build-guard claude",
             "timeout": 10
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.local/bin/build-hooks claude PreToolUse",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/build-hooks claude PreToolUse",
             "timeout": 10
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.local/bin/build-hooks claude PostToolUse",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/build-hooks claude PostToolUse",
             "timeout": 10
           }
         ]
@@ -38,12 +38,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.local/bin/build-format claude",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/build-format claude",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "~/.local/bin/build-lint claude",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/build-lint claude",
             "timeout": 10
           }
         ]
@@ -54,7 +54,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.local/bin/build-hooks claude Stop",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/build-hooks claude Stop",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^workcell:builder$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/build-hooks claude SubagentStop",
             "timeout": 30
           }
         ]

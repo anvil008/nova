@@ -1,6 +1,9 @@
-# Swarm Coder
+# Workcell
 
 A multi-agent coding system for **Claude Code**, **Codex**, and **Antigravity**.
+
+Like an industrial workcell, it organizes specialized operators and mechanical gates
+around one bounded unit of work.
 
 It turns a goal into a reviewable plan, has one agent write each task's tests and a
 different one make them pass, and uses mechanical gates — not promises — to keep the
@@ -16,11 +19,11 @@ One repository, three harnesses, the same agents and skills in each.
 Two commands. The first installs the external tools, the second installs the plugin.
 
 ```sh
-git clone https://github.com/anvil008/swarm-coder
-cd swarm-coder
+git clone https://github.com/anvil008/workcell
+cd workcell
 
 scripts/bootstrap-tools.sh --install     # 1. external dependencies + the tdd-guard gate
-scripts/bootstrap-plugins.sh             # 2. the swarm-coder plugin, into every harness found
+scripts/bootstrap-plugins.sh             # 2. the workcell plugin, into every harness found
 ```
 
 That is the whole setup. Run either script with no flags to see what it *would* do
@@ -30,7 +33,7 @@ explains).
 | | What it does |
 |---|---|
 | `scripts/bootstrap-tools.sh --install` | Installs Go, jq, `jj`, `gh`, formatters and linters where a package manager is available, builds `tdd-guard`, and links the `build-*` hook commands into `~/.local/bin`. |
-| `scripts/bootstrap-plugins.sh` | Installs the `swarm-coder` plugin into Claude Code, Codex, and Antigravity — whichever are present. |
+| `scripts/bootstrap-plugins.sh` | Installs the `workcell` plugin into Claude Code, Codex, and Antigravity — whichever are present. |
 
 Useful flags for the second command:
 
@@ -61,12 +64,12 @@ Each harness gets only the knobs it actually honours, which differ more than the
 | Harness | Model | Thinking level | Where it takes effect |
 |---|---|---|---|
 | Claude | `opus` / `sonnet` / `haiku` / `inherit` | `low` – `xhigh` | agent frontmatter — fully per-agent |
-| Codex | any model id | `low` – `xhigh` | a **profile**, `codex --profile swarm-<agent>` |
+| Codex | any model id | `low` – `xhigh` | a **profile**, `codex --profile workcell-<agent>` |
 | Antigravity | `pro` / `flash` / `inherit` | *(none per-agent)* | agent frontmatter |
 
 Codex reads no per-agent model surface at all — its plugin manifest has no `agents` key, and a
 skill's `agents/openai.yaml` is UI metadata only. So the installer also writes
-`$CODEX_HOME/swarm-<agent>.config.toml`, which `codex --profile swarm-<agent>` layers over your
+`$CODEX_HOME/workcell-<agent>.config.toml`, which `codex --profile workcell-<agent>` layers over your
 base config; that is the half that works today. It never touches a profile it did not write, and
 `--uninstall` removes only its own.
 
@@ -202,8 +205,8 @@ flowchart TB
 
     subgraph harness["Installed"]
         direction TB
-        IC["Claude Code<br/><i>swarm-coder@swarm-coder-local</i>"]
-        IX["Codex<br/><i>swarm-coder@swarm-coder-local</i>"]
+        IC["Claude Code<br/><i>workcell@workcell-local</i>"]
+        IX["Codex<br/><i>workcell@workcell-local</i>"]
         IA["Antigravity<br/><i>~/.gemini/antigravity-cli/plugins/</i>"]
     end
 
@@ -223,9 +226,11 @@ empty manifest. `scripts/build-codex-plugin.py` therefore stages a real tree int
 `dist/codex/` and the installer registers *that*. Codex also has no plugin-level agent
 concept — no `agents` key in its manifest — so each agent ships as a skill named
 `agent-<name>` with an `agents/openai.yaml`, which is the one surface that reaches the
-model. All 27 arrive namespaced as `swarm-coder:<name>`.
+model. All 27 arrive namespaced as `workcell:<name>`.
 
-Antigravity has no plugin CLI, so its wrapper is symlinked into place and stays live.
+Antigravity provides an `agy plugin` CLI, but its install paths are not a stable documented
+contract for this bootstrap flow. Workcell therefore symlinks the wrapper into the known plugin
+locations so it stays live as the source tree changes.
 
 | Directory | What lives there |
 |---|---|
@@ -372,9 +377,9 @@ closed on malformed tool payloads, protected-branch mutations, unsafe Git/jj/Git
 RAM-tmpfs build targets. `build-format` and `build-lint` auto-format written files and feed
 single-file lint findings back to the agent.
 
-Claude Code and Antigravity wire these to native tool events; Codex has no equivalent hook surface, so
-its builder calls `build-guard codex` and the `tdd-guard` commands explicitly — the codex builder
-definition says so in its own procedure.
+Claude Code, Antigravity, and Codex wire these to native tool events. Codex plugin hooks remain
+inactive until the user trusts them with `/hooks`, so its agent definitions also document explicit
+`build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions.
 
 ---
 

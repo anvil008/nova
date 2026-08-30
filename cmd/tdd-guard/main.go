@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/anvil008/swarm-coder/guard"
+	"github.com/anvil008/workcell/guard"
 )
 
 func main() {

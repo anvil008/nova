@@ -10,9 +10,23 @@
 # The command is tokenized instead of regex-matched. Quoted arguments that contain whitespace
 # (commit messages, echo/grep text) are dropped before any rule looks at the words, so
 # `git commit -m "merge main"` cannot trip a rule, while `git push origin "main"` still can.
-# Segments split on ; & | && || newlines and (sub)shell brackets are judged one at a time,
-# with a little cross-segment state for `checkout main && git merge` and
-# `jj bookmark set main && jj git push`. POSIX ERE only — portable to BSD grep/awk.
+# Segments split on ; & | && || newlines and (sub)shell brackets are judged one at a time, with
+# in-line state for `checkout main && git merge` and `jj bookmark set main && jj git push`.
+#
+# The command string alone is not enough, so the guard also reads the live repository the command
+# targets — its own working directory, or the one the command named with -C/--git-dir/--work-tree:
+#   * `git config --get alias.<sub>` expands a configured alias (as do inline `-c alias.x=y`
+#     pairs) before any rule judges the subcommand, so `git p origin main` is seen as `git push`;
+#   * `git symbolic-ref` supplies the checked-out branch, so commit/merge/rebase/cherry-pick is
+#     denied on main even when the `git checkout main` arrived in an earlier tool call.
+# A guarded command word behind `xargs` is denied outright: its operands arrive on stdin, which
+# the guard cannot read, so there is nothing to judge and no safe way to guess.
+#
+# Residual gaps, by design: a detached HEAD (the normal state in a jj-colocated repo) and a
+# non-repository both read as "not on main" and fail open, so those workflows are policed by the
+# jj rules alone; and an alias whose body the tokenizer cannot recover (quoted text containing
+# whitespace) is denied as obfuscation rather than expanded.
+# POSIX ERE only — portable to BSD grep/awk.
 set -uo pipefail
 harness="${1:-claude}"
 
@@ -30,6 +44,22 @@ case "$harness" in
 esac
 cmd=$(printf '%s' "$payload" | jq -r "$filter" 2>/dev/null) || fail "hook payload is not valid JSON; failing closed"
 [[ -n $cmd ]] || fail "hook payload has no command for harness '$harness'; failing closed"
+
+# Antigravity registers plugin hooks for the whole session rather than for one agent. Prefer an
+# explicit builder identity if a future payload supplies one; with today's identity-free payload,
+# enforce only inside a project that opted into Workcell through bootstrap-project.sh --install.
+if [[ $harness == agy ]]; then
+  agent_type=$(printf '%s' "$payload" | jq -r \
+    '.agent_type // .agentType // .toolCall.agent_type // .toolCall.agentType // empty' 2>/dev/null) \
+    || fail "hook payload is not valid JSON; failing closed"
+  if [[ -n $agent_type ]]; then
+    [[ $agent_type == workcell:builder || $agent_type == builder ]] || exit 0
+  else
+    scope=$PWD
+    while [[ $scope != / && ! -e $scope/.agents/plugins/workcell ]]; do scope=${scope%/*}; [[ -n $scope ]] || scope=/; done
+    [[ -e $scope/.agents/plugins/workcell ]] || exit 0
+  fi
+fi
 
 # --- tokenizer -----------------------------------------------------------------------------------
 # Emits one token per line. `;` lines are segment boundaries. Quoted text with no whitespace is
@@ -67,6 +97,13 @@ tokenize(){
     }'
 }
 
+# --- judgement state -------------------------------------------------------------------------------
+# One payload's verdict state, shared by every (recursive) check/analyze_segment call so that a
+# nested `bash -c` body or an alias expansion still sees `git checkout main && git mrg feat`.
+# git_depth is a per-payload budget: every alias expansion spends one, so alias cycles terminate.
+# git_ctx carries the repository an expanding alias targets down into its expansion.
+on_main=0; jj_main=0; via_xargs=0; git_depth=0; git_ctx=()
+
 # --- helpers ---------------------------------------------------------------------------------------
 is_protected(){ [[ $1 == main || $1 == master ]]; }
 is_tmpfs_dir(){ [[ $1 =~ ^(/tmp|/dev/shm|\$TMPDIR|\$\{TMPDIR[^}]*\})(/.*)?$ ]]; }
@@ -76,8 +113,24 @@ positionals(){
   local skip=$1; shift; pos=()
   while (($#)); do
     if [[ $1 == -- ]]; then shift; pos+=("$@"); return; fi
-    if [[ -n $skip && $1 =~ ^($skip)$ ]]; then shift 2; continue; fi
+    if [[ -n $skip && $1 =~ ^($skip)$ ]]; then (($# >= 2)) || return; shift 2; continue; fi
     is_opt "$1" || pos+=("$1"); shift
+  done
+}
+live_branch(){
+  command -v git >/dev/null 2>&1 || return 0
+  git --no-pager "$@" symbolic-ref --quiet --short HEAD 2>/dev/null
+}
+xargs_operands(){
+  xrest=()
+  while (($#)); do
+    case $1 in
+      --) shift; xrest=("$@"); return 0 ;;
+      -n|-I|-d|-L|-P|-s|-E|-a|--max-args|--replace|--delimiter|--max-lines|--max-procs|--max-chars|--arg-file|--process-slot-var)
+        (($# >= 2)) || return 0; shift 2 ;;
+      -*) shift ;;
+      *)  xrest=("$@"); return 0 ;;
+    esac
   done
 }
 env_assign(){
@@ -89,11 +142,35 @@ env_assign(){
 }
 
 # --- per-command rules -----------------------------------------------------------------------------
+git_alias(){
+  local name=$1 kv val="" found=0
+  for kv in "${galias[@]}"; do
+    [[ ${kv%%=*} == "$name" ]] || continue
+    found=1; val=""; [[ $kv == *=* ]] && val=${kv#*=}
+  done
+  ((found)) && [[ -z $val ]] && deny \
+    "builder must not define a git alias inline and invoke it in the same command — 'git -c alias.$name=…' hides the real subcommand from the guard"
+  ((found)) || { command -v git >/dev/null 2>&1 \
+    && val=$(git --no-pager "${gpre[@]}" config --get "alias.$name" 2>/dev/null); }
+  [[ -n $val ]] || return 0
+  ((git_depth++ < 16)) || return 0
+  local -a ctx=("${git_ctx[@]}"); git_ctx=("${gpre[@]}")
+  if [[ $val == !* ]]; then check "${val#!} ${rest[*]}"
+  else
+    local -a words=(); read -ra words <<<"$val"
+    ((${#words[@]})) && rule_git "${gopts[@]}" "${words[@]}" "${rest[@]}"
+  fi
+  git_ctx=("${ctx[@]}")
+}
 rule_git(){
-  local sub="" ; local -a rest=() pos=()
+  local sub="" ; local -a rest=() pos=() galias=() gopts=() gpre=("${git_ctx[@]}")
   while (($#)); do
     case $1 in
-      -C|-c|--git-dir|--work-tree|--namespace|--exec-path|--super-prefix) shift 2; continue ;;
+      -c) if [[ ${2:-} == alias.?* ]]; then galias+=("${2#alias.}"); gopts+=(-c "$2"); fi
+          (($# >= 2)) || return 0; shift 2; continue ;;
+      -C|--git-dir|--work-tree) (($# >= 2)) || return 0; gpre+=("$1" "$2"); shift 2; continue ;;
+      --git-dir=*|--work-tree=*) gpre+=("$1"); shift; continue ;;
+      --namespace|--exec-path|--super-prefix) (($# >= 2)) || return 0; shift 2; continue ;;
       -*) shift; continue ;;
       *) sub=$1; shift; rest=("$@"); break ;;
     esac
@@ -126,7 +203,10 @@ rule_git(){
       local i; for ((i = 0; i + 1 < ${#rest[@]}; i++)); do
         [[ ${rest[i]} =~ ^(-b|-B|-c|-C)$ ]] && is_protected "${rest[i+1]}" && on_main=1; done ;;
     merge|commit|cherry-pick|rebase)
-      ((on_main)) && deny "builder must not $sub on main — this line checks out main first" ;;
+      ((on_main)) && deny "builder must not $sub on main — this line checks out main first"
+      local head; head=$(live_branch "${gpre[@]}")
+      is_protected "$head" && deny "builder must not $sub while HEAD is on $head — switch to your issue branch first" ;;
+    ?*) git_alias "$sub" ;;
   esac
 }
 rule_gh(){
@@ -139,7 +219,8 @@ rule_jj(){
   local sub="" ; local -a rest=() pos=()
   while (($#)); do
     case $1 in
-      -R|--repository|--at-op|--at-operation|--config|--config-toml|--config-file) shift 2; continue ;;
+      -R|--repository|--at-op|--at-operation|--config|--config-toml|--config-file)
+          (($# >= 2)) || return 0; shift 2; continue ;;
       -*) shift; continue ;;
       *) sub=$1; shift; rest=("$@"); break ;;
     esac
@@ -192,21 +273,25 @@ analyze_segment(){
     esac
   done
   ((i < n)) || return 0
-  local word=${seg[i]}
-  case ${word##*/} in
+  local base=${seg[i]##*/}
+  ((via_xargs)) && [[ $base =~ ^(git|gh|jj)$ ]] && deny \
+    "builder must not reach $base through xargs — its operands arrive on stdin, where the guard cannot inspect them; run $base directly"
+  case $base in
     git)   rule_git   "${seg[@]:i+1}" ;;
     gh)    rule_gh    "${seg[@]:i+1}" ;;
     jj)    rule_jj    "${seg[@]:i+1}" ;;
     cargo) rule_cargo "${seg[@]:i+1}" ;;
+    xargs) local -a xrest=(); xargs_operands "${seg[@]:i+1}"
+           ((${#xrest[@]})) && { via_xargs=1; analyze_segment "${xrest[@]}"; } ;;
     bash|sh|zsh|dash|ksh|eval) local q; for q in "${quoted[@]}"; do check "$q"; done ;;
   esac
 }
 # check <command-string>: tokenize, then judge each segment. Recursive for shell -c / eval bodies.
 check(){
-  local on_main=0 jj_main=0 t; local -a seg=() quoted=()
+  local t; local -a seg=() quoted=()
   while IFS= read -r t; do
     case $t in
-      ';')      analyze_segment "${seg[@]}"; seg=(); quoted=() ;;
+      ';')      analyze_segment "${seg[@]}"; seg=(); quoted=(); via_xargs=0 ;;
       $'Q\t'*)  quoted+=("${t#Q$'\t'}") ;;
       *)        seg+=("$t") ;;
     esac

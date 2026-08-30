@@ -156,7 +156,7 @@ func ValidateDigest(value string) error {
 
 // ValidIdentifier accepts the bounded stable identifiers used for roles,
 // envelopes, and graph nodes.  It deliberately excludes whitespace and path
-// traversal syntax while allowing the role names already used by Swarm.
+// traversal syntax while allowing the role names already used by Workcell.
 func ValidIdentifier(value string) bool {
 	if len(value) == 0 || len(value) > 128 || value[0] < 'A' || value[0] > 'z' ||
 		(value[0] > 'Z' && value[0] < 'a') || strings.HasPrefix(value, "/") {

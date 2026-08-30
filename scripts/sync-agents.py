@@ -7,9 +7,8 @@ Writing those by hand is how the three copies drift apart. This makes the body
 the single source and derives the rest:
 
   agents/bodies/<n>.md          the shared body, canonical
-  agents/agents.json            per-harness structure: description, tools, sandbox
+  agents/agents.json            per-harness structure: description and tools
   agents/gates/codex-<n>.md     a Codex-only section, spliced in before `## Skills`
-  agents/hooks/<name>.yaml      a frontmatter hooks block, included verbatim
   agents/models.json            model and thinking level (owned by sync-agent-models.py)
 
   scripts/sync-agents.py            # write
@@ -35,7 +34,6 @@ MANIFEST = AGENTS / "agents.json"
 MODELS = AGENTS / "models.json"
 BODIES = AGENTS / "bodies"
 GATES = AGENTS / "gates"
-HOOKS = AGENTS / "hooks"
 
 HARNESSES = ("claude", "codex", "agy")
 
@@ -120,16 +118,14 @@ def frontmatter(agent: str, harness: str, entry: dict, models: dict, variables: 
 
     if harness == "claude":
         lines.append(f"tools: {entry['claude']['tools']}")
+        if "disallowedTools" in entry["claude"]:
+            lines.append(f"disallowedTools: {entry['claude']['disallowedTools']}")
+        if "maxTurns" in entry["claude"]:
+            lines.append(f"maxTurns: {entry['claude']['maxTurns']}")
         if "model" in tuned:
             lines.append(f"model: {tuned['model']}")
         if "effort" in tuned:
             lines.append(f"effort: {tuned['effort']}")
-        hooks = entry["claude"].get("hooks")
-        if hooks:
-            path = HOOKS / f"{hooks}.yaml"
-            if not path.is_file():
-                raise SyncError(f"{agent}: missing hooks snippet {path.relative_to(ROOT)}")
-            lines.extend(path.read_text(encoding="utf-8").rstrip("\n").split("\n"))
         return lines
 
     if harness == "codex":
@@ -137,9 +133,8 @@ def frontmatter(agent: str, harness: str, entry: dict, models: dict, variables: 
             lines.append(f"model: {tuned['model']}")
         if "effort" in tuned:
             lines.append(f"model_reasoning_effort: {tuned['effort']}")
-        lines.append(f"sandbox_mode: {entry['codex']['sandbox_mode']}")
         if entry["codex"].get("gates"):
-            lines.append('# No hooks are wired for Codex — see "Gates on Codex" in the body.')
+            lines.append('# Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.')
         return lines
 
     lines.append("tools:")

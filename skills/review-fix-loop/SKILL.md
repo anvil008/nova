@@ -49,7 +49,7 @@ Do this once, then never again for the life of the loop.
    every pass but never keep the loop running — pick `medium` when the change should leave with
    no medium findings either, and `nit` only when a fully clean review is the requirement.
 
-   `.swarm/review-fix-loop.json` is working state, not a deliverable — add `.swarm/` to
+   `.workcell/review-fix-loop.json` is working state, not a deliverable — add `.workcell/` to
    `.gitignore` if it is not there already.
 
 ## Every tick — one iteration
@@ -117,11 +117,11 @@ something. Restarting a finished loop needs an explicit `init --force`.
 
 ## Offline demonstration
 
-Reads and writes a scratch state file under the gitignored `.swarm/` directory only; no GitHub,
+Reads and writes a scratch state file under the gitignored `.workcell/` directory only; no GitHub,
 no subagents, no tracked repository changes:
 
 ```bash
-python3 skills/review-fix-loop/scripts/loop_state.py --state .swarm/demo/loop.json init --max-iterations 3 --min-severity medium
-python3 skills/review-fix-loop/scripts/loop_state.py --state .swarm/demo/loop.json record skills/code-review/examples/expected-review.json
-python3 skills/review-fix-loop/scripts/loop_state.py --state .swarm/demo/loop.json status
+python3 skills/review-fix-loop/scripts/loop_state.py --state .workcell/demo/loop.json init --max-iterations 3 --min-severity medium
+python3 skills/review-fix-loop/scripts/loop_state.py --state .workcell/demo/loop.json record skills/code-review/examples/expected-review.json
+python3 skills/review-fix-loop/scripts/loop_state.py --state .workcell/demo/loop.json status
 ```

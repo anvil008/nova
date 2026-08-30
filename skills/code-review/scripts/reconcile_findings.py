@@ -13,9 +13,9 @@ from pathlib import Path
 
 from render_review import SEVERITIES, ReviewError, validate_review
 
-FINDING_MARKER = "<!-- swarm-review reviewId={review_id} finding={key} severity={severity} -->"
+FINDING_MARKER = "<!-- workcell-review reviewId={review_id} finding={key} severity={severity} -->"
 FINDING_MARKER_RE = re.compile(
-    r"<!--\s*swarm-review\s+"
+    r"<!--\s*workcell-review\s+"
     r"reviewId=([a-z0-9]+(?:-[a-z0-9]+)*)\s+"
     r"finding=([0-9a-f]{12})"
     r"(?:\s+severity=([a-z]+))?\s*-->"
@@ -43,6 +43,17 @@ def finding_key(finding: dict) -> str:
     return digest.hexdigest()[:12]
 
 
+def neutralise(text: str) -> str:
+    """Defuse HTML comment syntax in text this tool did not author."""
+    return text.replace("<!--", "&lt;!--").replace("-->", "--&gt;")
+
+
+def trailing_marker(issue: dict) -> re.Match | None:
+    """Identity is the marker that closes the body, not the leftmost match."""
+    matches = list(FINDING_MARKER_RE.finditer(issue.get("body") or ""))
+    return matches[-1] if matches else None
+
+
 def gh_json(args: list[str], *, payload: dict | None = None, timeout: float = 30) -> object:
     command = ["gh", "api", *args]
     try:
@@ -64,6 +75,23 @@ def gh_json(args: list[str], *, payload: dict | None = None, timeout: float = 30
         return json.loads(result.stdout)
     except json.JSONDecodeError as error:
         raise ReviewError(f"{' '.join(command)} returned invalid JSON") from error
+
+
+def authenticated_login() -> str:
+    response = gh_json(["user"])
+    login = response.get("login") if isinstance(response, dict) else None
+    if not isinstance(login, str) or not login.strip():
+        raise ReviewError("gh api user returned no authenticated login")
+    return login.strip()
+
+
+def require_approver(approved_by: str) -> None:
+    login = authenticated_login()
+    if approved_by != login:
+        raise ReviewError(
+            f"--approved-by {approved_by!r} is not the authenticated GitHub account "
+            f"{login!r}; approval must come from the account performing the writes"
+        )
 
 
 def flatten_pages(value: object) -> list[dict]:
@@ -104,10 +132,9 @@ def issue_body(finding: dict, key: str, review_id: str, subject: str) -> str:
         "",
         (f"Raised by the `{finding['lens']}` lens reviewing {subject} and substantiated by an "
         "independent verifier that tried to refute it."),
-        "",
-        FINDING_MARKER.format(review_id=review_id, key=key, severity=finding["severity"]),
     ]
-    return "\n".join(lines)
+    marker = FINDING_MARKER.format(review_id=review_id, key=key, severity=finding["severity"])
+    return neutralise("\n".join(lines)) + "\n\n" + marker
 
 
 def desired_issue(
@@ -130,7 +157,7 @@ def desired_issue(
 
 
 def existing_marker(issue: dict) -> tuple[str, str] | None:
-    match = FINDING_MARKER_RE.search(issue.get("body") or "")
+    match = trailing_marker(issue)
     return (match.group(1), match.group(2)) if match else None
 
 
@@ -143,7 +170,7 @@ def label_names(issue: dict) -> list[str]:
 
 def recorded_severity(issue: dict) -> str | None:
     """Severity the issue was filed at: the marker first, then the severity label."""
-    match = FINDING_MARKER_RE.search(issue.get("body") or "")
+    match = trailing_marker(issue)
     if match and match.group(3) in SEVERITY_RANK:
         return match.group(3)
     for name in label_names(issue):
@@ -264,12 +291,12 @@ def main() -> int:
     parser.add_argument("--milestone", type=int, help="attach issues to this milestone number")
     parser.add_argument("--snapshot", type=Path, help="use captured GitHub JSON instead of any network call")
     parser.add_argument("--apply", action="store_true", help="perform writes after explicit human approval")
-    parser.add_argument("--approved-by", help="identity of the human who approved this exact review")
+    parser.add_argument("--approved-by", help="GitHub login of the human who approved this exact review; must match `gh api user`")
     args = parser.parse_args()
     if args.snapshot and args.apply:
         parser.error("--snapshot cannot be combined with --apply")
     if args.apply and not args.approved_by:
-        parser.error("--apply requires --approved-by with the approving human identity")
+        parser.error("--apply requires --approved-by with the approving human's GitHub login")
     if args.approved_by and not args.apply:
         parser.error("--approved-by is only valid with --apply")
     try:
@@ -277,7 +304,10 @@ def main() -> int:
             raise ReviewError("--review-id must be a stable lowercase slug")
         if not REPOSITORY.fullmatch(args.repo):
             raise ReviewError("--repo must be owner/name")
-        review = validate_review(json.loads(args.review.read_text(encoding="utf-8")))
+        approved_bytes = args.review.read_bytes()
+        review = validate_review(json.loads(approved_bytes.decode("utf-8")))
+        if args.apply:
+            require_approver(args.approved_by)
         state = (
             json.loads(args.snapshot.read_text(encoding="utf-8"))
             if args.snapshot
@@ -296,6 +326,7 @@ def main() -> int:
         }
         if args.apply:
             output["approvedBy"] = args.approved_by
+            output["approvedSha256"] = hashlib.sha256(approved_bytes).hexdigest()
             output["receipts"] = apply_actions(args.repo, actions)
         print(json.dumps(output, indent=2, sort_keys=True))
     except (OSError, json.JSONDecodeError, ReviewError) as error:

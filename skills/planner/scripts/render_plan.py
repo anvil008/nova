@@ -181,7 +181,7 @@ def validate_risks(risks: object) -> None:
                 raise PlanError(f"{where}.{axis} must be 1, 2, or 3")
 
 
-PLAN_MARKER = "<!-- swarm-planner planId={plan_id} -->"
+PLAN_MARKER = "<!-- workcell-planner planId={plan_id} -->"
 PLAN_FILE = re.compile(r"^plan(\d+)-\d{8}-.*\.html$")
 SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bootstrap a fresh environment for the Swarm Coder harness: install the external
+# Bootstrap a fresh environment for the Workcell harness: install the external
 # tools the agents/skills and the tdd-guard gate depend on, then build tdd-guard
 # and the build-hooks wrapper.
 #
@@ -101,6 +101,6 @@ need prettier "$(pick npm:prettier)" "JS/TS/JSON/MD format (build-format)"
 need eslint "$(pick npm:eslint)" "JS/TS lint (build-lint)"
 
 echo
-echo "Next: install the Swarm Coder plugin into your harness(es) via:"
+echo "Next: install the Workcell plugin into your harness(es) via:"
 echo "  scripts/bootstrap-plugins.sh"
 echo "That is the second and last bootstrap step. See README.md."

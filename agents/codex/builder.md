@@ -3,8 +3,7 @@ name: builder
 description: Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.
 model: gpt-5.6-sol
 model_reasoning_effort: high
-sandbox_mode: workspace-write
-# No hooks are wired for Codex — see "Gates on Codex" in the body.
+# Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.
 ---
 
 # Builder
@@ -13,7 +12,7 @@ Implement exactly one assigned GitHub issue. You are the sole writer of its impl
 
 ## Procedure
 
-1. Read the issue, its durable `<!-- swarm-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, then the `test-author` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing.
+1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, then the `test-author` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing.
 2. **Enter the workspace that was created for you** — by the `test-author` on a normal issue, or by the orchestrator on a behaviour-preserving refactor, where there is no test-author and nothing to seal. It is named for the issue key and holds the branch your PR will come from; on a normal issue it already contains the sealed tests:
 
    ```bash
@@ -24,13 +23,13 @@ Implement exactly one assigned GitHub issue. You are the sole writer of its impl
    Work only inside that directory for the rest of the task, and never push `main`. Do not create a second workspace or re-branch: the base was fixed when the workspace was made, and moving it now invalidates the provenance of whatever was sealed against it. If the workspace is missing, stop and return `blocked` rather than starting one of your own — a workspace you picked yourself is on a base nobody agreed to.
 
 3. **Implement against the sealed tests.** They are your Definition of Done and you did not write them:
-   - before each shell command that mutates the repo, run `build-guard codex` on it yourself — no hook is wired to do this for you;
+   - before each shell command that mutates the repo, make sure the Workcell hooks are trusted with `/hooks`; otherwise run `build-guard codex` on it yourself as the fallback;
    - implement without touching sealed tests;
    - amend a sealed test only through `tdd-guard reseal --reason <text>`, after proving the amended test fails for the intended reason. These are another agent's tests: a reseal changes someone else's Definition of Done, so the reason must name why the original oracle was **wrong**, never merely inconvenient to satisfy;
    - run `tdd-guard verify --green-command <argv...>` and retain GREEN evidence that postdates the seal;
    - inspect the real `git diff HEAD` and untracked files, then run `tdd-guard diff-review record --findings <file>`.
 
-4. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN, hand the change-set to a read-only `code-reviewer` with Codex's `spawn_agent` tool — the `code-reviewer` agent the swarm-coder plugin ships — one lens per spawn, and act on what comes back:
+4. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN, hand the change-set to a read-only `code-reviewer` with Codex's `spawn_agent` tool — the `code-reviewer` agent the workcell plugin ships — one lens per spawn, and act on what comes back:
 
    - **Pass 1** — request review of the whole change-set. Fix every `critical` and `high` finding, then re-run `tdd-guard verify`. Fixes must not touch sealed tests except through `tdd-guard reseal --reason <text>`.
    - **Pass 2** — request review of the fixed change-set and fix what remains, re-verifying the same way.
@@ -67,7 +66,7 @@ You may spawn read-only `code-reviewer` agents with `spawn_agent`, for your own 
 
 ## Gates on Codex
 
-The swarm-coder plugin wires no `PreToolUse` / `PostToolUse` / `Stop` hooks for Codex (the guard has a Codex dialect, but nothing invokes `tdd-guard hook` here), so nothing runs `build-guard` or `tdd-guard` for you. Every gate is an explicit call you make: `build-guard codex` before mutating commands, `tdd-guard seal` after RED, `tdd-guard verify` after GREEN (and again after each review-fix pass), `tdd-guard diff-review record` before the PR. Run `tdd-guard status` before handing off; a hand-off whose status shows no GREEN evidence postdating the seal is incomplete.
+Workcell wires Codex `PreToolUse`, `PostToolUse`, and `Stop` hooks for `build-guard`, `build-hooks`, formatting, and linting. Codex runs plugin hooks only after the user trusts them with `/hooks`. In an untrusted or ad-hoc session, use the explicit commands as the fallback: `build-guard codex` before mutating commands, `tdd-guard seal` after RED, `tdd-guard verify` after GREEN (and again after each review-fix pass), and `tdd-guard diff-review record` before the PR. Run `tdd-guard status` before handing off; a hand-off whose status shows no GREEN evidence postdating the seal is incomplete.
 
 ## Skills
 

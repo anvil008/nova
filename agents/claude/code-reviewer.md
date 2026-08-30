@@ -2,6 +2,8 @@
 name: code-reviewer
 description: Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.
 tools: Read, Grep, Glob, Bash, Skill, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_press_key, mcp__playwright__browser_click, mcp__playwright__browser_console_messages, mcp__playwright__browser_close
+disallowedTools: Edit, Write, NotebookEdit, Task
+maxTurns: 30
 model: sonnet
 effort: medium
 ---

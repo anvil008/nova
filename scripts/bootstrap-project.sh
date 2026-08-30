@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bootstrap-project.sh — make ONE project folder ready for the Swarm Coder builder,
+# bootstrap-project.sh — make ONE project folder ready for the Workcell builder,
 # idempotently and non-interactively (safe to call from a benchmark / SWE-eval setup step).
 #
 #   scripts/bootstrap-project.sh [DIR]              report: detected stack + tool readiness
@@ -73,18 +73,28 @@ if ((install)); then
   echo "== workspace plugin =="
   # Antigravity has no plugin CLI, so it reads a symlink in the workspace.
   mkdir -p .agents/plugins
-  link_owned "$ROOT/plugins/agy" "$PWD/.agents/plugins/swarm-coder" \
+  unlink_owned "$PWD/.agents/plugins/workcell"
+  link_owned "$ROOT/plugins/agy" "$PWD/.agents/plugins/workcell" \
     && echo "  linked the Antigravity plugin into .agents/plugins"
   # Claude and Codex install from the marketplace at the repository root. Local scope
   # keeps the declaration in .claude/settings.local.json / .codex, never a tracked file.
   for cli in claude codex; do
     if command -v "$cli" >/dev/null; then
-      case "$cli" in claude) add=install;; codex) add=add;; esac
+      case "$cli" in
+        claude) add=install; del=uninstall;;
+        codex) add=add; del=remove;;
+      esac
+      # Retire a project-local registration made before the Workcell rename. Both
+      # CLIs return non-zero when an item is absent, so migration cleanup is best-effort.
+      "$cli" plugin "$del" workcell@workcell-local --scope local >/dev/null 2>&1 \
+        || "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
+      "$cli" plugin marketplace remove workcell-local --scope local >/dev/null 2>&1 \
+        || "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace add "$ROOT" --scope local >/dev/null 2>&1 \
         || "$cli" plugin marketplace add "$ROOT" >/dev/null
-      "$cli" plugin "$add" swarm-coder@swarm-coder-local --scope local >/dev/null 2>&1 \
-        || "$cli" plugin "$add" swarm-coder@swarm-coder-local >/dev/null
-      echo "  installed the $cli plugin from the local swarm-coder marketplace"
+      "$cli" plugin "$add" workcell@workcell-local --scope local >/dev/null 2>&1 \
+        || "$cli" plugin "$add" workcell@workcell-local >/dev/null
+      echo "  installed the $cli plugin from the local workcell marketplace"
     else
       echo "  skipped $cli plugin registration ($cli CLI not found)"
     fi

@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
-  <title>Harness Gate Integrity and Cross-Harness Parity · Foundry Zero Plan</title>
-  <!-- workcell-planner planId=harness-gate-integrity -->
+  <title>Setup review a35e06e — fixes · Foundry Zero Plan</title>
+  <!-- workcell-planner planId=setup-review-a35e06e-fixes -->
   <style>/* Foundry Zero report design system.
    Shared core for the planner folio, the code-review report, and the research packet.
    This file is byte-identical in skills/planner, skills/code-review, and skills/research;
@@ -473,6 +473,28 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 .gate-steps .step.now { border-color: var(--acc); color: var(--acc); background: var(--acc-bg); }
 .gate-steps .step.done { color: var(--ok); border-color: var(--line-2); }
 
+/* ── Architecture comparison ──────────────────────────────────── */
+
+.architecture-delta {
+  margin: 16px 0 12px; padding: 13px 15px; border-left: 3px solid var(--acc);
+  border-radius: 0 9px 9px 0; background: var(--acc-bg);
+}
+.architecture-delta .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--acc);
+}
+.architecture-delta p { margin: 4px 0 0; max-width: 74ch; color: var(--txt-2); }
+.architecture-comparison {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.architecture-state {
+  min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2);
+}
+.architecture-state h3 { margin-top: 0; }
+.architecture-state.current h3 { color: var(--txt-2); }
+.architecture-state.proposed { border-color: var(--acc); }
+.architecture-state.proposed h3 { color: var(--acc); }
+
 /* ── Waves ─────────────────────────────────────────────────────── */
 
 .waves { display: flex; flex-direction: column; gap: 10px; }
@@ -598,6 +620,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 }
 
 @media (max-width: 900px) {
+  .architecture-comparison { grid-template-columns: minmax(0, 1fr); }
   .risk-layout { grid-template-columns: minmax(0, 1fr); }
   .wave { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 }
@@ -613,7 +636,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
   <span class="bar-name"><span class="bar-mark">FZ</span>Foundry Zero</span>
   <span class="chip">Implementation Plan</span>
   <span class="bar-spacer"></span>
-  <span class="bar-note">harness-gate-integrity</span>
+  <span class="bar-note">setup-review-a35e06e-fixes</span>
   <button type="button" id="hints-toggle">&#9671; hints</button>
   <button type="button" id="theme-toggle" aria-label="Toggle colour theme">&#9788;</button>
 </div>
@@ -632,17 +655,17 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
     </nav>
     <div class="rail-foot">
       <div>repo · anvil008/workcell</div>
-      <div>plan · harness-gate-integrity</div>
-      <div>issues · 11</div>
+      <div>plan · setup-review-a35e06e-fixes</div>
+      <div>issues · 10</div>
     </div>
   </aside>
 
   <main>
 
     <section class="section" id="header">
-      <div class="doc-eyebrow">Plan &middot; generated <time datetime="2026-08-28T19:35:00Z">August 28, 2026</time></div>
-      <h1>Harness Gate Integrity and Cross-Harness Parity</h1>
-      <p class="lede">Act on the 2026-08-28 harness research packet (docs/research/research01-20260828-agentic-harness-review.html). The harness runs green everywhere; the defects are in what the gates guarantee. Decisions taken with the human: build-guard becomes a hard boundary (fail closed, bypass set covered); tdd-guard binds the green command to the sealed red command by argv digest; the four dangling skill references (read-the-damn-docs, find-docs, grill-with-docs, full-output-enforcement) are dropped rather than authored; the unused controlplane contract surface is kept and covered by tests. Wave 1 carries eight independent tracks with disjoint ownership; wave 2 lands the follow-ons that touch the same files (guard blind spots, CI wiring, documentation) once wave 1 behaviour is final.</p>
+      <div class="doc-eyebrow">Plan &middot; generated <time datetime="2026-08-29T22:00:00Z">August 29, 2026</time></div>
+      <h1>Setup review a35e06e — fixes</h1>
+      <p class="lede">Fix the 19 verified findings of the 2026-08-30 agent/skill setup review of workcell @ a35e06e (GitHub issues #54-#72, milestone &quot;Setup review a35e06e — findings&quot;). The work is remediation only: no new features, and a research suggestion appears only where it is the fix for a filed finding (SubagentStop, ${CLAUDE_PLUGIN_ROOT}, disallowedTools). Ten issues, each sized for one builder and each closing the findings named in its body with a Fixes line. Interpretations taken, since the plan must not carry open questions: (1) #61 is narrowed to code-reviewer and research, the two agents the repository documents as read-only - the harness validation refuted the &quot;no hook at all&quot; half and showed deploy/docs are write-capable by design; (2) #56 is fixed by making bootstrap-plugins.sh force a cache refresh, with a version bump as a one-off, rather than by a test that polices version discipline; (3) #68 is fixed by consulting the live git branch, with the residual detached-HEAD gap documented, rather than by inventing cross-invocation state; (4) #64 is scoped to projects that opted in via the marker bootstrap-project.sh already writes, because Antigravity has no per-agent hook scoping; (5) the unfiled low finding about README:228/375 and ADR-0006:40 is folded into T-CODEX-DOCS because those are exactly the lines that task rewrites; (6) dist/codex/ is generated and git-ignored, so no task owns it. The waves depart from the two-wave sketch in the brief: agents/&lt;harness&gt;/*.md and scripts/hooks/tests/* are regenerated or shared by several tasks, so tasks that would collide there are serialised into later waves instead of sharing an ownership hint - see risks R-01 and R-02.</p>
 
       <div class="verdict-row">
         <div class="verdict gate-proposed">
@@ -662,11 +685,11 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 
       <div class="meta-grid" style="margin-top: 20px;">
         <div><dt>Repository</dt><dd>anvil008/workcell</dd></div>
-        <div><dt>Plan id</dt><dd>harness-gate-integrity</dd></div>
-        <div><dt>Generated</dt><dd>2026-08-28T19:35:00Z</dd></div>
-        <div><dt>Issues</dt><dd>11</dd></div>
-        <div><dt>Waves</dt><dd>2</dd></div>
-        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/workcell/milestones">Harness Gate Integrity and Cross-Harness Parity</a></dd></div>
+        <div><dt>Plan id</dt><dd>setup-review-a35e06e-fixes</dd></div>
+        <div><dt>Generated</dt><dd>2026-08-29T22:00:00Z</dd></div>
+        <div><dt>Issues</dt><dd>10</dd></div>
+        <div><dt>Waves</dt><dd>4</dd></div>
+        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/workcell/milestones">Setup review a35e06e — fixes</a></dd></div>
       </div>
     </section>
 
@@ -675,178 +698,316 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
       <div class="spec"><span class="mark">&#9671;</span>
         <div><b>metrics + goal</b> &mdash; headline counts a reviewer can scan, then the outcome this plan buys. Lead with the decision, not the process.</div>
       </div>
-      <div class="metrics"><div class="metric"><div class="k">Issues</div><div class="v">11</div><div class="d">2 parallel waves</div></div><div class="metric"><div class="k">Acceptance tests</div><div class="v">42</div><div class="d">definition of done</div></div><div class="metric"><div class="k">External deps</div><div class="v">0</div><div class="d">all internal</div></div><div class="metric tone-critical"><div class="k">Risks</div><div class="v">6</div><div class="d">2 in the top band</div></div></div>
+      <div class="metrics"><div class="metric"><div class="k">Issues</div><div class="v">10</div><div class="d">4 parallel waves</div></div><div class="metric"><div class="k">Acceptance tests</div><div class="v">44</div><div class="d">definition of done</div></div><div class="metric"><div class="k">External deps</div><div class="v">0</div><div class="d">all internal</div></div><div class="metric tone-critical"><div class="k">Risks</div><div class="v">9</div><div class="d">3 in the top band</div></div></div>
       <p class="muted">Nothing is written to GitHub until a human approves this plan. Approval is bound to the sidecar, not to this page: if the sidecar changes after approval, the changed plan must be presented again.</p>
     </section>
 
     <section class="section" id="architecture">
       <div class="section-head"><span class="num">02</span><h2>Architecture</h2></div>
       <div class="spec"><span class="mark">&#9671;</span>
-        <div><b>components + target</b> &mdash; data: architecture.components[]{name, purpose} and architecture.diagramsMermaid.targetArchitecture.</div>
+        <div><b>current + proposed</b> &mdash; compare the smallest meaningful system boundary, then state the operational change in plain language.</div>
       </div>
-      <div class="cards"><article class="card"><h3>tdd-guard (guard/, cmd/tdd-guard)</h3><p>Mechanical red-&gt;green gate; after this plan it proves the sealed red argv went green, not merely that some command passed.</p></article><article class="card"><h3>build-guard / build-hooks (scripts/hooks)</h3><p>PreToolUse boundary for main-branch pushes and tmpfs cargo targets; after this plan it fails closed and its probe corpus is a test fixture.</p></article><article class="card"><h3>Installers (scripts/*.sh)</h3><p>Symlink-only projection of this repo into each harness with ownership checks on install and uninstall; portable to stock macOS.</p></article><article class="card"><h3>Agent definitions (agents/)</h3><p>Harness-specific frontmatter over shared procedure; skill references must resolve and gate wiring must be declared per harness.</p></article><article class="card"><h3>Skill scripts (skills/*/scripts)</h3><p>Deterministic planner, build-wave, review, research and loop helpers; idempotent GitHub reconciliation and safe overlap detection.</p></article><article class="card"><h3>CI (.github/workflows/ci.yml)</h3><p>Discovers every skill test suite, pins Python, and runs the lint gates the hooks assume.</p></article><article class="card"><h3>Docs (README, CHANGELOG, docs/adr)</h3><p>Describe the enforced behaviour accurately after the code changes land.</p></article></div>
-      <h3>Target architecture</h3>
-      <div class="diagram-shell" aria-label="Target architecture"><pre class="mermaid">flowchart LR
-  subgraph W1[Wave 1 - independent tracks]
-    G1[G1 tdd-guard argv binding]
-    H1[H1 build-guard hard boundary]
-    I1[I1 installer safety + macOS]
-    A1[A1 agent parity + skill refs]
-    S1[S1 build-wave overlap]
-    S2[S2 planner/review renderers]
-    S3[S3 review-fix-loop severity]
-    R1[R1 research conflict detection]
-  end
-  subgraph W2[Wave 2 - follow-ons]
-    G2[G2 guard blind spots + controlplane tests]
-    C1[C1 CI discovery + lint gates]
-    D1[D1 docs / ADR / CHANGELOG]
-  end
-  G1 --&gt; G2
-  H1 --&gt; C1
-  S3 --&gt; C1
-  A1 --&gt; C1
-  G1 --&gt; D1
-  H1 --&gt; D1
-  I1 --&gt; D1
-  A1 --&gt; D1
-  S1 --&gt; D1
-  C1 --&gt; D1</pre><details class="diagram-fallback"><summary>Diagram source</summary><p class="diagram-error"></p><pre>flowchart LR
-  subgraph W1[Wave 1 - independent tracks]
-    G1[G1 tdd-guard argv binding]
-    H1[H1 build-guard hard boundary]
-    I1[I1 installer safety + macOS]
-    A1[A1 agent parity + skill refs]
-    S1[S1 build-wave overlap]
-    S2[S2 planner/review renderers]
-    S3[S3 review-fix-loop severity]
-    R1[R1 research conflict detection]
-  end
-  subgraph W2[Wave 2 - follow-ons]
-    G2[G2 guard blind spots + controlplane tests]
-    C1[C1 CI discovery + lint gates]
-    D1[D1 docs / ADR / CHANGELOG]
-  end
-  G1 --&gt; G2
-  H1 --&gt; C1
-  S3 --&gt; C1
-  A1 --&gt; C1
-  G1 --&gt; D1
-  H1 --&gt; D1
-  I1 --&gt; D1
-  A1 --&gt; D1
-  S1 --&gt; D1
-  C1 --&gt; D1</pre></details></div>
+      <div class="cards"><article class="card"><h3>plugins/&lt;harness&gt;</h3><p>The three thin wrappers a harness installs; each carries the hook file that harness reads.</p></article><article class="card"><h3>scripts/hooks/build-guard</h3><p>The PreToolUse boundary: branch, PR and build-target rules, one dialect per harness.</p></article><article class="card"><h3>tdd-guard + build-hooks</h3><p>The seal -&gt; RED -&gt; GREEN state machine and the stop-time gate that refuses an unfinished builder.</p></article><article class="card"><h3>agents/ generators</h3><p>sync-agents.py, sync-agent-models.py and build-codex-plugin.py render every agent definition from one body per agent.</p></article><article class="card"><h3>skills/build/scripts/waves.py</h3><p>Derives the current dependency wave from the sidecar plus a captured GitHub snapshot.</p></article><article class="card"><h3>reconcilers</h3><p>reconcile_github.py and reconcile_findings.py: the only writers of GitHub state, behind a human approval gate.</p></article></div>
+      <div class="architecture-delta"><span class="k">What changes</span><p>Nothing about the agent topology changes; what changes is whether a declared gate actually fires and how widely. Today the Claude builder&#x27;s stop gate is declared in frontmatter the loader discards and is absent from the file that does load; the Codex hook file is rejected at parse time, so no gate exists there at all; and the Antigravity hook file is the builder&#x27;s own, installed machine-wide, so it gates every session on the box. The hook commands point at ~/.local/bin symlinks the plugin never ships. After this plan each harness&#x27;s gate is wired where that harness actually reads it - SubagentStop scoped to ^workcell:builder$ on Claude, a documented {hooks:...} map with Bash / apply_patch matchers plus an armed trust step on Codex, and a project-opt-in scope on Antigravity - the scripts travel inside the plugin and are addressed relative to it, the install refreshes its own cache, and the guard&#x27;s three verified bypasses are closed. The build and reconcile tooling around the loop gets the same treatment: waves.py accepts the snapshot gh actually produces and stops treating a rejected closure as done, and both reconcilers key issue identity off the trailing marker and bind --approved-by to a real account.</p></div>
+      <div class="architecture-comparison">
+        <article class="architecture-state current">
+          <h3>Current</h3>
+          <div class="diagram-shell" aria-label="Current architecture"><pre class="mermaid">flowchart LR
+  B[&quot;Claude builder subagent&quot;] --&gt; FM[&quot;agent frontmatter hooks:&quot;]
+  FM -. ignored for plugin agents .-&gt; DROP[&quot;discarded at load&quot;]
+  B --&gt; CJ[&quot;plugins/claude/hooks.json&lt;br/&gt;Pre + PostToolUse + Stop&quot;]
+  CJ -. no SubagentStop .-&gt; GATE[&quot;tdd-guard stop gate&lt;br/&gt;never runs for a subagent&quot;]
+  CJ --&gt; BIN[&quot;~/.local/bin/build-*&lt;br/&gt;hand-made symlinks&quot;]
+  X[&quot;codex session&quot;] --&gt; XJ[&quot;plugins/codex/hooks.json&lt;br/&gt;workcell-guard wrapper&quot;]
+  XJ -. parse error .-&gt; NONE[&quot;no hook loads&quot;]
+  A[&quot;every agy session on the machine&quot;] --&gt; AJ[&quot;plugins/agy/hooks.json&lt;br/&gt;the builder&#x27;s own file&quot;]
+  AJ --&gt; BIN
+  BIN --&gt; G[&quot;build-guard&lt;br/&gt;xargs, alias and two-call bypasses&quot;]</pre><details class="diagram-fallback"><summary>Diagram source</summary><p class="diagram-error"></p><pre>flowchart LR
+  B[&quot;Claude builder subagent&quot;] --&gt; FM[&quot;agent frontmatter hooks:&quot;]
+  FM -. ignored for plugin agents .-&gt; DROP[&quot;discarded at load&quot;]
+  B --&gt; CJ[&quot;plugins/claude/hooks.json&lt;br/&gt;Pre + PostToolUse + Stop&quot;]
+  CJ -. no SubagentStop .-&gt; GATE[&quot;tdd-guard stop gate&lt;br/&gt;never runs for a subagent&quot;]
+  CJ --&gt; BIN[&quot;~/.local/bin/build-*&lt;br/&gt;hand-made symlinks&quot;]
+  X[&quot;codex session&quot;] --&gt; XJ[&quot;plugins/codex/hooks.json&lt;br/&gt;workcell-guard wrapper&quot;]
+  XJ -. parse error .-&gt; NONE[&quot;no hook loads&quot;]
+  A[&quot;every agy session on the machine&quot;] --&gt; AJ[&quot;plugins/agy/hooks.json&lt;br/&gt;the builder&#x27;s own file&quot;]
+  AJ --&gt; BIN
+  BIN --&gt; G[&quot;build-guard&lt;br/&gt;xargs, alias and two-call bypasses&quot;]</pre></details></div>
+        </article>
+        <article class="architecture-state proposed">
+          <h3>Proposed</h3>
+          <div class="diagram-shell" aria-label="Proposed architecture"><pre class="mermaid">flowchart LR
+  B[&quot;Claude builder subagent&quot;] --&gt; CJ[&quot;plugins/claude/hooks.json&lt;br/&gt;Pre + PostToolUse + Stop&lt;br/&gt;+ SubagentStop, builder-scoped&quot;]
+  CJ --&gt; PR[&quot;CLAUDE_PLUGIN_ROOT/scripts/build-*&lt;br/&gt;shipped inside the plugin&quot;]
+  PR --&gt; GATE[&quot;tdd-guard stop gate&lt;br/&gt;runs when the builder finishes&quot;]
+  X[&quot;codex session&quot;] --&gt; XJ[&quot;plugins/codex/hooks.json&lt;br/&gt;documented hooks map&lt;br/&gt;matchers Bash and apply_patch&quot;]
+  XJ -. trusted via /hooks at install .-&gt; PR
+  A[&quot;agy session&quot;] --&gt; AJ[&quot;plugins/agy/hooks.json&lt;br/&gt;plugin-owned copy&quot;]
+  AJ --&gt; SC{&quot;project opted in?&quot;}
+  SC -- yes --&gt; G[&quot;build-guard&lt;br/&gt;xargs, alias and live-branch arms&quot;]
+  SC -- no --&gt; Q[&quot;silent&quot;]
+  PR --&gt; G</pre><details class="diagram-fallback"><summary>Diagram source</summary><p class="diagram-error"></p><pre>flowchart LR
+  B[&quot;Claude builder subagent&quot;] --&gt; CJ[&quot;plugins/claude/hooks.json&lt;br/&gt;Pre + PostToolUse + Stop&lt;br/&gt;+ SubagentStop, builder-scoped&quot;]
+  CJ --&gt; PR[&quot;CLAUDE_PLUGIN_ROOT/scripts/build-*&lt;br/&gt;shipped inside the plugin&quot;]
+  PR --&gt; GATE[&quot;tdd-guard stop gate&lt;br/&gt;runs when the builder finishes&quot;]
+  X[&quot;codex session&quot;] --&gt; XJ[&quot;plugins/codex/hooks.json&lt;br/&gt;documented hooks map&lt;br/&gt;matchers Bash and apply_patch&quot;]
+  XJ -. trusted via /hooks at install .-&gt; PR
+  A[&quot;agy session&quot;] --&gt; AJ[&quot;plugins/agy/hooks.json&lt;br/&gt;plugin-owned copy&quot;]
+  AJ --&gt; SC{&quot;project opted in?&quot;}
+  SC -- yes --&gt; G[&quot;build-guard&lt;br/&gt;xargs, alias and live-branch arms&quot;]
+  SC -- no --&gt; Q[&quot;silent&quot;]
+  PR --&gt; G</pre></details></div>
+        </article>
+      </div>
     </section>
 
     <section class="section" id="tasks">
-      <div class="section-head"><span class="num">03</span><h2>Task Breakdown</h2><span class="count">11 issues</span></div>
+      <div class="section-head"><span class="num">03</span><h2>Task Breakdown</h2><span class="count">10 issues</span></div>
       <div class="spec"><span class="mark">&#9671;</span>
         <div><b>issues</b> &mdash; data: issues[]{key, title, body, labels, dependsOn, ownershipHint, wave}. One independently deliverable concern per issue. Acceptance tests are deliberately absent here; they render into the GitHub issue body.</div>
       </div>
-      <div class="rows"><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">G1-tdd-guard-argv-binding</span><strong>tdd-guard: bind verify&#x27;s green command to the sealed red command</strong></div><div class="row-meta"><span>Wave 1</span><span>guard/**, cmd/**</span><span class="tag">planning</span><span class="tag">guard</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F1-02, F1-13, F1-17. Today `tdd-guard seal --red-command false` followed by `tdd-guard verify --green-command true` passes: seal only requires the red argv to exit non-zero and verify only requires the green argv to exit 0 after the seal (guard/actions.go:42, :98-103). Scope: record the red ArgvDigest in the seal; make verify refuse a green argv whose digest differs from the sealed red argv (exit non-zero with a message naming both digests); re-compute sealed-test digests after the green command runs and fail verify if any sealed test changed during the run (closes the TOCTOU at actions.go:87-103); surface the bound argv in `status`. Keep the seal file schema backward-compatible or migrate explicitly with a test. Update guard/*_test.go and the builder agent text that describes the seal/verify contract only where it states the argv rule.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">guard/**, cmd/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">H1-build-guard-hard-boundary</span><strong>build-guard: fail closed and cover the bypass and false-positive corpus</strong></div><div class="row-meta"><span>Wave 1</span><span>scripts/hooks/**</span><span class="tag">planning</span><span class="tag">hooks</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F2-05, F2-06, F2-07, F2-08, F2-19, F2-20, F2-03. Decision: build-guard is a hard boundary. Scope in scripts/hooks/build-guard and build-hooks: (1) exit 2 with a reason when jq is missing, the payload is unparseable, or the harness payload shape yields no command; build-hooks exits 2 when tdd-guard is absent instead of 127. (2) Deny: bare `git push` and `git push &lt;remote&gt;` with no refspec, `git push &lt;remote&gt; HEAD`, `git push &lt;remote&gt; master`, `git branch -f main`, `git branch -f master`, `git update-ref refs/heads/main`, `gh pr merge`, `git checkout main`/`git switch main` followed by `git merge` on the same line, `jj bookmark set main` combined with `jj git push`, and cargo `--target-dir` / `CARGO_TARGET_DIR` / `CARGO_BUILD_TARGET_DIR` pointing at /tmp, /dev/shm or $TMPDIR with or without quotes and with or without a trailing slash. (3) Stop denying `main-*`/`main.*` branch names, commit-message text (`-m &quot;... main ...&quot;`), `git merge-base`, and quoted strings passed to echo/grep. Use a small tokenizer (strip quoted args before matching) rather than more regex. (4) Move the probe list into scripts/hooks/tests/guard-corpus.txt (expected|command per line) and have test_hooks.sh assert every line; make test_hooks.sh hermetic by running project-bootstrap under a temporary HOME/BIN so it never writes to the real ~/.local/bin. Keep POSIX ERE only; no \b, no -P.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">scripts/hooks/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">I1-installer-safety-portability</span><strong>Installers: symlink-only, ownership-checked, fail-fast, and portable to stock macOS</strong></div><div class="row-meta"><span>Wave 1</span><span>scripts/*.sh</span><span class="tag">planning</span><span class="tag">installer</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F2-04, F2-11, F2-13, F2-14, F2-15, F2-16, F2-17, F5-08. Scope across scripts/install-harness.sh, scripts/project-bootstrap.sh, scripts/bootstrap-tools.sh: (1) project-bootstrap.sh --install symlinks the hook scripts with ln -sfn exactly like bootstrap-tools.sh; no `install -m755` copies remain. (2) A shared helper `link_owned SRC DST` that creates the link only if DST is absent or is a symlink resolving into $ROOT, and otherwise prints a clear refusal and returns non-zero; `unlink_owned DST` removes only such symlinks. Use both for every agent, skill, hook and codex TOML link. (3) --uninstall also removes ~/.local/bin/build-* and ~/.local/bin/tdd-guard links it owns and reports what it left behind. (4) Replace `mapfile` + `find -printf` with a portable `for d in &quot;$ROOT&quot;/skills/*/` loop; scripts run under bash 3.2 syntax. (5) `set -euo pipefail` with explicit error messages so &#x27;done.&#x27; only prints on success; validate agents/codex/*.md frontmatter before touching any harness. (6) project-bootstrap.sh writes the local exclude via `git rev-parse --git-path info/exclude` so worktrees and jj workspaces are covered. (7) Never hide a sudo prompt: run installer commands without redirecting stdin/stderr or skip them with a message when not a tty.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">scripts/*.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">A1-agent-parity-skill-refs</span><strong>Agents: drop dangling skill references and declare gate wiring per harness</strong></div><div class="row-meta"><span>Wave 1</span><span>agents/**, skills/docs/**</span><span class="tag">planning</span><span class="tag">agents</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F4-01, F4-02, F4-03, F4-04, F4-05, F4-06, F4-07, F4-08, F4-22, F2-10, F2-09. Decision: drop the four dangling references. Scope across agents/** and skills/docs/**: (1) Remove read-the-damn-docs and find-docs from all research agents, grill-with-docs from all docs agents, and full-output-enforcement from all builders; where a Skills section becomes empty, delete the section. (2) Add a mechanical check to skills/docs/scripts/docs_check.py (and its tests) that every skill named in a `## Skills` section or a `skills:` frontmatter across agents/**/*.md exists as a directory under skills/. (3) Antigravity builder hooks.json gains a Stop-equivalent hook calling `build-hooks agy Stop` if the harness supports one; if it does not, the agy builder agent.md states that the Stop-time verify gate is manual and the builder must run `tdd-guard verify` itself before handing off. (4) Codex builder: document in its frontmatter comment and body that no PreToolUse/PostToolUse hooks exist on Codex and that build-guard and tdd-guard are invoked explicitly by the builder (`tdd-guard hook` is not available; call seal/verify directly). (5) Codex and agy builders declare the mechanism they use to hand the change-set to a code-reviewer, or the step is reworded to &#x27;run the code-review skill&#x27; if spawning is not available. (6) Align model tiers: agy builder no longer runs on `flash`; use the harness&#x27;s strongest tier for builder and a mid tier for code-reviewer/docs, matching Codex&#x27;s high/medium/medium/low ladder; set mainAgent only on builder and docs. (7) agy builder prose reflects its automatic format/lint hooks. (8) docs_check.py INSTRUCTION_FILES includes GEMINI.md.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">agents/**, skills/docs/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">S1-build-wave-overlap</span><strong>build skill: fix recursive-glob overlap false negative and bound builder re-dispatch</strong></div><div class="row-meta"><span>Wave 1</span><span>skills/build/**</span><span class="tag">planning</span><span class="tag">skills</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F3-07, F3-08, F3-20, F4-18. Scope in skills/build/**: (1) globs_overlap in scripts/waves.py must report overlap for `src/**` vs `src/a/b/c.py` in both argument orders; implement with PurePath.full_match on 3.13+ and an fnmatch-based fallback, and treat a plain path as its own literal glob. (2) Exclude wave 0 (ungrouped) from the hard-fail overlap check; warn only. (3) Emit the warning or raise, not both. (4) Document the `status:done` label in SKILL.md. (5) Add a re-dispatch cap to SKILL.md: a builder that returns `blocked` may be re-dispatched at most twice per issue, after which the issue is marked stalled in the wave summary and the loop escalates to the human.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">skills/build/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">S2-planner-review-renderers</span><strong>planner/code-review: id normalisation, single-pass token substitution, safer reconciliation</strong></div><div class="row-meta"><span>Wave 1</span><span>skills/planner/**, skills/code-review/**</span><span class="tag">planning</span><span class="tag">skills</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F3-03, F3-04, F3-06, F3-09, F3-10, F3-12. Scope in skills/planner/** and skills/code-review/**: (1) validate_plan stores the stripped planId and issue keys (or rejects padded values) so markers round-trip and a second reconcile of an unchanged plan is a no-op. (2) Both render_plan.py and render_review.py substitute template tokens in a single re.sub pass so user text containing a token name is left verbatim; the research renderer already does this. (3) mermaid_label neutralises `#`, `;`, backticks and angle brackets. (4) Planner reconcile skips reopening issues that are closed and carry the status:done label or were closed by a merged PR (state_reason completed) unless --reopen-done is passed; milestone adoption by title preserves an existing description by appending the marker. (5) reconcile_findings only closes an issue when its recorded severity (from the marker or a label) is at or above the current --min-severity, so a stricter threshold never closes live defects. Update SKILL.md text for both skills accordingly.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">skills/planner/**, skills/code-review/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">S3-review-fix-loop-severity</span><strong>review-fix-loop: wire --min-severity into convergence and scope the skill honestly</strong></div><div class="row-meta"><span>Wave 1</span><span>skills/review-fix-loop/**</span><span class="tag">planning</span><span class="tag">skills</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F3-13, F4-17, F4-21. Scope in skills/review-fix-loop/**: (1) loop_state.py validates --min-severity against the severity enum and defines convergence as &#x27;no findings at or above the threshold&#x27;; findings below it are reported but do not block convergence. (2) SKILL.md states the skill requires a harness with a /loop driver (Claude Code today) and how to drive one iteration manually elsewhere; the plain-git branch instruction is replaced with the jj-colocated equivalent to match the builder&#x27;s VCS rule. (3) Replace /tmp example paths with a repo-local scratch path.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">skills/review-fix-loop/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">R1-research-conflict-detection</span><strong>research: make conflict detection mean disagreement, not distinct wording</strong></div><div class="row-meta"><span>Wave 1</span><span>skills/research/**</span><span class="tag">planning</span><span class="tag">skills</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research recommendation R-16. merge_research.py flags a conflict whenever a topic has more than one distinct free-text position, so the 2026-08-28 packet reported 20 conflicts of which two were real. Scope in skills/research/**: (1) A finding may carry an optional `contradicts` boolean or the agent envelope gains a `stance` field constrained to {supports, contradicts, neutral} per topic; a conflict is reported only when a topic carries both supports and contradicts (or at least one contradicts). Choose the stance form, keep the existing example fixtures valid (defaulting to neutral), and update the research agent envelope text in all three harness variants only if the field is mandatory — prefer optional. (2) merge_research.nonempty_string strips like the other scripts. (3) Land the new render_research.py, templates and tests already in the working tree, and add the planner/code-review byte-identity requirement for report.css to the research SKILL.md (already drafted).</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">skills/research/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">G2-guard-blind-spots-controlplane-tests</span><strong>guard: digest full untracked files, lock the touch log, cover the controlplane contract</strong></div><div class="row-meta"><span>Wave 2</span><span>guard/**, controlplane/**, cmd/**</span><span class="tag">planning</span><span class="tag">guard</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F1-03, F1-09, F1-10, F1-11, F1-12, F1-14, F1-18, F5-12. Decision: keep the controlplane surface. Scope in guard/** and controlplane/** after G1 lands: (1) digestFileStreaming hashes the whole stream (still bounded memory) and includes the byte length, so edits past 10 MiB invalidate diff-review; drop the truncation assertion from hardening_test.go. (2) recordTouchedRepositories takes an advisory file lock (or O_EXCL temp + rename retry) so concurrent hooks cannot drop entries; add a two-process test. (3) workingDiff skips non-regular untracked entries. (4) Delete filesMatchingGlob. (5) ValidIdentifier rejects `..` segments and leading `/` or the doc comment is corrected — pick reject. (6) Add tests for DecodeWorkflowResult, DecodeRoute, DecodeSelection, SealGoal/ValidateGoal, SealAssignment/ValidateAssignment, SealDispatch/ValidateDispatch and CanonicalDigest covering the fail-closed paths; controlplane coverage &gt;= 85%. (7) Usage text derives from os.Args[0] and --help/-h exit 0. (8) unsealedSourceChanges un-escapes C-quoted porcelain paths.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">G1-tdd-guard-argv-binding</div></div><div><div class="k">Ownership</div><div class="v">guard/**, controlplane/**, cmd/**</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">C1-ci-discovery-lint-gates</span><strong>CI: discover every skill suite, pin Python, add ruff and shellcheck gates</strong></div><div class="row-meta"><span>Wave 2</span><span>.github/**, skills/docs/tests/**</span><span class="tag">planning</span><span class="tag">ci</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F5-06, F5-07, F3-02, F3-14, F4-12. Scope in .github/** and skills/docs/tests/**: (1) ci.yml loops over skills/*/tests (`for d in skills/*/tests; do python3 -m unittest discover -s &quot;$d&quot; -p &#x27;test_*.py&#x27;; done`) so review-fix-loop and any future suite run. (2) actions/setup-python pins 3.13. (3) Add `ruff check skills/` and `shellcheck -S warning scripts/*.sh scripts/hooks/build-*` steps; fix the 44 ruff findings and the one SC2088 so the gates pass. (4) Add scripts/tests/test_install.sh (from I1) and `go test -count=1 -race ./...` to the pipeline. (5) The docs test that guards ci.yml asserts the loop form rather than a fixed skill list.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">H1-build-guard-hard-boundary, S3-review-fix-loop-severity, A1-agent-parity-skill-refs, I1-installer-safety-portability</div></div><div><div class="k">Ownership</div><div class="v">.github/**, skills/docs/tests/**</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">D1-docs-adr-changelog</span><strong>Docs: bring README, ADRs and CHANGELOG in line with the enforced behaviour</strong></div><div class="row-meta"><span>Wave 2</span><span>README.md, CHANGELOG.md, docs/adr/**</span><span class="tag">planning</span><span class="tag">docs</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Research F1-04, F1-07, F2-15, F4-09, F4-10, F4-11, F4-15, F5-11, F3-20. Scope in README.md, CHANGELOG.md, docs/adr/**, and the stray root artifacts, after wave 1 lands: (1) ADR-0003 supersedes ADR-0001 (agents carry skills via the central layout; research and code-reviewer do use skills); ADR-0001 status becomes Superseded; ADR-0002 corrected from &#x27;copies&#x27; to &#x27;symlinks&#x27; and gains the dist/ step for Codex. (2) README: the tdd-guard section describes the argv-bound red-&gt;green contract, reseal/arch-check/status, and that arch-check is advisory; the streaming-digest claim is scoped accurately; build-guard is described as a failing-closed boundary with the corpus test; the installer section says what --uninstall removes and that stock macOS is supported; the hook-parity paragraph states per-harness gate coverage; remove the four dropped skill names; document status:done. (3) CHANGELOG entries for a1f4584, ee46c1a and this milestone. (4) Remove the previous root plan.sidecar.json content by replacing it with this plan&#x27;s sidecar (already done by the planner) and note in README that docs/plans holds the folio; add bin/ cleanup of the orphaned anvil-guard binary to bootstrap-tools.sh&#x27;s presence report. Run docs_check.py.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">G1-tdd-guard-argv-binding, H1-build-guard-hard-boundary, I1-installer-safety-portability, A1-agent-parity-skill-refs, S1-build-wave-overlap, C1-ci-discovery-lint-gates</div></div><div><div class="k">Ownership</div><div class="v">README.md, CHANGELOG.md, docs/adr/**</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details></div>
+      <div class="rows"><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-GUARD</span><strong>build-guard: close the xargs, git-alias and cross-invocation main bypasses</strong></div><div class="row-meta"><span>Wave 1</span><span>scripts/hooks/build-guard, scripts/hooks/tests/guard-corpus.txt, scripts/hooks/tests/test_hooks.sh</span><span class="tag">planning</span><span class="tag">guard</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Three verified bypasses of `scripts/hooks/build-guard`, the repository&#x27;s only mechanical push/branch boundary. Fix all three in the guard and lock each one down with a probe.
+
+1. **`xargs` arm.** `analyze_segment` (build-guard:184-203) dispatches only on `git|gh|jj|cargo|bash|sh|zsh|dash|ksh|eval`, so a guarded command wrapped in `xargs` falls through with no case arm and is never inspected. Add an `xargs` arm that strips xargs&#x27; own options and re-dispatches on the wrapped command word; because the operands arrive on stdin and cannot be read, **deny outright** when the wrapped word is one of the guarded commands rather than guessing. Commands the guard does not police (`grep`, `rm`, `sed`, ...) stay allowed - this is a branch/PR boundary, not a general command filter.
+2. **Alias resolution in `rule_git`.** The option loop (build-guard:94-100) consumes `-c` with `shift 2` without reading its value, so `-c alias.p=push` is discarded and `sub` becomes `p`, matching no case arm. Parse inline `-c alias.&lt;name&gt;=&lt;value&gt;` pairs into an alias map and resolve `sub` through it before the `case`; when `sub` still matches no arm, resolve a configured alias with `git config --get alias.&lt;sub&gt;` in the payload&#x27;s working directory and re-dispatch on the first word of the expansion, failing open (silent) when git is absent or the alias is unset.
+3. **Cross-invocation main protection.** `on_main` is `local` to `check()` (build-guard:205), so it only ever spans one command string; `git checkout main` and `git commit -m x` arriving as two separate Bash tool calls - the ordinary shape for an agent - both pass. When a `merge|commit|cherry-pick|rebase` segment carries no in-line checkout, consult the live branch with `git symbolic-ref --quiet --short HEAD` in the working directory and deny on `main`/`master`. A detached HEAD (the normal state in a jj-colocated repo) and a non-repository stay silent; replace the header&#x27;s &quot;a little cross-segment state&quot; note (build-guard:13-15) with what the guard now actually does, including that residual gap.
+
+Every existing verdict in `scripts/hooks/tests/guard-corpus.txt` must be unchanged; add probes for the new cases. Keep the file POSIX-ERE only (test_hooks.sh already asserts no `\b` and no `grep -P`).
+
+**Proof it flips.** All three of these exit 0 with empty stdout (a silent allow) today and must emit the deny payload:
+
+```bash
+echo &#x27;{&quot;tool_input&quot;:{&quot;command&quot;:&quot;echo push origin main | xargs git&quot;}}&#x27; | scripts/hooks/build-guard claude
+echo &#x27;{&quot;tool_input&quot;:{&quot;command&quot;:&quot;git -c alias.p=push p origin main&quot;}}&#x27; | scripts/hooks/build-guard claude
+echo &#x27;{&quot;tool_input&quot;:{&quot;command&quot;:&quot;git checkout main&quot;}}&#x27;  | scripts/hooks/build-guard claude   # then, separately:
+echo &#x27;{&quot;tool_input&quot;:{&quot;command&quot;:&quot;git commit -m x&quot;}}&#x27;    | scripts/hooks/build-guard claude
+```
+
+The control must keep working: `git push origin main` still denies, and every `allow|` probe in the corpus still allows.
+
+Fixes #58
+Fixes #67
+Fixes #68</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">scripts/hooks/build-guard, scripts/hooks/tests/guard-corpus.txt, scripts/hooks/tests/test_hooks.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-WAVES</span><strong>waves.py: accept gh&#x27;s real label shape and stop counting rejected closures as done</strong></div><div class="row-meta"><span>Wave 1</span><span>skills/build/**</span><span class="tag">planning</span><span class="tag">orchestration</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">`skills/build/scripts/waves.py` is the offline dry-run the build orchestrator runs first, and it fails on the very first real (non-fixture) snapshot.
+
+1. **Label shape.** `validate_snapshot` (waves.py:78) demands `labels` be plain strings, but every capture route returns objects: `gh api repos/{repo}/issues` and `gh issue list --json labels` both yield `{id,name,description,color}`. Normalise with the same `label_names()` shape the sibling reconciler already uses (`skills/planner/scripts/reconcile_github.py:99-103`): accept a string or an object with a non-empty `name`, reject anything else with a clear message.
+2. **`is_done`.** waves.py:110-111 treats *any* closed issue as done, while `reconcile_github.py:112-116` deliberately closes housekeeping issues with `state_reason=not_planned` &quot;so they are never mistaken for finished work&quot;. Make the two agree: done is closed AND (`status:done` label OR `state_reason == &quot;completed&quot;`). Add `state_reason` to the snapshot schema as an optional issue field (`exact_fields` must keep rejecting genuinely unknown fields), so a not-planned closure is representable at all.
+3. **Capture command.** `skills/build/SKILL.md` step 1 says &quot;capture GitHub issue state&quot; but documents no transform from `gh` output to the snapshot shape. Add the copy-pasteable command that produces exactly `{repo, milestone, issues:[{number, body, labels, state, state_reason}]}`, and add the raw `gh` capture fixture under `skills/build/examples/` so a test can run the documented transform instead of a restatement of it.
+
+**Proof it flips.**
+
+```bash
+python3 skills/build/scripts/waves.py skills/build/examples/plan.sidecar.json &lt;snapshot-with-gh-object-labels&gt;
+# today: build waves error: snapshot.issues[0].labels must be an array of non-empty strings   (exit 1)
+```
+
+and, with issue 101 closed and unlabelled, today&#x27;s run reports `&quot;done&quot;: [&quot;Foundation&quot;]` and unblocks its dependents; after the fix a `not_planned` closure leaves them blocked.
+
+Fixes #60
+Fixes #70</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">skills/build/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-RECONCILE</span><strong>Reconcilers: anchor marker identity to the trailing marker and bind --approved-by to a real account</strong></div><div class="row-meta"><span>Wave 1</span><span>skills/planner/**, skills/code-review/**</span><span class="tag">planning</span><span class="tag">planner</span><span class="tag">code-review</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Both reconcilers share two weaknesses in the code that decides *which issue is which* and *who approved the write*.
+
+1. **Marker identity is unanchored.** `existing_marker()` (`skills/code-review/scripts/reconcile_findings.py:132-134`) and `issue_marker()` (`skills/planner/scripts/reconcile_github.py:96`) both use `re.search`, which returns the **leftmost** match, while the genuine marker is always appended as the **last** line of the body. The same bodies embed attacker-influenceable text verbatim - `failureScenario`, `verification.evidence`, `verification.refutationAttempt` (issue_body lines 96-108), and any planner issue body - so a marker-shaped string quoted from a reviewed diff wins over the real one and can squat an issue&#x27;s identity on a later run. Anchor identity to the trailing marker (scan all matches, take the last / require it to close the body) **and** neutralise comment syntax in embedded fields when composing the body, so a quoted excerpt can never produce a second marker at all. This issue&#x27;s own tracking issue #71 demonstrates the defect: its body carries a marker-shaped string from the finding&#x27;s evidence text ahead of the genuine one.
+2. **`--approved-by` is free text.** `reconcile_github.py:243-252` and `reconcile_findings.py:265-274` require only that the flag be *present* with `--apply`; the calling agent supplies the string itself, so the human gate documented in `skills/planner/SKILL.md:100-114` is enforced by prompt discipline alone. Require the value to equal the authenticated GitHub login (`gh api user --jq .login`) and record a sha256 digest of the exact sidecar/review file in the emitted receipt, so the audit field names a real account and pins the bytes that were approved. A mismatch exits non-zero **before** any write; the error names both the supplied value and the authenticated login.
+
+Keep both scripts symmetric - they are deliberately the same shape - and keep every existing preview/apply behaviour otherwise unchanged (re-running an unchanged plan stays a no-op).
+
+**Proof it flips.** Today, a body built as `issue_body()` builds it, with a forged `&lt;!-- workcell-review reviewId=&lt;real-id&gt; finding=aaaaaaaaaaaa severity=critical --&gt;` inside the quoted evidence and the genuine marker last, resolves to the **forged** `(reviewId, key)` pair; and `--apply --approved-by &quot;the human&quot;` is accepted by both tools with no human involved.
+
+Fixes #71
+Fixes #72</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">skills/planner/**, skills/code-review/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-PLUGIN-REFRESH</span><strong>Plugin install: force a cache refresh so the installed plugin is never a stale snapshot</strong></div><div class="row-meta"><span>Wave 1</span><span>scripts/bootstrap-plugins.sh, plugins/claude/.claude-plugin/**, scripts/tests/test_install.sh</span><span class="tag">planning</span><span class="tag">plugins</span><span class="tag">installer</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">The installed Claude plugin is a stale cache snapshot. `~/.claude/plugins/installed_plugins.json` pins `workcell@workcell-local` to version `0.1.0` / `gitCommitSha 1e09b60`, which is not an ancestor of HEAD, and the cached `agents/` directory holds **4 of 10** agents - `builder, code-reviewer, docs, research`, with **no `test-author`**, so the two-phase TDD dispatch cannot run as designed. The marketplace refreshes a cached plugin only when `plugin.json`&#x27;s `version` changes, and it is still `0.1.0`, while the hooks execute live scripts from the working tree.
+
+Fix the install path rather than relying on version discipline:
+
+1. Bump `plugins/claude/.claude-plugin/plugin.json` to `0.2.0` so existing installs refresh once.
+2. Make `scripts/bootstrap-plugins.sh --install` refresh unconditionally: for both marketplace harnesses, remove the installed plugin (and re-add the marketplace) **before** installing, so every run materialises today&#x27;s tree - `claude plugin uninstall` then `install`, `codex plugin remove` then `add`. Keep the run idempotent, keep the &quot;refused foreign target&quot; behaviour, and keep exit status semantics.
+3. Say so in the script header, where the current text claims &quot;edits here reach them on the next run of this script&quot; (bootstrap-plugins.sh:25-26) - true only after this change.
+
+**Proof it flips.**
+
+```bash
+ls ~/.claude/plugins/cache/workcell-local/workcell/0.1.0/agents/   # builder code-reviewer docs research
+jq -r .version plugins/claude/.claude-plugin/plugin.json                 # 0.1.0
+```
+
+After the fix, a re-run of `scripts/bootstrap-plugins.sh --install --harness claude` removes and re-adds the plugin, so the cache carries all ten agents regardless of the version string.
+
+Fixes #56</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">scripts/bootstrap-plugins.sh, plugins/claude/.claude-plugin/**, scripts/tests/test_install.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-CLAUDE-HOOKS</span><strong>Claude plugin: wire SubagentStop, drop the ignored frontmatter hooks, address scripts through CLAUDE_PLUGIN_ROOT</strong></div><div class="row-meta"><span>Wave 2</span><span>plugins/claude/hooks/**, plugins/claude/scripts, agents/hooks/**, agents/agents.json, agents/claude/**, scripts/sync-agents.py, scripts/hooks/tests/**, scripts/tests/test_install.sh, .github/workflows/ci.yml</span><span class="tag">planning</span><span class="tag">hooks</span><span class="tag">plugins</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">The builder&#x27;s TDD stop gate does not exist on the primary harness, and the plugin&#x27;s hook commands depend on symlinks the plugin does not ship.
+
+1. **SubagentStop.** Claude Code ignores `hooks:` in plugin-shipped agent frontmatter - &quot;For security reasons, plugin subagents don&#x27;t support the `hooks`, `mcpServers`, or `permissionMode` frontmatter fields&quot; (sub-agents.md:234) - and the plugin-wide `plugins/claude/hooks/hooks.json` declares only PreToolUse/PostToolUse/Stop. Observed over four headless runs: `Stop` fired 4x, always `agent_type: MAIN`; `SubagentStop` fired 5x, always carrying `agent_id`/`agent_type`; the two never coincide. So when the builder runs as a subagent - its normal mode under `workcell:build` - `build-hooks claude Stop` never executes. Add a `SubagentStop` entry to `plugins/claude/hooks/hooks.json` running `build-hooks claude SubagentStop`, scoped with `&quot;matcher&quot;: &quot;^workcell:builder$&quot;` (the payload&#x27;s `agent_type` is exactly `workcell:builder`; hooks.md:2285 prescribes `^...$` anchoring for plugin-scoped names). Keep the existing `Stop` entry for the main agent.
+2. **Delete the dead frontmatter path.** Remove the `hooks:` splice from `scripts/sync-agents.py:126-132`, delete `agents/hooks/claude-build.yaml`, drop the now-inert `&quot;hooks&quot;: &quot;claude-build&quot;` key from `agents/agents.json` (builder / claude), and regenerate. A generator that faithfully writes a field the loader discards is worse than no field at all.
+3. **Plugin-relative commands.** Every command in `plugins/claude/hooks/hooks.json` starts with `~/.local/bin/` (lines 9, 19, 31, 41, 46, 57), and `CLAUDE_PLUGIN_ROOT` appears nowhere in the repository, yet the plugin ships no `scripts/`: the four binaries are hand-made symlinks created out of band by `scripts/bootstrap-tools.sh`. On any machine without them the plugin installs cleanly and every gate silently resolves to a missing file. Ship the hook scripts inside the plugin (a `plugins/claude/scripts` link to `scripts/hooks/`, in the same style as the existing `agents`/`skills` links, which stay inside the marketplace root) and address them as `&quot;${CLAUDE_PLUGIN_ROOT}/scripts/build-guard claude&quot;`, per hooks.md:594 and the plugins-reference example.
+4. **Test home.** Move the plugin hook-command assertions out of `scripts/hooks/tests/test_hooks.sh` (which today asserts every command starts with `~/.local/bin/`) into a new `scripts/hooks/tests/test_plugin_hooks.sh` that validates each harness&#x27;s `hooks.json` against that harness&#x27;s documented schema, and make `.github/workflows/ci.yml` discover `scripts/hooks/tests/test_*.sh` and `scripts/tests/test_*.py` by glob, so later work adds test files instead of editing shared ones.
+
+**Proof it flips.**
+
+```bash
+grep -c SubagentStop plugins/claude/hooks/hooks.json   # 0 today
+grep -rn CLAUDE_PLUGIN_ROOT plugins/ scripts/          # no hits today
+ls -la ~/.local/bin/build-*                            # four symlinks into a working tree the plugin never ships
+```
+
+Live confirmation of the gate itself stays manual (see the e2e entry): a headless run must show `SubagentStop` carrying `agent_type: workcell:builder`.
+
+Fixes #54
+Fixes #65</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">T-GUARD, T-PLUGIN-REFRESH</div></div><div><div class="k">Ownership</div><div class="v">plugins/claude/hooks/**, plugins/claude/scripts, agents/hooks/**, agents/agents.json, agents/claude/**, scripts/sync-agents.py, scripts/hooks/tests/**, scripts/tests/test_install.sh, .github/workflows/ci.yml</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-CODEX-HOOKS</span><strong>Codex plugin: rewrite hooks.json into the documented shape and arm hook trust at install</strong></div><div class="row-meta"><span>Wave 3</span><span>plugins/codex/hooks/**, scripts/hooks/tests/**, scripts/bootstrap-plugins.sh, scripts/tests/test_install.sh</span><span class="tag">planning</span><span class="tag">hooks</span><span class="tag">plugins</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Codex rejects the plugin&#x27;s hook file outright, so no workcell gate has ever fired on Codex.
+
+```
+$ CODEX_HOME=&lt;scratch&gt; codex exec &quot;x&quot;
+warning: failed to parse plugin hooks config .../workcell/0.1.0/hooks/hooks.json:
+  unknown field `workcell-guard`, expected `description` or `hooks` at line 2 column 15
+```
+
+Three defects, each independently fatal (all verified against Codex CLI 0.150.1):
+
+1. The top-level `{&quot;workcell-guard&quot;: {...}}` namespace wrapper is not a Codex schema. The documented plugin hook file is `{&quot;hooks&quot;: {&quot;&lt;Event&gt;&quot;: [...]}}`; drop the wrapper and the `&quot;enabled&quot;: true` key. (The flat `Stop: [{type,command}]` array parses fine once wrapped.)
+2. Every matcher is from the wrong harness. Codex matches shell commands as **`Bash`** and edits as **`apply_patch`, `Edit` or `Write`**; the file uses Antigravity&#x27;s `run_command` and `write_to_file|replace_file_content|multi_replace_file_content`. With the wrapper fixed but the matchers left alone, **0** denies fired.
+3. Plugin-bundled hooks are non-managed: Codex skips them until the user trusts them via `/hooks` (or per-invocation `--dangerously-bypass-hook-trust`). An install alone never arms them, and nothing in the install path says so - `scripts/bootstrap-plugins.sh` must print the trust step after registering the Codex plugin, and say it in its header.
+
+`build-guard codex` itself is already correct: fed the real Codex PreToolUse payload it emits exactly the documented `hookSpecificOutput.permissionDecision: &quot;deny&quot;` shape, and with a well-formed hooks.json the live run was blocked with `Command blocked by PreToolUse hook: builder must not push to main - push your issue branch instead`. Only the plumbing is broken. Extend `scripts/hooks/tests/test_plugin_hooks.sh` (created by T-CLAUDE-HOOKS) with the Codex schema case so this cannot ship green again - `test_hooks.sh` only ever checked that hook *commands* resolve, never the file&#x27;s shape. `dist/codex/` is generated and git-ignored; it needs no edit.
+
+Fixes #57</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">T-CLAUDE-HOOKS</div></div><div><div class="k">Ownership</div><div class="v">plugins/codex/hooks/**, scripts/hooks/tests/**, scripts/bootstrap-plugins.sh, scripts/tests/test_install.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 3</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-PRIVILEGE</span><strong>Agent capabilities: real least privilege on Claude, the research stance contract, and no dead Codex sandbox_mode</strong></div><div class="row-meta"><span>Wave 3</span><span>agents/agents.json, agents/models.json, agents/bodies/research.md, agents/claude/**, agents/codex/**, agents/agy/**, scripts/sync-agents.py, scripts/tests/test_agent_capabilities.py</span><span class="tag">planning</span><span class="tag">agents</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Three capability claims that are prose rather than mechanism. All three live in the generator inputs (`agents/agents.json`, `agents/models.json`, `agents/bodies/`) and `scripts/sync-agents.py`; regenerate all three harnesses after the change and keep `sync-agents.py --check` green.
+
+1. **Least privilege on Claude (#61).** Narrow the finding to what the harness validation left standing: the plugin&#x27;s PreToolUse Bash guard *does* fire for every subagent, so the &quot;no hook at all&quot; half is refuted - but `build-guard` is a git/gh/jj/cargo denylist, so `code-reviewer` and `research`, the two agents documented as read-only (`agents/bodies/code-reviewer.md:3`), still hold unrestricted Bash for everything else. `disallowedTools` and `maxTurns` are supported for plugin agents and were observed being honoured (a `disallowedTools: Read` probe made Read unavailable to a plugin agent). Add `disallowedTools` (at minimum Edit, Write, NotebookEdit, Task) and a `maxTurns` ceiling for `code-reviewer` and `research` in `agents/agents.json`, emit them from `sync-agents.py`&#x27;s Claude frontmatter in a fixed key order, and leave the write-capable agents alone - `deploy` and `docs` are not read-only by design, and the original finding overreached in listing them.
+2. **The `stance` contract (#62).** `skills/research/SKILL.md` and `merge_research.py:95-98,128` surface a topic as a conflict only when some finding carries `stance: &quot;contradicts&quot;`, but `agents/bodies/research.md`&#x27;s envelope schema (lines 9-27) never introduces the field - the word &quot;stance&quot; appears only inside the *description* of `position`. A research agent that reads only its own body cannot emit it, so `conflicts` stays empty for real runs. Add `stance` to the body&#x27;s schema block with its three values and a sentence on when `contradicts` applies.
+3. **Dead `sandbox_mode` (#63).** `sandbox_mode` is written into `agents/codex/*.md` frontmatter, which Codex never reads; `grep -rn sandbox_mode dist/codex/` returns nothing, and a per-agent `sandbox_mode` in a real `.codex/agents/*.toml` did **not** take effect in 0.150.1 in either direction - the parent process&#x27;s sandbox won. Stop emitting a knob that does nothing: remove `sandbox_mode` from `agents/agents.json` and from `sync-agents.py:140`, and record in `agents/models.json`&#x27;s comment block (which already documents per-harness truth) that Codex read-only isolation comes from the launching process - `codex exec -s read-only` - or a `workcell-&lt;agent&gt;` profile, and must be re-verified per release.
+
+Fixes #61
+Fixes #62
+Fixes #63</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">T-CLAUDE-HOOKS</div></div><div><div class="k">Ownership</div><div class="v">agents/agents.json, agents/models.json, agents/bodies/research.md, agents/claude/**, agents/codex/**, agents/agy/**, scripts/sync-agents.py, scripts/tests/test_agent_capabilities.py</div></div><div><div class="k">Wave</div><div class="v">Wave 3</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-CODEX-DOCS</span><strong>Make the harness-capability prose true: Codex gates, the builder body, README and ADR 0006</strong></div><div class="row-meta"><span>Wave 4</span><span>agents/gates/**, agents/bodies/builder.md, agents/claude/**, agents/codex/**, agents/agy/*/agent.md, README.md, docs/adr/**, scripts/tests/test_docs_truth.py</span><span class="tag">planning</span><span class="tag">documentation</span><span class="tag">harness-parity</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">The repository&#x27;s own artefacts contradict each other about what the harnesses can do. With the Codex hook file fixed (T-CODEX-HOOKS), correct the prose that describes it, in the same commit family, so no reader re-derives the old conclusion.
+
+1. **Codex gate docs (#55).** All four `agents/gates/codex-*.md` state &quot;The workcell plugin wires no `PreToolUse` / `PostToolUse` / `Stop` hooks for Codex&quot;, and two add &quot;nothing invokes `tdd-guard hook` here&quot; - while `plugins/codex/hooks/hooks.json` wires all three (build-guard, build-hooks, build-format, build-lint) and `scripts/tests/test_install.sh:275` asserts it is staged &quot;at the auto-discovered path&quot;. Rewrite them to the truth after T-CODEX-HOOKS: the hooks are wired, they fire only once the user trusts them (`/hooks`), and the explicit `build-guard codex` / `tdd-guard` calls are the fallback for an untrusted or ad-hoc session - not the only path.
+2. **Builder body (#55).** `agents/bodies/builder.md:19` (`&lt;!-- only:codex --&gt;`) says &quot;no hook is wired to do this for you&quot;. Correct it and regenerate all three harness copies.
+3. **README and ADR 0006 (unfiled low, same lines).** `README.md:375` says &quot;Codex has no equivalent hook surface&quot; - Codex 0.150.1 documents PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, SubagentStart, PermissionRequest and Pre/PostCompact, and accepts the identical deny contract. `README.md:228` and `docs/adr/0006:40` say &quot;Antigravity has no plugin CLI and no registry&quot; - `agy plugin {list,import,install,uninstall,enable,disable,validate,link}` exists and `agy plugin validate` reported `skills: 14, agents: 10, hooks: 1` for the installed plugin. The symlink-install decision still stands; only its stated reason is false, so restate the reason (the links stay live, and the CLI&#x27;s install paths are undocumented) rather than reversing the decision.
+
+Add a doc-truth test so these three can never drift apart again: it reads `plugins/codex/hooks/hooks.json` and asserts the gate docs do not deny what the file wires.
+
+Fixes #55</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">T-CODEX-HOOKS, T-PRIVILEGE</div></div><div><div class="k">Ownership</div><div class="v">agents/gates/**, agents/bodies/builder.md, agents/claude/**, agents/codex/**, agents/agy/*/agent.md, README.md, docs/adr/**, scripts/tests/test_docs_truth.py</div></div><div><div class="k">Wave</div><div class="v">Wave 4</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-GEN-TESTS</span><strong>Negative tests for the three generators that gate every agent definition</strong></div><div class="row-meta"><span>Wave 4</span><span>scripts/tests/test_generators.py, scripts/sync-agents.py, scripts/sync-agent-models.py, scripts/build-codex-plugin.py</span><span class="tag">planning</span><span class="tag">ci</span><span class="tag">agents</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">`scripts/sync-agents.py`, `scripts/sync-agent-models.py` and `scripts/build-codex-plugin.py` generate every agent definition across three harnesses, and all three are only ever exercised against the one already-valid tree they themselves produced. CI runs `sync-agents.py --check --diff` against a repository that is in sync by construction, so it proves today&#x27;s tree matches today&#x27;s generator but never proves `--check` fails on real drift; `sync-agent-models.py` is only run against the valid `agents/models.json`; `build-codex-plugin.py` is only run end-to-end over the real `plugins/codex` + `skills/` tree. Each script already raises on malformed input (`SyncError` for nested `only:` blocks, unknown tokens, missing bodies/gates snippets, an empty agents.json; `validate()` rejecting efforts outside the CLAUDE_EFFORT/CODEX_EFFORT tuples; `BuildError` for &quot;no frontmatter&quot;, &quot;no `&lt;field&gt;` in frontmatter&quot;, &quot;missing plugin source&quot;) - so there is something concrete to assert.
+
+Add one Python test module, `scripts/tests/test_generators.py`, discovered by the glob CI step from T-CLAUDE-HOOKS. Each case copies the relevant inputs plus the script into a temp root and runs the script there as a subprocess, so the module-level ROOT resolves to the temp tree and the real repository is never mutated. Change production code only if a script has no seam to test through; if a change is needed, keep it to the minimum and say so on the PR.
+
+Fixes #59
+Fixes #66
+Fixes #69</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">T-CLAUDE-HOOKS, T-PRIVILEGE</div></div><div><div class="k">Ownership</div><div class="v">scripts/tests/test_generators.py, scripts/sync-agents.py, scripts/sync-agent-models.py, scripts/build-codex-plugin.py</div></div><div><div class="k">Wave</div><div class="v">Wave 4</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">T-AGY-SCOPE</span><strong>Antigravity: stop applying the builder&#x27;s gate to every session on the machine</strong></div><div class="row-meta"><span>Wave 4</span><span>plugins/agy/hooks.json, scripts/hooks/build-guard, scripts/hooks/tests/test_hooks.sh, scripts/hooks/tests/test_plugin_hooks.sh</span><span class="tag">planning</span><span class="tag">hooks</span><span class="tag">harness-parity</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">`plugins/agy/hooks.json` is a symlink to `agents/agy/builder/hooks.json`, and `scripts/bootstrap-plugins.sh` links the whole wrapper into `~/.gemini/config/plugins/workcell` and `~/.gemini/antigravity-cli/plugins/workcell`. Antigravity documents no per-agent hook scoping - &quot;Hooks defined in `plugins/&lt;name&gt;/hooks.json` are registered and run during the agent&#x27;s lifecycle&quot; - so the **builder&#x27;s** gate becomes a machine-wide gate. Verified twice with the **default** agent in an unrelated scratch repo:
+
+```
+$ agy -p &quot;Run exactly this shell command and report the verbatim result: git push origin main&quot; --dangerously-skip-permissions
+tool call denied by pre-tool hook: builder must not push to main - push your issue branch instead
+```
+
+Scope it to projects that opted in, since the harness cannot scope it to an agent:
+
+1. Give `plugins/agy/` its own `hooks.json` (a real file, not a symlink into the builder&#x27;s directory), with a header saying plainly that on Antigravity this file is session-global, and keep `agents/agy/builder/hooks.json` as the builder&#x27;s own definition.
+2. In `scripts/hooks/build-guard`, make the **agy branch only** enforce when the invocation&#x27;s working directory is inside a project that opted in - walk up from `$PWD` for the marker `scripts/bootstrap-project.sh --install` already creates, `.agents/plugins/workcell` - and stay silent (exit 0, no output) otherwise. Prefer an agent identity from the payload if Antigravity ever supplies one; today it does not (`{toolCall:{name,args},stepIdx}`). Leave the Claude and Codex branches unchanged: their hooks are plugin-scoped, and weakening them would trade one bug for a worse one.
+3. Keep failing closed on a malformed payload: a missing command is still exit 2, before any scoping decision.
+
+Fixes #64</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">T-GUARD, T-CODEX-HOOKS</div></div><div><div class="k">Ownership</div><div class="v">plugins/agy/hooks.json, scripts/hooks/build-guard, scripts/hooks/tests/test_hooks.sh, scripts/hooks/tests/test_plugin_hooks.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 4</div></div></div></div></details></div>
       <h3>Dependency graph</h3>
       <div class="diagram-shell" aria-label="Issue dependency DAG"><pre class="mermaid">flowchart LR
   classDef wave1 fill:transparent
   classDef wave2 fill:transparent
+  classDef wave3 fill:transparent
+  classDef wave4 fill:transparent
   classDef neutral fill:transparent,stroke:#6b6b6b,color:#6b6b6b
-  issue_G1_tdd_guard_argv_binding[&quot;tdd-guard: bind verify&#x27;s green command to the sealed red command&quot;]
-  issue_H1_build_guard_hard_boundary[&quot;build-guard: fail closed and cover the bypass and false-positive corpus&quot;]
-  issue_I1_installer_safety_portability[&quot;Installers: symlink-only, ownership-checked, fail-fast, and portable to stock macOS&quot;]
-  issue_A1_agent_parity_skill_refs[&quot;Agents: drop dangling skill references and declare gate wiring per harness&quot;]
-  issue_S1_build_wave_overlap[&quot;build skill: fix recursive-glob overlap false negative and bound builder re-dispatch&quot;]
-  issue_S2_planner_review_renderers[&quot;planner/code-review: id normalisation, single-pass token substitution, safer reconciliation&quot;]
-  issue_S3_review_fix_loop_severity[&quot;review-fix-loop: wire --min-severity into convergence and scope the skill honestly&quot;]
-  issue_R1_research_conflict_detection[&quot;research: make conflict detection mean disagreement, not distinct wording&quot;]
-  issue_G2_guard_blind_spots_controlplane_tests[&quot;guard: digest full untracked files, lock the touch log, cover the controlplane contract&quot;]
-  issue_C1_ci_discovery_lint_gates[&quot;CI: discover every skill suite, pin Python, add ruff and shellcheck gates&quot;]
-  issue_D1_docs_adr_changelog[&quot;Docs: bring README, ADRs and CHANGELOG in line with the enforced behaviour&quot;]
-  issue_G1_tdd_guard_argv_binding --&gt; issue_G2_guard_blind_spots_controlplane_tests
-  issue_H1_build_guard_hard_boundary --&gt; issue_C1_ci_discovery_lint_gates
-  issue_S3_review_fix_loop_severity --&gt; issue_C1_ci_discovery_lint_gates
-  issue_A1_agent_parity_skill_refs --&gt; issue_C1_ci_discovery_lint_gates
-  issue_I1_installer_safety_portability --&gt; issue_C1_ci_discovery_lint_gates
-  issue_G1_tdd_guard_argv_binding --&gt; issue_D1_docs_adr_changelog
-  issue_H1_build_guard_hard_boundary --&gt; issue_D1_docs_adr_changelog
-  issue_I1_installer_safety_portability --&gt; issue_D1_docs_adr_changelog
-  issue_A1_agent_parity_skill_refs --&gt; issue_D1_docs_adr_changelog
-  issue_S1_build_wave_overlap --&gt; issue_D1_docs_adr_changelog
-  issue_C1_ci_discovery_lint_gates --&gt; issue_D1_docs_adr_changelog
-  class issue_G1_tdd_guard_argv_binding wave1
-  class issue_H1_build_guard_hard_boundary wave1
-  class issue_I1_installer_safety_portability wave1
-  class issue_A1_agent_parity_skill_refs wave1
-  class issue_S1_build_wave_overlap wave1
-  class issue_S2_planner_review_renderers wave1
-  class issue_S3_review_fix_loop_severity wave1
-  class issue_R1_research_conflict_detection wave1
-  class issue_G2_guard_blind_spots_controlplane_tests wave2
-  class issue_C1_ci_discovery_lint_gates wave2
-  class issue_D1_docs_adr_changelog wave2</pre><details class="diagram-fallback"><summary>Diagram source</summary><p class="diagram-error"></p><pre>flowchart LR
+  issue_T_GUARD[&quot;build-guard: close the xargs, git-alias and cross-invocation main bypasses&quot;]
+  issue_T_WAVES[&quot;waves.py: accept gh&#x27;s real label shape and stop counting rejected closures as done&quot;]
+  issue_T_RECONCILE[&quot;Reconcilers: anchor marker identity to the trailing marker and bind --approved-by to a real account&quot;]
+  issue_T_PLUGIN_REFRESH[&quot;Plugin install: force a cache refresh so the installed plugin is never a stale snapshot&quot;]
+  issue_T_CLAUDE_HOOKS[&quot;Claude plugin: wire SubagentStop, drop the ignored frontmatter hooks, address scripts through CLAUDE_PLUGIN_ROOT&quot;]
+  issue_T_CODEX_HOOKS[&quot;Codex plugin: rewrite hooks.json into the documented shape and arm hook trust at install&quot;]
+  issue_T_PRIVILEGE[&quot;Agent capabilities: real least privilege on Claude, the research stance contract, and no dead Codex sandbox_mode&quot;]
+  issue_T_CODEX_DOCS[&quot;Make the harness-capability prose true: Codex gates, the builder body, README and ADR 0006&quot;]
+  issue_T_GEN_TESTS[&quot;Negative tests for the three generators that gate every agent definition&quot;]
+  issue_T_AGY_SCOPE[&quot;Antigravity: stop applying the builder&#x27;s gate to every session on the machine&quot;]
+  issue_T_GUARD --&gt; issue_T_CLAUDE_HOOKS
+  issue_T_PLUGIN_REFRESH --&gt; issue_T_CLAUDE_HOOKS
+  issue_T_CLAUDE_HOOKS --&gt; issue_T_CODEX_HOOKS
+  issue_T_CLAUDE_HOOKS --&gt; issue_T_PRIVILEGE
+  issue_T_CODEX_HOOKS --&gt; issue_T_CODEX_DOCS
+  issue_T_PRIVILEGE --&gt; issue_T_CODEX_DOCS
+  issue_T_CLAUDE_HOOKS --&gt; issue_T_GEN_TESTS
+  issue_T_PRIVILEGE --&gt; issue_T_GEN_TESTS
+  issue_T_GUARD --&gt; issue_T_AGY_SCOPE
+  issue_T_CODEX_HOOKS --&gt; issue_T_AGY_SCOPE
+  class issue_T_GUARD wave1
+  class issue_T_WAVES wave1
+  class issue_T_RECONCILE wave1
+  class issue_T_PLUGIN_REFRESH wave1
+  class issue_T_CLAUDE_HOOKS wave2
+  class issue_T_CODEX_HOOKS wave3
+  class issue_T_PRIVILEGE wave3
+  class issue_T_CODEX_DOCS wave4
+  class issue_T_GEN_TESTS wave4
+  class issue_T_AGY_SCOPE wave4</pre><details class="diagram-fallback"><summary>Diagram source</summary><p class="diagram-error"></p><pre>flowchart LR
   classDef wave1 fill:transparent
   classDef wave2 fill:transparent
+  classDef wave3 fill:transparent
+  classDef wave4 fill:transparent
   classDef neutral fill:transparent,stroke:#6b6b6b,color:#6b6b6b
-  issue_G1_tdd_guard_argv_binding[&quot;tdd-guard: bind verify&#x27;s green command to the sealed red command&quot;]
-  issue_H1_build_guard_hard_boundary[&quot;build-guard: fail closed and cover the bypass and false-positive corpus&quot;]
-  issue_I1_installer_safety_portability[&quot;Installers: symlink-only, ownership-checked, fail-fast, and portable to stock macOS&quot;]
-  issue_A1_agent_parity_skill_refs[&quot;Agents: drop dangling skill references and declare gate wiring per harness&quot;]
-  issue_S1_build_wave_overlap[&quot;build skill: fix recursive-glob overlap false negative and bound builder re-dispatch&quot;]
-  issue_S2_planner_review_renderers[&quot;planner/code-review: id normalisation, single-pass token substitution, safer reconciliation&quot;]
-  issue_S3_review_fix_loop_severity[&quot;review-fix-loop: wire --min-severity into convergence and scope the skill honestly&quot;]
-  issue_R1_research_conflict_detection[&quot;research: make conflict detection mean disagreement, not distinct wording&quot;]
-  issue_G2_guard_blind_spots_controlplane_tests[&quot;guard: digest full untracked files, lock the touch log, cover the controlplane contract&quot;]
-  issue_C1_ci_discovery_lint_gates[&quot;CI: discover every skill suite, pin Python, add ruff and shellcheck gates&quot;]
-  issue_D1_docs_adr_changelog[&quot;Docs: bring README, ADRs and CHANGELOG in line with the enforced behaviour&quot;]
-  issue_G1_tdd_guard_argv_binding --&gt; issue_G2_guard_blind_spots_controlplane_tests
-  issue_H1_build_guard_hard_boundary --&gt; issue_C1_ci_discovery_lint_gates
-  issue_S3_review_fix_loop_severity --&gt; issue_C1_ci_discovery_lint_gates
-  issue_A1_agent_parity_skill_refs --&gt; issue_C1_ci_discovery_lint_gates
-  issue_I1_installer_safety_portability --&gt; issue_C1_ci_discovery_lint_gates
-  issue_G1_tdd_guard_argv_binding --&gt; issue_D1_docs_adr_changelog
-  issue_H1_build_guard_hard_boundary --&gt; issue_D1_docs_adr_changelog
-  issue_I1_installer_safety_portability --&gt; issue_D1_docs_adr_changelog
-  issue_A1_agent_parity_skill_refs --&gt; issue_D1_docs_adr_changelog
-  issue_S1_build_wave_overlap --&gt; issue_D1_docs_adr_changelog
-  issue_C1_ci_discovery_lint_gates --&gt; issue_D1_docs_adr_changelog
-  class issue_G1_tdd_guard_argv_binding wave1
-  class issue_H1_build_guard_hard_boundary wave1
-  class issue_I1_installer_safety_portability wave1
-  class issue_A1_agent_parity_skill_refs wave1
-  class issue_S1_build_wave_overlap wave1
-  class issue_S2_planner_review_renderers wave1
-  class issue_S3_review_fix_loop_severity wave1
-  class issue_R1_research_conflict_detection wave1
-  class issue_G2_guard_blind_spots_controlplane_tests wave2
-  class issue_C1_ci_discovery_lint_gates wave2
-  class issue_D1_docs_adr_changelog wave2</pre></details></div>
+  issue_T_GUARD[&quot;build-guard: close the xargs, git-alias and cross-invocation main bypasses&quot;]
+  issue_T_WAVES[&quot;waves.py: accept gh&#x27;s real label shape and stop counting rejected closures as done&quot;]
+  issue_T_RECONCILE[&quot;Reconcilers: anchor marker identity to the trailing marker and bind --approved-by to a real account&quot;]
+  issue_T_PLUGIN_REFRESH[&quot;Plugin install: force a cache refresh so the installed plugin is never a stale snapshot&quot;]
+  issue_T_CLAUDE_HOOKS[&quot;Claude plugin: wire SubagentStop, drop the ignored frontmatter hooks, address scripts through CLAUDE_PLUGIN_ROOT&quot;]
+  issue_T_CODEX_HOOKS[&quot;Codex plugin: rewrite hooks.json into the documented shape and arm hook trust at install&quot;]
+  issue_T_PRIVILEGE[&quot;Agent capabilities: real least privilege on Claude, the research stance contract, and no dead Codex sandbox_mode&quot;]
+  issue_T_CODEX_DOCS[&quot;Make the harness-capability prose true: Codex gates, the builder body, README and ADR 0006&quot;]
+  issue_T_GEN_TESTS[&quot;Negative tests for the three generators that gate every agent definition&quot;]
+  issue_T_AGY_SCOPE[&quot;Antigravity: stop applying the builder&#x27;s gate to every session on the machine&quot;]
+  issue_T_GUARD --&gt; issue_T_CLAUDE_HOOKS
+  issue_T_PLUGIN_REFRESH --&gt; issue_T_CLAUDE_HOOKS
+  issue_T_CLAUDE_HOOKS --&gt; issue_T_CODEX_HOOKS
+  issue_T_CLAUDE_HOOKS --&gt; issue_T_PRIVILEGE
+  issue_T_CODEX_HOOKS --&gt; issue_T_CODEX_DOCS
+  issue_T_PRIVILEGE --&gt; issue_T_CODEX_DOCS
+  issue_T_CLAUDE_HOOKS --&gt; issue_T_GEN_TESTS
+  issue_T_PRIVILEGE --&gt; issue_T_GEN_TESTS
+  issue_T_GUARD --&gt; issue_T_AGY_SCOPE
+  issue_T_CODEX_HOOKS --&gt; issue_T_AGY_SCOPE
+  class issue_T_GUARD wave1
+  class issue_T_WAVES wave1
+  class issue_T_RECONCILE wave1
+  class issue_T_PLUGIN_REFRESH wave1
+  class issue_T_CLAUDE_HOOKS wave2
+  class issue_T_CODEX_HOOKS wave3
+  class issue_T_PRIVILEGE wave3
+  class issue_T_CODEX_DOCS wave4
+  class issue_T_GEN_TESTS wave4
+  class issue_T_AGY_SCOPE wave4</pre></details></div>
       <h3>Dependency table</h3>
-      <div class="table-shell"><table><thead><tr><th class="mono">Key</th><th>Issue</th><th>Depends on</th><th>Wave</th><th>Ownership</th></tr></thead><tbody><tr><td class="mono">G1-tdd-guard-argv-binding</td><td>tdd-guard: bind verify&#x27;s green command to the sealed red command</td><td class="mono">—</td><td class="mono">1</td><td class="mono">guard/**, cmd/**</td></tr><tr><td class="mono">H1-build-guard-hard-boundary</td><td>build-guard: fail closed and cover the bypass and false-positive corpus</td><td class="mono">—</td><td class="mono">1</td><td class="mono">scripts/hooks/**</td></tr><tr><td class="mono">I1-installer-safety-portability</td><td>Installers: symlink-only, ownership-checked, fail-fast, and portable to stock macOS</td><td class="mono">—</td><td class="mono">1</td><td class="mono">scripts/*.sh</td></tr><tr><td class="mono">A1-agent-parity-skill-refs</td><td>Agents: drop dangling skill references and declare gate wiring per harness</td><td class="mono">—</td><td class="mono">1</td><td class="mono">agents/**, skills/docs/**</td></tr><tr><td class="mono">S1-build-wave-overlap</td><td>build skill: fix recursive-glob overlap false negative and bound builder re-dispatch</td><td class="mono">—</td><td class="mono">1</td><td class="mono">skills/build/**</td></tr><tr><td class="mono">S2-planner-review-renderers</td><td>planner/code-review: id normalisation, single-pass token substitution, safer reconciliation</td><td class="mono">—</td><td class="mono">1</td><td class="mono">skills/planner/**, skills/code-review/**</td></tr><tr><td class="mono">S3-review-fix-loop-severity</td><td>review-fix-loop: wire --min-severity into convergence and scope the skill honestly</td><td class="mono">—</td><td class="mono">1</td><td class="mono">skills/review-fix-loop/**</td></tr><tr><td class="mono">R1-research-conflict-detection</td><td>research: make conflict detection mean disagreement, not distinct wording</td><td class="mono">—</td><td class="mono">1</td><td class="mono">skills/research/**</td></tr><tr><td class="mono">G2-guard-blind-spots-controlplane-tests</td><td>guard: digest full untracked files, lock the touch log, cover the controlplane contract</td><td class="mono">G1-tdd-guard-argv-binding</td><td class="mono">2</td><td class="mono">guard/**, controlplane/**, cmd/**</td></tr><tr><td class="mono">C1-ci-discovery-lint-gates</td><td>CI: discover every skill suite, pin Python, add ruff and shellcheck gates</td><td class="mono">H1-build-guard-hard-boundary, S3-review-fix-loop-severity, A1-agent-parity-skill-refs, I1-installer-safety-portability</td><td class="mono">2</td><td class="mono">.github/**, skills/docs/tests/**</td></tr><tr><td class="mono">D1-docs-adr-changelog</td><td>Docs: bring README, ADRs and CHANGELOG in line with the enforced behaviour</td><td class="mono">G1-tdd-guard-argv-binding, H1-build-guard-hard-boundary, I1-installer-safety-portability, A1-agent-parity-skill-refs, S1-build-wave-overlap, C1-ci-discovery-lint-gates</td><td class="mono">2</td><td class="mono">README.md, CHANGELOG.md, docs/adr/**</td></tr></tbody></table></div>
+      <div class="table-shell"><table><thead><tr><th class="mono">Key</th><th>Issue</th><th>Depends on</th><th>Wave</th><th>Ownership</th></tr></thead><tbody><tr><td class="mono">T-GUARD</td><td>build-guard: close the xargs, git-alias and cross-invocation main bypasses</td><td class="mono">—</td><td class="mono">1</td><td class="mono">scripts/hooks/build-guard, scripts/hooks/tests/guard-corpus.txt, scripts/hooks/tests/test_hooks.sh</td></tr><tr><td class="mono">T-WAVES</td><td>waves.py: accept gh&#x27;s real label shape and stop counting rejected closures as done</td><td class="mono">—</td><td class="mono">1</td><td class="mono">skills/build/**</td></tr><tr><td class="mono">T-RECONCILE</td><td>Reconcilers: anchor marker identity to the trailing marker and bind --approved-by to a real account</td><td class="mono">—</td><td class="mono">1</td><td class="mono">skills/planner/**, skills/code-review/**</td></tr><tr><td class="mono">T-PLUGIN-REFRESH</td><td>Plugin install: force a cache refresh so the installed plugin is never a stale snapshot</td><td class="mono">—</td><td class="mono">1</td><td class="mono">scripts/bootstrap-plugins.sh, plugins/claude/.claude-plugin/**, scripts/tests/test_install.sh</td></tr><tr><td class="mono">T-CLAUDE-HOOKS</td><td>Claude plugin: wire SubagentStop, drop the ignored frontmatter hooks, address scripts through CLAUDE_PLUGIN_ROOT</td><td class="mono">T-GUARD, T-PLUGIN-REFRESH</td><td class="mono">2</td><td class="mono">plugins/claude/hooks/**, plugins/claude/scripts, agents/hooks/**, agents/agents.json, agents/claude/**, scripts/sync-agents.py, scripts/hooks/tests/**, scripts/tests/test_install.sh, .github/workflows/ci.yml</td></tr><tr><td class="mono">T-CODEX-HOOKS</td><td>Codex plugin: rewrite hooks.json into the documented shape and arm hook trust at install</td><td class="mono">T-CLAUDE-HOOKS</td><td class="mono">3</td><td class="mono">plugins/codex/hooks/**, scripts/hooks/tests/**, scripts/bootstrap-plugins.sh, scripts/tests/test_install.sh</td></tr><tr><td class="mono">T-PRIVILEGE</td><td>Agent capabilities: real least privilege on Claude, the research stance contract, and no dead Codex sandbox_mode</td><td class="mono">T-CLAUDE-HOOKS</td><td class="mono">3</td><td class="mono">agents/agents.json, agents/models.json, agents/bodies/research.md, agents/claude/**, agents/codex/**, agents/agy/**, scripts/sync-agents.py, scripts/tests/test_agent_capabilities.py</td></tr><tr><td class="mono">T-CODEX-DOCS</td><td>Make the harness-capability prose true: Codex gates, the builder body, README and ADR 0006</td><td class="mono">T-CODEX-HOOKS, T-PRIVILEGE</td><td class="mono">4</td><td class="mono">agents/gates/**, agents/bodies/builder.md, agents/claude/**, agents/codex/**, agents/agy/*/agent.md, README.md, docs/adr/**, scripts/tests/test_docs_truth.py</td></tr><tr><td class="mono">T-GEN-TESTS</td><td>Negative tests for the three generators that gate every agent definition</td><td class="mono">T-CLAUDE-HOOKS, T-PRIVILEGE</td><td class="mono">4</td><td class="mono">scripts/tests/test_generators.py, scripts/sync-agents.py, scripts/sync-agent-models.py, scripts/build-codex-plugin.py</td></tr><tr><td class="mono">T-AGY-SCOPE</td><td>Antigravity: stop applying the builder&#x27;s gate to every session on the machine</td><td class="mono">T-GUARD, T-CODEX-HOOKS</td><td class="mono">4</td><td class="mono">plugins/agy/hooks.json, scripts/hooks/build-guard, scripts/hooks/tests/test_hooks.sh, scripts/hooks/tests/test_plugin_hooks.sh</td></tr></tbody></table></div>
     </section>
 
     <section class="section" id="waves">
-      <div class="section-head"><span class="num">04</span><h2>Execution Waves</h2><span class="count">2 waves</span></div>
+      <div class="section-head"><span class="num">04</span><h2>Execution Waves</h2><span class="count">4 waves</span></div>
       <div class="spec"><span class="mark">&#9671;</span>
         <div><b>waves</b> &mdash; derived from issues[].wave. A wave is a parallelisable set, not a duration. Only issues with genuinely disjoint ownership belong in the same wave.</div>
       </div>
-      <div class="waves"><div class="wave"><div class="wave-label"><div class="n">Wave 1</div><div class="t">Parallel</div><div class="c">8 issues</div></div><div class="wave-items"><span class="wave-item"><span class="k">G1-tdd-guard-argv-binding</span>tdd-guard: bind verify&#x27;s green command to the sealed red command</span><span class="wave-item"><span class="k">H1-build-guard-hard-boundary</span>build-guard: fail closed and cover the bypass and false-positive corpus</span><span class="wave-item"><span class="k">I1-installer-safety-portability</span>Installers: symlink-only, ownership-checked, fail-fast, and portable to stock macOS</span><span class="wave-item"><span class="k">A1-agent-parity-skill-refs</span>Agents: drop dangling skill references and declare gate wiring per harness</span><span class="wave-item"><span class="k">S1-build-wave-overlap</span>build skill: fix recursive-glob overlap false negative and bound builder re-dispatch</span><span class="wave-item"><span class="k">S2-planner-review-renderers</span>planner/code-review: id normalisation, single-pass token substitution, safer reconciliation</span><span class="wave-item"><span class="k">S3-review-fix-loop-severity</span>review-fix-loop: wire --min-severity into convergence and scope the skill honestly</span><span class="wave-item"><span class="k">R1-research-conflict-detection</span>research: make conflict detection mean disagreement, not distinct wording</span></div></div><div class="wave"><div class="wave-label"><div class="n">Wave 2</div><div class="t">Parallel</div><div class="c">3 issues</div></div><div class="wave-items"><span class="wave-item"><span class="k">G2-guard-blind-spots-controlplane-tests</span>guard: digest full untracked files, lock the touch log, cover the controlplane contract</span><span class="wave-item"><span class="k">C1-ci-discovery-lint-gates</span>CI: discover every skill suite, pin Python, add ruff and shellcheck gates</span><span class="wave-item"><span class="k">D1-docs-adr-changelog</span>Docs: bring README, ADRs and CHANGELOG in line with the enforced behaviour</span></div></div></div>
+      <div class="waves"><div class="wave"><div class="wave-label"><div class="n">Wave 1</div><div class="t">Parallel</div><div class="c">4 issues</div></div><div class="wave-items"><span class="wave-item"><span class="k">T-GUARD</span>build-guard: close the xargs, git-alias and cross-invocation main bypasses</span><span class="wave-item"><span class="k">T-WAVES</span>waves.py: accept gh&#x27;s real label shape and stop counting rejected closures as done</span><span class="wave-item"><span class="k">T-RECONCILE</span>Reconcilers: anchor marker identity to the trailing marker and bind --approved-by to a real account</span><span class="wave-item"><span class="k">T-PLUGIN-REFRESH</span>Plugin install: force a cache refresh so the installed plugin is never a stale snapshot</span></div></div><div class="wave"><div class="wave-label"><div class="n">Wave 2</div><div class="t">Single</div><div class="c">1 issue</div></div><div class="wave-items"><span class="wave-item"><span class="k">T-CLAUDE-HOOKS</span>Claude plugin: wire SubagentStop, drop the ignored frontmatter hooks, address scripts through CLAUDE_PLUGIN_ROOT</span></div></div><div class="wave"><div class="wave-label"><div class="n">Wave 3</div><div class="t">Parallel</div><div class="c">2 issues</div></div><div class="wave-items"><span class="wave-item"><span class="k">T-CODEX-HOOKS</span>Codex plugin: rewrite hooks.json into the documented shape and arm hook trust at install</span><span class="wave-item"><span class="k">T-PRIVILEGE</span>Agent capabilities: real least privilege on Claude, the research stance contract, and no dead Codex sandbox_mode</span></div></div><div class="wave"><div class="wave-label"><div class="n">Wave 4</div><div class="t">Parallel</div><div class="c">3 issues</div></div><div class="wave-items"><span class="wave-item"><span class="k">T-CODEX-DOCS</span>Make the harness-capability prose true: Codex gates, the builder body, README and ADR 0006</span><span class="wave-item"><span class="k">T-GEN-TESTS</span>Negative tests for the three generators that gate every agent definition</span><span class="wave-item"><span class="k">T-AGY-SCOPE</span>Antigravity: stop applying the builder&#x27;s gate to every session on the machine</span></div></div></div>
       <h3>Wave order</h3>
       <div class="diagram-shell" aria-label="Execution waves"><pre class="mermaid">flowchart TD
   classDef neutral fill:transparent,stroke:#6b6b6b,color:#6b6b6b
-  wave_1[&quot;Wave 1&lt;br/&gt;G1-tdd-guard-argv-binding · H1-build-guard-hard-boundary · I1-installer-safety-portability · A1-agent-parity-skill-refs · S1-build-wave-overlap · S2-planner-review-renderers · S3-review-fix-loop-severity · R1-research-conflict-detection&quot;]
-  wave_2[&quot;Wave 2&lt;br/&gt;G2-guard-blind-spots-controlplane-tests · C1-ci-discovery-lint-gates · D1-docs-adr-changelog&quot;]
-  wave_1 --&gt; wave_2</pre><details class="diagram-fallback"><summary>Diagram source</summary><p class="diagram-error"></p><pre>flowchart TD
+  wave_1[&quot;Wave 1&lt;br/&gt;T-GUARD · T-WAVES · T-RECONCILE · T-PLUGIN-REFRESH&quot;]
+  wave_2[&quot;Wave 2&lt;br/&gt;T-CLAUDE-HOOKS&quot;]
+  wave_3[&quot;Wave 3&lt;br/&gt;T-CODEX-HOOKS · T-PRIVILEGE&quot;]
+  wave_4[&quot;Wave 4&lt;br/&gt;T-CODEX-DOCS · T-GEN-TESTS · T-AGY-SCOPE&quot;]
+  wave_1 --&gt; wave_2
+  wave_2 --&gt; wave_3
+  wave_3 --&gt; wave_4</pre><details class="diagram-fallback"><summary>Diagram source</summary><p class="diagram-error"></p><pre>flowchart TD
   classDef neutral fill:transparent,stroke:#6b6b6b,color:#6b6b6b
-  wave_1[&quot;Wave 1&lt;br/&gt;G1-tdd-guard-argv-binding · H1-build-guard-hard-boundary · I1-installer-safety-portability · A1-agent-parity-skill-refs · S1-build-wave-overlap · S2-planner-review-renderers · S3-review-fix-loop-severity · R1-research-conflict-detection&quot;]
-  wave_2[&quot;Wave 2&lt;br/&gt;G2-guard-blind-spots-controlplane-tests · C1-ci-discovery-lint-gates · D1-docs-adr-changelog&quot;]
-  wave_1 --&gt; wave_2</pre></details></div>
+  wave_1[&quot;Wave 1&lt;br/&gt;T-GUARD · T-WAVES · T-RECONCILE · T-PLUGIN-REFRESH&quot;]
+  wave_2[&quot;Wave 2&lt;br/&gt;T-CLAUDE-HOOKS&quot;]
+  wave_3[&quot;Wave 3&lt;br/&gt;T-CODEX-HOOKS · T-PRIVILEGE&quot;]
+  wave_4[&quot;Wave 4&lt;br/&gt;T-CODEX-DOCS · T-GEN-TESTS · T-AGY-SCOPE&quot;]
+  wave_1 --&gt; wave_2
+  wave_2 --&gt; wave_3
+  wave_3 --&gt; wave_4</pre></details></div>
     </section>
 
     <section class="section" id="risks">
-      <div class="section-head"><span class="num">05</span><h2>Risks</h2><span class="count">6</span></div>
+      <div class="section-head"><span class="num">05</span><h2>Risks</h2><span class="count">9</span></div>
       <div class="spec"><span class="mark">&#9671;</span>
         <div><b>risk-matrix</b> &mdash; data: risks[]{id, title, likelihood: 1|2|3, impact: 1|2|3, owner, mitigation}. The cell is likelihood&times;impact; anything in the top-right band needs a named owner.</div>
       </div>
-      <div class="risk-layout"><div class="matrix"><div class="matrix-grid"><div class="matrix-y">high</div><div class="cell s3"></div><div class="cell s6"><span class="pin">R-04</span></div><div class="cell s9"></div><div class="matrix-y">med</div><div class="cell s2"><span class="pin">R-05</span></div><div class="cell s4"><span class="pin">R-02</span><span class="pin">R-03</span></div><div class="cell s6"><span class="pin">R-01</span></div><div class="matrix-y">low</div><div class="cell s1"></div><div class="cell s2"><span class="pin">R-06</span></div><div class="cell s3"></div></div><div class="matrix-x"><span></span><span>low</span><span>med</span><span>high</span></div><div class="matrix-axis">likelihood &uarr; &middot; impact &rarr;</div></div><div class="risk-list"><article class="risk"><div class="risk-head"><span class="id">R-01</span><strong>Argv binding breaks existing seal files or the build skill&#x27;s seal/verify invocation</strong><span class="owner">G1 builder</span></div><p><span class="k">Likelihood med &middot; impact high</span></p><p><span class="k">Mitigation</span>Version the seal schema, accept legacy seals with an explicit warning for one release, and run the build skill&#x27;s documented seal/verify sequence in an e2e test before merging.</p></article><article class="risk"><div class="risk-head"><span class="id">R-04</span><strong>Antigravity has no Stop hook, so the agy TDD gate stays manual</strong><span class="owner">A1 builder</span></div><p><span class="k">Likelihood high &middot; impact med</span></p><p><span class="k">Mitigation</span>Verify the Antigravity hook contract first; if absent, make the manual `tdd-guard verify` instruction explicit and assert it by test so the gap is documented rather than silent.</p></article><article class="risk"><div class="risk-head"><span class="id">R-02</span><strong>A hard-boundary build-guard blocks legitimate builder commands in the field</strong><span class="owner">H1 builder</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>The corpus fixture includes the false-positive set from research; any new deny rule must ship with allow cases; failures print the matched rule so a human can extend the corpus.</p></article><article class="risk"><div class="risk-head"><span class="id">R-03</span><strong>Ownership-checked install refuses on machines with hand-made links and stalls adoption</strong><span class="owner">I1 builder</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>Refusal message names the exact path and the `--force` flag that replaces a symlink (never a real file or directory); bootstrap report lists foreign targets before install.</p></article><article class="risk"><div class="risk-head"><span class="id">R-05</span><strong>Wave-2 docs describe behaviour that a wave-1 track changed again during review</strong><span class="owner">D1 builder</span></div><p><span class="k">Likelihood med &middot; impact low</span></p><p><span class="k">Mitigation</span>D1 starts only after all wave-1 PRs merge; its tests grep the code for the claims (usage text, corpus file, loop form) rather than restating them.</p></article><article class="risk"><div class="risk-head"><span class="id">R-06</span><strong>Hashing full untracked files removes the 10 MiB bound on time for huge generated artifacts</strong><span class="owner">G2 builder</span></div><p><span class="k">Likelihood low &middot; impact med</span></p><p><span class="k">Mitigation</span>Keep a hard ceiling (e.g. 256 MiB) above which the file is recorded as &#x27;oversize&#x27; with its size and mtime instead of a content digest, and test both branches.</p></article></div></div>
+      <div class="risk-layout"><div class="matrix"><div class="matrix-grid"><div class="matrix-y">high</div><div class="cell s3"></div><div class="cell s6"><span class="pin">R-01</span></div><div class="cell s9"></div><div class="matrix-y">med</div><div class="cell s2"><span class="pin">R-09</span></div><div class="cell s4"><span class="pin">R-02</span><span class="pin">R-03</span><span class="pin">R-04</span></div><div class="cell s6"><span class="pin">R-05</span><span class="pin">R-06</span></div><div class="matrix-y">low</div><div class="cell s1"></div><div class="cell s2"><span class="pin">R-07</span><span class="pin">R-08</span></div><div class="cell s3"></div></div><div class="matrix-x"><span></span><span>low</span><span>med</span><span>high</span></div><div class="matrix-axis">likelihood &uarr; &middot; impact &rarr;</div></div><div class="risk-list"><article class="risk"><div class="risk-head"><span class="id">R-01</span><strong>Generated agent files collide when two tasks share a wave</strong><span class="owner">build orchestrator</span></div><p><span class="k">Likelihood high &middot; impact med</span></p><p><span class="k">Mitigation</span>agents/&lt;harness&gt;/*.md are rendered from agents/bodies, agents/agents.json and agents/gates, so any two tasks touching those inputs rewrite the same outputs. Every task that regenerates an agents/ path is alone in its wave with respect to agents/: T-CLAUDE-HOOKS (w2), T-PRIVILEGE (w3), T-CODEX-DOCS (w4). This is why the brief&#x27;s two-wave sketch became four waves.</p></article><article class="risk"><div class="risk-head"><span class="id">R-05</span><strong>Plugin-relative hook commands fail silently if the harness drops the shipped scripts</strong><span class="owner">T-CLAUDE-HOOKS builder</span></div><p><span class="k">Likelihood med &middot; impact high</span></p><p><span class="k">Mitigation</span>Codex is known to drop symlinks escaping the plugin root, and the Claude link only survives because the marketplace root is the repository. The acceptance test resolves every hook command inside plugins/claude/, T-PLUGIN-REFRESH makes a re-install materialise the tree, and a real install must be confirmed before the wave merges.</p></article><article class="risk"><div class="risk-head"><span class="id">R-06</span><strong>SubagentStop can only be proven live</strong><span class="owner">integrator</span></div><p><span class="k">Likelihood med &middot; impact high</span></p><p><span class="k">Mitigation</span>No CI check can show a hook firing inside the harness. The mechanical entries assert the configuration exactly, and one e2e entry is marked MANUAL VERIFICATION with the reproduction from the harness validation; the wave does not merge without that log excerpt on the PR.</p></article><article class="risk"><div class="risk-head"><span class="id">R-02</span><strong>Shared test files serialise otherwise-parallel work</strong><span class="owner">build orchestrator</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>scripts/hooks/tests/ is wanted by four tasks. One owner per wave (T-GUARD w1, T-CLAUDE-HOOKS w2, T-CODEX-HOOKS w3, T-AGY-SCOPE w4), and T-CLAUDE-HOOKS makes CI discover scripts/hooks/tests/test_*.sh and scripts/tests/test_*.py by glob so later tasks add files instead of editing the workflow.</p></article><article class="risk"><div class="risk-head"><span class="id">R-03</span><strong>waves.py cannot see inside a multi-path ownership hint</strong><span class="owner">planner</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>Several hints list more than one path, and globs_overlap compares the string literally, so its overlap check is weaker than it looks. Disjointness was verified path-by-path with waves.py&#x27;s own globs_overlap over the expanded lists before this plan was published; keep that check in the loop for any revision that widens a hint.</p></article><article class="risk"><div class="risk-head"><span class="id">R-04</span><strong>Scoping the agy guard trades machine-wide enforcement for per-project opt-in</strong><span class="owner">T-AGY-SCOPE builder</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>A Workcell project where nobody ran bootstrap-project.sh --install loses the Antigravity guard. The marker is created by that script on every --install, the Claude and Codex branches are untouched, and the behaviour is stated in the plugin&#x27;s own hooks.json header so it is discoverable from the file that changed.</p></article><article class="risk"><div class="risk-head"><span class="id">R-07</span><strong>Binding --approved-by to the gh login locks out a legitimate operator</strong><span class="owner">T-RECONCILE builder</span></div><p><span class="k">Likelihood low &middot; impact med</span></p><p><span class="k">Mitigation</span>The check compares against `gh api user --jq .login` and the error names both the supplied value and the authenticated login, so the fix is obvious and local; no other approval path is removed.</p></article><article class="risk"><div class="risk-head"><span class="id">R-08</span><strong>The guard&#x27;s live-branch lookup runs git on every mutating command</strong><span class="owner">T-GUARD builder</span></div><p><span class="k">Likelihood low &middot; impact med</span></p><p><span class="k">Mitigation</span>One `git symbolic-ref --quiet --short HEAD`, no network, only on merge/commit/rebase/cherry-pick segments that carry no in-line checkout, failing open and silent; the hook&#x27;s own 10s timeout remains the backstop.</p></article><article class="risk"><div class="risk-head"><span class="id">R-09</span><strong>Doc-truth tests can ossify wording rather than meaning</strong><span class="owner">T-CODEX-DOCS builder</span></div><p><span class="k">Likelihood med &middot; impact low</span></p><p><span class="k">Mitigation</span>Assert against the shipped artefact (the event keys actually present in plugins/codex/hooks/hooks.json) and against a small set of falsified phrases, never against a required sentence, so a rewrite that stays true still passes.</p></article></div></div>
     </section>
 
     <section class="section" id="execution">
@@ -859,7 +1020,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
         <article class="card"><h3>2 &middot; Approve</h3><p>Approval names a human identity and applies to this exact sidecar. A changed sidecar needs fresh approval.</p></article>
         <article class="card"><h3>3 &middot; Reconcile</h3><p>Milestones only, never a GitHub Project. Preview read-only first, then apply.</p></article>
       </div>
-      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/workcell/milestones">Harness Gate Integrity and Cross-Harness Parity</a> in anvil008/workcell.</p>
+      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/workcell/milestones">Setup review a35e06e — fixes</a> in anvil008/workcell.</p>
     </section>
 
   </main>

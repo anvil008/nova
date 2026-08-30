@@ -1,11 +1,11 @@
 {
-  "name": "swarm-coder-local",
+  "name": "workcell-local",
   "interface": {
-    "displayName": "Swarm Coder (Local)"
+    "displayName": "Workcell (Local)"
   },
   "plugins": [
     {
-      "name": "swarm-coder",
+      "name": "workcell",
       "source": {
         "source": "local",
         "path": "./plugins/codex"
