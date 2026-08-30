@@ -74,9 +74,11 @@ request, never an override of a red check nor one armed to fire on checks no hum
 One file changes those verdicts. A task repository bootstrapped for an unattended benchmark run
 carries `.workcell/eval-mode.json`; inside it the guard allows commit, merge, rebase, cherry-pick
 and push on the default branch, because that is where an eval's work has to land, and denies every
-`gh` call instead, the main conversation's merges included. Nothing else moves — the TDD state
-machine above least of all, since an eval measures the harness _with_ its gates. [Eval
-runs](eval-runs.md) has the recipe and ADR 0013 the decision.
+`gh` call instead, the main conversation's merges included. The marker counts only at the root of
+the repository a command targets — no upward walk — and writing it is denied to agents on both the
+shell path and the `Edit`/`Write` one, because entering eval mode is the operator's act. Nothing
+else moves — the TDD state machine above least of all, since an eval measures the harness _with_
+its gates. [Eval runs](eval-runs.md) has the recipe and ADR 0013 the decision.
 
 Claude Code, Antigravity, and Codex wire these to native tool events. Codex plugin hooks remain
 inactive until the user trusts them with `/hooks`, so its agent definitions also document explicit
