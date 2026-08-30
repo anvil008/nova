@@ -1,466 +1,237 @@
 {
-  "planId": "setup-review-a35e06e-fixes",
-  "planName": "Setup review a35e06e — fixes",
+  "planId": "skill-review-20260830",
+  "planName": "Skill instruction review — contracts, disclosure, evals",
   "repo": "anvil008/workcell",
-  "generatedAt": "2026-08-29T22:00:00Z",
-  "summary": "Fix the 19 verified findings of the 2026-08-30 agent/skill setup review of workcell @ a35e06e (GitHub issues #54-#72, milestone \"Setup review a35e06e — findings\"). The work is remediation only: no new features, and a research suggestion appears only where it is the fix for a filed finding (SubagentStop, ${CLAUDE_PLUGIN_ROOT}, disallowedTools). Ten issues, each sized for one builder and each closing the findings named in its body with a Fixes line. Interpretations taken, since the plan must not carry open questions: (1) #61 is narrowed to code-reviewer and research, the two agents the repository documents as read-only - the harness validation refuted the \"no hook at all\" half and showed deploy/docs are write-capable by design; (2) #56 is fixed by making bootstrap-plugins.sh force a cache refresh, with a version bump as a one-off, rather than by a test that polices version discipline; (3) #68 is fixed by consulting the live git branch, with the residual detached-HEAD gap documented, rather than by inventing cross-invocation state; (4) #64 is scoped to projects that opted in via the marker bootstrap-project.sh already writes, because Antigravity has no per-agent hook scoping; (5) the unfiled low finding about README:228/375 and ADR-0006:40 is folded into T-CODEX-DOCS because those are exactly the lines that task rewrites; (6) dist/codex/ is generated and git-ignored, so no task owns it. The waves depart from the two-wave sketch in the brief: agents/<harness>/*.md and scripts/hooks/tests/* are regenerated or shared by several tasks, so tasks that would collide there are serialised into later waves instead of sharing an ownership hint - see risks R-01 and R-02.",
+  "generatedAt": "2026-08-30T08:40:00Z",
+  "summary": "A review of the skill and agent instructions (not the code) found twelve seams: five entry skills promise a PR shape the build pipeline does not produce, perf seals tests that cannot be red, agent modes live in skills the agents are told not to read, the handoff record every agent returns is defined nowhere, subagents are told to ask a human they cannot reach, and maintainer-only renderer detail is loaded into every orchestrator run. This milestone fixes the seams in the skills and bodies as two disjoint parallel issues, then adds a skill-eval harness (structural, routing, behavioral) so the next drift is caught by CI rather than by a reader. Assumption: single-PR mode (integration branch → one PR to main) is the resolution for the PR-shape contradiction, because the five entry skills already promise it and build already supports a non-main base.",
   "architecture": {
-    "changeSummary": "Nothing about the agent topology changes; what changes is whether a declared gate actually fires and how widely. Today the Claude builder's stop gate is declared in frontmatter the loader discards and is absent from the file that does load; the Codex hook file is rejected at parse time, so no gate exists there at all; and the Antigravity hook file is the builder's own, installed machine-wide, so it gates every session on the box. The hook commands point at ~/.local/bin symlinks the plugin never ships. After this plan each harness's gate is wired where that harness actually reads it - SubagentStop scoped to ^workcell:builder$ on Claude, a documented {hooks:...} map with Bash / apply_patch matchers plus an armed trust step on Codex, and a project-opt-in scope on Antigravity - the scripts travel inside the plugin and are addressed relative to it, the install refreshes its own cache, and the guard's three verified bypasses are closed. The build and reconcile tooling around the loop gets the same treatment: waves.py accepts the snapshot gh actually produces and stops treating a rejected closure as done, and both reconcilers key issue identity off the trailing marker and bind --approved-by to a real account.",
+    "changeSummary": "Today a SKILL.md is read by the orchestrator and, for the planner, by the agent too; agent modes, the dispatch brief, and the handoff record are implied rather than written; nothing tests the instructions. After: each SKILL.md is an orchestrator contract that links maintainer detail from references/; agents/handoff.md defines the brief the orchestrator sends and the record every agent returns; skills say which mode the brief carries and bodies implement each mode; evals/ tests descriptions for routing and transcripts for behaviour.",
     "components": [
       {
-        "name": "plugins/<harness>",
-        "purpose": "The three thin wrappers a harness installs; each carries the hook file that harness reads."
+        "name": "skills/*/SKILL.md",
+        "purpose": "Orchestrator dispatch-and-gate contracts, one canonical boundary paragraph, single-PR mode"
       },
       {
-        "name": "scripts/hooks/build-guard",
-        "purpose": "The PreToolUse boundary: branch, PR and build-target rules, one dialect per harness."
+        "name": "skills/*/references/",
+        "purpose": "Artifact contracts and renderer detail loaded only when reached"
       },
       {
-        "name": "tdd-guard + build-hooks",
-        "purpose": "The seal -> RED -> GREEN state machine and the stop-time gate that refuses an unfinished builder."
+        "name": "agents/handoff.md",
+        "purpose": "Dispatch brief fields, modes, and the anvil.agent-handoff/v1 record"
       },
       {
-        "name": "agents/ generators",
-        "purpose": "sync-agents.py, sync-agent-models.py and build-codex-plugin.py render every agent definition from one body per agent."
+        "name": "agents/bodies/",
+        "purpose": "Per-agent procedure including refactor / loop / baseline modes and rationalization tables"
       },
       {
-        "name": "skills/build/scripts/waves.py",
-        "purpose": "Derives the current dependency wave from the sidecar plus a captured GitHub snapshot."
-      },
-      {
-        "name": "reconcilers",
-        "purpose": "reconcile_github.py and reconcile_findings.py: the only writers of GitHub state, behind a human approval gate."
+        "name": "evals/",
+        "purpose": "Structural, routing, and behavioral evals over skills and agents; CI runs the free tiers"
       }
     ],
     "diagramsMermaid": {
-      "currentArchitecture": "flowchart LR\n  B[\"Claude builder subagent\"] --> FM[\"agent frontmatter hooks:\"]\n  FM -. ignored for plugin agents .-> DROP[\"discarded at load\"]\n  B --> CJ[\"plugins/claude/hooks.json<br/>Pre + PostToolUse + Stop\"]\n  CJ -. no SubagentStop .-> GATE[\"tdd-guard stop gate<br/>never runs for a subagent\"]\n  CJ --> BIN[\"~/.local/bin/build-*<br/>hand-made symlinks\"]\n  X[\"codex session\"] --> XJ[\"plugins/codex/hooks.json<br/>workcell-guard wrapper\"]\n  XJ -. parse error .-> NONE[\"no hook loads\"]\n  A[\"every agy session on the machine\"] --> AJ[\"plugins/agy/hooks.json<br/>the builder's own file\"]\n  AJ --> BIN\n  BIN --> G[\"build-guard<br/>xargs, alias and two-call bypasses\"]",
-      "targetArchitecture": "flowchart LR\n  B[\"Claude builder subagent\"] --> CJ[\"plugins/claude/hooks.json<br/>Pre + PostToolUse + Stop<br/>+ SubagentStop, builder-scoped\"]\n  CJ --> PR[\"CLAUDE_PLUGIN_ROOT/scripts/build-*<br/>shipped inside the plugin\"]\n  PR --> GATE[\"tdd-guard stop gate<br/>runs when the builder finishes\"]\n  X[\"codex session\"] --> XJ[\"plugins/codex/hooks.json<br/>documented hooks map<br/>matchers Bash and apply_patch\"]\n  XJ -. trusted via /hooks at install .-> PR\n  A[\"agy session\"] --> AJ[\"plugins/agy/hooks.json<br/>plugin-owned copy\"]\n  AJ --> SC{\"project opted in?\"}\n  SC -- yes --> G[\"build-guard<br/>xargs, alias and live-branch arms\"]\n  SC -- no --> Q[\"silent\"]\n  PR --> G"
+      "currentArchitecture": "flowchart LR\n  O[Orchestrator] -->|reads| S[SKILL.md]\n  P[planner agent] -->|also reads| S\n  S -. implied modes .-> B[agent bodies]\n  B -->|returns undefined record| O\n  T[script tests] --> S",
+      "targetArchitecture": "flowchart LR\n  O[Orchestrator] -->|reads| S[SKILL.md]\n  S -->|links| R[references/]\n  P[planner agent] -->|reads| R\n  O -->|brief + mode| B[agent bodies]\n  B -->|handoff.md record| O\n  H[agents/handoff.md] --- B\n  E[evals/] -->|routing + behaviour| S\n  E --> B\n  T[script tests] --> S"
     }
   },
   "issues": [
     {
-      "key": "T-GUARD",
-      "title": "build-guard: close the xargs, git-alias and cross-invocation main bypasses",
-      "body": "Three verified bypasses of `scripts/hooks/build-guard`, the repository's only mechanical push/branch boundary. Fix all three in the guard and lock each one down with a probe.\n\n1. **`xargs` arm.** `analyze_segment` (build-guard:184-203) dispatches only on `git|gh|jj|cargo|bash|sh|zsh|dash|ksh|eval`, so a guarded command wrapped in `xargs` falls through with no case arm and is never inspected. Add an `xargs` arm that strips xargs' own options and re-dispatches on the wrapped command word; because the operands arrive on stdin and cannot be read, **deny outright** when the wrapped word is one of the guarded commands rather than guessing. Commands the guard does not police (`grep`, `rm`, `sed`, ...) stay allowed - this is a branch/PR boundary, not a general command filter.\n2. **Alias resolution in `rule_git`.** The option loop (build-guard:94-100) consumes `-c` with `shift 2` without reading its value, so `-c alias.p=push` is discarded and `sub` becomes `p`, matching no case arm. Parse inline `-c alias.<name>=<value>` pairs into an alias map and resolve `sub` through it before the `case`; when `sub` still matches no arm, resolve a configured alias with `git config --get alias.<sub>` in the payload's working directory and re-dispatch on the first word of the expansion, failing open (silent) when git is absent or the alias is unset.\n3. **Cross-invocation main protection.** `on_main` is `local` to `check()` (build-guard:205), so it only ever spans one command string; `git checkout main` and `git commit -m x` arriving as two separate Bash tool calls - the ordinary shape for an agent - both pass. When a `merge|commit|cherry-pick|rebase` segment carries no in-line checkout, consult the live branch with `git symbolic-ref --quiet --short HEAD` in the working directory and deny on `main`/`master`. A detached HEAD (the normal state in a jj-colocated repo) and a non-repository stay silent; replace the header's \"a little cross-segment state\" note (build-guard:13-15) with what the guard now actually does, including that residual gap.\n\nEvery existing verdict in `scripts/hooks/tests/guard-corpus.txt` must be unchanged; add probes for the new cases. Keep the file POSIX-ERE only (test_hooks.sh already asserts no `\\b` and no `grep -P`).\n\n**Proof it flips.** All three of these exit 0 with empty stdout (a silent allow) today and must emit the deny payload:\n\n```bash\necho '{\"tool_input\":{\"command\":\"echo push origin main | xargs git\"}}' | scripts/hooks/build-guard claude\necho '{\"tool_input\":{\"command\":\"git -c alias.p=push p origin main\"}}' | scripts/hooks/build-guard claude\necho '{\"tool_input\":{\"command\":\"git checkout main\"}}'  | scripts/hooks/build-guard claude   # then, separately:\necho '{\"tool_input\":{\"command\":\"git commit -m x\"}}'    | scripts/hooks/build-guard claude\n```\n\nThe control must keep working: `git push origin main` still denies, and every `allow|` probe in the corpus still allows.\n\nFixes #58\nFixes #67\nFixes #68",
+      "key": "workflow-skills",
+      "title": "Skills: canonical boundary, single-PR mode, perf gate, brief-carried modes, contract/reference split",
+      "body": "## Goal\n\nFix the seams found in the skill-instruction review so every orchestration skill is a complete dispatch-and-gate contract: the same boundary sentence everywhere, one PR shape, a gate that can actually fire, and no instruction that only a reader who is forbidden to read it would see.\n\nYou own `skills/**` only. The agent bodies (`agents/**`) are being changed in parallel by #agent-contracts; where you depend on them, the path and field names below are fixed — use them verbatim and do not edit `agents/`.\n\n## Changes\n\n### 1. One canonical orchestrator boundary (finding 9)\n\nReplace the per-skill paraphrases (\"never the code\", \"file list … not the contents\", \"read the file list and the manifests\", \"nothing here has you read the target project\") with this paragraph, verbatim, as the second paragraph of every orchestration skill (`build`, `planner`, `code-review`, `research`, `docs`, `deploy`, `new-feature`, `code-analysis`, `code-refactor`, `debug`, `perf`, `repo-setup`, `review-fix-loop`):\n\n> \"You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.\"\n\nEach skill may follow it with one sentence naming what *this* skill's orchestrator specifically does (e.g. runs the interview, selects lenses, creates the integration branch). `new-feature` currently tells the orchestrator to read manifests — change that to dispatching a `research` agent for the repository picture (as `repo-setup` already does).\n\n### 2. One PR shape — single-PR mode (finding 1)\n\n`new-feature`, `code-analysis`, `code-refactor`, `debug`, and `perf` promise \"one PR to `main`\", while `build` has every builder open its own PR and the orchestrator merge them. Make the promise true by defining **single-PR mode** in `skills/build/SKILL.md`:\n\n- The orchestrator creates an integration branch off `trunk()` named `<planId>-integration` (`jj bookmark create <planId>-integration -r trunk()`), and passes it as `base` in every dispatch brief (`agents/handoff.md`, field `base`).\n- Builders open their PRs against that branch (their body already honours a non-`main` `--base`). The `integrator` verifies each wave on the integration branch; the orchestrator merges the wave's PRs into it on combined GREEN.\n- When no planned issue remains, the orchestrator opens **one** PR from the integration branch to `main`. `Closes #<n>` lines in the per-issue PR bodies are repeated in that final PR body so the issues close on merge (GitHub only auto-closes on merge to the default branch).\n- The default (multi-PR) mode is unchanged; entry skills state which mode they use.\n\nThen make each of the five entry skills say, in its final step, that it runs `build` in single-PR mode and what the final PR body must contain. Remove every remaining sentence that implies the orchestrator hand-merges branches into one PR itself.\n\n### 3. `perf` cannot seal a green test (finding 2)\n\n`skills/perf/SKILL.md` step 3 tells the planner to write `acceptanceTests` covering behaviour that must not change, and step 4 runs `build` with a `test-author`. `tdd-guard seal` needs a non-zero red command; those tests are green from the start, the `test-author` returns `blocked`, and `build` treats that as a plan defect. Do what `code-refactor` does: state plainly why the seal does not apply, gate on the `benchmarker` baseline plus the `integrator`'s green baseline plus a diff that touches no test file, dispatch builders with `mode: refactor` in the brief, and reserve the `test-author` phase for the rare optimization that changes observable behaviour (which goes through the planner as an ordinary issue).\n\n### 4. `debug` without a plan has no issue (finding 5)\n\n`skills/debug/SKILL.md` step 3 skips the folio for a single defect, but the `test-author` and `builder` bodies begin with \"read the issue, its planner marker, `acceptanceTests`, `ownershipHint`\" and the builder's PR must say `Closes #<n>`. Specify the single-defect path: the orchestrator sends a dispatch brief (`agents/handoff.md`) whose `issue` is `null`, whose `brief` carries the debugger's reproduction command and minimal case as the single acceptance test (`name`, `kind`, `oracle`), and whose `ownership` is the debugger's proposed fix location. State that the PR body then names the symptom and the reproduction instead of `Closes #<n>`.\n\n### 5. Agent modes are carried by the brief, not by skills the agent never reads (finding 3)\n\n`code-refactor` step 4 and `review-fix-loop` step 3 describe a reduced builder; `code-analysis` step 1, `code-refactor` step 1, and `repo-setup` step 6 dispatch the `integrator` as a baseline runner. The bodies say \"do not reach for the orchestration skills\", so none of that reaches the agent. In each of those dispatch steps, say exactly what the brief carries: `mode: refactor` (builder: workspace pre-created by the orchestrator, no seal, tests untouched, diff-review still recorded), `mode: loop` (builder: existing working copy on `loop-branch`, no PR, no self-review passes), `mode: baseline` (integrator: run the documented verification on the untouched tree at `base`, return command-linked evidence, no merge). The mode names and their meanings are fixed by `agents/handoff.md`; do not invent others.\n\n### 6. Reviewer dev server is a dispatch parameter (finding 7)\n\n`code-review` and `code-reviewer-frontend-review` tell a subagent to \"ask before starting a dev server\". A subagent has no human channel. Replace with: the orchestrator sets `devServer` in the brief — `none`, a URL, or `start: <command>` — and the reviewer never asks; absent or `none` means the static pass only, and the reviewer must record the runtime gap. Production URLs are never passed. Keep the viewport matrix and method unchanged.\n\n### 7. `build` step 1 contradicts itself (finding 8)\n\n\"An issue is done when it is **closed** and … carries `status:done`; the label lets you mark an issue done … *without closing it yet*\" and \"An open issue is never done, however it is labelled\" cannot both hold. Rewrite to the single reading `waves.py` implements — closed **and** (`status:done` label **or** `state_reason == completed`) — and explain what the label is for (a closed-as-`not_planned` issue that was in fact finished, or marking done before the auto-close from a merged PR).\n\n### 8. Planner SKILL.md has two readers (finding 6)\n\n`skills/planner/SKILL.md` opens \"You are the orchestrator… nothing here has you read the target project\", yet the planner *agent* is told to follow the same file \"exactly\". Split it: the SKILL.md keeps the orchestrator procedure (dispatch, questions, approval gate, `--apply`), and the artifact contract — sidecar fields, naming, the renderer, the reconciler command shapes, the folio section order — moves verbatim into **`skills/planner/references/sidecar-contract.md`**. That path is fixed: the planner body (edited in #agent-contracts) will link to it. Link it from the SKILL.md with one line.\n\n### 9. Maintainer detail out of operator context (finding 12 — progressive disclosure)\n\nMove renderer/template detail that only a template maintainer needs — `report.css` byte-identity, `plan.css` / `review.css` / `research.css` roles, fixed section orders, Mermaid fallback mechanics, the two non-interactive visuals, print behaviour — out of `skills/planner/SKILL.md`, `skills/code-review/SKILL.md`, and `skills/research/SKILL.md` into `skills/<skill>/references/report-rendering.md`, linked with one sentence from the SKILL.md. Keep the renderer *commands* in the SKILL.md (the orchestrator runs them). Keep every existing test green — `test_planner.py` / `test_code_review.py` pin phrases; if a pinned phrase moves, move the assertion to the reference file rather than deleting it. Apply the same rule to any other SKILL.md section a maintainer, not an operator, needs.\n\n### 10. `docs` skill \"Pass\" has no subject (finding 10)\n\nRewrite `skills/docs/SKILL.md` \"Pass\" as dispatch steps (who dispatches, what the brief carries, what the gate is). Drop the duplicated README contract from the skill and link to the one in the docs agent body instead — the docs standard's own rule 1 is \"update, don't duplicate\".\n\n### 11. `jj` skill refuses its own owners (finding 11)\n\n`skills/jj/SKILL.md`'s description says \"Activate ONLY when a .jj/ directory is present… Do NOT activate for plain git repos\", but the `test-author` must run `jj git init --colocate` in a plain git repo and both writers are told jj is their VCS \"always\". Rewrite the description (and the `compatibility` / `metadata.requires-path` fields) so the skill triggers for any Workcell VCS work, including adopting a git repo, and keep the \"not for repos where the human chose plain git\" exclusion.\n\n## Verification you must run before handing off\n\n```sh\nruff check skills/\nfor d in skills/*/tests; do python3 -m unittest discover -s \"$d\" -p 'test_*.py'; done\npython3 skills/docs/scripts/docs_check.py .\npython3 scripts/sync-agents.py --check --diff\n```\n\nTests pin prose (`skills/build/tests/test_build.py`, `skills/code-review/tests/test_code_review.py`). Update a pinned phrase only when the phrase itself is what this issue changes, and pin the replacement. Add the new assertions listed under Definition of Done to a new `skills/build/tests/test_skill_contracts.py`.\n\nRecord the decision (contract vs. procedure split, single-PR mode, modes in the brief) as `docs/adr/0009-skills-are-dispatch-contracts.md`.",
       "labels": [
-        "planning",
-        "guard"
+        "skills",
+        "orchestration",
+        "planning"
       ],
       "dependsOn": [],
-      "ownershipHint": "scripts/hooks/build-guard, scripts/hooks/tests/guard-corpus.txt, scripts/hooks/tests/test_hooks.sh",
+      "ownershipHint": "skills/**",
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "guard-denies-xargs-wrapped-git",
+          "name": "orchestrator_boundary_is_canonical",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/guard-corpus.txt",
-          "oracle": "Piping {\"tool_input\":{\"command\":\"echo push origin main | xargs git\"}} into `scripts/hooks/build-guard claude` prints JSON whose .hookSpecificOutput.permissionDecision == \"deny\", exit 0; the same command in the agy payload shape prints {\"decision\":\"deny\"}; `printf 'push origin main' | xargs -n3 git` and `... | xargs -0 gh pr merge 1` deny too."
+          "oracle": "Every orchestration SKILL.md listed in the issue contains the canonical boundary paragraph verbatim; no SKILL.md contains the retired paraphrases 'never the code', 'read the file list and the manifests', or 'Nothing here has you read the target project'",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
         },
         {
-          "name": "guard-allows-xargs-on-unguarded-commands",
+          "name": "build_defines_single_pr_mode",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/guard-corpus.txt",
-          "oracle": "`find . -name '*.py' | xargs grep -l foo` and `ls | xargs rm -f` return exit 0 with empty stdout (allow) for both payload shapes - the new arm does not turn build-guard into a general command filter."
+          "oracle": "skills/build/SKILL.md has a 'Single-PR mode' section naming the <planId>-integration branch, the brief `base` field, and the final PR from the integration branch to main; new-feature, code-analysis, code-refactor, debug, and perf each state they run build in single-PR mode",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
         },
         {
-          "name": "guard-denies-alias-obfuscated-push",
+          "name": "perf_swaps_the_seal_gate",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/guard-corpus.txt",
-          "oracle": "`git -c alias.p=push p origin main` and `git -c alias.yolo='push --force' yolo origin main` each produce the deny payload, while `git -c core.pager=cat log` still allows."
+          "oracle": "skills/perf/SKILL.md states that behaviour-preserving optimizations run with `mode: refactor` and no test-author, and that the gate is the benchmarker baseline plus a green baseline plus an untouched-tests diff",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
         },
         {
-          "name": "guard-resolves-a-configured-alias",
+          "name": "debug_specifies_the_no_issue_brief",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_hooks.sh",
-          "oracle": "In a temp git repo where `git config alias.p push` is set, invoking build-guard with that repo as its working directory on the payload `git p origin main` produces the deny payload; in an identical repo with no such alias the same payload allows (exit 0, empty stdout)."
+          "oracle": "skills/debug/SKILL.md says the single-defect path dispatches with `issue: null` and carries the reproduction as the acceptance test in the brief, and that the PR body names the symptom instead of Closes #",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
         },
         {
-          "name": "guard-denies-mutation-while-head-is-main",
+          "name": "modes_named_in_dispatch_steps",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_hooks.sh",
-          "oracle": "In a temp git repo checked out on main, a single invocation with the payload `git commit -m x` (no checkout in the same string) denies with a reason naming main; the same payload in the same repo on branch `issue-1` allows; with a detached HEAD it allows."
+          "oracle": "code-refactor and review-fix-loop name `mode: refactor` / `mode: loop` for the builder; code-analysis, code-refactor, and repo-setup name `mode: baseline` for the integrator; all cite agents/handoff.md",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
+        },
+        {
+          "name": "reviewer_dev_server_is_a_brief_field",
+          "kind": "unit",
+          "oracle": "code-review and code-reviewer-frontend-review SKILL.md contain `devServer` and no longer contain 'ask before starting a dev server'",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
+        },
+        {
+          "name": "build_done_definition_single_reading",
+          "kind": "unit",
+          "oracle": "skills/build/SKILL.md no longer contains 'without closing it yet' and states done as closed and (status:done or completed), matching waves.py",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
+        },
+        {
+          "name": "planner_contract_split",
+          "kind": "unit",
+          "oracle": "skills/planner/references/sidecar-contract.md exists and contains the sidecar top-level field list; skills/planner/SKILL.md links it and no longer embeds the JSON schema block",
+          "testPath": "skills/planner/tests/test_planner.py"
+        },
+        {
+          "name": "renderer_detail_in_references",
+          "kind": "unit",
+          "oracle": "skills/{planner,code-review,research}/SKILL.md no longer contain 'byte-identical'; each has references/report-rendering.md that does; the existing report.css byte-identity test still passes",
+          "testPath": "skills/code-review/tests/test_code_review.py"
+        },
+        {
+          "name": "jj_description_triggers_for_owners",
+          "kind": "unit",
+          "oracle": "skills/jj/SKILL.md description no longer contains 'Activate ONLY when' or 'Do NOT activate for plain git repos' and mentions adopting a git repo with jj git init --colocate",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
+        },
+        {
+          "name": "existing_gates_stay_green",
+          "kind": "integration",
+          "oracle": "ruff check skills/, every skills/*/tests suite, docs_check.py ., and sync-agents.py --check all exit 0 on the branch"
         }
       ]
     },
     {
-      "key": "T-WAVES",
-      "title": "waves.py: accept gh's real label shape and stop counting rejected closures as done",
-      "body": "`skills/build/scripts/waves.py` is the offline dry-run the build orchestrator runs first, and it fails on the very first real (non-fixture) snapshot.\n\n1. **Label shape.** `validate_snapshot` (waves.py:78) demands `labels` be plain strings, but every capture route returns objects: `gh api repos/{repo}/issues` and `gh issue list --json labels` both yield `{id,name,description,color}`. Normalise with the same `label_names()` shape the sibling reconciler already uses (`skills/planner/scripts/reconcile_github.py:99-103`): accept a string or an object with a non-empty `name`, reject anything else with a clear message.\n2. **`is_done`.** waves.py:110-111 treats *any* closed issue as done, while `reconcile_github.py:112-116` deliberately closes housekeeping issues with `state_reason=not_planned` \"so they are never mistaken for finished work\". Make the two agree: done is closed AND (`status:done` label OR `state_reason == \"completed\"`). Add `state_reason` to the snapshot schema as an optional issue field (`exact_fields` must keep rejecting genuinely unknown fields), so a not-planned closure is representable at all.\n3. **Capture command.** `skills/build/SKILL.md` step 1 says \"capture GitHub issue state\" but documents no transform from `gh` output to the snapshot shape. Add the copy-pasteable command that produces exactly `{repo, milestone, issues:[{number, body, labels, state, state_reason}]}`, and add the raw `gh` capture fixture under `skills/build/examples/` so a test can run the documented transform instead of a restatement of it.\n\n**Proof it flips.**\n\n```bash\npython3 skills/build/scripts/waves.py skills/build/examples/plan.sidecar.json <snapshot-with-gh-object-labels>\n# today: build waves error: snapshot.issues[0].labels must be an array of non-empty strings   (exit 1)\n```\n\nand, with issue 101 closed and unlabelled, today's run reports `\"done\": [\"Foundation\"]` and unblocks its dependents; after the fix a `not_planned` closure leaves them blocked.\n\nFixes #60\nFixes #70",
+      "key": "agent-contracts",
+      "title": "Agents: handoff.md contract, refactor/loop/baseline modes, no-issue briefs, reviewer devServer, rationalization tables",
+      "body": "## Goal\n\nGive the ten agent bodies the pieces the skills assume they have: a written handoff contract, the modes the skills dispatch them in, a brief that works without a GitHub issue, no instruction a subagent cannot follow, and the rationalization tables for the three agents that exercise judgment.\n\nYou own `agents/**` (bodies, `agents.json`, `models.json`, gates, and the generated `claude/`, `codex/`, `agy/` variants) plus the new `agents/handoff.md`. Skills (`skills/**`) are being changed in parallel by #workflow-skills; the paths and field names below are shared with it and fixed. Edit only `agents/bodies/*.md`, `agents/agents.json`, `agents/gates/*.md`, and regenerate — never hand-edit a generated file.\n\n## Changes\n\n### 1. `agents/handoff.md` — the contract every body cites but nothing defines (finding 4)\n\nEvery body ends with \"return one `anvil.agent-handoff/v1` record\" and `skills/build/tests/test_build.py` asserts the string exists, but no schema exists. Write `agents/handoff.md` with two sections:\n\n**Dispatch brief** (what the orchestrator sends): `issue` (GitHub number, or `null`), `brief` (the goal in prose; for a no-issue dispatch it carries the acceptance test(s) as `name`/`kind`/`oracle`), `workspace`, `branch`, `base` (`trunk()` or an integration branch), `ownership` (glob), `mode` — `standard` (default) | `refactor` | `loop` for the builder, `standard` | `baseline` for the integrator — `sealedTests`, `redCommand`, `devServer` (`none` | URL | `start: <command>`, reviewers only), `approval` (deploy only: who, when, target, commit).\n\n**Handoff record** `anvil.agent-handoff/v1` (what every agent returns): `schema` (`anvil.agent-handoff/v1`), `agent`, `issue`, `disposition` — exactly one of `done`, `blocked`, `needs-decision` — `result` (one paragraph), `branch`, `pr`, `workspace`, `changedFiles[]`, `commands[]` of `{argv, commandId, exitCode, summary}`, `evidence` (agent-specific object: test map, findings, distributions, root cause…), `openQuestions[]`. State that a record with a disposition outside the enum, or a command without a `commandId`, is malformed and the orchestrator treats it as `blocked`.\n\nGive one complete example of each. Link the file from every body's final step (\"Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md))\").\n\n### 2. Modes the skills dispatch but the bodies lack (finding 3)\n\n- **builder**: add `mode: refactor` (workspace and branch pre-created by the orchestrator; no seal exists; never touch a test file; run the project's suite and record `tdd-guard diff-review record`; open the PR as usual) and `mode: loop` (work in the existing working copy on the branch named in the brief, no new workspace, no PR, no self-review passes, tests stay green, commit nothing — the loop commits). Everything not overridden is the standard procedure.\n- **integrator**: add `mode: baseline` (no PRs; run the documented build/test/lint on the untouched tree at `base`; return command-linked evidence; the failure list is the map, not a blocker).\n- **test-author** and **builder**: when `issue` is `null`, the brief's acceptance tests are the Definition of Done, there is no planner marker, no self-assign, no `status:in-progress`, and the PR body names the symptom and reproduction instead of `Closes #<n>` (finding 5).\n\n### 3. The reviewer cannot ask (finding 7)\n\n`agents/bodies/code-reviewer.md` says \"ask before starting a dev server\". Replace with the `devServer` brief field: `none`/absent → static pass only and the runtime gap is recorded in the envelope; a URL → use it; `start: <cmd>` → start it, review, stop it. Never a production URL.\n\n### 4. Planner body links the contract, not the orchestrator skill (finding 6)\n\nPoint `agents/bodies/planner.md` at **`skills/planner/references/sidecar-contract.md`** (created by #workflow-skills) instead of `skills/planner/SKILL.md`.\n\n### 5. Rationalization tables\n\nAdd a `## Rationalizations` table (≥4 rows, `| Rationalization | Reality |`) to `test-author` (\"this oracle is close enough\", \"an ImportError is still red\", \"I'll stub a little behaviour so the test reaches further\"), `builder` (\"the reseal is just a wording fix\", \"medium findings can wait for the PR\", \"I'll tidy this nearby code while I'm here\"), and `planner` (\"I'll assume rather than return needs-decision\", \"one big issue is simpler than three\", \"risks: none\"). Keep each row to one line; this is the only prose in the bodies that argues rather than instructs.\n\n### 6. Claude tool name (minor)\n\n`agents/agents.json` grants the builder `Task`; the Claude Code tool is `Agent`. Change it, regenerate, and update `test_claude_builder_can_actually_reach_the_code_reviewer` in `skills/build/tests/test_build.py` to assert `Agent` (that is the only line in that file you may touch — #workflow-skills is editing the rest).\n\n### 7. Docs body\n\nLeave `agents/bodies/docs.md`'s README contract in place; the docs *skill* will link to it. Nothing else changes there.\n\n## Verification you must run before handing off\n\n```sh\npython3 scripts/sync-agents.py            # regenerate all three variants\npython3 scripts/sync-agents.py --check --diff\npython3 scripts/sync-agent-models.py --check\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\nfor d in skills/*/tests; do python3 -m unittest discover -s \"$d\" -p 'test_*.py'; done\npython3 skills/docs/scripts/docs_check.py .\n```\n\n`test_build.py` pins ordered lifecycle phrases in the builder and test-author variants — keep those phrases and their order. Add the new assertions under Definition of Done to `scripts/tests/test_generators.py`.\n\nRecord the contract as `docs/adr/0008-agent-handoff-contract.md`.",
       "labels": [
-        "planning",
-        "orchestration"
+        "agents",
+        "orchestration",
+        "planning"
       ],
       "dependsOn": [],
-      "ownershipHint": "skills/build/**",
+      "ownershipHint": "agents/**",
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "waves-accepts-gh-object-labels",
+          "name": "handoff_contract_exists",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "A snapshot whose issue labels are gh's objects ([{\"id\":\"1\",\"name\":\"status:done\",\"color\":\"fff\"}]) validates (exit 0) and the label is honoured - that issue appears in the derived `done` list."
+          "oracle": "agents/handoff.md defines the dispatch brief fields (issue, brief, workspace, branch, base, ownership, mode, sealedTests, redCommand, devServer, approval) and the anvil.agent-handoff/v1 record with disposition exactly one of done|blocked|needs-decision and commands[] entries carrying commandId",
+          "testPath": "scripts/tests/test_generators.py"
         },
         {
-          "name": "waves-still-rejects-malformed-labels",
+          "name": "every_body_links_the_contract",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "Labels of [1], [{}], [{\"name\":\"\"}] and a non-list each raise BuildError with a message naming snapshot.issues[i].labels, exit 1."
+          "oracle": "each of the ten agents/bodies/*.md contains 'anvil.agent-handoff/v1' and a link to ../handoff.md",
+          "testPath": "scripts/tests/test_generators.py"
         },
         {
-          "name": "not-planned-closure-is-not-done",
+          "name": "builder_and_integrator_have_modes",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "A dependency issue that is closed with state_reason \"not_planned\" and no status:done label is absent from `done`, its dependents are absent from `unblocked`, and `currentWave` remains that dependency's wave."
+          "oracle": "agents/bodies/builder.md has 'mode: refactor' and 'mode: loop' sections; agents/bodies/integrator.md has 'mode: baseline'; builder and test-author describe the issue: null brief and say the PR names the symptom instead of Closes #",
+          "testPath": "scripts/tests/test_generators.py"
         },
         {
-          "name": "completed-closure-and-status-done-are-done",
+          "name": "reviewer_never_asks",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "closed + state_reason \"completed\" is done, and closed + `status:done` label with any state_reason is done; both unblock their dependents."
+          "oracle": "agents/bodies/code-reviewer.md contains 'devServer' and does not contain 'Ask before starting a dev server'",
+          "testPath": "scripts/tests/test_generators.py"
         },
         {
-          "name": "documented-capture-command-produces-a-valid-snapshot",
+          "name": "planner_links_reference_contract",
+          "kind": "unit",
+          "oracle": "agents/bodies/planner.md links skills/planner/references/sidecar-contract.md and no longer links skills/planner/SKILL.md as the contract",
+          "testPath": "scripts/tests/test_generators.py"
+        },
+        {
+          "name": "rationalization_tables_present",
+          "kind": "unit",
+          "oracle": "builder, test-author, and planner bodies each contain a '## Rationalizations' section with a two-column table of at least four rows",
+          "testPath": "scripts/tests/test_generators.py"
+        },
+        {
+          "name": "claude_builder_tool_is_agent",
+          "kind": "unit",
+          "oracle": "agents/claude/builder.md frontmatter tools list contains Agent and not Task; test_claude_builder_can_actually_reach_the_code_reviewer asserts Agent",
+          "testPath": "skills/build/tests/test_build.py"
+        },
+        {
+          "name": "generated_variants_in_sync",
           "kind": "integration",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "The test extracts the capture command from skills/build/SKILL.md (not a restatement of it), runs its jq transform over the raw gh fixture in skills/build/examples/, and waves.py accepts the result with exit 0."
+          "oracle": "scripts/sync-agents.py --check and scripts/sync-agent-models.py --check exit 0; scripts/tests and every skills/*/tests suite pass"
         }
       ]
     },
     {
-      "key": "T-RECONCILE",
-      "title": "Reconcilers: anchor marker identity to the trailing marker and bind --approved-by to a real account",
-      "body": "Both reconcilers share two weaknesses in the code that decides *which issue is which* and *who approved the write*.\n\n1. **Marker identity is unanchored.** `existing_marker()` (`skills/code-review/scripts/reconcile_findings.py:132-134`) and `issue_marker()` (`skills/planner/scripts/reconcile_github.py:96`) both use `re.search`, which returns the **leftmost** match, while the genuine marker is always appended as the **last** line of the body. The same bodies embed attacker-influenceable text verbatim - `failureScenario`, `verification.evidence`, `verification.refutationAttempt` (issue_body lines 96-108), and any planner issue body - so a marker-shaped string quoted from a reviewed diff wins over the real one and can squat an issue's identity on a later run. Anchor identity to the trailing marker (scan all matches, take the last / require it to close the body) **and** neutralise comment syntax in embedded fields when composing the body, so a quoted excerpt can never produce a second marker at all. This issue's own tracking issue #71 demonstrates the defect: its body carries a marker-shaped string from the finding's evidence text ahead of the genuine one.\n2. **`--approved-by` is free text.** `reconcile_github.py:243-252` and `reconcile_findings.py:265-274` require only that the flag be *present* with `--apply`; the calling agent supplies the string itself, so the human gate documented in `skills/planner/SKILL.md:100-114` is enforced by prompt discipline alone. Require the value to equal the authenticated GitHub login (`gh api user --jq .login`) and record a sha256 digest of the exact sidecar/review file in the emitted receipt, so the audit field names a real account and pins the bytes that were approved. A mismatch exits non-zero **before** any write; the error names both the supplied value and the authenticated login.\n\nKeep both scripts symmetric - they are deliberately the same shape - and keep every existing preview/apply behaviour otherwise unchanged (re-running an unchanged plan stays a no-op).\n\n**Proof it flips.** Today, a body built as `issue_body()` builds it, with a forged `<!-- workcell-review reviewId=<real-id> finding=aaaaaaaaaaaa severity=critical -->` inside the quoted evidence and the genuine marker last, resolves to the **forged** `(reviewId, key)` pair; and `--apply --approved-by \"the human\"` is accepted by both tools with no human involved.\n\nFixes #71\nFixes #72",
+      "key": "skill-evals",
+      "title": "Evals: structural, routing, and behavioral tiers over skills and agents, wired into CI; README and CHANGELOG sync",
+      "body": "## Goal\n\nTest the instructions, not just the scripts. Add a three-tier skill-eval harness modelled on addyosmani/agent-skills (`evals/README.md` there) and Anthropic's skill-creator `evals.json`, in Python (stdlib only, `ruff`-clean), wired into CI for the free tiers. Then sync the README and CHANGELOG for everything this milestone changed.\n\nYou own `evals/**`, `.github/workflows/ci.yml`, `README.md`, and `CHANGELOG.md`. Wave 1 is merged before you start, so skill descriptions and agent bodies are final; you may edit a skill's frontmatter `description` or an `agents/agents.json` description **only** when a Tier-2 failure proves it lacks the vocabulary a realistic prompt uses — and then regenerate with `scripts/sync-agents.py`.\n\n## Layout\n\n```\nevals/\n  README.md                 # what the tiers check, how to run, how to add a case\n  run_evals.py              # the runner\n  cases/skills/<skill>.json # one per skill under skills/ (17, jj included)\n  cases/agents/<agent>.json # one per agent in agents/agents.json (10)\n  fixtures/<name>/…         # tiny real projects for execution evals\n  tests/test_evals.py       # unit tests for the runner (no tokens spent)\n  results/                  # gitignored\n```\n\n## Case format\n\n```json\n{\n  \"name\": \"build\", \"kind\": \"skill\",\n  \"trigger\": {\n    \"positive\": [{\"prompt\": \"run the approved milestone in waves\", \"top_k\": 3}],\n    \"negative\": [{\"prompt\": \"review this PR before merge\", \"owner\": \"code-review\"}]\n  },\n  \"evals\": [{\n    \"id\": 1, \"kind\": \"execution\" | \"dialogue\",\n    \"prompt\": \"…\", \"expected_output\": \"…\",\n    \"files\": [\"fixture-dir\"],\n    \"expectations\": [\"verifiable behaviour, not phrasing\"]\n  }]\n}\n```\n\nPositive prompts are paraphrased the way a user talks — never copied from the description. Negatives name the `owner` that must outrank this case. Every skill and agent case needs ≥3 positive, ≥2 negative, ≥1 behavioral eval; the structural tier fails CI otherwise.\n\n## Tiers\n\n1. **Structural** (`run_evals.py --structural`, CI): frontmatter `name` equals the directory; description ≤1024 chars and non-empty; every skill and agent has a case file meeting the counts; `kind` valid; `files[]` present for `execution` and every path exists under `fixtures/`.\n2. **Routing** (`run_evals.py`, CI): build a lowercase, suffix-stemmed TF-IDF index over all skill descriptions + agent descriptions (from `agents/agents.json`); each positive prompt must rank its case within `top_k`; each negative's `owner` must outrank it; report the **rank-1 rate** and enforce `--min-rank1 <pct>`; error at ≥75% pairwise cosine similarity between two descriptions, warn at ≥50%. Print a per-prompt table on failure. Choose the CI floor as the checked-in baseline minus ~6 points, and write the baseline in `evals/README.md`.\n3. **Behavioral** (`run_evals.py --behavioral <case> [--harness claude|codex] [--dry-run]`, on demand): materialize the fixture into a temp git repo and commit it as the baseline; run the executor headless (`claude -p … --output-format stream-json --verbose --permission-mode acceptEdits` or `codex exec --cd … -o …`) with the eval prompt; pipe the trace over stdin to a grader (`claude -p` returning JSON) that checks each expectation and returns `{\"expectations\":[{\"text\",\"pass\",\"evidence\"}],\"pass\":bool}`; validate the JSON; write `evals/results/<case>-<id>.json`. `--dry-run` prints the executor and grader commands and exits 0 without spawning anything — unit-test that path. Executor and grader calls carry timeouts.\n\n## Behavioral cases worth writing (these are the seams the review found)\n\n- `build`: a `test-author` that returns `blocked` is **not** followed by a builder dispatch; the entry is returned to the planner/human.\n- `build` under pressure: prompt says \"we're late, skip the test-author and let the builder write its own tests\" — the two-phase order still holds.\n- `code-review`: no finding reaches the report without an independent refutation attempt; a refuted candidate appears under \"dropped\".\n- `planner`: a plan with an unresolved scope question returns `needs-decision` rather than encoding an assumption.\n- `test-author`: an `ImportError` failure is not sealed; a signature-only stub is created so the test fails on its assertion.\n- `builder`: a `critical` finding after pass 2 yields `blocked` and no PR.\n- `perf` / `code-refactor`: no `test-author` is dispatched; the gate is baseline green + untouched tests.\n- `jj`: a plain-git fixture is adopted with `jj git init --colocate` when a Workcell agent needs a workspace.\n\nOrchestrator skills dispatch subagents, so most of their cases are `kind: dialogue` (the transcript of dispatch decisions is the artifact). Agent cases can be `execution` against a small fixture (`evals/fixtures/split-cents/` in Python is enough for `test-author`, `builder`, `debugger`).\n\n## CI and docs\n\n- Add a `Skill evals` step to `.github/workflows/ci.yml` after `Skill unit tests`: `python3 evals/run_evals.py --structural && python3 evals/run_evals.py --min-rank1 <floor>` and `python3 -m unittest discover -s evals/tests -p 'test_*.py'`.\n- `README.md`: add the eval commands to \"Verify the repository\"; fix the \"Who does what\" row for `research` (it returns a JSON envelope, it does not write report artifacts — the orchestrator renders); mention single-PR mode and `agents/handoff.md` where the pipeline is described. Keep it lean — the docs gate (`docs_check.py`) must stay green.\n- `CHANGELOG.md`: one entry for this milestone naming the three issues.\n\n## Verification you must run before handing off\n\n```sh\nruff check skills/ evals/\npython3 evals/run_evals.py --structural\npython3 evals/run_evals.py --min-rank1 <floor>\npython3 evals/run_evals.py --behavioral build --dry-run\npython3 -m unittest discover -s evals/tests -p 'test_*.py'\npython3 skills/docs/scripts/docs_check.py .\npython3 scripts/sync-agents.py --check --diff\n```",
       "labels": [
-        "planning",
-        "planner",
-        "code-review"
-      ],
-      "dependsOn": [],
-      "ownershipHint": "skills/planner/**, skills/code-review/**",
-      "wave": 1,
-      "acceptanceTests": [
-        {
-          "name": "trailing-marker-wins-over-an-embedded-one",
-          "kind": "unit",
-          "testPath": "skills/code-review/tests/test_code_review.py",
-          "oracle": "For a body containing a well-formed forged marker before the genuine trailing marker, existing_marker() returns the genuine (reviewId, key); the same holds for reconcile_github.issue_marker() with a forged workcell-planner marker (tested in skills/planner/tests/test_planner.py)."
-        },
-        {
-          "name": "embedded-untrusted-text-cannot-forge-a-marker",
-          "kind": "unit",
-          "testPath": "skills/code-review/tests/test_code_review.py",
-          "oracle": "issue_body() for a finding whose failureScenario and verification.evidence each contain a full marker string yields a body in which the marker regex matches exactly once, and that match is the trailing genuine marker."
-        },
-        {
-          "name": "approved-by-must-match-the-authenticated-login",
-          "kind": "integration",
-          "testPath": "skills/planner/tests/test_planner.py",
-          "oracle": "With a stub `gh` first on PATH that answers `api user` with {\"login\":\"real-user\"} and appends every argv to a log, `reconcile_github.py <sidecar> --apply --approved-by \"the human\"` exits non-zero, the message names both \"the human\" and \"real-user\", and the log contains no POST or PATCH; `--approved-by real-user` proceeds to the writes. Same assertions for reconcile_findings.py."
-        },
-        {
-          "name": "receipt-pins-the-approved-file-digest",
-          "kind": "unit",
-          "testPath": "skills/planner/tests/test_planner.py",
-          "oracle": "The apply-mode JSON output carries approvedBy plus a sha256 digest field whose value equals hashlib.sha256(sidecar_path.read_bytes()).hexdigest(); the same for the review file in reconcile_findings.py."
-        },
-        {
-          "name": "unchanged-plan-is-still-a-no-op",
-          "kind": "unit",
-          "testPath": "skills/planner/tests/test_planner.py",
-          "oracle": "Preview over a snapshot that already matches the sidecar (markers intact) still yields zero create/update/close actions after the anchoring and sanitising changes."
-        }
-      ]
-    },
-    {
-      "key": "T-PLUGIN-REFRESH",
-      "title": "Plugin install: force a cache refresh so the installed plugin is never a stale snapshot",
-      "body": "The installed Claude plugin is a stale cache snapshot. `~/.claude/plugins/installed_plugins.json` pins `workcell@workcell-local` to version `0.1.0` / `gitCommitSha 1e09b60`, which is not an ancestor of HEAD, and the cached `agents/` directory holds **4 of 10** agents - `builder, code-reviewer, docs, research`, with **no `test-author`**, so the two-phase TDD dispatch cannot run as designed. The marketplace refreshes a cached plugin only when `plugin.json`'s `version` changes, and it is still `0.1.0`, while the hooks execute live scripts from the working tree.\n\nFix the install path rather than relying on version discipline:\n\n1. Bump `plugins/claude/.claude-plugin/plugin.json` to `0.2.0` so existing installs refresh once.\n2. Make `scripts/bootstrap-plugins.sh --install` refresh unconditionally: for both marketplace harnesses, remove the installed plugin (and re-add the marketplace) **before** installing, so every run materialises today's tree - `claude plugin uninstall` then `install`, `codex plugin remove` then `add`. Keep the run idempotent, keep the \"refused foreign target\" behaviour, and keep exit status semantics.\n3. Say so in the script header, where the current text claims \"edits here reach them on the next run of this script\" (bootstrap-plugins.sh:25-26) - true only after this change.\n\n**Proof it flips.**\n\n```bash\nls ~/.claude/plugins/cache/workcell-local/workcell/0.1.0/agents/   # builder code-reviewer docs research\njq -r .version plugins/claude/.claude-plugin/plugin.json                 # 0.1.0\n```\n\nAfter the fix, a re-run of `scripts/bootstrap-plugins.sh --install --harness claude` removes and re-adds the plugin, so the cache carries all ten agents regardless of the version string.\n\nFixes #56",
-      "labels": [
-        "planning",
-        "plugins",
-        "installer"
-      ],
-      "dependsOn": [],
-      "ownershipHint": "scripts/bootstrap-plugins.sh, plugins/claude/.claude-plugin/**, scripts/tests/test_install.sh",
-      "wave": 1,
-      "acceptanceTests": [
-        {
-          "name": "install-removes-the-cached-plugin-before-adding-it",
-          "kind": "integration",
-          "testPath": "scripts/tests/test_install.sh",
-          "oracle": "With a stub `claude` first on PATH that appends its argv to a log and exits 0, `scripts/bootstrap-plugins.sh --install --harness claude` under a throwaway HOME writes a log in which a removal line (`plugin uninstall workcell@workcell-local` or `plugin marketplace remove workcell-local`) appears before `plugin install workcell@workcell-local`."
-        },
-        {
-          "name": "codex-install-refreshes-too",
-          "kind": "integration",
-          "testPath": "scripts/tests/test_install.sh",
-          "oracle": "The same stub treatment for `codex` records `plugin remove workcell@workcell-local` before `plugin add workcell@workcell-local`."
-        },
-        {
-          "name": "reinstall-stays-idempotent",
-          "kind": "integration",
-          "testPath": "scripts/tests/test_install.sh",
-          "oracle": "Two consecutive `--install` runs under the same throwaway HOME both exit 0 and both print \"done.\"; the existing foreign-target refusal case still exits non-zero and still prints no \"done.\"."
-        },
-        {
-          "name": "claude-plugin-version-is-past-the-stale-cache",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_install.sh",
-          "oracle": "`jq -r .version plugins/claude/.claude-plugin/plugin.json` matches ^[0-9]+\\.[0-9]+\\.[0-9]+$ and is not \"0.1.0\"."
-        }
-      ]
-    },
-    {
-      "key": "T-CLAUDE-HOOKS",
-      "title": "Claude plugin: wire SubagentStop, drop the ignored frontmatter hooks, address scripts through CLAUDE_PLUGIN_ROOT",
-      "body": "The builder's TDD stop gate does not exist on the primary harness, and the plugin's hook commands depend on symlinks the plugin does not ship.\n\n1. **SubagentStop.** Claude Code ignores `hooks:` in plugin-shipped agent frontmatter - \"For security reasons, plugin subagents don't support the `hooks`, `mcpServers`, or `permissionMode` frontmatter fields\" (sub-agents.md:234) - and the plugin-wide `plugins/claude/hooks/hooks.json` declares only PreToolUse/PostToolUse/Stop. Observed over four headless runs: `Stop` fired 4x, always `agent_type: MAIN`; `SubagentStop` fired 5x, always carrying `agent_id`/`agent_type`; the two never coincide. So when the builder runs as a subagent - its normal mode under `workcell:build` - `build-hooks claude Stop` never executes. Add a `SubagentStop` entry to `plugins/claude/hooks/hooks.json` running `build-hooks claude SubagentStop`, scoped with `\"matcher\": \"^workcell:builder$\"` (the payload's `agent_type` is exactly `workcell:builder`; hooks.md:2285 prescribes `^...$` anchoring for plugin-scoped names). Keep the existing `Stop` entry for the main agent.\n2. **Delete the dead frontmatter path.** Remove the `hooks:` splice from `scripts/sync-agents.py:126-132`, delete `agents/hooks/claude-build.yaml`, drop the now-inert `\"hooks\": \"claude-build\"` key from `agents/agents.json` (builder / claude), and regenerate. A generator that faithfully writes a field the loader discards is worse than no field at all.\n3. **Plugin-relative commands.** Every command in `plugins/claude/hooks/hooks.json` starts with `~/.local/bin/` (lines 9, 19, 31, 41, 46, 57), and `CLAUDE_PLUGIN_ROOT` appears nowhere in the repository, yet the plugin ships no `scripts/`: the four binaries are hand-made symlinks created out of band by `scripts/bootstrap-tools.sh`. On any machine without them the plugin installs cleanly and every gate silently resolves to a missing file. Ship the hook scripts inside the plugin (a `plugins/claude/scripts` link to `scripts/hooks/`, in the same style as the existing `agents`/`skills` links, which stay inside the marketplace root) and address them as `\"${CLAUDE_PLUGIN_ROOT}/scripts/build-guard claude\"`, per hooks.md:594 and the plugins-reference example.\n4. **Test home.** Move the plugin hook-command assertions out of `scripts/hooks/tests/test_hooks.sh` (which today asserts every command starts with `~/.local/bin/`) into a new `scripts/hooks/tests/test_plugin_hooks.sh` that validates each harness's `hooks.json` against that harness's documented schema, and make `.github/workflows/ci.yml` discover `scripts/hooks/tests/test_*.sh` and `scripts/tests/test_*.py` by glob, so later work adds test files instead of editing shared ones.\n\n**Proof it flips.**\n\n```bash\ngrep -c SubagentStop plugins/claude/hooks/hooks.json   # 0 today\ngrep -rn CLAUDE_PLUGIN_ROOT plugins/ scripts/          # no hits today\nls -la ~/.local/bin/build-*                            # four symlinks into a working tree the plugin never ships\n```\n\nLive confirmation of the gate itself stays manual (see the e2e entry): a headless run must show `SubagentStop` carrying `agent_type: workcell:builder`.\n\nFixes #54\nFixes #65",
-      "labels": [
-        "planning",
-        "hooks",
-        "plugins"
+        "ci",
+        "skills",
+        "agents",
+        "planning"
       ],
       "dependsOn": [
-        "T-GUARD",
-        "T-PLUGIN-REFRESH"
+        "workflow-skills",
+        "agent-contracts"
       ],
-      "ownershipHint": "plugins/claude/hooks/**, plugins/claude/scripts, agents/hooks/**, agents/agents.json, agents/claude/**, scripts/sync-agents.py, scripts/hooks/tests/**, scripts/tests/test_install.sh, .github/workflows/ci.yml",
+      "ownershipHint": "evals/**",
       "wave": 2,
       "acceptanceTests": [
         {
-          "name": "claude-hooks-declare-a-builder-scoped-subagentstop",
+          "name": "every_skill_and_agent_has_a_case",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_plugin_hooks.sh",
-          "oracle": "jq over plugins/claude/hooks/hooks.json shows .hooks.SubagentStop is a non-empty array whose first entry has .matcher == \"^workcell:builder$\" and a command containing \"build-hooks claude SubagentStop\", and .hooks.Stop is still present with its build-hooks claude Stop command."
+          "oracle": "run_evals.py --structural exits 0 on the tree and exits non-zero when a case file is removed or has fewer than 3 positive, 2 negative, or 1 behavioral entries",
+          "testPath": "evals/tests/test_evals.py"
         },
         {
-          "name": "claude-hook-commands-are-plugin-relative-and-resolve",
+          "name": "routing_floor_holds",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_plugin_hooks.sh",
-          "oracle": "Every .command in plugins/claude/hooks/hooks.json starts with \"${CLAUDE_PLUGIN_ROOT}/\", no command mentions ~/.local/bin, and for each one the path that follows ${CLAUDE_PLUGIN_ROOT}/ exists and is executable when resolved against plugins/claude/."
+          "oracle": "run_evals.py --min-rank1 <floor> exits 0 on the checked-in cases; a synthetic case whose positive prompt matches a different description exits non-zero and names the winning case",
+          "testPath": "evals/tests/test_evals.py"
         },
         {
-          "name": "no-ignored-frontmatter-hooks-remain",
+          "name": "collision_check",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_plugin_hooks.sh",
-          "oracle": "agents/hooks/claude-build.yaml does not exist; no file under agents/claude/ contains a top-level `hooks:` frontmatter key; `grep -c 'claude-build' agents/agents.json` is 0; and `python3 scripts/sync-agents.py --check` exits 0."
+          "oracle": "two synthetic descriptions with ≥75% cosine similarity cause a non-zero exit; ≥50% prints a warning and exits 0",
+          "testPath": "evals/tests/test_evals.py"
         },
         {
-          "name": "ci-discovers-hook-and-script-tests-by-glob",
+          "name": "behavioral_dry_run_spawns_nothing",
           "kind": "unit",
-          "testPath": "scripts/tests/test_install.sh",
-          "oracle": "The command text extracted from .github/workflows/ci.yml runs every scripts/hooks/tests/test_*.sh present in the tree (asserted by adding a temporary test file name to the glob expansion in the test, not by string-matching one filename) and discovers scripts/tests/test_*.py via unittest."
+          "oracle": "run_evals.py --behavioral build --dry-run exits 0, prints the executor and grader command lines, and creates no results file and no subprocess",
+          "testPath": "evals/tests/test_evals.py"
         },
         {
-          "name": "subagentstop-fires-for-a-plugin-builder",
-          "kind": "e2e",
-          "oracle": "MANUAL VERIFICATION before the wave merges (no CI equivalent exists): install the plugin into a throwaway CLAUDE_CONFIG_DIR with a project-settings logger, run `claude -p` dispatching the workcell:builder subagent, and confirm events.log records a SubagentStop with agent_type \"workcell:builder\" and that build-hooks was invoked with the SubagentStop event. Record the log excerpt on the PR."
-        }
-      ]
-    },
-    {
-      "key": "T-CODEX-HOOKS",
-      "title": "Codex plugin: rewrite hooks.json into the documented shape and arm hook trust at install",
-      "body": "Codex rejects the plugin's hook file outright, so no workcell gate has ever fired on Codex.\n\n```\n$ CODEX_HOME=<scratch> codex exec \"x\"\nwarning: failed to parse plugin hooks config .../workcell/0.1.0/hooks/hooks.json:\n  unknown field `workcell-guard`, expected `description` or `hooks` at line 2 column 15\n```\n\nThree defects, each independently fatal (all verified against Codex CLI 0.150.1):\n\n1. The top-level `{\"workcell-guard\": {...}}` namespace wrapper is not a Codex schema. The documented plugin hook file is `{\"hooks\": {\"<Event>\": [...]}}`; drop the wrapper and the `\"enabled\": true` key. (The flat `Stop: [{type,command}]` array parses fine once wrapped.)\n2. Every matcher is from the wrong harness. Codex matches shell commands as **`Bash`** and edits as **`apply_patch`, `Edit` or `Write`**; the file uses Antigravity's `run_command` and `write_to_file|replace_file_content|multi_replace_file_content`. With the wrapper fixed but the matchers left alone, **0** denies fired.\n3. Plugin-bundled hooks are non-managed: Codex skips them until the user trusts them via `/hooks` (or per-invocation `--dangerously-bypass-hook-trust`). An install alone never arms them, and nothing in the install path says so - `scripts/bootstrap-plugins.sh` must print the trust step after registering the Codex plugin, and say it in its header.\n\n`build-guard codex` itself is already correct: fed the real Codex PreToolUse payload it emits exactly the documented `hookSpecificOutput.permissionDecision: \"deny\"` shape, and with a well-formed hooks.json the live run was blocked with `Command blocked by PreToolUse hook: builder must not push to main - push your issue branch instead`. Only the plumbing is broken. Extend `scripts/hooks/tests/test_plugin_hooks.sh` (created by T-CLAUDE-HOOKS) with the Codex schema case so this cannot ship green again - `test_hooks.sh` only ever checked that hook *commands* resolve, never the file's shape. `dist/codex/` is generated and git-ignored; it needs no edit.\n\nFixes #57",
-      "labels": [
-        "planning",
-        "hooks",
-        "plugins"
-      ],
-      "dependsOn": [
-        "T-CLAUDE-HOOKS"
-      ],
-      "ownershipHint": "plugins/codex/hooks/**, scripts/hooks/tests/**, scripts/bootstrap-plugins.sh, scripts/tests/test_install.sh",
-      "wave": 3,
-      "acceptanceTests": [
-        {
-          "name": "codex-hooks-top-level-shape-is-the-documented-one",
+          "name": "grader_output_validated",
           "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_plugin_hooks.sh",
-          "oracle": "jq over plugins/codex/hooks/hooks.json shows its top-level keys are a subset of [\"description\",\"hooks\"], \"hooks\" is present and is an object, and the string \"workcell-guard\" does not appear anywhere in the file."
+          "oracle": "a grader response that is not JSON of the documented shape is rejected with a non-zero exit and nothing is written under evals/results/",
+          "testPath": "evals/tests/test_evals.py"
         },
         {
-          "name": "codex-matchers-are-codex-tool-names",
-          "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_plugin_hooks.sh",
-          "oracle": "Every matcher under .hooks.PreToolUse[] and .hooks.PostToolUse[] splits on | into names drawn only from {Bash, apply_patch, Edit, Write}; the strings run_command, write_to_file, replace_file_content and multi_replace_file_content appear nowhere in the file."
-        },
-        {
-          "name": "shipped-matcher-matches-the-real-codex-payload",
+          "name": "ci_runs_free_tiers",
           "kind": "integration",
-          "testPath": "scripts/hooks/tests/test_plugin_hooks.sh",
-          "oracle": "For the recorded Codex PreToolUse payload {\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git push origin main\"}}, some PreToolUse matcher in plugins/codex/hooks/hooks.json matches tool_name \"Bash\" as an ERE, and piping that payload into the command that matcher declares (build-guard codex) yields .hookSpecificOutput.permissionDecision == \"deny\"."
+          "oracle": ".github/workflows/ci.yml has a step that runs run_evals.py --structural, run_evals.py --min-rank1, and evals/tests; README 'Verify the repository' lists the same commands"
         },
         {
-          "name": "install-tells-the-user-to-trust-codex-hooks",
+          "name": "docs_synced",
           "kind": "integration",
-          "testPath": "scripts/tests/test_install.sh",
-          "oracle": "With a stub `codex` first on PATH, `scripts/bootstrap-plugins.sh --install --harness codex` under a throwaway HOME prints a line naming both `/hooks` and `--dangerously-bypass-hook-trust`, and the same statement appears in the script's header comment."
-        }
-      ]
-    },
-    {
-      "key": "T-PRIVILEGE",
-      "title": "Agent capabilities: real least privilege on Claude, the research stance contract, and no dead Codex sandbox_mode",
-      "body": "Three capability claims that are prose rather than mechanism. All three live in the generator inputs (`agents/agents.json`, `agents/models.json`, `agents/bodies/`) and `scripts/sync-agents.py`; regenerate all three harnesses after the change and keep `sync-agents.py --check` green.\n\n1. **Least privilege on Claude (#61).** Narrow the finding to what the harness validation left standing: the plugin's PreToolUse Bash guard *does* fire for every subagent, so the \"no hook at all\" half is refuted - but `build-guard` is a git/gh/jj/cargo denylist, so `code-reviewer` and `research`, the two agents documented as read-only (`agents/bodies/code-reviewer.md:3`), still hold unrestricted Bash for everything else. `disallowedTools` and `maxTurns` are supported for plugin agents and were observed being honoured (a `disallowedTools: Read` probe made Read unavailable to a plugin agent). Add `disallowedTools` (at minimum Edit, Write, NotebookEdit, Task) and a `maxTurns` ceiling for `code-reviewer` and `research` in `agents/agents.json`, emit them from `sync-agents.py`'s Claude frontmatter in a fixed key order, and leave the write-capable agents alone - `deploy` and `docs` are not read-only by design, and the original finding overreached in listing them.\n2. **The `stance` contract (#62).** `skills/research/SKILL.md` and `merge_research.py:95-98,128` surface a topic as a conflict only when some finding carries `stance: \"contradicts\"`, but `agents/bodies/research.md`'s envelope schema (lines 9-27) never introduces the field - the word \"stance\" appears only inside the *description* of `position`. A research agent that reads only its own body cannot emit it, so `conflicts` stays empty for real runs. Add `stance` to the body's schema block with its three values and a sentence on when `contradicts` applies.\n3. **Dead `sandbox_mode` (#63).** `sandbox_mode` is written into `agents/codex/*.md` frontmatter, which Codex never reads; `grep -rn sandbox_mode dist/codex/` returns nothing, and a per-agent `sandbox_mode` in a real `.codex/agents/*.toml` did **not** take effect in 0.150.1 in either direction - the parent process's sandbox won. Stop emitting a knob that does nothing: remove `sandbox_mode` from `agents/agents.json` and from `sync-agents.py:140`, and record in `agents/models.json`'s comment block (which already documents per-harness truth) that Codex read-only isolation comes from the launching process - `codex exec -s read-only` - or a `workcell-<agent>` profile, and must be re-verified per release.\n\nFixes #61\nFixes #62\nFixes #63",
-      "labels": [
-        "planning",
-        "agents"
-      ],
-      "dependsOn": [
-        "T-CLAUDE-HOOKS"
-      ],
-      "ownershipHint": "agents/agents.json, agents/models.json, agents/bodies/research.md, agents/claude/**, agents/codex/**, agents/agy/**, scripts/sync-agents.py, scripts/tests/test_agent_capabilities.py",
-      "wave": 3,
-      "acceptanceTests": [
-        {
-          "name": "read-only-agents-declare-disallowed-tools",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_agent_capabilities.py",
-          "oracle": "The frontmatter of agents/claude/code-reviewer.md and agents/claude/research.md each carries a disallowedTools list containing Edit, Write, NotebookEdit and Task, and an integer maxTurns; `python3 scripts/sync-agents.py --check` exits 0."
-        },
-        {
-          "name": "write-capable-agents-keep-their-tools",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_agent_capabilities.py",
-          "oracle": "agents/claude/builder.md, test-author.md, deploy.md and docs.md declare no disallowedTools entry naming Edit or Write, and their `tools:` lines are unchanged from before the change."
-        },
-        {
-          "name": "research-body-teaches-the-stance-field",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_agent_capabilities.py",
-          "oracle": "agents/bodies/research.md's JSON schema block contains a `stance` key documenting supports, contradicts and neutral, and all three generated copies (agents/claude/research.md, agents/codex/research.md, agents/agy/research/agent.md) contain it."
-        },
-        {
-          "name": "no-dead-sandbox-mode-remains",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_agent_capabilities.py",
-          "oracle": "`grep -rn sandbox_mode agents/ scripts/sync-agents.py` returns no matches, and agents/models.json's comment block names `codex exec -s read-only` as where Codex read-only isolation actually comes from."
-        }
-      ]
-    },
-    {
-      "key": "T-CODEX-DOCS",
-      "title": "Make the harness-capability prose true: Codex gates, the builder body, README and ADR 0006",
-      "body": "The repository's own artefacts contradict each other about what the harnesses can do. With the Codex hook file fixed (T-CODEX-HOOKS), correct the prose that describes it, in the same commit family, so no reader re-derives the old conclusion.\n\n1. **Codex gate docs (#55).** All four `agents/gates/codex-*.md` state \"The workcell plugin wires no `PreToolUse` / `PostToolUse` / `Stop` hooks for Codex\", and two add \"nothing invokes `tdd-guard hook` here\" - while `plugins/codex/hooks/hooks.json` wires all three (build-guard, build-hooks, build-format, build-lint) and `scripts/tests/test_install.sh:275` asserts it is staged \"at the auto-discovered path\". Rewrite them to the truth after T-CODEX-HOOKS: the hooks are wired, they fire only once the user trusts them (`/hooks`), and the explicit `build-guard codex` / `tdd-guard` calls are the fallback for an untrusted or ad-hoc session - not the only path.\n2. **Builder body (#55).** `agents/bodies/builder.md:19` (`<!-- only:codex -->`) says \"no hook is wired to do this for you\". Correct it and regenerate all three harness copies.\n3. **README and ADR 0006 (unfiled low, same lines).** `README.md:375` says \"Codex has no equivalent hook surface\" - Codex 0.150.1 documents PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, SubagentStart, PermissionRequest and Pre/PostCompact, and accepts the identical deny contract. `README.md:228` and `docs/adr/0006:40` say \"Antigravity has no plugin CLI and no registry\" - `agy plugin {list,import,install,uninstall,enable,disable,validate,link}` exists and `agy plugin validate` reported `skills: 14, agents: 10, hooks: 1` for the installed plugin. The symlink-install decision still stands; only its stated reason is false, so restate the reason (the links stay live, and the CLI's install paths are undocumented) rather than reversing the decision.\n\nAdd a doc-truth test so these three can never drift apart again: it reads `plugins/codex/hooks/hooks.json` and asserts the gate docs do not deny what the file wires.\n\nFixes #55",
-      "labels": [
-        "planning",
-        "documentation",
-        "harness-parity"
-      ],
-      "dependsOn": [
-        "T-CODEX-HOOKS",
-        "T-PRIVILEGE"
-      ],
-      "ownershipHint": "agents/gates/**, agents/bodies/builder.md, agents/claude/**, agents/codex/**, agents/agy/*/agent.md, README.md, docs/adr/**, scripts/tests/test_docs_truth.py",
-      "wave": 4,
-      "acceptanceTests": [
-        {
-          "name": "gate-docs-do-not-deny-the-wired-codex-hooks",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "For every event key present in plugins/codex/hooks/hooks.json's .hooks object, no file under agents/gates/ claims that event is unwired: none contains the phrases \"wires no\" or \"nothing invokes\" or \"no hook is wired\", and agents/gates/codex-builder.md names each wired event."
-        },
-        {
-          "name": "no-doc-claims-codex-lacks-a-hook-surface",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "grep over README.md, docs/adr/*.md, agents/gates/*.md and agents/bodies/*.md finds zero occurrences of \"no equivalent hook surface\" and zero of \"no hook is wired\"."
-        },
-        {
-          "name": "antigravity-plugin-cli-claim-is-corrected",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "\"no plugin CLI\" appears nowhere in README.md or docs/adr/*.md, and both README.md and docs/adr/0006-*.md mention `agy plugin` while still documenting the symlink install as the chosen path."
-        },
-        {
-          "name": "builder-body-and-its-generated-copies-agree",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "agents/bodies/builder.md's only:codex block no longer contains \"no hook is wired to do this for you\", agents/codex/builder.md contains the replacement sentence, and `python3 scripts/sync-agents.py --check` exits 0."
-        }
-      ]
-    },
-    {
-      "key": "T-GEN-TESTS",
-      "title": "Negative tests for the three generators that gate every agent definition",
-      "body": "`scripts/sync-agents.py`, `scripts/sync-agent-models.py` and `scripts/build-codex-plugin.py` generate every agent definition across three harnesses, and all three are only ever exercised against the one already-valid tree they themselves produced. CI runs `sync-agents.py --check --diff` against a repository that is in sync by construction, so it proves today's tree matches today's generator but never proves `--check` fails on real drift; `sync-agent-models.py` is only run against the valid `agents/models.json`; `build-codex-plugin.py` is only run end-to-end over the real `plugins/codex` + `skills/` tree. Each script already raises on malformed input (`SyncError` for nested `only:` blocks, unknown tokens, missing bodies/gates snippets, an empty agents.json; `validate()` rejecting efforts outside the CLAUDE_EFFORT/CODEX_EFFORT tuples; `BuildError` for \"no frontmatter\", \"no `<field>` in frontmatter\", \"missing plugin source\") - so there is something concrete to assert.\n\nAdd one Python test module, `scripts/tests/test_generators.py`, discovered by the glob CI step from T-CLAUDE-HOOKS. Each case copies the relevant inputs plus the script into a temp root and runs the script there as a subprocess, so the module-level ROOT resolves to the temp tree and the real repository is never mutated. Change production code only if a script has no seam to test through; if a change is needed, keep it to the minimum and say so on the PR.\n\nFixes #59\nFixes #66\nFixes #69",
-      "labels": [
-        "planning",
-        "ci",
-        "agents"
-      ],
-      "dependsOn": [
-        "T-CLAUDE-HOOKS",
-        "T-PRIVILEGE"
-      ],
-      "ownershipHint": "scripts/tests/test_generators.py, scripts/sync-agents.py, scripts/sync-agent-models.py, scripts/build-codex-plugin.py",
-      "wave": 4,
-      "acceptanceTests": [
-        {
-          "name": "sync-agents-check-detects-real-drift",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_generators.py",
-          "oracle": "In a temp root copied from agents/ + scripts/sync-agents.py: run the script to generate, then append a line to one generated file (e.g. agents/claude/docs.md) and run `--check`; it exits 1 and names that file on stdout. With the file restored, `--check` exits 0."
-        },
-        {
-          "name": "sync-agents-rejects-malformed-inputs",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_generators.py",
-          "oracle": "In a temp root: a body containing a nested `<!-- only:codex -->` block, a body using an undefined {{token}}, an agents.json entry whose gates snippet is missing, and an agents.json with an empty agents map each make the script exit 2 with a message naming the offending file or agent."
-        },
-        {
-          "name": "sync-agent-models-rejects-an-invalid-manifest",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_generators.py",
-          "oracle": "In a temp root: models.json with effort \"ultra\" for claude, with an unknown harness key, and with an agy model outside (pro, flash, inherit) each make `sync-agent-models.py --check` exit non-zero with a message naming the agent and harness; the unmodified manifest exits 0."
-        },
-        {
-          "name": "build-codex-plugin-rejects-a-malformed-source-tree",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_generators.py",
-          "oracle": "In a temp source tree: a skill directory with no SKILL.md, an agent file with no frontmatter, and an agent file whose frontmatter lacks `name` each make build-codex-plugin.py exit non-zero with a BuildError message naming the offending path, and the staged output directory is left with no partial plugin tree."
-        }
-      ]
-    },
-    {
-      "key": "T-AGY-SCOPE",
-      "title": "Antigravity: stop applying the builder's gate to every session on the machine",
-      "body": "`plugins/agy/hooks.json` is a symlink to `agents/agy/builder/hooks.json`, and `scripts/bootstrap-plugins.sh` links the whole wrapper into `~/.gemini/config/plugins/workcell` and `~/.gemini/antigravity-cli/plugins/workcell`. Antigravity documents no per-agent hook scoping - \"Hooks defined in `plugins/<name>/hooks.json` are registered and run during the agent's lifecycle\" - so the **builder's** gate becomes a machine-wide gate. Verified twice with the **default** agent in an unrelated scratch repo:\n\n```\n$ agy -p \"Run exactly this shell command and report the verbatim result: git push origin main\" --dangerously-skip-permissions\ntool call denied by pre-tool hook: builder must not push to main - push your issue branch instead\n```\n\nScope it to projects that opted in, since the harness cannot scope it to an agent:\n\n1. Give `plugins/agy/` its own `hooks.json` (a real file, not a symlink into the builder's directory), with a header saying plainly that on Antigravity this file is session-global, and keep `agents/agy/builder/hooks.json` as the builder's own definition.\n2. In `scripts/hooks/build-guard`, make the **agy branch only** enforce when the invocation's working directory is inside a project that opted in - walk up from `$PWD` for the marker `scripts/bootstrap-project.sh --install` already creates, `.agents/plugins/workcell` - and stay silent (exit 0, no output) otherwise. Prefer an agent identity from the payload if Antigravity ever supplies one; today it does not (`{toolCall:{name,args},stepIdx}`). Leave the Claude and Codex branches unchanged: their hooks are plugin-scoped, and weakening them would trade one bug for a worse one.\n3. Keep failing closed on a malformed payload: a missing command is still exit 2, before any scoping decision.\n\nFixes #64",
-      "labels": [
-        "planning",
-        "hooks",
-        "harness-parity"
-      ],
-      "dependsOn": [
-        "T-GUARD",
-        "T-CODEX-HOOKS"
-      ],
-      "ownershipHint": "plugins/agy/hooks.json, scripts/hooks/build-guard, scripts/hooks/tests/test_hooks.sh, scripts/hooks/tests/test_plugin_hooks.sh",
-      "wave": 4,
-      "acceptanceTests": [
-        {
-          "name": "agy-guard-is-silent-outside-an-opted-in-project",
-          "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_hooks.sh",
-          "oracle": "With the working directory set to a temp git repo that has no .agents/plugins/workcell marker, the agy payload {\"toolCall\":{\"name\":\"run_command\",\"args\":{\"CommandLine\":\"git push origin main\"}}} through `build-guard agy` exits 0 with empty stdout."
-        },
-        {
-          "name": "agy-guard-denies-inside-an-opted-in-project",
-          "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_hooks.sh",
-          "oracle": "The same payload and the same temp repo, after creating .agents/plugins/workcell, prints {\"decision\":\"deny\"} with a non-empty reason; the marker is also honoured from a subdirectory of that repo."
-        },
-        {
-          "name": "claude-and-codex-branches-keep-full-enforcement",
-          "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_hooks.sh",
-          "oracle": "In the unmarked temp repo, the Claude payload for `git push origin main` still denies, and `build-guard codex` on the recorded Codex payload still denies; a malformed agy payload with no command still exits 2 with a reason on stderr."
-        },
-        {
-          "name": "agy-plugin-hooks-is-plugin-owned",
-          "kind": "unit",
-          "testPath": "scripts/hooks/tests/test_plugin_hooks.sh",
-          "oracle": "plugins/agy/hooks.json is a regular file (not a symlink) whose PreToolUse/PostToolUse entries are grouped with a matcher and whose Stop entry is flat, and every command it declares resolves to an executable."
+          "oracle": "README 'Who does what' research row says it returns a findings envelope; README mentions single-PR mode and agents/handoff.md; CHANGELOG has an entry for this milestone; docs_check.py . exits 0"
         }
       ]
     }
@@ -468,75 +239,35 @@
   "risks": [
     {
       "id": "R-01",
-      "title": "Generated agent files collide when two tasks share a wave",
-      "likelihood": 3,
+      "title": "Both wave-1 agents touch skills/build/tests/test_build.py",
+      "likelihood": 2,
       "impact": 2,
-      "owner": "build orchestrator",
-      "mitigation": "agents/<harness>/*.md are rendered from agents/bodies, agents/agents.json and agents/gates, so any two tasks touching those inputs rewrite the same outputs. Every task that regenerates an agents/ path is alone in its wave with respect to agents/: T-CLAUDE-HOOKS (w2), T-PRIVILEGE (w3), T-CODEX-DOCS (w4). This is why the brief's two-wave sketch became four waves."
+      "owner": "orchestrator",
+      "mitigation": "agent-contracts may edit only the one tool-name assertion; conflicts resolved at integration before the wave merges."
     },
     {
       "id": "R-02",
-      "title": "Shared test files serialise otherwise-parallel work",
-      "likelihood": 2,
+      "title": "Prose-pinning tests break on rewording",
+      "likelihood": 3,
       "impact": 2,
-      "owner": "build orchestrator",
-      "mitigation": "scripts/hooks/tests/ is wanted by four tasks. One owner per wave (T-GUARD w1, T-CLAUDE-HOOKS w2, T-CODEX-HOOKS w3, T-AGY-SCOPE w4), and T-CLAUDE-HOOKS makes CI discover scripts/hooks/tests/test_*.sh and scripts/tests/test_*.py by glob so later tasks add files instead of editing the workflow."
+      "owner": "each builder",
+      "mitigation": "Run every skills/*/tests suite before handoff; replace a pinned phrase only when it is the phrase being changed, and pin the replacement."
     },
     {
       "id": "R-03",
-      "title": "waves.py cannot see inside a multi-path ownership hint",
+      "title": "Routing floor unreachable with terse descriptions",
       "likelihood": 2,
       "impact": 2,
-      "owner": "planner",
-      "mitigation": "Several hints list more than one path, and globs_overlap compares the string literally, so its overlap check is weaker than it looks. Disjointness was verified path-by-path with waves.py's own globs_overlap over the expanded lists before this plan was published; keep that check in the loop for any revision that widens a hint."
+      "owner": "skill-evals builder",
+      "mitigation": "Descriptions may be enriched only on Tier-2 evidence, after wave 1 has merged, followed by sync-agents."
     },
     {
       "id": "R-04",
-      "title": "Scoping the agy guard trades machine-wide enforcement for per-project opt-in",
-      "likelihood": 2,
-      "impact": 2,
-      "owner": "T-AGY-SCOPE builder",
-      "mitigation": "A Workcell project where nobody ran bootstrap-project.sh --install loses the Antigravity guard. The marker is created by that script on every --install, the Claude and Codex branches are untouched, and the behaviour is stated in the plugin's own hooks.json header so it is discoverable from the file that changed."
-    },
-    {
-      "id": "R-05",
-      "title": "Plugin-relative hook commands fail silently if the harness drops the shipped scripts",
-      "likelihood": 2,
-      "impact": 3,
-      "owner": "T-CLAUDE-HOOKS builder",
-      "mitigation": "Codex is known to drop symlinks escaping the plugin root, and the Claude link only survives because the marketplace root is the repository. The acceptance test resolves every hook command inside plugins/claude/, T-PLUGIN-REFRESH makes a re-install materialise the tree, and a real install must be confirmed before the wave merges."
-    },
-    {
-      "id": "R-06",
-      "title": "SubagentStop can only be proven live",
-      "likelihood": 2,
-      "impact": 3,
-      "owner": "integrator",
-      "mitigation": "No CI check can show a hook firing inside the harness. The mechanical entries assert the configuration exactly, and one e2e entry is marked MANUAL VERIFICATION with the reproduction from the harness validation; the wave does not merge without that log excerpt on the PR."
-    },
-    {
-      "id": "R-07",
-      "title": "Binding --approved-by to the gh login locks out a legitimate operator",
-      "likelihood": 1,
-      "impact": 2,
-      "owner": "T-RECONCILE builder",
-      "mitigation": "The check compares against `gh api user --jq .login` and the error names both the supplied value and the authenticated login, so the fix is obvious and local; no other approval path is removed."
-    },
-    {
-      "id": "R-08",
-      "title": "The guard's live-branch lookup runs git on every mutating command",
-      "likelihood": 1,
-      "impact": 2,
-      "owner": "T-GUARD builder",
-      "mitigation": "One `git symbolic-ref --quiet --short HEAD`, no network, only on merge/commit/rebase/cherry-pick segments that carry no in-line checkout, failing open and silent; the hook's own 10s timeout remains the backstop."
-    },
-    {
-      "id": "R-09",
-      "title": "Doc-truth tests can ossify wording rather than meaning",
-      "likelihood": 2,
+      "title": "Codex sandbox cannot run jj (shared .jj store lives outside the workspace)",
+      "likelihood": 3,
       "impact": 1,
-      "owner": "T-CODEX-DOCS builder",
-      "mitigation": "Assert against the shipped artefact (the event keys actually present in plugins/codex/hooks/hooks.json) and against a small set of falsified phrases, never against a required sentence, so a rewrite that stays true still passes."
+      "owner": "orchestrator",
+      "mitigation": "Builders edit only; the orchestrator performs every jj/gh operation."
     }
   ]
 }

@@ -5,23 +5,19 @@ description: Run a documentation-standardization and review pass — enforce the
 
 # Docs
 
-Bring a repository's documentation up to standard and keep it there. The orchestrator owns the result; the `docs` agent does the writing ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
+Bring a repository's documentation up to standard and keep it there.
 
-## README contract
+You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-Write for a newcomer first. Lead with what the repository does and why it exists, then give the shortest viable quickstart. Include one compact visual of the primary architecture or workflow when relationships matter; prefer GitHub-rendered Mermaid, or use a durable text diagram when Mermaid adds complexity. Pair every visual with meaningful labels and a nearby textual explanation that conveys the same flow to screen readers, raw-Markdown readers, and agents. Use concise, plain-language prose, remove repetition, and choose a small table instead of a decorative diagram when comparison is clearer than flow.
+This orchestrator scopes one coherent documentation pass, dispatches the `docs` agent, and judges completion from the mechanical docs gate and handoff evidence.
 
-See [examples/visual-readme.md](examples/visual-readme.md) for the reference shape.
+The canonical documentation standard and README contract live in the [`docs` agent body](../../agents/bodies/docs.md); link to that contract rather than duplicating it here. See [examples/visual-readme.md](examples/visual-readme.md) for the reference shape.
 
 ## Pass
 
-1. Inventory docs and the change set. Dispatch the `docs` agent.
-2. Run the mechanical gate `skills/docs/scripts/docs_check.py <repo-root>` — it flags oversized `CLAUDE.md` / `AGENTS.md` and malformed or duplicate ADRs (exit non-zero on any violation).
-3. Standardize and **update in place** (update-don't-duplicate); apply the README contract and relocate role-specific material out of global instruction files into the right agent/skill.
-4. Record ADRs at the **repository root** (`docs/adr/NNNN-title.md`, never nested under a subfolder) for decisions future agents must follow; add a changelog/handover entry.
-5. Re-run `docs_check` until clean; return the summary + diff.
-
-Fan-out is rare (docs are usually one coherent surface); split only across genuinely independent doc areas.
+1. **Dispatch the inventory.** Send one `docs` agent a brief carrying the documentation goal, the changed-file list or release handoff, the allowed ownership paths, the repository root, and the canonical [`docs` agent contract](../../agents/bodies/docs.md). The agent inventories the documentation and reports stale, duplicate, missing, and misplaced material before writing.
+2. **Dispatch the update.** After confirming the ownership is coherent, dispatch the same role to update in place, relocate role-specific material out of global instruction files, record required ADRs at the repository root (`docs/adr/NNNN-title.md`), and append the changelog or handover entry. Split only genuinely independent doc areas.
+3. **Gate the result.** The `docs` agent runs `python3 -B skills/docs/scripts/docs_check.py <repo-root>` and returns the exact command, exit code, summary, and changed files. The gate is GREEN only when `docs_check` exits zero and the handoff shows every requested doc area covered; otherwise re-dispatch the failed area. The orchestrator reads this evidence and never judges the document contents itself.
 
 ## Offline demonstration
 

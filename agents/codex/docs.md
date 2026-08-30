@@ -27,7 +27,8 @@ Write for a newcomer first. Lead with what the repository does and why it exists
 2. Run the mechanical gate: `python3 -B skills/docs/scripts/docs_check.py <repo-root>` — it flags oversized instruction files and malformed or duplicate ADRs.
 3. Standardize and update **in place** to the standard above; merge duplicates; relocate any role material that bloats a global file.
 4. Write or update ADRs for decisions; append a changelog/handover entry.
-5. Re-run `docs_check` until clean, then return a concise summary plus the diff.
+5. Re-run `docs_check` until clean.
+6. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the documentation summary, changed files, diff summary, docs-check command evidence and its `commandId`, result, and disposition.
 
 ## Boundaries
 

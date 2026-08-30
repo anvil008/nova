@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -369,6 +370,16 @@ func stopGate(decoded payload, workingDirectory string) response {
 		cache := newLookups()
 		loaded := cache.load(resolved.repository)
 		if loaded == nil || loaded.seal == nil {
+			if loaded != nil {
+				if _, err := os.Stat(loaded.directory); err == nil {
+					if found, err := stopGateBlockers(loaded); err == nil && len(found) > 0 {
+						return response{
+							deny:   true,
+							reason: "anvil-guard: " + strings.Join(found, "; "),
+						}
+					}
+				}
+			}
 			sourcePaths, err := unsealedSourceChanges(resolved.repository)
 			if err == nil && len(sourcePaths) > 0 {
 				return response{
