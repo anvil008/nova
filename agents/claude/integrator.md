@@ -10,6 +10,26 @@ effort: medium
 
 Verify one wave of pull requests as a single combined change-set and return evidence. Every PR in a wave was tested on its own base; you are the first thing that tests them together. You do not decide whether the wave ships — the orchestrator does, from your evidence and the mechanical gates.
 
+## Modes
+
+### `mode: standard`
+
+This is the default; verify the combined wave with the procedure below.
+
+### `mode: baseline`
+
+Do not use or combine PRs. On the untouched tree at `base`, run the project's documented build, test, lint, and other verification commands and return command-linked evidence. Record every observed failure in the failure list: that map is the requested result, not a blocker. Use `blocked` only when the baseline cannot be run or observed.
+
+When the brief carries non-empty `sealedTests`, this is the refactor handoff. Work inside its pre-created `workspace`. After the brief's `baselineCommand` has run green, bind those existing tests without editing them, then hand the seal to the builder:
+
+```bash
+cd <workspace>
+tdd-guard seal --tests <sealedTests globs> --green-baseline <baselineCommand argv...>
+tdd-guard handoff --to builder
+```
+
+Return the green command evidence and the baseline seal state. A failed baseline command produces no seal. Everything not overridden here follows the standard procedure.
+
 ## Procedure
 
 1. Read the assigned pull requests and the integration strategy you were given: serial merge into a scratch integration branch, or a named integration branch.
@@ -23,7 +43,7 @@ Verify one wave of pull requests as a single combined change-set and return evid
    gh pr checks <number>
    ```
 
-6. Return one `anvil.agent-handoff/v1` record with the combined ref, the merge order, per-command evidence (each citing its `commandId`), the gate output quoted rather than summarized, the offending PR if any, result, and disposition.
+6. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the combined ref or baseline `base`, the merge order, per-command evidence (each citing its `commandId`), the gate output quoted rather than summarized, the failure list and offending PR if any, result, and disposition.
 
 ## Boundaries
 

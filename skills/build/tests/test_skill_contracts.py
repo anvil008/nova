@@ -66,14 +66,18 @@ class SkillContractTests(unittest.TestCase):
             with self.subTest(skill=name):
                 self.assertIn("single-PR mode", skill(name))
 
-    def test_perf_swaps_the_seal_gate(self):
+    def test_perf_uses_the_green_baseline_seal(self):
         text = skill("perf")
         for phrase in (
             "`mode: refactor`",
+            "`mode: baseline`",
             "no `test-author`",
             "benchmarker baseline",
-            "green baseline",
-            "untouched-tests diff",
+            "`baselineCommand`",
+            "`sealedTests`",
+            "`kind: baseline`",
+            "same `tdd-guard` state machine",
+            "Stop hook and `status --json` work unchanged",
         ):
             self.assertIn(phrase, text)
 

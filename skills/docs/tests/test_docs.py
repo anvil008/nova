@@ -260,8 +260,8 @@ class DocsCheckTests(unittest.TestCase):
             "code-refactor": (
                 "Behaviour does not change",
                 "no test file is modified",
-                # A refactor cannot seal: tdd-guard seal demands a non-zero red command.
-                "does not use the TDD gate",
+                "same `tdd-guard` state machine",
+                "`kind: baseline` seal",
                 "code-analysis",
             ),
             "code-analysis": (

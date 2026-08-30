@@ -1,7 +1,8 @@
 // Package guard implements anvil-guard, the harness-neutral test-seal and
-// diff-review gate. It records a RED baseline before implementation, refuses
-// edits to sealed tests, and refuses to let an agent stop until a passing run
-// and a real diff review exist for the change actually on disk.
+// diff-review gate. It records either a RED baseline for behaviour changes or
+// a GREEN baseline for refactors, refuses edits to sealed tests, and refuses to
+// let an agent stop until a passing run and a real diff review exist for the
+// change actually on disk.
 package guard
 
 import (
@@ -65,18 +66,28 @@ type Amendment struct {
 	After  []TestDigest `json:"after"`
 }
 
-// BoundArgv is the command the seal binds verification to. The red run proves
-// these tests fail; only the same argv can later prove they pass, otherwise
-// `seal --red-command false` followed by `verify --green-command true` is a
-// complete TDD cycle on paper.
+// BoundArgv is the command the seal binds verification to. Only the same argv
+// can later prove GREEN; otherwise `seal --red-command false` followed by
+// `verify --green-command true` is a complete TDD cycle on paper.
 type BoundArgv struct {
 	Argv   []string `json:"argv"`
 	Digest string   `json:"digest"`
 }
 
-// Seal is the RED baseline: the tests that must not move plus proof they
-// actually failed before any implementation ran.
+// SealKind identifies which pre-implementation result made a seal valid.
+type SealKind string
+
+const (
+	SealKindRed      SealKind = "red"
+	SealKindBaseline SealKind = "baseline"
+)
+
+// Seal is the test baseline: the tests that must not move plus proof of the
+// pre-implementation result required by Kind. Red retains its historical JSON
+// name for compatibility; on a baseline seal it holds the successful baseline
+// command evidence.
 type Seal struct {
+	Kind       SealKind                     `json:"kind"`
 	SealedAt   string                       `json:"sealedAt"`
 	Base       Base                         `json:"base"`
 	Tests      []TestDigest                 `json:"tests"`
@@ -85,6 +96,14 @@ type Seal struct {
 	// BoundArgv is absent from seals written before the binding existed; those
 	// bind to Red.ArgvDigest, which every seal has always recorded.
 	BoundArgv *BoundArgv `json:"boundArgv,omitempty"`
+}
+
+// kind treats seals written before the kind field existed as RED seals.
+func (s *Seal) kind() SealKind {
+	if s.Kind == "" {
+		return SealKindRed
+	}
+	return s.Kind
 }
 
 // boundArgv returns the binding in force, synthesizing one for a legacy seal.
@@ -175,6 +194,7 @@ type Status struct {
 	Repository   string      `json:"repository"`
 	StateDir     string      `json:"stateDir"`
 	Sealed       bool        `json:"sealed"`
+	SealKind     SealKind    `json:"sealKind,omitempty"`
 	Seal         *Seal       `json:"seal,omitempty"`
 	BoundArgv    *BoundArgv  `json:"boundArgv,omitempty"`
 	Green        *Green      `json:"green,omitempty"`
@@ -427,8 +447,12 @@ func (s *state) sealedTestsTouchedSince(before map[string]testStat) ([]string, e
 func (s *state) records() []controlplane.GuardRecord {
 	collected := make([]controlplane.GuardRecord, 0, 3)
 	if s.seal != nil && s.seal.Red.CommandID != "" {
+		kind := controlplane.GuardRecordSealRed
+		if s.seal.kind() == SealKindBaseline {
+			kind = controlplane.GuardRecordSealBaseline
+		}
 		collected = append(collected, controlplane.GuardRecord{
-			Kind: controlplane.GuardRecordSealRed, CommandID: s.seal.Red.CommandID, Evidence: s.seal.Red,
+			Kind: kind, CommandID: s.seal.Red.CommandID, Evidence: s.seal.Red,
 		})
 	}
 	if s.green != nil && s.green.CommandID != "" {

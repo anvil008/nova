@@ -13,7 +13,7 @@ import (
 
 const usageCommands = `<command> [options]
 
-  seal --tests <globs|paths> --red-command <argv...>
+  seal --tests <globs|paths> (--red-command <argv...> | --green-baseline <argv...>)
   verify --green-command <argv...> [--coverage-command <argv...>] [--min-coverage <float>]
   reseal --reason <text>
   diff-review record --findings <file>
@@ -78,7 +78,7 @@ func dispatch(options Options, args []string) (int, error) {
 	}
 
 	if command == "seal" {
-		flags, err := parseFlags(rest, map[string]bool{"--tests": true, "--red-command": false})
+		flags, err := parseFlags(rest, map[string]bool{"--tests": true, "--red-command": false, "--green-baseline": false})
 		if err != nil {
 			return 1, err
 		}
@@ -86,7 +86,7 @@ func dispatch(options Options, args []string) (int, error) {
 		if err != nil {
 			return 1, err
 		}
-		return 0, seal(loaded, flags.lists["--tests"], flags.argv["--red-command"])
+		return 0, seal(loaded, flags.lists["--tests"], flags.argv["--red-command"], flags.argv["--green-baseline"])
 	}
 
 	loaded, err := loadState(options.Dir)

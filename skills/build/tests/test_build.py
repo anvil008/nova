@@ -357,7 +357,7 @@ class BuildSkillTests(unittest.TestCase):
             line.split(":", 1)[1] for line in agent.split("---", 2)[1].splitlines()
             if line.startswith("tools:")
         )
-        self.assertIn("Task", [tool.strip() for tool in tools.split(",")])
+        self.assertIn("Agent", [tool.strip() for tool in tools.split(",")])
 
 
     def test_wave_ownership_overlap_detection(self):

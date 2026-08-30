@@ -15,11 +15,18 @@ import (
 	"github.com/anvil008/workcell/controlplane"
 )
 
-// seal records the RED baseline. The red command must actually fail, otherwise
-// the tests do not describe work that still needs doing.
-func seal(loaded *state, patterns []string, redCommand []string) error {
-	if len(redCommand) == 0 {
-		return fmt.Errorf("seal requires --red-command <argv...>")
+// seal records either a RED baseline for a behaviour change or a GREEN
+// baseline for a refactor. Exactly one command kind is required.
+func seal(loaded *state, patterns []string, redCommand, baselineCommand []string) error {
+	if len(redCommand) > 0 && len(baselineCommand) > 0 {
+		return fmt.Errorf("seal accepts exactly one of --red-command or --green-baseline")
+	}
+	kind, command := SealKindRed, redCommand
+	if len(baselineCommand) > 0 {
+		kind, command = SealKindBaseline, baselineCommand
+	}
+	if len(command) == 0 {
+		return fmt.Errorf("seal requires exactly one of --red-command <argv...> or --green-baseline <argv...>")
 	}
 	if len(patterns) == 0 {
 		resolved, err := configuredPatterns(loaded.repository)
@@ -35,24 +42,28 @@ func seal(loaded *state, patterns []string, redCommand []string) error {
 	if len(tests) == 0 {
 		return fmt.Errorf("no test files matched %s", strings.Join(patterns, " "))
 	}
-	evidence, err := runArgv(loaded.repository, redCommand)
+	evidence, err := runArgv(loaded.repository, command)
 	if err != nil {
 		return err
 	}
-	if evidence.ExitCode == 0 {
-		return fmt.Errorf("red command %q exited 0; a seal requires a non-zero exit proving the tests fail first", strings.Join(redCommand, " "))
+	if kind == SealKindRed && evidence.ExitCode == 0 {
+		return fmt.Errorf("red command %q exited 0; a red seal requires a non-zero exit proving the tests fail first", strings.Join(command, " "))
+	}
+	if kind == SealKindBaseline && evidence.ExitCode != 0 {
+		return fmt.Errorf("green baseline %q exited %d; a baseline seal requires exit 0", strings.Join(command, " "), evidence.ExitCode)
 	}
 	base, _, err := currentBase(loaded.repository)
 	if err != nil {
 		return err
 	}
 	record := Seal{
+		Kind:       kind,
 		SealedAt:   time.Now().UTC().Format(time.RFC3339Nano),
 		Base:       base,
 		Tests:      tests,
 		Red:        evidence,
 		Amendments: []Amendment{},
-		BoundArgv:  &BoundArgv{Argv: append([]string{}, redCommand...), Digest: evidence.ArgvDigest},
+		BoundArgv:  &BoundArgv{Argv: append([]string{}, command...), Digest: evidence.ArgvDigest},
 	}
 	if err := dropSupersededEvidence(loaded); err != nil {
 		return err
@@ -107,8 +118,8 @@ func handoff(loaded *state, to string) error {
 }
 
 // verify records GREEN. The passing run must be the command the seal bound,
-// must postdate the seal, and the sealed tests must be exactly what failed --
-// before the run and throughout it. When a coverage command is supplied
+// must postdate the seal, and the sealed tests must be exactly what the seal
+// digested before the run and throughout it. When a coverage command is supplied
 // it is run after green succeeds and its strength number is recorded, but a
 // coverage that errors, parses to nothing, or falls short of --min-coverage
 // never blocks: test strength is a signal, not a new gate.
@@ -121,7 +132,7 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 	}
 	bound := loaded.seal.boundArgv()
 	if offered := argvDigest(greenCommand); offered != bound.Digest {
-		return fmt.Errorf("green command %q (argv digest %s) is not the command the seal bound (argv digest %s); verify must run the same argv that proved the tests fail",
+		return fmt.Errorf("green command %q (argv digest %s) is not the command the seal bound (argv digest %s); verify must run the same argv that established the seal",
 			strings.Join(greenCommand, " "), offered, bound.Digest)
 	}
 	changed, err := loaded.changedTests()
@@ -172,6 +183,9 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 func reseal(loaded *state, reason string) error {
 	if loaded.seal == nil {
 		return fmt.Errorf("no seal for %s; nothing to amend", loaded.repository)
+	}
+	if loaded.seal.kind() == SealKindBaseline {
+		return fmt.Errorf("cannot reseal a baseline seal: a refactor never amends its tests")
 	}
 	if strings.TrimSpace(reason) == "" {
 		return fmt.Errorf("reseal requires --reason <text>")
@@ -490,6 +504,7 @@ func status(loaded *state) (Status, error) {
 	if loaded.seal == nil {
 		return report, nil
 	}
+	report.SealKind = loaded.seal.kind()
 	bound := loaded.seal.boundArgv()
 	report.BoundArgv = &bound
 	changed, err := loaded.changedTests()
