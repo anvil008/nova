@@ -111,6 +111,86 @@ class GeneratorTests(unittest.TestCase):
             clean = run(root, "scripts/sync-agent-models.py", "--check")
             self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
 
+    def test_handoff_contract_exists(self):
+        contract = (ROOT / "agents/handoff.md").read_text(encoding="utf-8")
+        for field in (
+            "issue",
+            "brief",
+            "workspace",
+            "branch",
+            "base",
+            "ownership",
+            "mode",
+            "sealedTests",
+            "redCommand",
+            "devServer",
+            "approval",
+        ):
+            self.assertIn(f"`{field}`", contract)
+        self.assertIn("`anvil.agent-handoff/v1`", contract)
+        self.assertIn("exactly one of `done`, `blocked`, or `needs-decision`", contract)
+        self.assertIn("`commands[]`", contract)
+        self.assertIn("`commandId`", contract)
+        self.assertIn("## Dispatch brief example", contract)
+        self.assertIn("## Handoff record example", contract)
+
+    def test_every_body_links_the_contract(self):
+        bodies = sorted((ROOT / "agents/bodies").glob("*.md"))
+        self.assertEqual(len(bodies), 10)
+        for body in bodies:
+            with self.subTest(body=body.name):
+                text = body.read_text(encoding="utf-8")
+                self.assertIn("anvil.agent-handoff/v1", text)
+                self.assertIn("(../handoff.md)", text)
+                name = body.stem
+                for harness in ("claude", "codex"):
+                    generated = (ROOT / f"agents/{harness}/{name}.md").read_text(encoding="utf-8")
+                    self.assertIn("(../handoff.md)", generated)
+                agy = (ROOT / f"agents/agy/{name}/agent.md").read_text(encoding="utf-8")
+                self.assertIn("(../../handoff.md)", agy)
+
+    def test_builder_and_integrator_have_modes(self):
+        builder = (ROOT / "agents/bodies/builder.md").read_text(encoding="utf-8")
+        integrator = (ROOT / "agents/bodies/integrator.md").read_text(encoding="utf-8")
+        author = (ROOT / "agents/bodies/test-author.md").read_text(encoding="utf-8")
+        self.assertIn("mode: refactor", builder)
+        self.assertIn("mode: loop", builder)
+        self.assertIn("mode: baseline", integrator)
+        for body in (builder, author):
+            self.assertIn("`issue` is `null`", body)
+            self.assertIn("instead of `Closes #<n>`", body)
+
+    def test_reviewer_never_asks(self):
+        reviewer = (ROOT / "agents/bodies/code-reviewer.md").read_text(encoding="utf-8")
+        self.assertIn("devServer", reviewer)
+        self.assertNotIn("Ask before starting a dev server", reviewer)
+
+    def test_planner_links_reference_contract(self):
+        planner = (ROOT / "agents/bodies/planner.md").read_text(encoding="utf-8")
+        self.assertIn("skills/planner/references/sidecar-contract.md", planner)
+        self.assertNotIn("skills/planner/SKILL.md", planner)
+
+    def test_rationalization_tables_present(self):
+        for name in ("builder", "test-author", "planner"):
+            with self.subTest(agent=name):
+                text = (ROOT / f"agents/bodies/{name}.md").read_text(encoding="utf-8")
+                section = text.split("## Rationalizations", 1)
+                self.assertEqual(len(section), 2)
+                table = section[1].split("\n## ", 1)[0]
+                rows = [line for line in table.splitlines() if line.startswith("|")]
+                self.assertGreaterEqual(len(rows), 6)
+                self.assertEqual(rows[0], "| Rationalization | Reality |")
+
+    def test_claude_builder_tool_is_agent(self):
+        builder = (ROOT / "agents/claude/builder.md").read_text(encoding="utf-8")
+        frontmatter = builder.split("---", 2)[1]
+        tools = next(
+            line.split(":", 1)[1] for line in frontmatter.splitlines() if line.startswith("tools:")
+        )
+        tool_names = [tool.strip() for tool in tools.split(",")]
+        self.assertIn("Agent", tool_names)
+        self.assertNotIn("Task", tool_names)
+
     def test_build_codex_plugin_rejects_malformed_sources_without_partial_output(self):
         for case in ("missing skill", "no frontmatter", "missing name"):
             with self.subTest(case=case):

@@ -13,7 +13,7 @@ Ground every finding in concrete evidence — a `file:line`, a command you ran, 
 
 Never edit code or repository state. Do not spawn other agents, and never claim overall completion — return your findings and control to the caller.
 
-Return exactly one JSON object and no prose:
+Return exactly one JSON object and no prose. Within the handoff record, put this domain-specific envelope in `evidence`:
 
 ```json
 {
@@ -43,3 +43,7 @@ Return the same envelope with empty `findings`, `gaps`, and `openQuestions` arra
 ## Tools
 
 Use active LSP servers (`pyright` / `typescript` / `rust-analyzer`) to resolve symbol definitions and references precisely, rather than inferring them from text search alone.
+
+## Final step
+
+Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the research envelope in `evidence`, command-linked sources where applicable, result, and disposition.
