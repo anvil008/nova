@@ -7,16 +7,16 @@ Accepted. Supersedes the install mechanism in [ADR 0005](0005-unified-cross-harn
 ## Context
 
 ADR 0005 installed every harness wrapper the same way: a symlink from the harness's
-plugin directory back into `plugins/<harness>/swarm-coder`. That works for Antigravity,
+plugin directory back into `plugins/<harness>/workcell`. That works for Antigravity,
 which reads its plugin directory straight off disk. It does not work for Claude Code or
 Codex. Both discover plugins through a registry — `installed_plugins.json`,
 `known_marketplaces.json`, and `enabledPlugins` for Claude; `codex plugin list` for
 Codex — and neither ever scans its plugin directory for unregistered entries. A wrapper
-symlinked into `~/.claude/plugins/swarm-coder` was therefore inert: `claude plugin list`
+symlinked into `~/.claude/plugins/workcell` was therefore inert: `claude plugin list`
 did not show it, and none of its agents, skills, or hooks ever loaded.
 
 The layout had also accumulated avoidable depth. Each wrapper sat at
-`plugins/<harness>/swarm-coder`, a directory whose only child was the wrapper, and Codex
+`plugins/<harness>/workcell`, a directory whose only child was the wrapper, and Codex
 needed a fourth top-level directory, `plugins/codex-marketplace/`, holding nothing but a
 manifest and a symlink back to the wrapper it described.
 
@@ -29,7 +29,7 @@ harness's own CLI:
 
 ```
 <cli> plugin marketplace add <repo>
-<cli> plugin install swarm-coder@swarm-coder-local
+<cli> plugin install workcell@workcell-local
 ```
 
 The root is the marketplace root deliberately. Each wrapper reaches the single source
@@ -37,10 +37,12 @@ through symlinks (`agents -> ../../agents/<harness>`, `skills -> ../../skills`),
 install drops any symlink that escapes the marketplace root. Rooting the marketplace at
 the repository is what keeps those targets inside it.
 
-Antigravity keeps the ADR 0005 symlink: it has no plugin CLI and no registry.
+Antigravity keeps the ADR 0005 symlink. Although `agy plugin` provides plugin-management commands,
+its install paths are not a stable documented contract for this bootstrap flow; the explicit links
+use the known locations and remain live as the source tree changes.
 
 The wrapper directories lose a level — `plugins/<harness>` rather than
-`plugins/<harness>/swarm-coder` — and `plugins/codex-marketplace/` is deleted. The
+`plugins/<harness>/workcell` — and `plugins/codex-marketplace/` is deleted. The
 plugin's name comes from its manifest, not from its directory name.
 
 The three entry points are renamed to one symmetric set: `scripts/bootstrap-tools.sh`

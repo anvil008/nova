@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/anvil008/swarm-coder/controlplane"
+	"github.com/anvil008/workcell/controlplane"
 )
 
 func (h *harness) statusJSON() Status {

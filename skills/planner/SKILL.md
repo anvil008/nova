@@ -19,7 +19,7 @@ Write both artifacts together:
 The folio filename is derived, not chosen. `<NN>` is a zero-padded sequence number allocated from
 the plans directory, `<YYYYMMDD>` comes from `generatedAt` (not from the clock, so a render is
 reproducible), and `<title>` is a slug of `planName`. The renderer stamps
-`<!-- swarm-planner planId=... -->` into the HTML and reuses the number of any existing folio
+`<!-- workcell-planner planId=... -->` into the HTML and reuses the number of any existing folio
 carrying the same `planId`, so revising a plan **overwrites its own file** instead of scattering
 `plan02`, `plan03`, … copies of the same plan across the directory.
 
@@ -73,7 +73,7 @@ you have not asked yet — see below.
 
 Each issue carries a non-empty `acceptanceTests` list — its TDD **Definition of Done**. Each entry needs `name`, `kind` (`unit`/`integration`/`e2e`), and `oracle` (the observable pass condition); `testPath` and `stub` are optional. These are specifications, not runnable code: they render into the **GitHub issue body** as a "Definition of Done (tests)" checklist (never into the HTML folio), and the `test-author` agent turns exactly these into real failing tests, proves RED, and seals them before any builder starts.
 
-Keep `planId` and every issue `key` stable across revisions. `planId` uses the lowercase slug format `[a-z0-9]+(?:-[a-z0-9]+)*`. Issue keys and every `dependsOn` entry use the conservative mixed-case ASCII slug format `[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*`, so identifiers such as `T0` and `T1` are valid. Dependencies name issue keys, not issue numbers. A syntactically valid dependency key that is absent from `issues` is allowed as an external dependency and renders as an unknown neutral node using the `--mut` theme token. Malformed dependency text is rejected before Mermaid source is generated. Each issue body sent to GitHub receives `<!-- swarm-planner planId=<planId> issue=<key> -->`; that marker is the durable reconciliation identity. Validation stores `planId`, issue keys, `dependsOn` entries, and risk ids stripped of surrounding whitespace, so a padded value never reaches a marker and re-running an unchanged sidecar stays a no-op.
+Keep `planId` and every issue `key` stable across revisions. `planId` uses the lowercase slug format `[a-z0-9]+(?:-[a-z0-9]+)*`. Issue keys and every `dependsOn` entry use the conservative mixed-case ASCII slug format `[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*`, so identifiers such as `T0` and `T1` are valid. Dependencies name issue keys, not issue numbers. A syntactically valid dependency key that is absent from `issues` is allowed as an external dependency and renders as an unknown neutral node using the `--mut` theme token. Malformed dependency text is rejected before Mermaid source is generated. Each issue body sent to GitHub receives `<!-- workcell-planner planId=<planId> issue=<key> -->`; that marker is the durable reconciliation identity. Validation stores `planId`, issue keys, `dependsOn` entries, and risk ids stripped of surrounding whitespace, so a padded value never reaches a marker and re-running an unchanged sidecar stays a no-op.
 
 Each `architecture.components` entry may be either a `{ "name": "...", "purpose": "..." }` object or a non-empty string shorthand when a named component needs no separate purpose. Both forms are treated as text and HTML-escaped by the renderer.
 
@@ -108,14 +108,20 @@ to fill the diagrams.
 5. **Only after the human approves the reviewed artifacts**, apply the exact approved sidecar yourself with an approval identity. This write is the orchestrator's, never the agent's:
 
    ```bash
-   python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<human identity>"
+   python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<github-login>"
    ```
+
+   `--approved-by` must equal the login `gh` is authenticated as (`gh api user`). Apply output
+   records that login as `approvedBy` and the exact approved sidecar bytes as `approvedSha256`.
 
 Do not infer approval from silence, prior approval of another revision, or a request to investigate. If the sidecar changes after approval, present the changed plan and stop for fresh human approval.
 
 ## GitHub reconciliation
 
 Use milestones only; never create or modify a GitHub Project. The reconciler identifies the milestone by its stable plan marker (falling back to the exact title for adoption), then creates it or updates its title. When it adopts a milestone by title, it appends the plan marker to the existing description rather than replacing it. It scans all repository issues for stable plan/issue markers, creates missing issues, updates changed issues, reopens desired closed issues, closes removed issues, and closes duplicate marked issues. An issue that is closed and labelled `status:done`, or was closed as completed (for example by a merged PR), is finished work: the reconciler leaves it untouched unless `--reopen-done` is passed. Re-running an unchanged plan produces no issue or milestone mutations.
+
+Issue identity comes from the last marker in the body. Marker delimiters in quoted sidecar prose
+are escaped while composing the issue, so an excerpt cannot squat the issue's identity.
 
 The apply path uses these `gh` command shapes:
 

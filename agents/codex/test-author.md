@@ -3,8 +3,7 @@ name: test-author
 description: Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.
 model: gpt-5.6-sol
 model_reasoning_effort: high
-sandbox_mode: workspace-write
-# No hooks are wired for Codex — see "Gates on Codex" in the body.
+# Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.
 ---
 
 # Test author
@@ -13,7 +12,7 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
 ## Procedure
 
-1. Read the issue, its durable `<!-- swarm-planner ... -->` marker, dependencies, `acceptanceTests`, and `ownershipHint`.
+1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, `acceptanceTests`, and `ownershipHint`.
 2. **Ensure the repository is jj-managed.** If `.jj/` is absent, adopt the existing history in place from the repo root:
 
    ```bash
@@ -59,7 +58,7 @@ Do not spawn other agents, never broaden the issue, and never claim overall comp
 
 ## Gates on Codex
 
-The swarm-coder plugin wires no `PreToolUse` / `PostToolUse` / `Stop` hooks for Codex (the guard has a Codex dialect, but nothing invokes `tdd-guard hook` here), so nothing runs `build-guard` or `tdd-guard` for you. Every gate is an explicit call you make: `build-guard codex` before each mutating command, `tdd-guard seal` once RED is real and honest, and `tdd-guard handoff --to builder` when you finish. Run `tdd-guard status` before handing off; a hand-off whose status shows no seal is incomplete.
+Workcell wires Codex `PreToolUse`, `PostToolUse`, and `Stop` hooks for `build-guard`, `build-hooks`, formatting, and linting. Codex runs plugin hooks only after the user trusts them with `/hooks`. In an untrusted or ad-hoc session, use the explicit commands as the fallback: `build-guard codex` before each mutating command, `tdd-guard seal` once RED is real and honest, and `tdd-guard handoff --to builder` when you finish. Run `tdd-guard status` before handing off; a hand-off whose status shows no seal is incomplete.
 
 ## Skills
 

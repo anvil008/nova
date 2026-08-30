@@ -18,6 +18,7 @@ Return exactly one JSON object and no prose:
       "finding": "what was learned",
       "evidence": "file:line, a command, or a short excerpt",
       "topic": "shared-topic-slug",
+      "stance": "supports | contradicts | neutral",
       "position": "this source's stance on the topic"
     }
   ],
@@ -25,6 +26,10 @@ Return exactly one JSON object and no prose:
   "openQuestions": ["a question this area raised"]
 }
 ```
+
+Use `contradicts` when the finding's evidence conflicts with another source's
+position on the same `topic`; use `supports` when it corroborates that position,
+and `neutral` when it supplies context without taking either side.
 
 Return the same envelope with empty `findings`, `gaps`, and `openQuestions` arrays when the area yields nothing substantiated.
 

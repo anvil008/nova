@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bootstrap-plugins.sh — install the Swarm Coder plugin into every coding harness on
+# bootstrap-plugins.sh — install the Workcell plugin into every coding harness on
 # this machine. Idempotent and reversible. Run scripts/bootstrap-tools.sh first: the
 # plugin's hooks call ~/.local/bin/tdd-guard and build-*, which that script provides.
 #
@@ -11,14 +11,16 @@
 # This repository is the single source: agents/ and skills/ hold the real content and
 # each plugins/<harness>/ directory is a thin wrapper that links back to them.
 #
-#   Claude   plugins/claude  installed as swarm-coder@swarm-coder-local via the claude CLI,
+#   Claude   plugins/claude  installed as workcell@workcell-local via the claude CLI,
 #                            from the marketplace declared in .claude-plugin/marketplace.json
 #   Codex    plugins/codex   staged into dist/codex/ first, then installed via the codex
 #                            CLI from dist/codex/.agents/plugins/marketplace.json. Codex
 #                            copies a plugin on install and DROPS symlinks that leave the
 #                            plugin root, so it gets a real tree instead of a link farm.
-#   Agy      plugins/agy     symlinked into ~/.gemini/config/plugins/swarm-coder and
-#                            ~/.gemini/antigravity-cli/plugins/swarm-coder
+#                            After install, trust its non-managed hooks with `/hooks`, or
+#                            bypass hook trust for one invocation with --dangerously-bypass-hook-trust.
+#   Agy      plugins/agy     symlinked into ~/.gemini/config/plugins/workcell and
+#                            ~/.gemini/antigravity-cli/plugins/workcell
 #
 # Both marketplaces are rooted at this repository so the wrappers' agents/ and skills/
 # symlinks resolve inside the marketplace: an install drops any symlink escaping the root.
@@ -68,8 +70,8 @@ if command -v python3 >/dev/null; then
     # agents/bodies/ + agents/agents.json are the source for every agent definition;
     # this regenerates all three harness variants before anything is installed.
     python3 "$ROOT/scripts/sync-agents.py" || die "agent definitions could not be generated"
-    # --codex-profiles also writes $CODEX_HOME/swarm-<agent>.config.toml. Codex has no
-    # per-agent model surface in a plugin, so a profile (`codex --profile swarm-builder`)
+    # --codex-profiles also writes $CODEX_HOME/workcell-<agent>.config.toml. Codex has no
+    # per-agent model surface in a plugin, so a profile (`codex --profile workcell-builder`)
     # is the only place its model and reasoning effort actually take effect. The script
     # refuses to touch a profile it did not write.
     python3 "$ROOT/scripts/sync-agent-models.py" --codex-profiles \
@@ -102,8 +104,8 @@ sync_agy_skills(){
 # Fields: harness | directory that must exist first ("-" = install anyway) | destination.
 # Antigravity is unguarded: it creates ~/.gemini on first run.
 PLUGIN_TARGETS=(
-  "agy|-|$HOME/.gemini/config/plugins/swarm-coder"
-  "agy|-|$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
+  "agy|-|$HOME/.gemini/config/plugins/workcell"
+  "agy|-|$HOME/.gemini/antigravity-cli/plugins/workcell"
 )
 PLAN_DST=()
 for spec in "${PLUGIN_TARGETS[@]}"; do
@@ -124,13 +126,20 @@ MARKET_HARNESSES=(
 
 if [[ $MODE == install ]]; then
   sync_agy_skills
+  # Retire owned Antigravity links created under the former product name.
+  unlink_owned "$HOME/.gemini/config/plugins/workcell"
+  unlink_owned "$HOME/.gemini/antigravity-cli/plugins/workcell"
   bad=0
   for dst in ${PLAN_DST[@]+"${PLAN_DST[@]}"}; do
     link_owned "$ROOT/plugins/agy" "$dst" $FORCE || bad=$((bad+1))
   done
-  ((${#PLAN_DST[@]})) && echo "agy: swarm-coder plugin linked"
+  ((${#PLAN_DST[@]})) && echo "agy: workcell plugin linked"
 else
   for dst in ${PLAN_DST[@]+"${PLAN_DST[@]}"}; do unlink_owned "$dst"; done
+  # Remove live links created before the Workcell rename when they still point
+  # into this repository. Foreign paths remain protected by unlink_owned.
+  unlink_owned "$HOME/.gemini/config/plugins/workcell"
+  unlink_owned "$HOME/.gemini/antigravity-cli/plugins/workcell"
   # Pre-ADR-0005 layout: one link per agent and per skill, straight into the harness
   # root. Swept by directory rather than by today's names, so links left by agents and
   # skills that have since been renamed go too. Anything not ours is passed over in
@@ -149,14 +158,14 @@ fi
 
 # ---- Codex config.toml: strip the pre-ADR-0005 [agents.*] block if it is still there ----
 CODEX_CFG="$HOME/.codex/config.toml"
-if want codex && [[ -f $CODEX_CFG ]] && grep -q '# BEGIN SWARM CODER' "$CODEX_CFG"; then
+if want codex && [[ -f $CODEX_CFG ]] && grep -Eq '# BEGIN (WORKCELL|WORKCELL)' "$CODEX_CFG"; then
   command -v python3 >/dev/null || die "python3 is required to strip the legacy agents block from $CODEX_CFG"
   python3 - "$CODEX_CFG" <<'PY'
 import re, sys
 from pathlib import Path
 cfg = Path(sys.argv[1])
 cfg.write_text(re.sub(
-    r"\n*# BEGIN SWARM CODER(?: V3)? AGENTS.*?# END SWARM CODER(?: V3)? AGENTS\n",
+    r"\n*# BEGIN (?:WORKCELL|WORKCELL)(?: V3)? AGENTS.*?# END (?:WORKCELL|WORKCELL)(?: V3)? AGENTS\n",
     "\n", cfg.read_text(), flags=re.DOTALL,
 ))
 print(f"codex: removed legacy agents block from {cfg}")
@@ -172,9 +181,14 @@ for spec in "${MARKET_HARNESSES[@]}"; do
     # The harness directory exists but its CLI does not: nothing can register the plugin,
     # and that is the user's situation to fix, not a reason to fail the whole run.
     command -v "$cli" >/dev/null || { echo "$h: skipped — $guard exists but the $cli CLI is not on PATH"; continue; }
+    # Retire the pre-rename registration before adding Workcell. These commands
+    # are harmless when no legacy installation exists.
+    "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
+    "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
     # Pre-marketplace layout: a bare symlink in the harness's plugin directory, which
     # neither CLI ever discovers. Remove it so it cannot shadow the real install.
-    unlink_owned "$HOME/.$h/plugins/swarm-coder"
+    unlink_owned "$HOME/.$h/plugins/workcell"
+    unlink_owned "$HOME/.$h/plugins/workcell"
     root="$ROOT"
     if [[ $h == codex ]]; then
       # Codex materializes a copy and discards symlinks escaping the plugin root,
@@ -184,14 +198,25 @@ for spec in "${MARKET_HARNESSES[@]}"; do
       python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null || die "codex: staging failed"
       root="$ROOT/dist/codex"
     fi
+    # Register/validate the marketplace before touching the current install. Then force
+    # a refresh: Claude otherwise keeps its cached plugin when content changes without
+    # a version bump, while Codex safely tolerates the same remove/add sequence.
     "$cli" plugin marketplace add "$root" >/dev/null
-    "$cli" plugin "$add" swarm-coder@swarm-coder-local >/dev/null
-    echo "$h: swarm-coder plugin installed from the local marketplace"
+    "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
+    "$cli" plugin "$add" workcell@workcell-local >/dev/null
+    echo "$h: workcell plugin installed from the local marketplace"
+    if [[ $h == codex ]]; then
+      echo "codex: trust the Workcell plugin hooks with /hooks, or use --dangerously-bypass-hook-trust for one invocation"
+    fi
   else
-    unlink_owned "$HOME/.$h/plugins/swarm-coder"
+    unlink_owned "$HOME/.$h/plugins/workcell"
+    unlink_owned "$HOME/.$h/plugins/workcell"
     if command -v "$cli" >/dev/null; then
-      "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
-      "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
+      "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
+      "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+      # Clean up installations made before the Workcell rename.
+      "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
+      "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
     fi
   fi
 done

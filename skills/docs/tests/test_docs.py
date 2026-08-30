@@ -172,7 +172,7 @@ class DocsCheckTests(unittest.TestCase):
     def test_agy_builder_has_stop_gate_or_manual_verify(self):
         agy = ROOT.parents[1] / "agents" / "agy" / "builder"
         cfg = json.loads((agy / "hooks.json").read_text(encoding="utf-8"))
-        stop_hooks = cfg["swarm-guard"].get("Stop", [])
+        stop_hooks = cfg["workcell-guard"].get("Stop", [])
         has_stop_hook = any(
             "build-hooks agy Stop" in h.get("command", "") for h in stop_hooks
         )
@@ -369,8 +369,8 @@ class DocsCheckTests(unittest.TestCase):
         with open(hooks_file, "r", encoding="utf-8") as f:
             cfg = json.load(f)
 
-        self.assertIn("swarm-guard", cfg)
-        guard_cfg = cfg["swarm-guard"]
+        self.assertIn("workcell-guard", cfg)
+        guard_cfg = cfg["workcell-guard"]
         self.assertTrue(guard_cfg.get("enabled", False))
 
         self.assertIn("PreToolUse", guard_cfg)
@@ -451,12 +451,15 @@ class DocsCheckTests(unittest.TestCase):
         # Check for go vet
         self.assertIn("go vet ./...", content)
 
-        # Check for uncached race-enabled Go tests and installer coverage.
+        # Check for uncached race-enabled Go tests and glob-discovered shell coverage.
         self.assertIn("go test -count=1 -race ./...", content)
-        self.assertIn("bash scripts/tests/test_install.sh", content)
-
-        # Check for hook tests
-        self.assertIn("bash scripts/hooks/tests/test_hooks.sh", content)
+        self.assertIn(
+            "scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh", content
+        )
+        self.assertIn('bash "$test_script"', content)
+        self.assertIn(
+            "python3 -m unittest discover -s scripts/tests -p 'test_*.py'", content
+        )
 
         # Every present and future skill suite is discovered; none is hard-coded.
         self.assertIn("for d in skills/*/tests; do", content)

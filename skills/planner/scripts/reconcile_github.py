@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -12,10 +13,10 @@ from pathlib import Path
 
 from render_plan import PlanError, validate_plan
 
-PLAN_MARKER = "<!-- swarm-planner planId={plan_id} -->"
-ISSUE_MARKER = "<!-- swarm-planner planId={plan_id} issue={key} -->"
+PLAN_MARKER = "<!-- workcell-planner planId={plan_id} -->"
+ISSUE_MARKER = "<!-- workcell-planner planId={plan_id} issue={key} -->"
 ISSUE_MARKER_RE = re.compile(
-    r"<!--\s*swarm-planner\s+"
+    r"<!--\s*workcell-planner\s+"
     r"planId=([a-z0-9]+(?:-[a-z0-9]+)*)\s+"
     r"issue=([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\s*-->"
 )
@@ -23,6 +24,17 @@ ISSUE_MARKER_RE = re.compile(
 
 class ReconcileError(PlanError):
     pass
+
+
+def neutralise(text: str) -> str:
+    """Defuse HTML comment syntax in text this tool did not author."""
+    return text.replace("<!--", "&lt;!--").replace("-->", "--&gt;")
+
+
+def trailing_marker(issue: dict) -> re.Match | None:
+    """Identity is the marker that closes the body, not the leftmost match."""
+    matches = list(ISSUE_MARKER_RE.finditer(issue.get("body") or ""))
+    return matches[-1] if matches else None
 
 
 def gh_json(args: list[str], *, payload: dict | None = None, timeout: float = 30) -> object:
@@ -44,6 +56,23 @@ def gh_json(args: list[str], *, payload: dict | None = None, timeout: float = 30
         return json.loads(result.stdout)
     except json.JSONDecodeError as error:
         raise PlanError(f"{' '.join(command)} returned invalid JSON") from error
+
+
+def authenticated_login() -> str:
+    response = gh_json(["user"])
+    login = response.get("login") if isinstance(response, dict) else None
+    if not isinstance(login, str) or not login.strip():
+        raise PlanError("gh api user returned no authenticated login")
+    return login.strip()
+
+
+def require_approver(approved_by: str) -> None:
+    login = authenticated_login()
+    if approved_by != login:
+        raise PlanError(
+            f"--approved-by {approved_by!r} is not the authenticated GitHub account "
+            f"{login!r}; approval must come from the account performing the writes"
+        )
 
 
 def flatten_pages(value: object) -> list[dict]:
@@ -85,7 +114,7 @@ def desired_issue(plan: dict, issue: dict, milestone_number: int | str) -> dict:
     marker = ISSUE_MARKER.format(plan_id=plan["planId"], key=issue["key"])
     return {
         "title": issue["title"],
-        "body": issue["body"].rstrip() + "\n\n" + dod_block(issue) + "\n\n" + marker,
+        "body": neutralise(issue["body"].rstrip() + "\n\n" + dod_block(issue)) + "\n\n" + marker,
         "labels": issue["labels"],
         "milestone": milestone_number,
         "state": "open",
@@ -93,7 +122,7 @@ def desired_issue(plan: dict, issue: dict, milestone_number: int | str) -> dict:
 
 
 def issue_marker(issue: dict) -> tuple[str, str] | None:
-    match = ISSUE_MARKER_RE.search(issue.get("body") or "")
+    match = trailing_marker(issue)
     return match.groups() if match else None
 
 
@@ -240,7 +269,7 @@ def main() -> int:
     parser.add_argument("sidecar", type=Path)
     parser.add_argument("--snapshot", type=Path, help="use captured GitHub JSON instead of any network call")
     parser.add_argument("--apply", action="store_true", help="perform writes after explicit human approval")
-    parser.add_argument("--approved-by", help="identity of the human who approved this exact sidecar")
+    parser.add_argument("--approved-by", help="GitHub login of the human who approved this exact sidecar; must match `gh api user`")
     parser.add_argument(
         "--reopen-done", action="store_true",
         help="also reopen issues closed with status:done or as completed (default: leave them closed)",
@@ -249,11 +278,14 @@ def main() -> int:
     if args.snapshot and args.apply:
         parser.error("--snapshot cannot be combined with --apply")
     if args.apply and not args.approved_by:
-        parser.error("--apply requires --approved-by with the approving human identity")
+        parser.error("--apply requires --approved-by with the approving human's GitHub login")
     if args.approved_by and not args.apply:
         parser.error("--approved-by is only valid with --apply")
     try:
-        plan = validate_plan(json.loads(args.sidecar.read_text(encoding="utf-8")))
+        approved_bytes = args.sidecar.read_bytes()
+        plan = validate_plan(json.loads(approved_bytes.decode("utf-8")))
+        if args.apply:
+            require_approver(args.approved_by)
         if args.snapshot:
             state = json.loads(args.snapshot.read_text(encoding="utf-8"))
         else:
@@ -267,6 +299,7 @@ def main() -> int:
         }
         if args.apply:
             output["approvedBy"] = args.approved_by
+            output["approvedSha256"] = hashlib.sha256(approved_bytes).hexdigest()
             output["receipts"] = apply_actions(plan["repo"], actions)
         print(json.dumps(output, indent=2, sort_keys=True))
     except (OSError, json.JSONDecodeError, PlanError, ReconcileError) as error:

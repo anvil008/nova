@@ -3,8 +3,7 @@ name: integrator
 description: Use when verifying one wave of pull requests as a combined change-set and returning command-linked evidence.
 model: gpt-5.6-sol
 model_reasoning_effort: medium
-sandbox_mode: workspace-write
-# No hooks are wired for Codex — see "Gates on Codex" in the body.
+# Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.
 ---
 
 # Integrator
@@ -34,4 +33,4 @@ Do not spawn other agents, and never claim the wave is complete.
 
 ## Gates on Codex
 
-The swarm-coder plugin wires no `PreToolUse` / `PostToolUse` / `Stop` hooks for Codex, so nothing runs `build-guard` for you. Call `build-guard codex` yourself before each mutating command — the merges you run are exactly the operations it exists to check.
+Workcell wires Codex `PreToolUse`, `PostToolUse`, and `Stop` hooks, including `build-guard` for shell commands. They run only after the user trusts the plugin hooks with `/hooks`; in an untrusted or ad-hoc session, call `build-guard codex` yourself before each mutating command — the merges you run are exactly the operations it exists to check.

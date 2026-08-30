@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anvil008/swarm-coder/controlplane"
+	"github.com/anvil008/workcell/controlplane"
 )
 
 // seal records the RED baseline. The red command must actually fail, otherwise

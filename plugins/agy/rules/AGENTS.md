@@ -1,4 +1,4 @@
-# Swarm Coder Agent Rules
+# Workcell Agent Rules
 
 - Apply Test-Driven Development (TDD) via tdd-guard.
 - Never commit directly to main.

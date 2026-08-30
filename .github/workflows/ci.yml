@@ -29,10 +29,13 @@ jobs:
         run: go vet ./...
       - name: Go tests
         run: go test -count=1 -race ./...
-      - name: Hook tests
-        run: bash scripts/hooks/tests/test_hooks.sh
-      - name: Installer tests
-        run: bash scripts/tests/test_install.sh
+      - name: Shell tests
+        run: |
+          for test_script in scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh; do
+            bash "$test_script"
+          done
+      - name: Script Python tests
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - name: Ruff
         run: ruff check skills/
       - name: ShellCheck

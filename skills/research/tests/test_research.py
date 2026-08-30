@@ -123,8 +123,12 @@ class ResearchSkillTests(unittest.TestCase):
         frontmatter = agent.split("---", 2)[1].strip().splitlines()
         keys = [line.split(":", 1)[0] for line in frontmatter]
         self.assertEqual(keys[:3], ["name", "description", "tools"])
-        # model and effort come from agents/models.json; test_docs owns their values.
-        self.assertEqual(set(keys) - {"name", "description", "tools"}, {"model", "effort"})
+        # Model/effort come from agents/models.json; capability fields enforce this
+        # read-only agent's boundary on Claude.
+        self.assertEqual(
+            set(keys) - {"name", "description", "tools"},
+            {"model", "effort", "disallowedTools", "maxTurns"},
+        )
         self.assertEqual(frontmatter[0], "name: research")
         self.assertEqual(frontmatter[2], "tools: Read, Grep, Glob, Bash, Skill")
         for phrase in (

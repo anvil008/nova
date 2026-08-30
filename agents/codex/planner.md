@@ -3,7 +3,6 @@ name: planner
 description: Use when investigating one planning goal read-only and producing the plan folio, sidecar, and per-issue acceptance tests for human approval.
 model: gpt-5.6-sol
 model_reasoning_effort: high
-sandbox_mode: workspace-write
 ---
 
 # Planner

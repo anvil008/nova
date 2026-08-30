@@ -3,7 +3,6 @@ name: docs
 description: Use when creating, updating, standardizing, or reviewing documentation — READMEs, ADRs, changelogs, and instruction files. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.
 model: gpt-5.6-sol
 model_reasoning_effort: medium
-sandbox_mode: workspace-write
 ---
 
 # Docs

@@ -23,13 +23,16 @@ MANIFEST = ROOT / "agents" / "models.json"
 CLAUDE_EFFORT = ("low", "medium", "high", "xhigh")
 CODEX_EFFORT = ("low", "medium", "high", "xhigh")
 AGY_MODELS = ("pro", "flash", "inherit")
+HARNESSES = frozenset({"claude", "codex", "agy"})
 
 # Codex has no per-agent model surface: a plugin manifest accepts no `agents` key,
 # and a skill's agents/openai.yaml carries UI metadata only. What it does have is
 # profiles -- `codex --profile <name>` layers $CODEX_HOME/<name>.config.toml over
 # the base config -- so that is where the codex column becomes real.
-CODEX_PROFILE_PREFIX = "swarm-"
-CODEX_PROFILE_MARKER = "# managed by swarm-coder: scripts/sync-agent-models.py"
+CODEX_PROFILE_PREFIX = "workcell-"
+CODEX_PROFILE_MARKER = "# managed by workcell: scripts/sync-agent-models.py"
+LEGACY_CODEX_PROFILE_PREFIX = "workcell-"
+LEGACY_CODEX_PROFILE_MARKER = "# managed by workcell: scripts/sync-agent-models.py"
 
 # Per harness: the frontmatter key each knob is written under, and the key an
 # inserted block is placed after. Harnesses that lack a knob simply omit it.
@@ -72,6 +75,11 @@ def write_codex_profiles(codex_home: Path, defaults: dict, agents: dict, check: 
     drift: list[str] = []
     if not codex_home.is_dir():
         return drift
+    if not check:
+        for path in sorted(codex_home.glob(f"{LEGACY_CODEX_PROFILE_PREFIX}*.config.toml")):
+            if LEGACY_CODEX_PROFILE_MARKER in path.read_text(encoding="utf-8"):
+                path.unlink()
+                print(f"removed legacy profile {path}")
     for agent, spec in sorted(agents.items()):
         values = resolve(defaults, spec, "codex")
         validate(agent, "codex", values)
@@ -98,11 +106,16 @@ def remove_codex_profiles(codex_home: Path) -> int:
     removed = 0
     if not codex_home.is_dir():
         return removed
-    for path in sorted(codex_home.glob(f"{CODEX_PROFILE_PREFIX}*.config.toml")):
-        if CODEX_PROFILE_MARKER in path.read_text(encoding="utf-8"):
-            path.unlink()
-            print(f"removed {path}")
-            removed += 1
+    prefixes_and_markers = (
+        (CODEX_PROFILE_PREFIX, CODEX_PROFILE_MARKER),
+        (LEGACY_CODEX_PROFILE_PREFIX, LEGACY_CODEX_PROFILE_MARKER),
+    )
+    for prefix, marker in prefixes_and_markers:
+        for path in sorted(codex_home.glob(f"{prefix}*.config.toml")):
+            if marker in path.read_text(encoding="utf-8"):
+                path.unlink()
+                print(f"removed {path}")
+                removed += 1
     return removed
 
 
@@ -116,6 +129,13 @@ def load_manifest() -> tuple[dict, dict]:
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
     defaults = data.get("defaults", {})
     agents = {k: v for k, v in data.get("agents", {}).items() if not k.startswith("_")}
+    unknown_defaults = set(defaults) - HARNESSES
+    if unknown_defaults:
+        raise SyncError(f"defaults: unknown harness {min(unknown_defaults)}")
+    for agent, spec in agents.items():
+        unknown = {key for key in spec if not key.startswith("_")} - HARNESSES
+        if unknown:
+            raise SyncError(f"{agent}/{min(unknown)}: unknown harness")
     return defaults, agents
 
 
@@ -206,7 +226,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="report drift, write nothing")
     parser.add_argument(
         "--codex-profiles", action="store_true",
-        help="also emit $CODEX_HOME/swarm-<agent>.config.toml, which is the only "
+        help="also emit $CODEX_HOME/workcell-<agent>.config.toml, which is the only "
              "per-agent model surface Codex actually reads",
     )
     parser.add_argument(

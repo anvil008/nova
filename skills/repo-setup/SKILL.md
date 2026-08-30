@@ -18,7 +18,7 @@ Then ask the human what the survey cannot tell you. State what you found so the 
 - **Purpose** — what is this project, who uses it, and what does "working" mean? An instruction file that cannot answer this is decoration.
 - **Verification** — the exact commands for build, test, and lint. Agents need a command they can run, not a description of one.
 - **Build runner** — keep what exists, or move to something else? Ask specifically about **Bazel** if the repo is large, polyglot, or has a slow build: it is a real commitment and a bad default for a small one.
-- **Version control** — stay on plain git, or adopt **jj**? Swarm Coder's builders isolate through `jj workspace add`, so a repo that will run parallel waves benefits from `jj git init --colocate`; a repo that will not is fine on git.
+- **Version control** — stay on plain git, or adopt **jj**? Workcell's builders isolate through `jj workspace add`, so a repo that will run parallel waves benefits from `jj git init --colocate`; a repo that will not is fine on git.
 - **Lint and format** — which tools, and are they advisory or blocking?
 - **Conventions worth writing down** — the ones a newcomer gets wrong: layout, naming, error handling, what must never be edited by hand.
 

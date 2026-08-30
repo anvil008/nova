@@ -4,35 +4,6 @@ description: Use when implementing one assigned GitHub issue end-to-end in an is
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill, Task
 model: opus
 effort: high
-hooks:
-  PreToolUse:
-    - matcher: "Edit|Write|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: ~/.local/bin/build-hooks claude PreToolUse
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: ~/.local/bin/build-guard claude
-  PostToolUse:
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: ~/.local/bin/build-hooks claude PostToolUse
-    - matcher: "Edit|Write|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: ~/.local/bin/build-format claude
-        - type: command
-          command: ~/.local/bin/build-lint claude
-  Stop:
-    - hooks:
-        - type: command
-          command: ~/.local/bin/build-hooks claude Stop
-  SubagentStop:
-    - hooks:
-        - type: command
-          command: ~/.local/bin/build-hooks claude SubagentStop
 ---
 
 # Builder
@@ -41,7 +12,7 @@ Implement exactly one assigned GitHub issue. You are the sole writer of its impl
 
 ## Procedure
 
-1. Read the issue, its durable `<!-- swarm-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, then the `test-author` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing.
+1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, then the `test-author` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing.
 2. **Enter the workspace that was created for you** — by the `test-author` on a normal issue, or by the orchestrator on a behaviour-preserving refactor, where there is no test-author and nothing to seal. It is named for the issue key and holds the branch your PR will come from; on a normal issue it already contains the sealed tests:
 
    ```bash

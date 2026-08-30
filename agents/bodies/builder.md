@@ -4,7 +4,7 @@ Implement exactly one assigned GitHub issue. You are the sole writer of its impl
 
 ## Procedure
 
-1. Read the issue, its durable `<!-- swarm-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, then the `test-author` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing.
+1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, then the `test-author` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing.
 2. **Enter the workspace that was created for you** — by the `test-author` on a normal issue, or by the orchestrator on a behaviour-preserving refactor, where there is no test-author and nothing to seal. It is named for the issue key and holds the branch your PR will come from; on a normal issue it already contains the sealed tests:
 
    ```bash
@@ -16,7 +16,7 @@ Implement exactly one assigned GitHub issue. You are the sole writer of its impl
 
 3. **Implement against the sealed tests.** They are your Definition of Done and you did not write them:
 <!-- only:codex -->
-   - before each shell command that mutates the repo, run `build-guard codex` on it yourself — no hook is wired to do this for you;
+   - before each shell command that mutates the repo, make sure the Workcell hooks are trusted with `/hooks`; otherwise run `build-guard codex` on it yourself as the fallback;
 <!-- end -->
    - implement without touching sealed tests;
    - amend a sealed test only through `tdd-guard reseal --reason <text>`, after proving the amended test fails for the intended reason. These are another agent's tests: a reseal changes someone else's Definition of Done, so the reason must name why the original oracle was **wrong**, never merely inconvenient to satisfy;

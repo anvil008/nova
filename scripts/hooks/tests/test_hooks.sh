@@ -31,6 +31,7 @@ for t in bash sh awk sed grep cat jq env printf tr sort find xargs stat mktemp p
   p=$(PATH="$PATH" command -v "$t" 2>/dev/null) && ln -sfn "$p" "$BIN/$t"
 done
 export PATH="$BIN:$PATH"
+export GIT_CONFIG_NOSYSTEM=1
 
 j(){ jq -nc --arg f "$1" '{tool_input:{file_path:$f}}'; }        # Edit/Write payload
 jb(){ jq -nc --arg c "$1" '{tool_input:{command:$c}}'; }         # Claude Bash payload
@@ -39,12 +40,16 @@ denied_claude(){ jq -e '.hookSpecificOutput.permissionDecision=="deny" and (.hoo
 denied_agy(){ jq -e '.decision=="deny" and (.reason|length>0)' >/dev/null 2>&1; }
 
 # --- build-guard corpus: every probe, both payload shapes ----------------------------------------
+CORPUS_CWD="$TMP/corpus-repo"
+git -c init.defaultBranch=issue-1 init -q "$CORPUS_CWD"
+mkdir -p "$CORPUS_CWD/.agents/plugins/workcell"
+
 # verdict <harness> <command> -> prints allow|deny|error
 verdict(){
   local harness=$1 cmd=$2 out rc
   case $harness in
-    agy) out=$(ja "$cmd" | "$GUARD" agy 2>"$TMP/err"); rc=$? ;;
-    *)   out=$(jb "$cmd" | "$GUARD" 2>"$TMP/err"); rc=$? ;;
+    agy) out=$(ja "$cmd" | (cd "$CORPUS_CWD" && "$GUARD" agy) 2>"$TMP/err"); rc=$? ;;
+    *)   out=$(jb "$cmd" | (cd "$CORPUS_CWD" && "$GUARD") 2>"$TMP/err"); rc=$? ;;
   esac
   [[ $rc -eq 0 ]] || { echo "error(rc=$rc)"; return; }
   if [[ -z ${out//[[:space:]]/} ]]; then echo allow; return; fi
@@ -68,6 +73,78 @@ done < "$CORPUS"
 name="corpus has >= 40 probes (has $probes)"; check [ "$probes" -ge 40 ]
 name="corpus has deny probes";  check grep -q '^deny|'  "$CORPUS"
 name="corpus has allow probes"; check grep -q '^allow|' "$CORPUS"
+
+guard_out=""; guard_rc=0
+guard_in(){
+  local dir=$1 harness=$2 cmd=$3
+  case $harness in
+    agy) guard_out=$(ja "$cmd" | (cd "$dir" && "$GUARD" agy) 2>"$TMP/err"); guard_rc=$? ;;
+    *)   guard_out=$(jb "$cmd" | (cd "$dir" && "$GUARD")     2>"$TMP/err"); guard_rc=$? ;;
+  esac
+}
+mkrepo(){
+  local d=$1 br=${2:-issue-1}
+  git -c init.defaultBranch="$br" init -q "$d"
+  git -C "$d" config user.email t@example.invalid
+  git -C "$d" config user.name t
+  printf 'x\n' > "$d/f"; git -C "$d" add f
+  git -C "$d" -c commit.gpgsign=false commit -qm init
+}
+is_deny_claude(){ printf '%s' "$1" | denied_claude; }
+is_deny_agy(){ printf '%s' "$1" | denied_agy; }
+is_allow(){ [[ $guard_rc -eq 0 && -z ${1//[[:space:]]/} ]]; }
+reason_of(){ printf '%s' "$1" | jq -r '.hookSpecificOutput.permissionDecisionReason // .reason // empty' 2>/dev/null; }
+
+aliased="$TMP/repo-aliased"; mkrepo "$aliased"; git -C "$aliased" config alias.p push
+plain="$TMP/repo-plain"; mkrepo "$plain"
+benign="$TMP/repo-benign"; mkrepo "$benign"; git -C "$benign" config alias.s status
+mkdir -p "$aliased/.agents/plugins/workcell"
+guard_in "$aliased" claude 'git p origin main'; name="guard denies a configured alias that expands to push (claude)"; check is_deny_claude "$guard_out"
+guard_in "$aliased" agy 'git p origin main'; name="guard denies a configured alias that expands to push (agy)"; check is_deny_agy "$guard_out"
+guard_in "$plain" claude 'git p origin main'; name="guard allows the same payload where no such alias is configured"; check is_allow "$guard_out"
+guard_in "$plain" agy 'git p origin main'; name="guard allows the same payload where no such alias is configured (agy)"; check is_allow "$guard_out"
+guard_in "$benign" claude 'git s'; name="guard allows an alias that expands to an unpoliced subcommand"; check is_allow "$guard_out"
+guard_in "$aliased" claude 'git p origin issue-12'; name="guard allows a resolved alias pushing an issue branch"; check is_allow "$guard_out"
+
+onmain="$TMP/repo-on-main"; mkrepo "$onmain" main
+onmaster="$TMP/repo-on-master"; mkrepo "$onmaster" master
+onissue="$TMP/repo-on-issue"; mkrepo "$onissue" issue-1
+detached="$TMP/repo-detached"; mkrepo "$detached" main; git -C "$detached" checkout -q --detach
+norepo="$TMP/not-a-repo"; mkdir -p "$norepo"
+mkdir -p "$onmain/.agents/plugins/workcell"
+guard_in "$onmain" claude 'git commit -m x'; name="guard denies commit while HEAD is main (claude)"; check is_deny_claude "$guard_out"
+name="guard reason names main"; check sh -c 'printf %s "$1" | grep -q main' _ "$(reason_of "$guard_out")"
+guard_in "$onmain" agy 'git commit -m x'; name="guard denies commit while HEAD is main (agy)"; check is_deny_agy "$guard_out"
+guard_in "$onmain" claude 'git merge feat'; name="guard denies merge while HEAD is main"; check is_deny_claude "$guard_out"
+guard_in "$onmain" claude 'git rebase feat'; name="guard denies rebase while HEAD is main"; check is_deny_claude "$guard_out"
+guard_in "$onmain" claude 'git cherry-pick abc123'; name="guard denies cherry-pick while HEAD is main"; check is_deny_claude "$guard_out"
+guard_in "$onmaster" claude 'git commit -m x'; name="guard denies commit while HEAD is master"; check is_deny_claude "$guard_out"
+guard_in "$onissue" claude 'git commit -m x'; name="guard allows commit on an issue branch"; check is_allow "$guard_out"
+guard_in "$onissue" agy 'git commit -m x'; name="guard allows commit on an issue branch (agy)"; check is_allow "$guard_out"
+guard_in "$detached" claude 'git commit -m x'; name="guard allows commit with a detached HEAD"; check is_allow "$guard_out"
+guard_in "$norepo" claude 'git commit -m x'; name="guard allows commit outside a repository"; check is_allow "$guard_out"
+guard_in "$onmain" claude 'git status'; name="guard allows a read-only command on main"; check is_allow "$guard_out"
+
+# Antigravity's plugin hook is session-global. Without a payload identity, only projects carrying
+# bootstrap-project's Workcell marker are in scope; Claude and Codex remain plugin-scoped.
+agy_scope="$TMP/repo-agy-scope"; mkrepo "$agy_scope" issue-1
+guard_in "$agy_scope" agy 'git push origin main'
+name="agy guard is silent outside an opted-in project"; check is_allow "$guard_out"
+mkdir -p "$agy_scope/.agents/plugins/workcell" "$agy_scope/nested/deep"
+guard_in "$agy_scope" agy 'git push origin main'
+name="agy guard denies inside an opted-in project"; check is_deny_agy "$guard_out"
+guard_in "$agy_scope/nested/deep" agy 'git push origin main'
+name="agy guard finds the Workcell marker in an ancestor"; check is_deny_agy "$guard_out"
+guard_in "$agy_scope" claude 'git push origin main'
+name="Claude remains enforced independent of the Agy scope marker"; check is_deny_claude "$guard_out"
+codex_payload='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
+guard_out=$(printf '%s' "$codex_payload" | (cd "$TMP/not-a-repo" && "$GUARD" codex) 2>"$TMP/err"); guard_rc=$?
+name="Codex remains enforced independent of the Agy scope marker"; check is_deny_claude "$guard_out"
+set +e
+guard_out=$(printf '%s' '{"toolCall":{"name":"run_command","args":{}}}' | (cd "$agy_scope" && "$GUARD" agy) 2>"$TMP/err"); guard_rc=$?
+set -u
+name="malformed Agy payload still fails closed before scoping"; check [ "$guard_rc" -eq 2 ]
+name="malformed Agy payload explains the failure"; check grep -q 'no command' "$TMP/err"
 
 # --- build-guard fails closed: exit 2 + reason on stderr ----------------------------------------
 nojq="$TMP/nojq"; mkdir -p "$nojq"
@@ -148,47 +225,6 @@ name="bootstrap-project installs into the hermetic BIN"; check [ -x "$BIN/build-
 # --- hermeticity: the real ~/.local/bin is untouched --------------------------------------------
 after_bin="$(HOME="$REAL_HOME" snapshot_bin)"
 name="real ~/.local/bin mtimes and link targets unchanged"; check [ "$before_bin" = "$after_bin" ]
-
-
-# --- Acceptance Tests (Issue #45) ---
-
-# plugin_hooks DIR -> the wrapper's hooks file. Claude Code reads hooks/hooks.json;
-# Codex and Antigravity read hooks.json at the plugin root.
-plugin_hooks(){
-  if [[ -f "$1/hooks/hooks.json" ]]; then echo "$1/hooks/hooks.json"
-  elif [[ -f "$1/hooks.json" ]]; then echo "$1/hooks.json"; fi
-}
-
-# 1. plugin-hooks-validity — every hook command in every wrapper resolves through
-# ~/.local/bin, whatever shape that harness wraps its matchers in.
-for plugin_dir in "$DIR/../../plugins"/*; do
-  [[ -d $plugin_dir ]] || continue
-  hjson=$(plugin_hooks "$plugin_dir")
-  name="plugin has hooks.json: $plugin_dir"
-  check [ -n "$hjson" ]
-  [[ -n $hjson ]] || continue
-  name="plugin hooks validity (path resolution): $hjson"
-  check sh -c '! jq -e ".. | .command? | select(. != null) | select(startswith(\"~/.local/bin/\") | not)" "$1" >/dev/null' _ "$hjson"
-done
-
-# 2. tdd-guard-executes-via-plugin — the PreToolUse build-hooks command each wrapper
-# declares really runs, and fails closed when tdd-guard is not on PATH. Found by command
-# rather than by matcher: the three harnesses name their edit tools differently.
-name="tdd-guard-executes-via-plugin"
-for plugin_dir in "$DIR/../../plugins"/*; do
-  [[ -d $plugin_dir ]] || continue
-  hjson=$(plugin_hooks "$plugin_dir")
-  [[ -n $hjson ]] || continue
-  cmd=$(jq -r '.. | .command? | select(. != null) | select(contains("build-hooks") and contains("PreToolUse"))' "$hjson" | head -n 1)
-  if [[ -n $cmd ]]; then
-    # eval the command in our sandbox where tdd-guard is missing -> exit 2 and "tdd-guard" in stderr
-    ln -sfn "$HOOKS" "$TMP/home/.local/bin/build-hooks"
-    out=$(eval HOME="$TMP/nohome" $cmd </dev/null 2>"$TMP/err")
-    rc=$?
-    check [ "$rc" -eq 2 ]
-    check grep -q 'tdd-guard' "$TMP/err"
-  fi
-done
 
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"

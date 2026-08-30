@@ -1,7 +1,7 @@
 {
   "planId": "planner-v3-sample",
   "planName": "Planner v3 Sample",
-  "repo": "foundry-zero/swarm-coder",
+  "repo": "foundry-zero/workcell",
   "generatedAt": "2026-08-26T12:00:00Z",
   "summary": "Demonstrate the offline planner folio and approval-gated GitHub reconciliation.",
   "architecture": {

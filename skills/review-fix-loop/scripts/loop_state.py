@@ -171,7 +171,7 @@ def summary(state: dict) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state", type=Path, default=Path(".swarm/review-fix-loop.json"))
+    parser.add_argument("--state", type=Path, default=Path(".workcell/review-fix-loop.json"))
     sub = parser.add_subparsers(dest="command", required=True)
 
     init = sub.add_parser("init", help="start a loop")

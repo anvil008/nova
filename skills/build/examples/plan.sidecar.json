@@ -1,7 +1,7 @@
 {
   "planId": "builder-v3-demo",
   "planName": "Builder v3 wave demo",
-  "repo": "foundry-zero/swarm-coder",
+  "repo": "foundry-zero/workcell",
   "generatedAt": "2026-08-26T12:00:00Z",
   "summary": "Demonstrate deterministic offline build-wave selection.",
   "architecture": {

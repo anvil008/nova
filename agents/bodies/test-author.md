@@ -4,7 +4,7 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
 ## Procedure
 
-1. Read the issue, its durable `<!-- swarm-planner ... -->` marker, dependencies, `acceptanceTests`, and `ownershipHint`.
+1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, `acceptanceTests`, and `ownershipHint`.
 2. **Ensure the repository is jj-managed.** If `.jj/` is absent, adopt the existing history in place from the repo root:
 
    ```bash

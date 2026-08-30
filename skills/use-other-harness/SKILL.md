@@ -6,7 +6,7 @@ description: ONLY when the user explicitly asks to run a subagent in a DIFFERENT
 # Use another harness (headless)
 
 Spin up a one-shot subagent in another harness by calling its headless CLI directly.
-This replaces the old `swarm-runplane` run-plane and its MCP: **no service, no control
+This replaces the old `workcell-runplane` run-plane and its MCP: **no service, no control
 plane, no foreign-dispatch protocol** — just a direct headless process you launch, wait
 on, and read back.
 

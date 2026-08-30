@@ -12,7 +12,7 @@ So Codex gets a staged copy instead of a link farm:
 
     dist/codex/
     ├── .agents/plugins/marketplace.json
-    └── plugins/swarm-coder/
+    └── plugins/workcell/
         ├── .codex-plugin/plugin.json     name, version, description, author, skills, interface
         ├── hooks/hooks.json              the default location Codex discovers on its own
         └── skills/
@@ -48,8 +48,8 @@ SKILLS = ROOT / "skills"
 AGENTS = ROOT / "agents" / "codex"
 OUT = ROOT / "dist" / "codex"
 
-PLUGIN = "swarm-coder"
-MARKETPLACE = "swarm-coder-local"
+PLUGIN = "workcell"
+MARKETPLACE = "workcell-local"
 
 # Agent names collide with skill names (docs, research, planner, deploy), so they
 # are namespaced. The prefix is also what tells a reader which are which.
@@ -81,7 +81,7 @@ def plugin_manifest(version: str) -> dict:
         "keywords": ["agents", "planning", "tdd", "code-review", "orchestration"],
         "skills": "./skills/",
         "interface": {
-            "displayName": "Swarm Coder",
+            "displayName": "Workcell",
             "shortDescription": "Plan, build, and review with isolated agents",
             "longDescription": (
                 "Turns a goal into a reviewable plan, has one agent write each task's "
@@ -121,11 +121,29 @@ def agent_skill(name: str, text: str, path: Path) -> tuple[str, str]:
     return skill, agent_yaml
 
 
-def build() -> Path:
+def validate_sources() -> tuple[str, list[Path], list[tuple[Path, str]]]:
+    """Validate every source before replacing OUT, so failures leave no partial tree."""
     if not SOURCE.is_dir():
         raise BuildError(f"missing plugin source {SOURCE.relative_to(ROOT)}")
     manifest_path = SOURCE / ".codex-plugin" / "plugin.json"
     version = json.loads(manifest_path.read_text(encoding="utf-8")).get("version", "0.1.0")
+
+    skill_dirs = sorted(path for path in SKILLS.iterdir() if path.is_dir())
+    for skill_dir in skill_dirs:
+        if not (skill_dir / "SKILL.md").is_file():
+            raise BuildError(f"{skill_dir.relative_to(ROOT)}: no SKILL.md")
+
+    agents = []
+    for agent in sorted(AGENTS.glob("*.md")):
+        text = agent.read_text(encoding="utf-8")
+        frontmatter_field(text, "name", agent)
+        frontmatter_field(text, "description", agent)
+        agents.append((agent, text))
+    return version, skill_dirs, agents
+
+
+def build() -> Path:
+    version, skill_dirs, agent_sources = validate_sources()
 
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -146,13 +164,12 @@ def build() -> Path:
     # Real copies, never links: a symlink out of the plugin root does not survive
     # the install, and one that resolves inside it would be dereferenced anyway.
     skills = 0
-    for skill in sorted(SKILLS.glob("*/SKILL.md")):
-        shutil.copytree(skill.parent, skills_out / skill.parent.name, symlinks=False)
+    for skill_dir in skill_dirs:
+        shutil.copytree(skill_dir, skills_out / skill_dir.name, symlinks=False)
         skills += 1
 
     agents = 0
-    for agent in sorted(AGENTS.glob("*.md")):
-        text = agent.read_text(encoding="utf-8")
+    for agent, text in agent_sources:
         skill_text, agent_yaml = agent_skill(agent.stem, text, agent)
         target = skills_out / f"{AGENT_PREFIX}{agent.stem}"
         (target / "agents").mkdir(parents=True)
@@ -165,7 +182,7 @@ def build() -> Path:
         json.dumps(
             {
                 "name": MARKETPLACE,
-                "interface": {"displayName": "Swarm Coder (Local)"},
+                "interface": {"displayName": "Workcell (Local)"},
                 "plugins": [
                     {
                         "name": PLUGIN,

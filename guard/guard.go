@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anvil008/swarm-coder/controlplane"
+	"github.com/anvil008/workcell/controlplane"
 )
 
 const (

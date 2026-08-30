@@ -3,7 +3,6 @@ name: deploy
 description: Use when executing one already-approved release against one named target, with verification and rollback.
 model: gpt-5.6-sol
 model_reasoning_effort: high
-sandbox_mode: workspace-write
 ---
 
 # Deploy

@@ -1,9 +1,8 @@
 {
-  "swarm-guard": {
-    "enabled": true,
+  "hooks": {
     "PreToolUse": [
       {
-        "matcher": "run_command",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
@@ -13,7 +12,7 @@
         ]
       },
       {
-        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "matcher": "apply_patch|Edit|Write",
         "hooks": [
           {
             "type": "command",
@@ -25,7 +24,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "run_command",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
@@ -35,7 +34,7 @@
         ]
       },
       {
-        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "matcher": "apply_patch|Edit|Write",
         "hooks": [
           {
             "type": "command",

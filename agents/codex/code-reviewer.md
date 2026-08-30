@@ -3,7 +3,6 @@ name: code-reviewer
 description: Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.
 model: gpt-5.6-sol
 model_reasoning_effort: medium
-sandbox_mode: read-only
 ---
 
 # Code reviewer

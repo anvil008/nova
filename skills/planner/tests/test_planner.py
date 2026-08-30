@@ -1,5 +1,8 @@
 # Load reconcile_github
+import hashlib
 import json
+import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -23,7 +26,7 @@ def sample_plan():
     return {
         "planId": "planner-v3",
         "planName": "Planner v3",
-        "repo": "foundry-zero/swarm-coder",
+        "repo": "foundry-zero/workcell",
         "generatedAt": "2026-08-26T12:00:00Z",
         "summary": "Ship an offline plan report and approved GitHub milestone.",
         "architecture": {
@@ -73,7 +76,81 @@ def sample_plan():
                 "mitigation": "Both read the same validated sidecar.",
             },
         ],
-    }
+}
+
+
+REPO_ROOT = ROOT.parents[1]
+RECONCILE_FINDINGS = REPO_ROOT / "skills" / "code-review" / "scripts" / "reconcile_findings.py"
+REVIEW_EXAMPLE = REPO_ROOT / "skills" / "code-review" / "examples" / "expected-review.json"
+STUB_LOGIN = "real-user"
+STUB_REPO = "stub-owner/stub-repo"
+
+GH_STUB = r'''#!/usr/bin/env python3
+import json
+import os
+import sys
+
+LOGIN = "real-user"
+argv = sys.argv[1:]
+with open(os.environ["GH_STUB_LOG"], "a", encoding="utf-8") as log:
+    log.write(json.dumps(argv) + "\n")
+
+if not argv or argv[0] != "api":
+    raise SystemExit(0)
+rest = argv[1:]
+TAKES_VALUE = {"--method", "--jq", "-q", "--input", "--field", "-f", "-F", "-H", "--header", "--template"}
+method, endpoint, skip = "GET", "", False
+for index, item in enumerate(rest):
+    if skip:
+        skip = False
+        continue
+    if item in TAKES_VALUE:
+        skip = True
+        if item == "--method" and index + 1 < len(rest):
+            method = rest[index + 1].upper()
+        continue
+    if item.startswith("-"):
+        continue
+    endpoint = item
+path = endpoint.split("?")[0].strip("/")
+if path == "user":
+    print(json.dumps({"login": LOGIN, "id": 1}))
+elif method == "GET":
+    print("[]")
+elif method == "POST" and path.endswith("/milestones"):
+    print(json.dumps({"number": 1}))
+elif method == "POST":
+    print(json.dumps({"number": 101}))
+elif method == "PATCH":
+    tail = path.rsplit("/", 1)[-1]
+    print(json.dumps({"number": int(tail) if tail.isdigit() else 1}))
+else:
+    print("{}")
+'''
+
+
+def gh_stub(directory):
+    binary = Path(directory) / "bin"
+    binary.mkdir(parents=True, exist_ok=True)
+    stub = binary / "gh"
+    stub.write_text(GH_STUB, encoding="utf-8")
+    stub.chmod(0o755)
+    log = Path(directory) / "gh-calls.log"
+    log.write_text("", encoding="utf-8")
+    environment = dict(os.environ)
+    environment["PATH"] = f"{binary}{os.pathsep}{environment.get('PATH', '')}"
+    environment["GH_STUB_LOG"] = str(log)
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    return environment, log
+
+
+def gh_calls(log):
+    return [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def writes_attempted(log):
+    return [call for call in gh_calls(log)
+            if any(item.upper() in {"POST", "PATCH", "PUT", "DELETE"} for item in call)]
 
 
 class StructureParser(HTMLParser):
@@ -188,7 +265,7 @@ class PlannerSkillTests(unittest.TestCase):
         self.assertNotIn("<link rel=", rendered)
         self.assertIn("@media print", rendered)
         self.assertIn("Proposed &mdash; awaiting explicit human approval", rendered)
-        self.assertIn("<!-- swarm-planner planId=planner-v3 -->", rendered)
+        self.assertIn("<!-- workcell-planner planId=planner-v3 -->", rendered)
 
     def test_renderer_rejects_unknown_schema_fields(self):
         plan = sample_plan()
@@ -239,12 +316,12 @@ class PlannerSkillTests(unittest.TestCase):
         plan["issues"][0]["key"] = "T0"
         plan["issues"][1]["key"] = "T1"
         plan["issues"][1]["dependsOn"] = ["T0"]
-        marker = "<!-- swarm-planner planId=planner-v3 issue=T0 -->"
+        marker = "<!-- workcell-planner planId=planner-v3 issue=T0 -->"
         snapshot = {
             "milestones": [{
                 "number": 7,
                 "title": plan["planName"],
-                "description": "<!-- swarm-planner planId=planner-v3 -->",
+                "description": "<!-- workcell-planner planId=planner-v3 -->",
                 "state": "open",
             }],
             "issues": [{
@@ -269,13 +346,13 @@ class PlannerSkillTests(unittest.TestCase):
 
     def test_reconcile_snapshot_updates_creates_closes_and_deduplicates(self):
         plan = sample_plan()
-        marker = "<!-- swarm-planner planId=planner-v3 issue=render -->"
+        marker = "<!-- workcell-planner planId=planner-v3 issue=render -->"
         snapshot = {
             "milestones": [
                 {
                     "number": 7,
                     "title": "Old title",
-                    "description": "<!-- swarm-planner planId=planner-v3 -->",
+                    "description": "<!-- workcell-planner planId=planner-v3 -->",
                     "state": "open",
                 }
             ],
@@ -291,7 +368,7 @@ class PlannerSkillTests(unittest.TestCase):
                 {
                     "number": 11,
                     "title": "Removed issue",
-                    "body": "Gone\n\n<!-- swarm-planner planId=planner-v3 issue=removed -->",
+                    "body": "Gone\n\n<!-- workcell-planner planId=planner-v3 issue=removed -->",
                     "labels": [],
                     "milestone": {"number": 7},
                     "state": "open",
@@ -495,7 +572,7 @@ class PlannerSkillTests(unittest.TestCase):
             result = self.run_script(RENDER, sidecar, Path(tmp) / "out.html")
             self.assertEqual(result.returncode, 0, result.stderr)
             rendered = (Path(tmp) / "out.html").read_text(encoding="utf-8")
-            self.assertIn("<!-- swarm-planner planId=x -->", rendered)
+            self.assertIn("<!-- workcell-planner planId=x -->", rendered)
             self.assertNotIn("planId= x", rendered)
             state = Path(tmp) / "snapshot.json"
             state.write_text(json.dumps({"milestones": [], "issues": []}), encoding="utf-8")
@@ -505,9 +582,9 @@ class PlannerSkillTests(unittest.TestCase):
             created = [a for a in actions if a["action"] == "create_issue"]
             self.assertEqual({a["key"] for a in created}, {"k", "sync"})
             for action in created:
-                self.assertIn(f'<!-- swarm-planner planId=x issue={action["key"]} -->', action["payload"]["body"])
+                self.assertIn(f'<!-- workcell-planner planId=x issue={action["key"]} -->', action["payload"]["body"])
             snapshot = {
-                "milestones": [{"number": 1, "title": plan["planName"], "description": "<!-- swarm-planner planId=x -->", "state": "open"}],
+                "milestones": [{"number": 1, "title": plan["planName"], "description": "<!-- workcell-planner planId=x -->", "state": "open"}],
                 "issues": [
                     {
                         "number": 10 + i, "title": a["payload"]["title"], "body": a["payload"]["body"],
@@ -548,7 +625,7 @@ class PlannerSkillTests(unittest.TestCase):
 
     def test_reconcile_does_not_reopen_done_issues_unless_asked(self):
         plan = sample_plan()
-        snapshot = {"milestones": [{"number": 7, "title": plan["planName"], "description": "<!-- swarm-planner planId=planner-v3 -->", "state": "open"}], "issues": []}
+        snapshot = {"milestones": [{"number": 7, "title": plan["planName"], "description": "<!-- workcell-planner planId=planner-v3 -->", "state": "open"}], "issues": []}
         first = reconcile_github.plan_actions(plan, snapshot)
         issues = []
         for i, action in enumerate(a for a in first if a["action"] == "create_issue"):
@@ -600,9 +677,112 @@ class PlannerSkillTests(unittest.TestCase):
         update = next(a for a in actions if a["action"] == "update_milestone")
         self.assertEqual(update["number"], 3)
         self.assertTrue(update["payload"]["description"].startswith("Hand-written goals."))
-        self.assertTrue(update["payload"]["description"].endswith("<!-- swarm-planner planId=planner-v3 -->"))
+        self.assertTrue(update["payload"]["description"].endswith("<!-- workcell-planner planId=planner-v3 -->"))
         snapshot["milestones"][0]["description"] = update["payload"]["description"]
         self.assertFalse(any(a["action"] == "update_milestone" for a in reconcile_github.plan_actions(plan, snapshot)))
+
+    def test_trailing_marker_wins_over_an_embedded_one(self):
+        genuine = reconcile_github.ISSUE_MARKER.format(plan_id="planner-v3", key="render")
+        forged = "<!-- workcell-planner planId=planner-v3 issue=forged -->"
+        body = "\n".join([
+            "Render the approved design.", "", "The reviewed diff quotes a fixture line:",
+            "", f"    {forged}", "", genuine,
+        ])
+        self.assertEqual(
+            reconcile_github.issue_marker({"body": body}),
+            ("planner-v3", "render"),
+        )
+
+    def test_unchanged_plan_is_still_a_no_op(self):
+        cases = {
+            "plain": "Render the approved design.",
+            "quotes-a-marker": (
+                "Render the approved design.\n\nThe fixture already contains "
+                "<!-- workcell-planner planId=planner-v3 issue=forged --> verbatim."
+            ),
+        }
+        for label, issue_body in cases.items():
+            with self.subTest(body=label), tempfile.TemporaryDirectory() as tmp:
+                plan = sample_plan()
+                plan["issues"][0]["body"] = issue_body
+                sidecar = Path(tmp) / "plan.sidecar.json"
+                sidecar.write_text(json.dumps(plan), encoding="utf-8")
+                state = Path(tmp) / "snapshot.json"
+                state.write_text(json.dumps({"milestones": [], "issues": []}), encoding="utf-8")
+                first = self.run_script(RECONCILE, sidecar, "--snapshot", state)
+                self.assertEqual(first.returncode, 0, first.stderr)
+                created = [a for a in json.loads(first.stdout)["actions"] if a["action"] == "create_issue"]
+                landed = {
+                    "milestones": [{
+                        "number": 1, "title": plan["planName"],
+                        "description": "<!-- workcell-planner planId=planner-v3 -->", "state": "open",
+                    }],
+                    "issues": [{
+                        "number": 10 + index,
+                        "title": action["payload"]["title"],
+                        "body": action["payload"]["body"],
+                        "labels": [{"name": name} for name in action["payload"]["labels"]],
+                        "milestone": {"number": 1}, "state": "open",
+                    } for index, action in enumerate(created)],
+                }
+                state.write_text(json.dumps(landed), encoding="utf-8")
+                second = self.run_script(RECONCILE, sidecar, "--snapshot", state)
+                self.assertEqual(second.returncode, 0, second.stderr)
+                self.assertEqual(json.loads(second.stdout)["actions"], [])
+
+    def approval_command(self, tool, source, approved_by):
+        if tool == RECONCILE_FINDINGS:
+            return [
+                sys.executable, "-B", str(tool), str(source),
+                "--repo", STUB_REPO, "--review-id", "pr-4821", "--subject", "PR #4821",
+                "--apply", "--approved-by", approved_by,
+            ]
+        return [sys.executable, "-B", str(tool), str(source), "--apply", "--approved-by", approved_by]
+
+    def approval_sources(self, directory):
+        plan = sample_plan()
+        plan["repo"] = STUB_REPO
+        sidecar = Path(directory) / "plan.sidecar.json"
+        sidecar.write_text(json.dumps(plan), encoding="utf-8")
+        return ((RECONCILE, sidecar), (RECONCILE_FINDINGS, REVIEW_EXAMPLE))
+
+    def test_approved_by_must_match_the_authenticated_login(self):
+        with tempfile.TemporaryDirectory() as shared:
+            for tool, source in self.approval_sources(shared):
+                with self.subTest(tool=tool.name), tempfile.TemporaryDirectory() as tmp:
+                    environment, log = gh_stub(tmp)
+                    mismatch = subprocess.run(
+                        self.approval_command(tool, source, "the human"),
+                        cwd=tool.parent, env=environment, text=True, capture_output=True, check=False,
+                    )
+                    self.assertNotEqual(mismatch.returncode, 0)
+                    self.assertIn("the human", mismatch.stderr)
+                    self.assertIn(STUB_LOGIN, mismatch.stderr)
+                    self.assertEqual(writes_attempted(log), [])
+                    environment, log = gh_stub(tmp)
+                    accepted = subprocess.run(
+                        self.approval_command(tool, source, STUB_LOGIN),
+                        cwd=tool.parent, env=environment, text=True, capture_output=True, check=False,
+                    )
+                    self.assertEqual(accepted.returncode, 0, accepted.stderr)
+                    self.assertEqual(json.loads(accepted.stdout)["approvedBy"], STUB_LOGIN)
+                    self.assertTrue(writes_attempted(log))
+
+    def test_receipt_pins_the_approved_file_digest(self):
+        with tempfile.TemporaryDirectory() as shared:
+            for tool, source in self.approval_sources(shared):
+                with self.subTest(tool=tool.name), tempfile.TemporaryDirectory() as tmp:
+                    environment, _ = gh_stub(tmp)
+                    result = subprocess.run(
+                        self.approval_command(tool, source, STUB_LOGIN),
+                        cwd=tool.parent, env=environment, text=True, capture_output=True, check=False,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    output = json.loads(result.stdout)
+                    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+                    carrying = [key for key, value in output.items() if value == digest]
+                    self.assertTrue(carrying)
+                    self.assertTrue(any(re.search(r"digest|sha256", key, re.IGNORECASE) for key in carrying))
 
     def test_skill_documents_reopen_done_and_marker_normalisation(self):
         text = (ROOT / "SKILL.md").read_text(encoding="utf-8")

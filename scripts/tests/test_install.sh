@@ -14,6 +14,8 @@ ok(){ printf 'ok   %s\n' "$1"; pass=$((pass+1)); }
 no(){ printf 'FAIL %s\n' "$1"; fail=$((fail+1)); }
 # fresh_home NAME -> creates $TMP/NAME with the harness dirs the installers look for, exports HOME
 fresh_home(){ HOME="$TMP/$1"; export HOME
+  CODEX_HOME="$HOME/.codex"; export CODEX_HOME
+  CLAUDE_CONFIG_DIR="$HOME/.claude"; export CLAUDE_CONFIG_DIR
   mkdir -p "$HOME/.claude" "$HOME/.codex" "$HOME/.gemini/config" "$HOME/.local/bin"
   [[ $HOME != "$REAL_HOME" ]] || { echo "refusing to test against the real HOME" >&2; exit 99; }; }
 # is_link_to DST SRC LABEL -> asserts DST is a symlink pointing exactly at SRC
@@ -28,22 +30,22 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 # absent. A CI runner has neither claude nor codex, and their absence is not a defect.
 registered(){ local cli=$1 label=$2
   if ! command -v "$cli" >/dev/null; then printf 'skip %s (no %s CLI)\n' "$label" "$cli"; return 0; fi
-  "$cli" plugin list 2>/dev/null | grep -q 'swarm-coder@swarm-coder-local' && ok "$label" || no "$label"; }
+  "$cli" plugin list 2>/dev/null | grep -q 'workcell@workcell-local' && ok "$label" || no "$label"; }
 not_registered(){ local cli=$1
   command -v "$cli" >/dev/null || return 0
-  ! "$cli" plugin list 2>/dev/null | grep -q 'swarm-coder@swarm-coder-local'; }
+  ! "$cli" plugin list 2>/dev/null | grep -q 'workcell@workcell-local'; }
 
 # --- install-refuses-foreign-target --------------------------------------------------------------
 fresh_home foreign
-mkdir -p "$HOME/.gemini/config/plugins/swarm-coder"
-echo "user's own plugin" > "$HOME/.gemini/config/plugins/swarm-coder/plugin.json"
+mkdir -p "$HOME/.gemini/config/plugins/workcell"
+echo "user's own plugin" > "$HOME/.gemini/config/plugins/workcell/plugin.json"
 cp -R "$HOME/.gemini" "$TMP/foreign-before"
 out=$("$INSTALL" --install --harness agy 2>&1); rc=$?
 [[ $rc -ne 0 ]] && ok "install exits non-zero on foreign targets" || no "install exits non-zero on foreign targets (rc=$rc)"
-grep -q "plugins/swarm-coder" <<<"$out" && ok "refusal names foreign target" || no "refusal names foreign target: $out"
+grep -q "plugins/workcell" <<<"$out" && ok "refusal names foreign target" || no "refusal names foreign target: $out"
 grep -q "done\." <<<"$out" && no "refused install must not print done." || ok "refused install does not print done."
-[[ ! -L $HOME/.gemini/config/plugins/swarm-coder ]] \
-  && cmp -s "$TMP/foreign-before/config/plugins/swarm-coder/plugin.json" "$HOME/.gemini/config/plugins/swarm-coder/plugin.json" \
+[[ ! -L $HOME/.gemini/config/plugins/workcell ]] \
+  && cmp -s "$TMP/foreign-before/config/plugins/workcell/plugin.json" "$HOME/.gemini/config/plugins/workcell/plugin.json" \
   && ok "foreign targets left byte-identical" || no "foreign targets left byte-identical"
 
 # --- uninstall-removes-only-owned-links ----------------------------------------------------------
@@ -51,7 +53,7 @@ fresh_home owned
 mkdir -p "$TMP/elsewhere" "$HOME/.claude/plugins"; echo foreign > "$TMP/elsewhere/foreign-plugin"
 out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -eq 0 ]] && grep -q "done\." <<<"$out" && ok "install into fresh HOME succeeds" || no "install into fresh HOME succeeds (rc=$rc): $out"
-[[ -L $HOME/.gemini/config/plugins/swarm-coder && -L $HOME/.gemini/antigravity-cli/plugins/swarm-coder ]] \
+[[ -L $HOME/.gemini/config/plugins/workcell && -L $HOME/.gemini/antigravity-cli/plugins/workcell ]] \
   && ok "install links the Antigravity plugin" || no "install links the Antigravity plugin"
 registered codex "install registers the Codex plugin"
 registered claude "install registers the Claude plugin"
@@ -113,13 +115,13 @@ grep -qxF '.claude/settings.local.json' "$ex" && ok "exclude written to common-d
 
 # --- --force replaces only symlinks, never real files/dirs ---------------------------------------
 fresh_home force
-mkdir -p "$TMP/elsewhere" "$HOME/.gemini/antigravity-cli/plugins" "$HOME/.gemini/config/plugins/swarm-coder"
+mkdir -p "$TMP/elsewhere" "$HOME/.gemini/antigravity-cli/plugins" "$HOME/.gemini/config/plugins/workcell"
 echo foreign > "$TMP/elsewhere/foreign-plugin"
-ln -sfn "$TMP/elsewhere/foreign-plugin" "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
-echo real > "$HOME/.gemini/config/plugins/swarm-coder/plugin.json"
+ln -sfn "$TMP/elsewhere/foreign-plugin" "$HOME/.gemini/antigravity-cli/plugins/workcell"
+echo real > "$HOME/.gemini/config/plugins/workcell/plugin.json"
 out=$("$INSTALL" --install --force 2>&1); rc=$?
-is_link_to "$HOME/.gemini/antigravity-cli/plugins/swarm-coder" "$ROOT/plugins/agy" "--force replaces a foreign symlink"
-[[ $rc -ne 0 && ! -L $HOME/.gemini/config/plugins/swarm-coder && -f $HOME/.gemini/config/plugins/swarm-coder/plugin.json ]] \
+is_link_to "$HOME/.gemini/antigravity-cli/plugins/workcell" "$ROOT/plugins/agy" "--force replaces a foreign symlink"
+[[ $rc -ne 0 && ! -L $HOME/.gemini/config/plugins/workcell && -f $HOME/.gemini/config/plugins/workcell/plugin.json ]] \
   && ok "--force still refuses a real directory" || no "--force still refuses a real directory (rc=$rc): $out"
 
 # --- frontmatter validated before any harness is touched -----------------------------------------
@@ -144,17 +146,17 @@ done
 [[ $bad_json -eq 0 ]] && ok "manifests are valid JSON" || no "manifests are valid JSON"
 
 bad_schema=0
-jq -e '.name == "swarm-coder" and .version and .description and .capabilities' "$ROOT/plugins/agy/plugin.json" >/dev/null 2>&1 || bad_schema=1
-jq -e '.name == "swarm-coder" and .version and .description' "$ROOT/plugins/claude/.claude-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
-jq -e '.name == "swarm-coder" and .version and .description' "$ROOT/plugins/codex/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "workcell" and .version and .description and .capabilities' "$ROOT/plugins/agy/plugin.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "workcell" and .version and .description' "$ROOT/plugins/claude/.claude-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "workcell" and .version and .description' "$ROOT/plugins/codex/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
 # Claude's marketplace is rooted at the repository and follows the wrapper's links.
-jq -e '.name == "swarm-coder-local" and (.plugins[0].source == "./plugins/claude")' "$ROOT/.claude-plugin/marketplace.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "workcell-local" and (.plugins[0].source == "./plugins/claude")' "$ROOT/.claude-plugin/marketplace.json" >/dev/null 2>&1 || bad_schema=1
 # Codex's is generated into dist/, because Codex copies a plugin and drops escaping symlinks.
 python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1 || bad_schema=1
-jq -e '.name == "swarm-coder-local" and (.plugins[0].source.path == "./plugins/swarm-coder")' "$ROOT/dist/codex/.agents/plugins/marketplace.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "workcell-local" and (.plugins[0].source.path == "./plugins/workcell")' "$ROOT/dist/codex/.agents/plugins/marketplace.json" >/dev/null 2>&1 || bad_schema=1
 # The staged manifest must carry what Codex validation actually requires.
 jq -e '.author.name and .interface.displayName and .interface.defaultPrompt and .skills == "./skills/" and (has("hooks") | not)' \
-  "$ROOT/dist/codex/plugins/swarm-coder/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
+  "$ROOT/dist/codex/plugins/workcell/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
 [[ $bad_schema -eq 0 ]] && ok "manifests satisfy schema requirements" || no "manifests satisfy schema requirements"
 
 # --- plugin-structure-integrity ------------------------------------------------------------------
@@ -200,24 +202,24 @@ fresh_home plugins
 mkdir -p "$HOME/.gemini/antigravity-cli"
 out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "install exits zero" || no "install exits zero (rc=$rc): $out"
-is_link_to "$HOME/.gemini/antigravity-cli/plugins/swarm-coder" "$ROOT/plugins/agy" "agy plugin linked"
+is_link_to "$HOME/.gemini/antigravity-cli/plugins/workcell" "$ROOT/plugins/agy" "agy plugin linked"
 registered codex "codex plugin installed from local marketplace"
 registered claude "claude plugin installed from local marketplace"
 
 # --- uninstall-cleans-plugins (integration) ------------------------------------------------------
 out=$("$INSTALL" --uninstall 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "uninstall exits zero" || no "uninstall exits zero (rc=$rc): $out"
-[[ ! -L "$HOME/.gemini/antigravity-cli/plugins/swarm-coder" ]] \
+[[ ! -L "$HOME/.gemini/antigravity-cli/plugins/workcell" ]] \
   && not_registered codex && not_registered claude \
   && ok "uninstall removes all plugins" || no "uninstall removes all plugins"
 
 # --- refuses-foreign-plugin (unit) ---------------------------------------------------------------
 fresh_home foreign_plugin
-mkdir -p "$HOME/.gemini/config/plugins/swarm-coder"
-echo "foreign" > "$HOME/.gemini/config/plugins/swarm-coder/foreign.txt"
+mkdir -p "$HOME/.gemini/config/plugins/workcell"
+echo "foreign" > "$HOME/.gemini/config/plugins/workcell/foreign.txt"
 out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -ne 0 ]] && ok "install refuses foreign plugin directory" || no "install refuses foreign plugin directory (rc=$rc): $out"
-[[ -f "$HOME/.gemini/config/plugins/swarm-coder/foreign.txt" ]] && ok "foreign plugin untouched" || no "foreign plugin untouched"
+[[ -f "$HOME/.gemini/config/plugins/workcell/foreign.txt" ]] && ok "foreign plugin untouched" || no "foreign plugin untouched"
 
 
 # --- project-bootstrap-installs-local-plugins (integration) --------------------------------------
@@ -227,7 +229,7 @@ out=$("$BOOTSTRAP" --install "$TMP/pb-plugins-proj" 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "bootstrap-project --install exits zero" || no "bootstrap-project --install exits zero (rc=$rc): $out"
 
 ex=$(cd "$TMP/pb-plugins-proj" && git rev-parse --git-path info/exclude)
-is_link_to "$TMP/pb-plugins-proj/.agents/plugins/swarm-coder" "$ROOT/plugins/agy" \
+is_link_to "$TMP/pb-plugins-proj/.agents/plugins/workcell" "$ROOT/plugins/agy" \
   "bootstrap-project agy workspace plugin linked"
 grep -qxF ".agents/plugins" "$TMP/pb-plugins-proj/$ex" && ok "exclude .agents/plugins written" || no "exclude .agents/plugins written"
 registered codex "bootstrap-project registers the Codex plugin"
@@ -238,30 +240,30 @@ registered codex "bootstrap-project registers the Codex plugin"
 fresh_home codex_profiles
 "$INSTALL" --install >/dev/null 2>&1 || true
 
-[[ -f "$HOME/.codex/swarm-builder.config.toml" ]] \
+[[ -f "$HOME/.codex/workcell-builder.config.toml" ]] \
   && ok "install writes a codex profile per agent" \
   || no "install writes a codex profile per agent"
-grep -q 'model_reasoning_effort = "high"' "$HOME/.codex/swarm-builder.config.toml" 2>/dev/null \
+grep -q 'model_reasoning_effort = "high"' "$HOME/.codex/workcell-builder.config.toml" 2>/dev/null \
   && ok "codex profile carries the manifest effort" \
   || no "codex profile carries the manifest effort"
-grep -q 'model_reasoning_effort = "low"' "$HOME/.codex/swarm-research.config.toml" 2>/dev/null \
+grep -q 'model_reasoning_effort = "low"' "$HOME/.codex/workcell-research.config.toml" 2>/dev/null \
   && ok "codex profile is per-agent, not one blanket value" \
   || no "codex profile is per-agent, not one blanket value"
 
 # A profile we did not write is never overwritten, even under our own name prefix.
-printf 'model = "mine"\n' > "$HOME/.codex/swarm-builder.config.toml"
+printf 'model = "mine"\n' > "$HOME/.codex/workcell-builder.config.toml"
 out=$(python3 "$ROOT/scripts/sync-agent-models.py" --codex-profiles 2>&1); rc=$?
 [[ $rc -ne 0 ]] && grep -q "refusing to overwrite" <<<"$out" \
   && ok "foreign codex profile refused by name" \
   || no "foreign codex profile refused by name (rc=$rc): $out"
-grep -q 'model = "mine"' "$HOME/.codex/swarm-builder.config.toml" \
+grep -q 'model = "mine"' "$HOME/.codex/workcell-builder.config.toml" \
   && ok "foreign codex profile untouched" || no "foreign codex profile untouched"
 
 # Uninstall sweeps ours and leaves theirs, including the foreign one just written.
 "$INSTALL" --uninstall >/dev/null 2>&1 || true
-[[ -f "$HOME/.codex/swarm-builder.config.toml" ]] \
+[[ -f "$HOME/.codex/workcell-builder.config.toml" ]] \
   && ok "uninstall leaves a foreign codex profile" || no "uninstall leaves a foreign codex profile"
-[[ ! -f "$HOME/.codex/swarm-research.config.toml" ]] \
+[[ ! -f "$HOME/.codex/workcell-research.config.toml" ]] \
   && ok "uninstall removes our codex profiles" || no "uninstall removes our codex profiles"
 
 # --- codex-staged-tree ---------------------------------------------------------------------------
@@ -269,7 +271,7 @@ grep -q 'model = "mine"' "$HOME/.codex/swarm-builder.config.toml" \
 # outside the plugin root, so the wrapper's links delivered nothing. The staged
 # tree is what makes skills and agents actually reach the model.
 python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1
-staged="$ROOT/dist/codex/plugins/swarm-coder"
+staged="$ROOT/dist/codex/plugins/workcell"
 
 [[ -f "$staged/hooks/hooks.json" ]] \
   && ok "codex hooks at the auto-discovered path" || no "codex hooks at the auto-discovered path"
@@ -289,6 +291,61 @@ if find "$staged" -type l | grep -q .; then
 else
   ok "staged tree is symlink-free"
 fi
+
+# --- plugin-cache-refresh (T-PLUGIN-REFRESH / #76) ----------------------------------------------
+stub_cli(){ local name=$1 dir=$2 log=$3
+  mkdir -p "$dir"; : > "$log"
+  { printf '#!/usr/bin/env bash\n'; printf 'printf "%%s\\n" "$*" >> %q\n' "$log"; } > "$dir/$name"
+  chmod +x "$dir/$name"
+}
+
+# --- codex-hook-trust-instructions ---------------------------------------------------------------
+fresh_home codex_hook_trust
+mkdir -p "$TMP/stub-bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/stub-bin/codex"
+chmod +x "$TMP/stub-bin/codex"
+out=$(PATH="$TMP/stub-bin:$PATH" "$INSTALL" --install --harness codex 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "Codex-only install succeeds with a stub CLI" || no "Codex-only install failed (rc=$rc): $out"
+grep -q '/hooks' <<<"$out" && grep -q -- '--dangerously-bypass-hook-trust' <<<"$out" \
+  && ok "Codex install prints both hook trust choices" || no "Codex hook trust instructions missing: $out"
+sed -n '1,30p' "$INSTALL" | grep -q '/hooks' && sed -n '1,30p' "$INSTALL" | grep -q -- '--dangerously-bypass-hook-trust' \
+  && ok "installer header documents both hook trust choices" || no "installer header lacks hook trust instructions"
+call_line(){ grep -n -F -- "$2" "$1" 2>/dev/null | head -1 | cut -d: -f1; }
+
+for harness in claude codex; do
+  fresh_home "refresh_$harness"
+  stubs="$TMP/stubs-$harness"; log="$TMP/$harness-calls.log"
+  stub_cli "$harness" "$stubs" "$log"
+  out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness "$harness" 2>&1); rc=$?
+  [[ $rc -eq 0 ]] || no "$harness refresh install exits zero (rc=$rc): $out"
+  if [[ $harness == claude ]]; then add=install; del=uninstall; else add=add; del=remove; fi
+  add_at=$(call_line "$log" "plugin $add workcell@workcell-local")
+  del_at=$(call_line "$log" "plugin $del workcell@workcell-local")
+  [[ -n $add_at && -n $del_at && $del_at -lt $add_at ]] \
+    && ok "$harness removes its cached plugin before adding it" \
+    || no "$harness cache refresh order (remove=${del_at:-none} add=${add_at:-none})"
+done
+
+# A project-local reinstall also retires marketplace registrations from before
+# the Workcell rename, so the old and new plugin identities cannot coexist.
+fresh_home project_rename
+git_repo "$TMP/project-rename-repo"
+for harness in claude codex; do
+  stubs="$TMP/project-stubs-$harness"; log="$TMP/project-$harness-calls.log"
+  stub_cli "$harness" "$stubs" "$log"
+  out=$(PATH="$stubs:$PATH" "$BOOTSTRAP" --install "$TMP/project-rename-repo" 2>&1); rc=$?
+  [[ $rc -eq 0 ]] || no "project-local $harness migration exits zero (rc=$rc): $out"
+  if [[ $harness == claude ]]; then del=uninstall; else del=remove; fi
+  call_line "$log" "plugin $del workcell@workcell-local" >/dev/null \
+    && call_line "$log" "plugin marketplace remove workcell-local" >/dev/null \
+    && ok "project-local $harness install retires the legacy registration" \
+    || no "project-local $harness install retires the legacy registration"
+done
+
+claude_ver=$(jq -r .version "$ROOT/plugins/claude/.claude-plugin/plugin.json" 2>/dev/null)
+[[ $claude_ver =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && $claude_ver != 0.1.0 ]] \
+  && ok "claude plugin version is past the stale 0.1.0 cache" \
+  || no "claude plugin version is past the stale 0.1.0 cache (got '$claude_ver')"
 
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]

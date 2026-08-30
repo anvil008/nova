@@ -3,7 +3,6 @@ name: benchmarker
 description: Use when measuring performance against a project benchmark harness and reporting distributions rather than a single number.
 model: gpt-5.6-sol
 model_reasoning_effort: medium
-sandbox_mode: workspace-write
 ---
 
 # Benchmarker

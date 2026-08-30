@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anvil008/swarm-coder/controlplane"
+	"github.com/anvil008/workcell/controlplane"
 )
 
 // fakeAstGrep installs a stand-in for the ast-grep binary that counts literal

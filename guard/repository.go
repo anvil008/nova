@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anvil008/swarm-coder/controlplane"
+	"github.com/anvil008/workcell/controlplane"
 )
 
 // skippedDirectories are never scanned for sealable tests. They are either
