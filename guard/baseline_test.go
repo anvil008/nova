@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,6 +60,58 @@ func TestRedSealStillRejectsGreenAndReportsItsKind(t *testing.T) {
 	status := h.statusJSON()
 	if status.SealKind != SealKindRed || status.Seal == nil || status.Seal.Kind != SealKindRed {
 		t.Fatalf("red kind not reported: %+v", status)
+	}
+}
+
+func TestLegacySealWithoutKindBehavesAsRed(t *testing.T) {
+	h := newHarness(t)
+	h.seal()
+	sealPath := filepath.Join(h.stateDirectory(), sealFileName)
+	raw, err := os.ReadFile(sealPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacy map[string]any
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	delete(legacy, "kind")
+	encoded, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sealPath, encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if status := h.statusJSON(); status.SealKind != SealKindRed {
+		t.Fatalf("legacy seal kind = %q, want %q", status.SealKind, SealKindRed)
+	}
+	h.write("pkg/thing_test.go", "package pkg\n\n// amended legacy red test\n")
+	if code, _, stderr := h.run("reseal", "--reason", "strengthen the legacy red test"); code != 0 {
+		t.Fatalf("legacy red reseal exit %d: %s", code, stderr)
+	}
+	if code, _, stderr := h.stop(); code == 0 || !strings.Contains(stderr, "no green evidence") {
+		t.Fatalf("legacy red Stop before verify: exit %d stderr %q", code, stderr)
+	}
+
+	h.verify()
+	h.write("findings.txt", "reviewed legacy red seal\n")
+	if code, _, stderr := h.run("diff-review", "record", "--findings", "findings.txt"); code != 0 {
+		t.Fatalf("diff-review exit %d: %s", code, stderr)
+	}
+	if code, stdout, stderr := h.stop(); code != 0 || stdout != "" || stderr != "" {
+		t.Fatalf("verified legacy red seal refused Stop: exit %d stdout %q stderr %q", code, stdout, stderr)
+	}
+}
+
+func TestBaselineFlowRefusesHandoffAndStopBeforeSeal(t *testing.T) {
+	h := newHarness(t)
+	if code, _, stderr := h.run("handoff", "--to", "builder"); code == 0 || !strings.Contains(stderr, "nothing to hand off: seal the tests first") {
+		t.Fatalf("handoff without baseline seal: exit %d stderr %q", code, stderr)
+	}
+	if code, _, stderr := h.stop(); code == 0 || !strings.Contains(stderr, "no green evidence") {
+		t.Fatalf("Stop without baseline seal or green: exit %d stderr %q", code, stderr)
 	}
 }
 
