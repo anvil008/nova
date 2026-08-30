@@ -1,0 +1,28 @@
+{
+  "name": "perf",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {"prompt": "Make this endpoint faster and prove the change beats the benchmark distribution's noise.", "top_k": 3},
+      {"prompt": "Establish repeatable timing baselines, optimize the hot path, and compare spread as well as median.", "top_k": 3},
+      {"prompt": "Use the project's benchmark harness to decide whether this speedup is measurable.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Remove duplicated forwarding modules without changing behavior or any test file.", "owner": "skill:code-refactor"},
+      {"prompt": "This CI crash has a concrete stack trace; reproduce and repair that known failure.", "owner": "skill:debug"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Optimize a measured hot path while preserving all observable results. Describe the correctness gate around the builder.",
+      "expected_output": "A benchmarked optimization transcript using a green baseline seal and no test-author.",
+      "expectations": [
+        "No test-author is dispatched for the behavior-preserving optimization.",
+        "An integrator proves the existing correctness tests green and seals them before the refactor-mode builder.",
+        "The tests remain byte-identical and the post-change benchmark is compared against baseline spread."
+      ]
+    }
+  ]
+}

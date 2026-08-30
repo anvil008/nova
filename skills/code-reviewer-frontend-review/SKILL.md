@@ -38,7 +38,7 @@ Also check `1920 × 1080` **split** (960 × 1080) when the UI is a tool someone 
 ## Method
 
 1. **Static pass first.** Read the changed components, styles, and tokens. Many findings (hard-coded colours, off-scale spacing, missing labels) need no browser and cost nothing.
-2. **Runtime pass with Playwright.** Ask before starting a dev server, and never point at production.
+2. **Runtime pass with Playwright.** Use the dispatch brief's `devServer` field: `none`, a URL, or `start: <command>`. Never ask. An absent field or `none` means skip runtime, perform the static pass only, and record the runtime gap. Production URLs are never passed: never point at production.
    - `browser_navigate` to the surface under review.
    - For each matrix row: `browser_resize`, then `browser_snapshot` for structure and `browser_take_screenshot` for evidence.
    - Assert no horizontal overflow per row — `document.documentElement.scrollWidth > clientWidth` via `browser_evaluate` is the cheap, objective check, and it is the single most common responsive defect.
@@ -46,7 +46,7 @@ Also check `1920 × 1080` **split** (960 × 1080) when the UI is a tool someone 
    - Close the browser when done.
 3. **Report** in the envelope below. Every finding names the viewport it reproduces at.
 
-If no dev server is reachable and the change cannot be rendered, say so: return the findings the static pass produced and record the runtime gap rather than guessing at runtime behaviour.
+If no permitted dev server is reachable and the change cannot be rendered, say so: return the findings the static pass produced and record the runtime gap rather than guessing at runtime behaviour.
 
 ## Output
 

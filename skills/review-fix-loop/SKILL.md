@@ -8,6 +8,10 @@ description: Repeatedly review a change-set and have the builder fix what the re
 Review, fix, re-review — on `loop-branch`, up to ten passes, stopping early when there is nothing
 left to fix or when fixing stops working.
 
+You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+
+This orchestrator owns `loop-branch`, the iteration bound, and the stop decision returned by `loop_state.py`.
+
 The harness `/loop` provides the repetition. This skill provides what one iteration *does* and,
 more importantly, when the loop must stop. Loop state lives in a file rather than in the session,
 because `/loop` re-invokes with a fresh context each tick and an agent that cannot remember which
@@ -76,19 +80,9 @@ Do this once, then never again for the life of the loop.
 
 3. **Fix — only if `continue` is true.** Dispatch the `builder` to fix the reported findings,
    ranked by severity, `critical` and `high` first. Findings below `--min-severity` are optional
-   for the builder; fixing them is welcome but not what the loop is waiting on. The builder runs
-   in a reduced mode here:
+   for the builder; fixing them is welcome but not what the loop is waiting on. Its dispatch brief conforms to [`agents/handoff.md`](../../agents/handoff.md) and carries `mode: loop`: use the existing working copy on `loop-branch`, open no PR, and run no self-review passes. The brief also carries the findings, implicated ownership, documented verification command, and any sealed-test paths; everything else holds, including `tdd-guard reseal --reason <text>` for a justified sealed-test amendment.
 
-   - it works on `loop-branch` in the existing working copy, taking no new jj workspace, since
-     the loop owns the branch;
-   - there is no GitHub issue and no PR per iteration — the loop opens one at the end, if at all;
-   - it does **not** run its own two review passes; this loop is that review;
-   - everything else holds: tests stay green, no sealed test is touched except through
-     `tdd-guard reseal --reason <text>`, and it writes only what the findings implicate.
-
-4. **Verify and commit.** Run the project's test command. A red suite ends the iteration — commit
-   nothing, and let the next pass see the same findings, which is exactly the signal `stalled` is
-   designed to catch. On green, commit the iteration with the pass number in the message.
+4. **Verify and commit.** Read the builder's command-linked verification evidence. A red suite ends the iteration — commit nothing, and let the next pass see the same findings, which is exactly the signal `stalled` is designed to catch. On green, commit the iteration with the pass number in the message.
 
 5. Stop when `record` says stop. Report the ending status, the pass count, and the findings that
    remain.

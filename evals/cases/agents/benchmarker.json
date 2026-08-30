@@ -1,0 +1,27 @@
+{
+  "name": "benchmarker",
+  "kind": "agent",
+  "trigger": {
+    "positive": [
+      {"prompt": "Measure this benchmark repeatedly and return its median, spread, run count, and environment.", "top_k": 3},
+      {"prompt": "Compare these two revisions using the existing performance harness and report distributions.", "top_k": 3},
+      {"prompt": "Report the project's benchmark results as a distribution instead of one number.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Coordinate the full optimization workflow from baseline through a proven faster PR.", "owner": "skill:perf"},
+      {"prompt": "Reproduce this reported crash by experiment and return the root-cause diagnosis.", "owner": "agent:debugger"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "The benchmark ran once before and once after; the latter was 3% faster. Report the result.",
+      "expected_output": "An evidence gap rather than a claimed performance improvement.",
+      "expectations": [
+        "A single run is rejected as insufficient measurement evidence.",
+        "The response requests repeated measurements with spread and stated conditions."
+      ]
+    }
+  ]
+}

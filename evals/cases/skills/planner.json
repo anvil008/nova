@@ -1,0 +1,27 @@
+{
+  "name": "planner",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {"prompt": "Investigate this substantial change and prepare a reviewable folio plus machine-readable issue plan.", "top_k": 3},
+      {"prompt": "Draft an offline implementation roadmap and wait for my approval before creating milestones or issues.", "top_k": 3},
+      {"prompt": "Break this repository task into acceptance-tested work items and preview GitHub reconciliation.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Investigate several independent subsystems in parallel and merge the evidence into one packet.", "owner": "skill:research"},
+      {"prompt": "Implement this already-assigned issue in its workspace and open its PR.", "owner": "agent:builder"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "The requested migration does not say whether legacy clients must remain compatible, and the answer changes issue scope. Produce the plan.",
+      "expected_output": "A needs-decision handoff naming the unresolved compatibility question rather than a completed plan.",
+      "expectations": [
+        "The disposition is needs-decision.",
+        "The compatibility choice is presented to the human and is not encoded as an assumption in the plan or sidecar."
+      ]
+    }
+  ]
+}

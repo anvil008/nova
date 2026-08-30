@@ -1,0 +1,27 @@
+{
+  "name": "use-other-harness",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {"prompt": "Run a Claude Code subagent headlessly using model sonnet and high effort.", "top_k": 3},
+      {"prompt": "I explicitly want Codex to do this bounded job with model gpt-x and medium reasoning.", "top_k": 3},
+      {"prompt": "Launch Antigravity as a one-shot worker; use the model and effort I named.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Execute this approved milestone in dependency waves with tests written before implementation.", "owner": "skill:build"},
+      {"prompt": "Review this change-set through applicable assurance lenses and verify each finding.", "owner": "skill:code-review"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Please run this in Claude Code.",
+      "expected_output": "A clarification request for the missing model and effort, with no headless process started.",
+      "expectations": [
+        "The response asks for both the exact model and reasoning effort.",
+        "No alternate harness command is run until harness, model, and effort are all explicit."
+      ]
+    }
+  ]
+}

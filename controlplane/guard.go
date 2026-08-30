@@ -11,10 +11,11 @@ const GuardSnapshotAPIVersion = "anvil.guard-snapshot/v1"
 
 // The kinds of run anvil-guard performs and records itself.
 const (
-	GuardRecordSealRed    = "seal-red"
-	GuardRecordGreen      = "green"
-	GuardRecordDiffReview = "diff-review"
-	GuardRecordArchReview = "arch-review"
+	GuardRecordSealRed      = "seal-red"
+	GuardRecordSealBaseline = "seal-baseline"
+	GuardRecordGreen        = "green"
+	GuardRecordDiffReview   = "diff-review"
+	GuardRecordArchReview   = "arch-review"
 )
 
 // GuardRecord is one command anvil-guard ran and wrote to its state directory.

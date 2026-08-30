@@ -1,0 +1,27 @@
+{
+  "name": "integrator",
+  "kind": "agent",
+  "trigger": {
+    "positive": [
+      {"prompt": "Combine this wave's pull requests and rerun the full suite, returning command-linked evidence.", "top_k": 3},
+      {"prompt": "Combine the wave's PRs, verify that joint state, and give me command-linked results, naming the first offender if it fails.", "top_k": 3},
+      {"prompt": "On untouched code, prove checks are green, seal the current tests for the refactor builder, and return the command evidence.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Execute the approved milestone by scheduling test authors, builders, and wave integration.", "owner": "skill:build"},
+      {"prompt": "Implement this one issue and open its pull request after self-review.", "owner": "agent:builder"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "In baseline mode for a refactor, the supplied baseline command exits zero and sealedTests is non-empty. Return the handoff sequence.",
+      "expected_output": "Green command evidence plus a kind: baseline seal handed to the builder.",
+      "expectations": [
+        "The existing tests are sealed with tdd-guard seal --tests and --green-baseline only after the command passes.",
+        "The seal is handed to the builder without editing tests or deciding that the refactor should ship."
+      ]
+    }
+  ]
+}

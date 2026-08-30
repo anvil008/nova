@@ -21,14 +21,13 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "agents" / "models.json"
 
 CLAUDE_EFFORT = ("low", "medium", "high", "xhigh")
-CODEX_EFFORT = ("low", "medium", "high", "xhigh")
+CODEX_EFFORT = ("low", "medium", "high", "xhigh", "max")
 AGY_MODELS = ("pro", "flash", "inherit")
 HARNESSES = frozenset({"claude", "codex", "agy"})
 
-# Codex has no per-agent model surface: a plugin manifest accepts no `agents` key,
-# and a skill's agents/openai.yaml carries UI metadata only. What it does have is
-# profiles -- `codex --profile <name>` layers $CODEX_HOME/<name>.config.toml over
-# the base config -- so that is where the codex column becomes real.
+# Codex has no per-agent model surface in its plugin manifest. The staged plugin
+# therefore generates an explicit spawn_agent routing contract from this manifest;
+# profiles remain useful for launching one role manually from the CLI.
 CODEX_PROFILE_PREFIX = "workcell-"
 CODEX_PROFILE_MARKER = "# managed by workcell: scripts/sync-agent-models.py"
 LEGACY_CODEX_PROFILE_PREFIX = "workcell-"
@@ -226,8 +225,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="report drift, write nothing")
     parser.add_argument(
         "--codex-profiles", action="store_true",
-        help="also emit $CODEX_HOME/workcell-<agent>.config.toml, which is the only "
-             "per-agent model surface Codex actually reads",
+        help="also emit $CODEX_HOME/workcell-<agent>.config.toml for manually launching a role",
     )
     parser.add_argument(
         "--remove-codex-profiles", action="store_true",

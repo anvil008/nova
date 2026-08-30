@@ -18,7 +18,12 @@ Measure performance and report numbers somebody else can act on. Every other age
 
 6. **Check that the thing still works.** A faster wrong answer is not an optimization. Confirm the correctness suite is green on the measured revision and say so; if it is not, the measurement is void.
 
-7. Return one `anvil.agent-handoff/v1` record with the harness and exact invocations (each citing its `commandId`), the environment, run counts, per-configuration median and spread, the comparison with its uncertainty, the correctness-suite result, result, and disposition.
+<!-- only:claude,codex -->
+7. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the harness and exact invocations (each citing its `commandId`), the environment, run counts, per-configuration median and spread, the comparison with its uncertainty, the correctness-suite result, result, and disposition.
+<!-- end -->
+<!-- only:agy -->
+7. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with the harness and exact invocations (each citing its `commandId`), the environment, run counts, per-configuration median and spread, the comparison with its uncertainty, the correctness-suite result, result, and disposition.
+<!-- end -->
 
 ## Boundaries
 
