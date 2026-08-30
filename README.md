@@ -165,6 +165,10 @@ verdict. The orchestrator merges on the evidence — visible `commandId`s, `tdd-
 `gh pr checks` — and never on an agent's claim of success. Documentation and deployment follow the
 same shape, and deploying stays a separate, explicit human decision.
 
+Entry workflows that promise one PR use `build`'s single-PR mode: issue PRs land on a named
+integration branch, then one final PR targets `main`. The pipeline's dispatch fields, modes, seals,
+and returned evidence are defined in [`agents/handoff.md`](agents/handoff.md).
+
 ### Who does what
 
 | Agent | Writes | Owns | Never |
@@ -177,7 +181,7 @@ same shape, and deploying stays a separate, explicit human decision.
 | `debugger` | temporary instrumentation only | reproducing a symptom and finding its cause by experiment | ships the fix, leaves instrumentation behind |
 | `benchmarker` | nothing | measurement: distributions, run counts, conditions | edits anything it measures, reports a single run |
 | `integrator` | nothing | the combined-wave run and its evidence | merges to `main`, fixes what it finds, decides |
-| `research` | report artifacts | one assigned area, evidence-backed | changes behaviour; draws the conclusion |
+| `research` | findings envelope (returned, not written) | one assigned area, evidence-backed | writes report artifacts; draws the conclusion |
 | `docs` | docs | READMEs, ADRs, changelogs, the docs gate | product code |
 | `deploy` | release artifacts | one approved release, verify, rollback | deploys without a fresh, explicit approval |
 
@@ -302,9 +306,9 @@ Once installed, these workflows are available in each harness.
 Supporting skills cover research, frontend implementation and review, bounded review/fix
 loops, Jujutsu, and explicitly requested alternate harnesses.
 
-`code-refactor` is the one stage that deliberately swaps the TDD gate rather than using it:
-`tdd-guard seal` requires a **non-zero** red command, and a refactor's suite is green from the
-start. It gates on a captured green baseline plus a diff that touches no test file instead.
+`code-refactor` and behavior-preserving `perf` work keep the same TDD state machine but enter it
+through a green baseline seal. An integrator proves the unchanged tests green and seals them before
+the builder starts; no test-author is dispatched and no test file may move.
 
 ## Core guarantees
 
@@ -355,6 +359,12 @@ In words, and in the order the wave hits them:
    a digest of every sealed test file. RED has to be real and non-zero before the seal is taken — and
    *honest*: a test failing with `ImportError` proves nothing about behaviour, so the `test-author`
    writes signature-only stubs where needed to make the failure land on the assertion.
+   For behavior-preserving `code-refactor` and `perf` work, the orchestrator creates the workspace
+   and an `integrator` in `mode: baseline` instead runs
+   **`tdd-guard seal --tests <globs> --green-baseline <argv...>`** after that command passes. This
+   produces a green `kind: baseline` seal; the `builder` receives it in `mode: refactor`, with no
+   `test-author` and untouched tests. The red requirement is replaced by a green one, while sealed
+   paths, post-seal verification, diff review, handoff, status, and Stop use the same state machine.
 2. **While implementing, sealed tests are read-only** — and they are not the builder's tests. A `PreToolUse` edit of a sealed path is
    *denied*, not warned about; changing one out-of-band is flagged the moment the guard sees it. The
    only legitimate amendment is `tdd-guard reseal --reason <text>`, after proving the amended test
@@ -392,9 +402,12 @@ go mod tidy && git diff --exit-code -- go.mod go.sum
 go build ./... && go vet ./... && go test -count=1 -race ./...
 bash scripts/hooks/tests/test_hooks.sh
 bash scripts/tests/test_install.sh
-ruff check skills/
+ruff check skills/ evals/
 shellcheck -S warning scripts/*.sh scripts/hooks/build-*
 for d in skills/*/tests; do python3 -m unittest discover -s "$d" -p 'test_*.py'; done
+python3 evals/run_evals.py --structural
+python3 evals/run_evals.py --min-rank1 77
+python3 -m unittest discover -s evals/tests -p 'test_*.py'
 python3 skills/docs/scripts/docs_check.py .
 ```
 

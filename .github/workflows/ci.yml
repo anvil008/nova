@@ -37,7 +37,7 @@ jobs:
       - name: Script Python tests
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - name: Ruff
-        run: ruff check skills/
+        run: ruff check skills/ evals/
       - name: ShellCheck
         run: shellcheck -S warning scripts/*.sh scripts/hooks/build-*
       - name: Skill unit tests
@@ -45,6 +45,11 @@ jobs:
           for d in skills/*/tests; do
             python3 -m unittest discover -s "$d" -p 'test_*.py'
           done
+      - name: Skill evals
+        run: |
+          python3 evals/run_evals.py --structural
+          python3 evals/run_evals.py --min-rank1 77
+          python3 -m unittest discover -s evals/tests -p 'test_*.py'
       - name: Docs check
         run: python3 skills/docs/scripts/docs_check.py .
       - name: Agent definitions in sync

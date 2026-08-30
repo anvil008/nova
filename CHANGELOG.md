@@ -2,6 +2,20 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [Skill instruction review — contracts, disclosure, evals] - 2026-08-30
+
+### Added
+- **Dispatch contracts (#85):** Made orchestration skills explicit dispatch-and-gate contracts,
+  including single-PR integration and green baseline seals for behavior-preserving work.
+- **Agent contracts (#86):** Added the canonical dispatch/handoff schema, specialist modes, and
+  command-linked evidence requirements across every agent body.
+- **Instruction evals (#87):** Added structural, TF-IDF routing, collision, and on-demand
+  executor/grader behavioral tiers for all 17 skills and 10 agents, with free tiers wired into CI.
+
+### Changed
+- **Repository guidance:** Synchronized the workflow, agent ownership table, mechanical gates,
+  verification commands, and milestone history with the reviewed contracts.
+
 ## [Plugins install through local marketplaces] - 2026-08-29
 
 ### Fixed
