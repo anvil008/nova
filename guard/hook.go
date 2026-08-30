@@ -372,9 +372,11 @@ func stopGate(decoded payload, workingDirectory string) response {
 		if loaded == nil || loaded.seal == nil {
 			if loaded != nil {
 				if _, err := os.Stat(loaded.directory); err == nil {
-					return response{
-						deny:   true,
-						reason: "anvil-guard: no green evidence; run `anvil-guard verify --green-command <argv...>`",
+					if found, err := stopGateBlockers(loaded); err == nil && len(found) > 0 {
+						return response{
+							deny:   true,
+							reason: "anvil-guard: " + strings.Join(found, "; "),
+						}
 					}
 				}
 			}
