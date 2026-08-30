@@ -1,0 +1,242 @@
+{
+  "vars": {
+    "reviewerDispatch": {
+      "claude": "a read-only `code-reviewer`",
+      "codex": "a read-only `code-reviewer` with Codex's `spawn_agent` tool \u2014 the `code-reviewer` agent the swarm-coder plugin ships \u2014 one lens per spawn,",
+      "agy": "read-only `code-reviewer` agents via `invoke_subagent` (the `code-reviewer` custom subagent, one lens per invocation, workspace `inherit`)"
+    },
+    "reviewerSpawn": {
+      "claude": "read-only `code-reviewer` agents",
+      "codex": "read-only `code-reviewer` agents with `spawn_agent`",
+      "agy": "read-only `code-reviewer` subagents with `invoke_subagent`"
+    },
+    "instructionFiles": {
+      "claude": "the `CLAUDE.md` / `AGENTS.md` instruction files",
+      "codex": "instruction files",
+      "agy": "the instruction files"
+    },
+    "instructionFilesPlain": {
+      "claude": "the CLAUDE.md / AGENTS.md instruction files",
+      "codex": "instruction files",
+      "agy": "the instruction files"
+    },
+    "readTools": {
+      "claude": " (Read / Grep / Glob)",
+      "codex": "",
+      "agy": " (`view_file`, `grep_search`, `find_by_name`)"
+    },
+    "neverBloat": {
+      "claude": " never bloat `CLAUDE.md` / `AGENTS.md`;",
+      "codex": "",
+      "agy": ""
+    }
+  },
+  "agents": {
+    "benchmarker": {
+      "description": "Use when measuring performance against a project benchmark harness and reporting distributions rather than a single number.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Bash, Skill"
+      },
+      "codex": {
+        "sandbox_mode": "workspace-write"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "builder": {
+      "description": "Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill, Task",
+        "hooks": "claude-build"
+      },
+      "codex": {
+        "sandbox_mode": "workspace-write",
+        "gates": "codex-builder"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "replace_file_content",
+          "write_to_file",
+          "run_command",
+          "invoke_subagent"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "code-reviewer": {
+      "description": "Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Bash, Skill, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_press_key, mcp__playwright__browser_click, mcp__playwright__browser_console_messages, mcp__playwright__browser_close"
+      },
+      "codex": {
+        "sandbox_mode": "read-only"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "debugger": {
+      "description": "Use when reproducing one reported symptom, narrowing it to a root cause by experiment, and returning the diagnosis without fixing it.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
+      },
+      "codex": {
+        "sandbox_mode": "workspace-write",
+        "gates": "codex-debugger"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "replace_file_content",
+          "write_to_file",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "deploy": {
+      "description": "Use when executing one already-approved release against one named target, with verification and rollback.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Bash, Skill"
+      },
+      "codex": {
+        "sandbox_mode": "workspace-write"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "docs": {
+      "description": "Use when creating, updating, standardizing, or reviewing documentation \u2014 READMEs, ADRs, changelogs, and {{instructionFilesPlain}}. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
+      },
+      "codex": {
+        "sandbox_mode": "workspace-write"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "replace_file_content",
+          "write_to_file",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "integrator": {
+      "description": "Use when verifying one wave of pull requests as a combined change-set and returning command-linked evidence.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Bash, Skill"
+      },
+      "codex": {
+        "sandbox_mode": "workspace-write",
+        "gates": "codex-integrator"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "planner": {
+      "description": "Use when investigating one planning goal read-only and producing the plan folio, sidecar, and per-issue acceptance tests for human approval.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
+      },
+      "codex": {
+        "sandbox_mode": "workspace-write"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "replace_file_content",
+          "write_to_file",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "research": {
+      "description": "Use when investigating exactly one assigned research area and returning a structured, evidence-backed findings envelope.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Bash, Skill"
+      },
+      "codex": {
+        "sandbox_mode": "read-only"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "test-author": {
+      "description": "Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
+      },
+      "codex": {
+        "sandbox_mode": "workspace-write",
+        "gates": "codex-test-author"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "replace_file_content",
+          "write_to_file",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    }
+  }
+}

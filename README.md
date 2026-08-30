@@ -213,20 +213,45 @@ flowchart TB
     PA -->|"symlink"| IA
 ```
 
-In words: `agents/` and `skills/` hold the real content once. Each `plugins/<harness>/`
-directory is a thin wrapper — a manifest, a `hooks.json`, and symlinks back to the
-agents and skills it exposes. Claude Code and Codex install that wrapper through a local
-marketplace declared at the repository root, using their own CLIs. Antigravity has no
-plugin CLI, so its wrapper is symlinked into place and stays live.
+In words: `agents/` and `skills/` hold the real content once. The Claude and Antigravity
+wrappers are thin — a manifest, hooks, and symlinks back to the agents and skills they
+expose — because both follow a symlink that leaves the plugin root.
+
+**Codex does not.** It copies a plugin into `~/.codex/plugins/cache/` on install and
+silently drops any symlink pointing outside the plugin root, so a link farm installs as an
+empty manifest. `scripts/build-codex-plugin.py` therefore stages a real tree into
+`dist/codex/` and the installer registers *that*. Codex also has no plugin-level agent
+concept — no `agents` key in its manifest — so each agent ships as a skill named
+`agent-<name>` with an `agents/openai.yaml`, which is the one surface that reaches the
+model. All 27 arrive namespaced as `swarm-coder:<name>`.
+
+Antigravity has no plugin CLI, so its wrapper is symlinked into place and stays live.
 
 | Directory | What lives there |
 |---|---|
-| [`agents/`](agents/) | Agent definitions per harness: planner, test-author, builder, code-reviewer, debugger, benchmarker, integrator, research, docs, deploy. |
+| [`agents/`](agents/) | Agent definitions per harness — **generated**. Edit [`agents/bodies/`](agents/bodies/) and [`agents/agents.json`](agents/agents.json), then run `scripts/sync-agents.py`. |
 | [`skills/`](skills/) | The shared workflows: planner, build, code-review, docs, deploy, and support skills. |
 | [`plugins/`](plugins/) | One thin wrapper per harness. No content of its own. |
 | [`scripts/`](scripts/) | The three bootstrap commands, plus the hook scripts they install. |
 | [`cmd/tdd-guard/`](cmd/tdd-guard/) | The gate binary that binds failing tests, passing tests, and review evidence to an exact change. |
 | [`docs/adr/`](docs/adr/) | Architecture decisions and their consequences. |
+
+### Adding an agent
+
+An agent exists three times — `agents/claude/<n>.md`, `agents/codex/<n>.md`,
+`agents/agy/<n>/agent.md` — so the body is written once and the variants are derived:
+
+```sh
+$EDITOR agents/bodies/<name>.md      # the shared body
+$EDITOR agents/agents.json           # description, tools, sandbox per harness
+$EDITOR agents/models.json           # model and thinking level per harness
+scripts/sync-agents.py               # writes all three variants
+```
+
+Where harnesses genuinely differ, the body uses `{{token}}` substitutions and
+`<!-- only:codex -->…<!-- end -->` blocks rather than three diverging copies. CI runs
+`--check`, so a hand-edit to a generated file fails the build instead of being silently
+overwritten later.
 
 Adding a skill means adding a directory under `skills/` — no manifest edit. Claude and
 Codex link `skills/` whole; the Antigravity wrapper's per-skill links are regenerated on

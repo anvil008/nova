@@ -13,8 +13,10 @@
 #
 #   Claude   plugins/claude  installed as swarm-coder@swarm-coder-local via the claude CLI,
 #                            from the marketplace declared in .claude-plugin/marketplace.json
-#   Codex    plugins/codex   installed the same way via the codex CLI, from
-#                            .agents/plugins/marketplace.json
+#   Codex    plugins/codex   staged into dist/codex/ first, then installed via the codex
+#                            CLI from dist/codex/.agents/plugins/marketplace.json. Codex
+#                            copies a plugin on install and DROPS symlinks that leave the
+#                            plugin root, so it gets a real tree instead of a link farm.
 #   Agy      plugins/agy     symlinked into ~/.gemini/config/plugins/swarm-coder and
 #                            ~/.gemini/antigravity-cli/plugins/swarm-coder
 #
@@ -63,6 +65,9 @@ done < <(agent_files)
 # what ships, and CI checks it separately.
 if command -v python3 >/dev/null; then
   if [[ $MODE == install ]]; then
+    # agents/bodies/ + agents/agents.json are the source for every agent definition;
+    # this regenerates all three harness variants before anything is installed.
+    python3 "$ROOT/scripts/sync-agents.py" || die "agent definitions could not be generated"
     # --codex-profiles also writes $CODEX_HOME/swarm-<agent>.config.toml. Codex has no
     # per-agent model surface in a plugin, so a profile (`codex --profile swarm-builder`)
     # is the only place its model and reasoning effort actually take effect. The script
@@ -170,7 +175,16 @@ for spec in "${MARKET_HARNESSES[@]}"; do
     # Pre-marketplace layout: a bare symlink in the harness's plugin directory, which
     # neither CLI ever discovers. Remove it so it cannot shadow the real install.
     unlink_owned "$HOME/.$h/plugins/swarm-coder"
-    "$cli" plugin marketplace add "$ROOT" >/dev/null
+    root="$ROOT"
+    if [[ $h == codex ]]; then
+      # Codex materializes a copy and discards symlinks escaping the plugin root,
+      # so the wrapper's links to skills/ and agents/ never survive. Stage a real
+      # tree and register that instead.
+      command -v python3 >/dev/null || die "codex: python3 is required to stage the plugin"
+      python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null || die "codex: staging failed"
+      root="$ROOT/dist/codex"
+    fi
+    "$cli" plugin marketplace add "$root" >/dev/null
     "$cli" plugin "$add" swarm-coder@swarm-coder-local >/dev/null
     echo "$h: swarm-coder plugin installed from the local marketplace"
   else
