@@ -497,7 +497,8 @@ func emit(options Options, harnessName Harness, event string, decision response)
 			return 2
 		}
 		if harnessName == HarnessAntigravity {
-			writeJSONLine(options, map[string]any{"decision": "continue", "reason": decision.reason})
+			fmt.Fprintln(options.Stderr, decision.reason)
+			return 0
 		} else {
 			writeJSONLine(options, map[string]any{"systemMessage": decision.reason})
 		}
