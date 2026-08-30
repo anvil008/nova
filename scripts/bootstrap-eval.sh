@@ -36,14 +36,25 @@ for a in "$@"; do case "$a" in
   *) DIR="$a";; esac; done
 [[ -n $DIR ]] || { usage >&2; die "a task directory is required"; }
 [[ -d $DIR ]] || die "no such dir: $DIR"
-DIR="$(cd "$DIR" && pwd)"; cd "$DIR"
+DIR="$(cd "$DIR" && pwd -P)"; cd "$DIR"   # -P: judge the real directory, not the spelling used
 
-# --- refusals ----------------------------------------------------------------------------------
-if [[ $DIR == "$ROOT" ]] || [[ -d cmd/tdd-guard && -d agents/bodies ]]; then
-  die "$DIR is the Workcell source tree — the harness runs the eval, it is never the thing evaluated"
-fi
-git rev-parse --git-dir >/dev/null 2>&1 \
+# --- refusals ------------------------------------------------------------------------------------
+# Applied to the resolved repository root, not to the argument as written: `bootstrap-eval.sh
+# scripts` names a directory that is neither a workcell tree nor a repository root, but is inside
+# both. The marker only counts at a toplevel — build-guard reads it nowhere else — so pointing at a
+# subdirectory would write a file that does nothing while looking like it had worked.
+SOURCE="$(cd "$ROOT" && pwd -P)"
+is_workcell(){ [[ $1 == "$SOURCE" ]] || [[ -d $1/cmd/tdd-guard && -d $1/agents/bodies ]]; }
+! is_workcell "$DIR" \
+  || die "$DIR is the Workcell source tree — the harness runs the eval, it is never the thing evaluated"
+TOP="$(git rev-parse --show-toplevel 2>/dev/null)" \
   || die "$DIR is not a git repository — an eval run has to commit its work somewhere"
+[[ -n $TOP ]] || die "$DIR is a bare repository — an eval run needs a working tree to change"
+TOP="$(cd "$TOP" && pwd -P)"
+! is_workcell "$TOP" \
+  || die "$DIR is inside the Workcell source tree at $TOP — the harness runs the eval, it is never the thing evaluated"
+[[ $DIR == "$TOP" ]] \
+  || die "$DIR is not the root of its repository — the marker belongs at the root, so point bootstrap-eval.sh at $TOP"
 
 # --- the eval preamble the task repository carries ----------------------------------------------
 # Terse on purpose: it is read by every agent on every turn, and it says only what eval mode
@@ -146,8 +157,13 @@ if ((withhooks)); then
 fi
 
 # --- how an eval driver launches the harness against this directory --------------------------------
+# WORKCELL_EVAL_TASK_DIR is the belt to the marker's braces: the marker is read from the repository
+# a command targets, so it says nothing about a command run from somewhere else, while the variable
+# travels with the process. With it exported, build-guard denies gh from any working directory and
+# relaxes the default branch for this repository alone.
 cat <<EOF
 == headless launch (\$TASK is the task statement) ==
+  export WORKCELL_EVAL_TASK_DIR=$DIR
   (cd $DIR && claude -p "\$TASK" --dangerously-skip-permissions --output-format stream-json --verbose)
   codex exec --cd $DIR --approve-for-me -o $DIR/.workcell/trace.txt "\$TASK"
   (cd $DIR && agy -p "\$TASK" --dangerously-skip-permissions)

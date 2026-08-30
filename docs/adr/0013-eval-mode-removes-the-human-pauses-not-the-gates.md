@@ -28,8 +28,22 @@ put the Workcell checkout on the same machine into eval mode.
 Eval mode is one file in the task repository, `.workcell/eval-mode.json`, written by
 `scripts/bootstrap-eval.sh` and read by `build-guard`. The guard resolves it from the repository
 each command targets — the same `-C`/`--git-dir`/cwd resolution it already uses to read the live
-branch — so the marker relaxes nothing outside the repository that carries it, and the bootstrap
-refuses to write one into the Workcell source tree.
+branch — and only where the bootstrap puts it: at that toplevel, exactly. There is no upward walk,
+because one would relax every repository nested under any marked directory, and a path git cannot
+resolve to a toplevel is not in eval mode at all. The bootstrap refuses to write a marker into the
+Workcell source tree, and refuses a directory that is not its repository's root, so the file only
+ever exists where the guard will read it.
+
+Writing that file is a human's act, so an agent's attempt to write it is denied like any other
+policy violation: `build-guard` denies the shell vectors — a redirection target, and the file
+operands of `tee`/`cp`/`mv`/`install`/`ln`/`dd`/`truncate` — and `build-hooks`, the hook wired to
+`Edit`/`Write`, denies a `file_path` naming it, in every harness dialect. Both refuse in or out of
+eval mode, so a marked repository cannot be used to mark another one.
+
+Alongside the marker, an eval driver exports `WORKCELL_EVAL_TASK_DIR`. The marker is read from the
+repository a command targets, which says nothing about a command run from elsewhere; the variable
+travels with the process instead. When it is set, `gh` is denied from any working directory, and
+the default-branch relaxation applies only to the repository it names.
 
 Inside a marker-bearing repository the guard changes exactly two things. It **relaxes** `git`/`jj`
 commit, merge, rebase, cherry-pick and push on `main`/`master`, because an eval's work has to land
@@ -53,14 +67,18 @@ rules.
 
 The guard corpus gains a repository dimension alongside the payload-shape dimension ADR 0011
 introduced. The `-eval` shapes in `scripts/hooks/tests/guard-corpus.txt` send their payloads from
-a marker-bearing repository; every unscoped probe runs outside one, which is what keeps
-"behaviour is unchanged everywhere else" a checked claim rather than an assertion.
+a marker-bearing repository; `claude-nested` and `claude-stray` send them from a repository whose
+parent carries a marker and from a plain directory that carries one, both of which must be
+unaffected; and every unscoped probe runs outside all of them, which is what keeps "behaviour is
+unchanged everywhere else" a checked claim rather than an assertion.
 
-The residual risk is the marker itself. Anything that can write a file into a repository can turn
-the branch protections off for it, and an agent could in principle write one. That is accepted for
-the same reason the tmpfs rule is: `build-guard` is a boundary against mistakes and drift, not an
-adversary-proof sandbox, and the eval container is disposable. What the marker cannot do is widen
-anything — it removes protections only inside the one repository it sits in, and it adds a
+Two residuals are accepted and neither is closed by this decision: the marker-write denial covers
+the vectors the tokenizer can see, so a path assembled inside a quoted script body or written by a
+helper program the guard cannot read still gets through; and `WORKCELL_EVAL_TASK_DIR` is an
+environment variable, which an agent can unset for a single command, making it defence in depth
+rather than a boundary. Both are the same trade the tmpfs rule makes — `build-guard` stops mistakes
+and drift, it is not an adversary-proof sandbox — and what the marker cannot do in any case is
+widen anything: it removes protections only inside the one repository it sits in, and it adds a
 prohibition (`gh`) rather than only subtracting.
 
 A preamble written into an instruction file the task repository already tracks shows up in the

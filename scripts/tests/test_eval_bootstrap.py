@@ -109,6 +109,45 @@ class EvalBootstrapTests(unittest.TestCase):
         self.assertIn("Workcell source tree", result.stderr)
         self.assertFalse((ROOT / MARKER).exists())
 
+    def test_refuses_a_subdirectory_of_a_repository(self):
+        directory = self.repo()
+        subdirectory = directory / "scripts"
+        subdirectory.mkdir()
+        result = self.run_script(str(subdirectory))
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("not the root of its repository", result.stderr)
+        self.assertIn(str(directory), result.stderr)
+        self.assertFalse((subdirectory / ".workcell").exists())
+        self.assertFalse((directory / MARKER).exists())
+        self.assertFalse((subdirectory / "CLAUDE.md").exists())
+
+    def test_refuses_a_subdirectory_of_the_workcell_tree(self):
+        fake = self.repo("workcell-like", agents_md=None)
+        (fake / "cmd" / "tdd-guard").mkdir(parents=True)
+        (fake / "agents" / "bodies").mkdir(parents=True)
+        (fake / "scripts").mkdir()
+        result = self.run_script(str(fake / "scripts"))
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("inside the Workcell source tree", result.stderr)
+        self.assertFalse((fake / "scripts" / ".workcell").exists())
+
+    def test_a_symlink_is_judged_by_what_it_points_at(self):
+        directory = self.repo()
+        (directory / "scripts").mkdir()
+        into_subdir = self.tmp / "link-to-subdir"
+        into_subdir.symlink_to(directory / "scripts")
+        refused = self.run_script(str(into_subdir))
+        self.assertNotEqual(refused.returncode, 0, refused.stdout)
+        self.assertIn("not the root of its repository", refused.stderr)
+
+        to_root = self.tmp / "link-to-root"
+        to_root.symlink_to(directory)
+        accepted = self.run_script(str(to_root))
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        # The marker lands in the real directory, and the run reports it by its real path.
+        self.assertTrue((directory / MARKER).is_file())
+        self.assertNotIn(str(to_root), accepted.stdout)
+
     def test_without_an_argument_it_prints_usage(self):
         result = self.run_script()
         self.assertNotEqual(result.returncode, 0, result.stdout)
@@ -248,6 +287,11 @@ class EvalBootstrapTests(unittest.TestCase):
         for fragment in ("claude -p", "agy -p"):
             self.assertIn(fragment, output)
         self.assertIn(str(directory), output)
+
+    def test_it_prints_the_environment_belt_for_the_driver(self):
+        directory = self.repo()
+        output = self.run_script(str(directory)).stdout
+        self.assertIn(f"export WORKCELL_EVAL_TASK_DIR={directory}", output)
 
 
 if __name__ == "__main__":
