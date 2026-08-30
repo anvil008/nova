@@ -1,0 +1,27 @@
+{
+  "name": "new-feature",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {"prompt": "Build a new export feature, but interview me thoroughly about users and edge cases first.", "top_k": 3},
+      {"prompt": "Take this feature idea from at least five clarifying questions through planning and one final PR.", "top_k": 3},
+      {"prompt": "I want a new capability; establish scope and failure behavior before any implementation plan.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Turn this already-settled substantial task into an HTML folio and JSON sidecar for approval.", "owner": "skill:planner"},
+      {"prompt": "A known incident has a stack trace; reproduce its symptom and fix the root cause.", "owner": "skill:debug"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Add team invitations.",
+      "expected_output": "A grounded interview with at least five material clarifying questions before planner dispatch.",
+      "expectations": [
+        "At least five questions cover users, observable completion, scope edges, existing seams, failures, or constraints.",
+        "No planner, test-author, or builder is dispatched before the blocking answers arrive."
+      ]
+    }
+  ]
+}

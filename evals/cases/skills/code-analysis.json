@@ -1,0 +1,27 @@
+{
+  "name": "code-analysis",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {"prompt": "Sweep the codebase for real correctness bugs and prove every fix with a regression test.", "top_k": 3},
+      {"prompt": "Find defects users have not reported yet, reproduce each failure, and deliver one fix PR.", "top_k": 3},
+      {"prompt": "Do an end-to-end bug hunt, but exclude cleanup and speculative hardening.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "This flaky test has a known failure report; reproduce that symptom and repair its root cause.", "owner": "skill:debug"},
+      {"prompt": "Consolidate duplicated modules and remove dead forwarding layers without changing behavior.", "owner": "skill:code-refactor"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "A reviewer suggests adding a null check but cannot name any reachable input that hits it. Decide whether it enters the defect plan.",
+      "expected_output": "A finding decision based on a concrete reproducible failure scenario.",
+      "expectations": [
+        "The speculative null check is not accepted as a defect without a reachable failure.",
+        "No fix is dispatched until a failing regression test can reproduce the behavior."
+      ]
+    }
+  ]
+}
