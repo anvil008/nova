@@ -64,13 +64,15 @@ Each harness gets only the knobs it actually honours, which differ more than the
 | Harness | Model | Thinking level | Where it takes effect |
 |---|---|---|---|
 | Claude | `opus` / `sonnet` / `haiku` / `inherit` | `low` – `xhigh` | agent frontmatter — fully per-agent |
-| Codex | any model id | `low` – `xhigh` | a **profile**, `codex --profile workcell-<agent>` |
+| Codex | any model id | `low` – `max` | generated `spawn_agent` routing; profiles for manual launches |
 | Antigravity | `pro` / `flash` / `inherit` | *(none per-agent)* | agent frontmatter |
 
-Codex reads no per-agent model surface at all — its plugin manifest has no `agents` key, and a
-skill's `agents/openai.yaml` is UI metadata only. So the installer also writes
-`$CODEX_HOME/workcell-<agent>.config.toml`, which `codex --profile workcell-<agent>` layers over your
-base config; that is the half that works today. It never touches a profile it did not write, and
+Codex's plugin manifest has no per-agent model surface, and a skill's `agents/openai.yaml` is UI
+metadata only. Workcell therefore generates an explicit routing contract into every staged Codex
+skill: each specialist dispatch must pass its resolved `model` and `reasoning_effort` to
+`spawn_agent`, with a bounded context fork, and must fail rather than silently inherit the parent.
+The installer also writes `$CODEX_HOME/workcell-<agent>.config.toml` profiles for manually launching
+one role with `codex --profile workcell-<agent>`. It never touches a profile it did not write, and
 `--uninstall` removes only its own.
 
 Antigravity does have reasoning effort, but session-wide via `/effort` or `--effort` — there is no
@@ -226,7 +228,8 @@ empty manifest. `scripts/build-codex-plugin.py` therefore stages a real tree int
 `dist/codex/` and the installer registers *that*. Codex also has no plugin-level agent
 concept — no `agents` key in its manifest — so each agent ships as a skill named
 `agent-<name>` with an `agents/openai.yaml`, which is the one surface that reaches the
-model. All 27 arrive namespaced as `workcell:<name>`.
+model. The staged skills also carry the generated model-and-effort routing table used for actual
+subagent dispatch. All 27 arrive namespaced as `workcell:<name>`.
 
 Antigravity provides an `agy plugin` CLI, but its install paths are not a stable documented
 contract for this bootstrap flow. Workcell therefore symlinks the wrapper into the known plugin
