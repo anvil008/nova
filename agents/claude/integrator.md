@@ -1,6 +1,6 @@
 ---
 name: integrator
-description: Use when verifying one wave of pull requests as a combined change-set, or running an untouched green baseline and sealing existing tests for refactor mode, then returning command-linked evidence.
+description: Use when verifying one wave of pull requests as a combined change-set and returning command-linked evidence.
 tools: Read, Grep, Glob, Bash, Skill
 model: sonnet
 effort: medium

@@ -141,8 +141,14 @@ class EvalRunnerTests(unittest.TestCase):
             path.write_text(json.dumps(data), encoding="utf-8")
             status, output = self.run_main("--root", str(root), "--min-rank1", "100")
             self.assertNotEqual(status, 0)
-            self.assertIn("agent:beta", output)
-            self.assertIn("skill:alpha | positive", output)
+            rows = [
+                [field.strip() for field in line.split("|")]
+                for line in output.splitlines()
+                if line.startswith("skill:alpha | positive |")
+            ]
+            self.assertEqual(len(rows), 3, output)
+            self.assertTrue(all(row[3] == "agent:beta" for row in rows), output)
+            self.assertTrue(all(row[5] == "no" for row in rows), output)
 
     def test_collision_check_errors_at_75_and_warns_at_50(self) -> None:
         shared = "amber cobalt delta ember forest galaxy harbor island"
@@ -189,6 +195,51 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertNotEqual(status, 0)
             self.assertIn("grader output is not JSON", output.getvalue())
             self.assertFalse(list((root / "evals" / "results").glob("*.json")))
+
+    def test_invalid_json_grader_shapes_are_rejected_before_result_write(self) -> None:
+        expectation = "The response chooses an owner."
+        valid_result = {
+            "expectations": [
+                {"text": expectation, "pass": True, "evidence": "trace evidence"}
+            ],
+            "pass": True,
+        }
+        invalid_results = {
+            "missing expectations": {"pass": True},
+            "missing pass": {"expectations": valid_result["expectations"]},
+            "expectation count mismatch": {"expectations": [], "pass": True},
+            "non-boolean pass": {**valid_result, "pass": "true"},
+            "extra top-level key": {**valid_result, "summary": "extra"},
+            "disagreeing top-level pass": {
+                "expectations": [
+                    {
+                        "text": expectation,
+                        "pass": False,
+                        "evidence": "expectation failed",
+                    }
+                ],
+                "pass": True,
+            },
+        }
+        for name, result in invalid_results.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                synthetic_root(root)
+                case = run_evals.load_cases(root)[0]["skill:alpha"]
+                evaluation = case.data["evals"][0]
+                completed = subprocess.CompletedProcess(
+                    [], 0, stdout=json.dumps(result), stderr=""
+                )
+                output = io.StringIO()
+                with mock.patch.object(
+                    run_evals.subprocess, "run", return_value=completed
+                ):
+                    status = run_evals.run_behavioral_eval(
+                        root, case, evaluation, "claude", output
+                    )
+                self.assertNotEqual(status, 0, output.getvalue())
+                self.assertIn("ERROR grader", output.getvalue())
+                self.assertFalse(list((root / "evals" / "results").glob("*.json")))
 
     def test_ci_and_docs_name_the_free_tiers_and_milestone_contracts(self) -> None:
         ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
