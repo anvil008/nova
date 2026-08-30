@@ -204,14 +204,11 @@ func TestStopWarnsOnUnsealedSourceChanges(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("%s with changed source: exit %d, want 0", harnessName, code)
 		}
-		if stderr != "" {
-			t.Fatalf("%s with changed source: unexpected stderr %q", harnessName, stderr)
-		}
-		if !strings.Contains(stdout, "pkg/thing.go") || !strings.Contains(stdout, "seal") {
-			t.Fatalf("%s with changed source: stdout %q missing expected warning content", harnessName, stdout)
-		}
 		switch harnessName {
 		case "claude", "codex":
+			if stderr != "" {
+				t.Fatalf("%s with changed source: unexpected stderr %q", harnessName, stderr)
+			}
 			var decoded struct {
 				SystemMessage string `json:"systemMessage"`
 			}
@@ -222,18 +219,11 @@ func TestStopWarnsOnUnsealedSourceChanges(t *testing.T) {
 				t.Fatalf("%s systemMessage %q missing expected warning content", harnessName, decoded.SystemMessage)
 			}
 		case "agy":
-			var decoded struct {
-				Decision string `json:"decision"`
-				Reason   string `json:"reason"`
+			if strings.Contains(stdout, `"decision":"continue"`) {
+				t.Fatalf("%s with changed source: agy must not block stop with decision:continue on stdout %q", harnessName, stdout)
 			}
-			if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
-				t.Fatalf("%s with changed source: invalid JSON stdout %q: %v", harnessName, stdout, err)
-			}
-			if decoded.Decision != "continue" {
-				t.Fatalf("%s decision %q, want continue", harnessName, decoded.Decision)
-			}
-			if !strings.Contains(decoded.Reason, "pkg/thing.go") || !strings.Contains(decoded.Reason, "seal") {
-				t.Fatalf("%s reason %q missing expected warning content", harnessName, decoded.Reason)
+			if !strings.Contains(stderr, "pkg/thing.go") || !strings.Contains(stderr, "seal") {
+				t.Fatalf("%s reason in stderr %q missing expected warning content", harnessName, stderr)
 			}
 		}
 	}
