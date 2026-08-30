@@ -1,6 +1,6 @@
 ---
 name: integrator
-description: Use when verifying one wave of pull requests as a combined change-set and returning command-linked evidence.
+description: Use when verifying one wave of pull requests as a combined change-set, or running an untouched green baseline and sealing existing tests for refactor mode, then returning command-linked evidence.
 model: gpt-5.6-sol
 model_reasoning_effort: medium
 # Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.

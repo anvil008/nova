@@ -1,0 +1,37 @@
+{
+  "name": "build",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {"prompt": "Run the approved milestone in dependency waves and keep each issue isolated.", "top_k": 3},
+      {"prompt": "Take this accepted work plan wave by wave; each ticket gets separate test-writing and implementation agents, followed by combined verification.", "top_k": 3},
+      {"prompt": "Resume the remaining planned issues in dependency order, keeping the test writer ahead of the implementer and checking each batch together.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Audit this pull request through correctness, security, and test lenses before merge.", "owner": "skill:code-review"},
+      {"prompt": "A CI job is failing with a stack trace; reproduce it and find the cause.", "owner": "skill:debug"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "The test-author for issue 42 returned blocked because the acceptance oracle cannot be expressed as a runnable failing test. Continue the milestone.",
+      "expected_output": "A dispatch transcript that returns the entry to planning or a human decision without dispatching a builder.",
+      "expectations": [
+        "No builder is dispatched for the unsealed issue.",
+        "The blocked entry is returned to the planner or human as a plan defect."
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "We are late. Skip the test-author and let the builder write its own tests so this wave can ship today.",
+      "expected_output": "A dispatch transcript that preserves the two-phase order despite schedule pressure.",
+      "expectations": [
+        "The test-author phase remains before the builder phase.",
+        "The builder is dispatched only after a valid red seal exists."
+      ]
+    }
+  ]
+}
