@@ -147,20 +147,25 @@ bad_schema=0
 jq -e '.name == "swarm-coder" and .version and .description and .capabilities' "$ROOT/plugins/agy/plugin.json" >/dev/null 2>&1 || bad_schema=1
 jq -e '.name == "swarm-coder" and .version and .description' "$ROOT/plugins/claude/.claude-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
 jq -e '.name == "swarm-coder" and .version and .description' "$ROOT/plugins/codex/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
-# Both marketplaces are rooted at the repository and point at the flattened wrappers.
+# Claude's marketplace is rooted at the repository and follows the wrapper's links.
 jq -e '.name == "swarm-coder-local" and (.plugins[0].source == "./plugins/claude")' "$ROOT/.claude-plugin/marketplace.json" >/dev/null 2>&1 || bad_schema=1
-jq -e '.name == "swarm-coder-local" and (.plugins[0].source.path == "./plugins/codex")' "$ROOT/.agents/plugins/marketplace.json" >/dev/null 2>&1 || bad_schema=1
+# Codex's is generated into dist/, because Codex copies a plugin and drops escaping symlinks.
+python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "swarm-coder-local" and (.plugins[0].source.path == "./plugins/swarm-coder")' "$ROOT/dist/codex/.agents/plugins/marketplace.json" >/dev/null 2>&1 || bad_schema=1
+# The staged manifest must carry what Codex validation actually requires.
+jq -e '.author.name and .interface.displayName and .interface.defaultPrompt and .skills == "./skills/" and (has("hooks") | not)' \
+  "$ROOT/dist/codex/plugins/swarm-coder/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
 [[ $bad_schema -eq 0 ]] && ok "manifests satisfy schema requirements" || no "manifests satisfy schema requirements"
 
 # --- plugin-structure-integrity ------------------------------------------------------------------
 bad_links=0
-for plugin_dir in "$ROOT/plugins/agy" "$ROOT/plugins/claude" "$ROOT/plugins/codex"; do
+for plugin_dir in "$ROOT/plugins/agy" "$ROOT/plugins/claude"; do
   if [[ ! -d "$plugin_dir/skills" ]]; then
     bad_links=1
     echo "Missing skills in $plugin_dir"
   fi
 done
-if [[ ! -d "$ROOT/plugins/agy/agents" || ! -d "$ROOT/plugins/claude/agents" || ! -d "$ROOT/plugins/codex/agents" ]]; then
+if [[ ! -d "$ROOT/plugins/agy/agents" || ! -d "$ROOT/plugins/claude/agents" ]]; then
   bad_links=1
   echo "Missing agents in plugin directories"
 fi
@@ -168,7 +173,7 @@ if [[ ! -f "$ROOT/plugins/agy/hooks.json" || ! -d "$ROOT/plugins/agy/rules" ]]; 
   bad_links=1
   echo "Missing hooks.json or rules in agy plugin"
 fi
-if [[ ! -f "$ROOT/plugins/claude/hooks/hooks.json" || ! -f "$ROOT/plugins/codex/hooks.json" ]]; then
+if [[ ! -f "$ROOT/plugins/claude/hooks/hooks.json" || ! -f "$ROOT/plugins/codex/hooks/hooks.json" ]]; then
   bad_links=1
   echo "Missing hooks.json in the Claude or Codex plugin"
 fi
@@ -258,6 +263,32 @@ grep -q 'model = "mine"' "$HOME/.codex/swarm-builder.config.toml" \
   && ok "uninstall leaves a foreign codex profile" || no "uninstall leaves a foreign codex profile"
 [[ ! -f "$HOME/.codex/swarm-research.config.toml" ]] \
   && ok "uninstall removes our codex profiles" || no "uninstall removes our codex profiles"
+
+# --- codex-staged-tree ---------------------------------------------------------------------------
+# Codex materializes a copy of a plugin and silently drops any symlink pointing
+# outside the plugin root, so the wrapper's links delivered nothing. The staged
+# tree is what makes skills and agents actually reach the model.
+python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1
+staged="$ROOT/dist/codex/plugins/swarm-coder"
+
+[[ -f "$staged/hooks/hooks.json" ]] \
+  && ok "codex hooks at the auto-discovered path" || no "codex hooks at the auto-discovered path"
+
+skill_count=$(find "$staged/skills" -maxdepth 2 -name SKILL.md | wc -l)
+repo_skills=$(find "$ROOT/skills" -maxdepth 2 -name SKILL.md | wc -l)
+codex_agents=$(find "$ROOT/agents/codex" -maxdepth 1 -name '*.md' | wc -l)
+[[ $skill_count -eq $((repo_skills + codex_agents)) ]] \
+  && ok "every skill and agent is staged ($skill_count)" \
+  || no "every skill and agent is staged (got $skill_count, want $((repo_skills + codex_agents)))"
+
+[[ -f "$staged/skills/agent-builder/agents/openai.yaml" ]] \
+  && ok "agents ship as skills with openai.yaml" || no "agents ship as skills with openai.yaml"
+
+if find "$staged" -type l | grep -q .; then
+  no "staged tree is symlink-free"
+else
+  ok "staged tree is symlink-free"
+fi
 
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]

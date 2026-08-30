@@ -44,5 +44,7 @@ jobs:
           done
       - name: Docs check
         run: python3 skills/docs/scripts/docs_check.py .
+      - name: Agent definitions in sync
+        run: python3 scripts/sync-agents.py --check --diff
       - name: Agent models in sync
         run: python3 scripts/sync-agent-models.py --check
