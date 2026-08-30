@@ -20,21 +20,25 @@ the installer applies it before installing anything.
 
 Each harness gets only the knobs it actually honours, which differ more than they look:
 
-| Harness     | Model                                   | Thinking level     | Where it takes effect                             |
-| ----------- | --------------------------------------- | ------------------ | ------------------------------------------------- |
-| Claude      | `opus` / `sonnet` / `haiku` / `inherit` | `low` – `xhigh`    | agent frontmatter — fully per-agent               |
-| Codex       | any model id                            | `low` – `xhigh`    | a **profile**, `codex --profile workcell-<agent>` |
-| Antigravity | `pro` / `flash` / `inherit`             | _(none per-agent)_ | agent frontmatter                                 |
+| Harness     | Model                                   | Thinking level     | Where it takes effect                                        |
+| ----------- | --------------------------------------- | ------------------ | ------------------------------------------------------------ |
+| Claude      | `opus` / `sonnet` / `haiku` / `inherit` | `low` – `xhigh`    | agent frontmatter — fully per-agent                          |
+| Codex       | any model id                            | `low` – `max`      | generated `spawn_agent` routing; profiles for manual launches |
+| Antigravity | `pro` / `flash` / `inherit`             | _(none per-agent)_ | agent frontmatter                                            |
 
-Codex reads no per-agent model surface at all — its plugin manifest has no `agents` key, and a
-skill's `agents/openai.yaml` is UI metadata only. So the installer also writes
-`$CODEX_HOME/workcell-<agent>.config.toml`, which `codex --profile workcell-<agent>` layers over your
-base config; that is the half that works today. It never touches a profile it did not write, and
+The Codex plugin manifest has no per-agent model surface, and `agents/openai.yaml` is UI metadata.
+Workcell therefore generates an explicit routing contract into every staged Codex skill: each
+specialist dispatch must pass its resolved `model` and `reasoning_effort` to `spawn_agent`, with a
+bounded context fork, and must fail rather than silently inherit the parent.
+
+The installer also writes `$CODEX_HOME/workcell-<agent>.config.toml` profiles for manually launching
+one role with `codex --profile workcell-<agent>`. It never touches a profile it did not write, and
 `--uninstall` removes only its own.
 
 Because Codex has no plugin-level agents, each of Workcell's 10 agents ships as a Codex skill named
 `agent-<name>` with an `agents/openai.yaml`. Those agent skills and the 17 shared workflow skills
-arrive as 27 entries, all namespaced `workcell:<name>`.
+arrive as 27 entries, all namespaced `workcell:<name>`. Every staged skill carries the generated
+model-and-effort routing table used for subagent dispatch.
 
 Antigravity does have reasoning effort, but session-wide via `/effort` or `--effort` — there is no
 frontmatter key, so the manifest deliberately offers none rather than writing a value that does
