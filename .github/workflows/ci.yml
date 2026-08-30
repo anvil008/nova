@@ -37,7 +37,7 @@ jobs:
       - name: Script Python tests
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - name: Ruff
-        run: ruff check skills/ evals/
+        run: ruff check skills/ evals/ scripts/render-diagrams.py
       - name: ShellCheck
         run: shellcheck -S warning scripts/*.sh scripts/hooks/build-*
       - name: Skill unit tests
@@ -56,3 +56,5 @@ jobs:
         run: python3 scripts/sync-agents.py --check --diff
       - name: Agent models in sync
         run: python3 scripts/sync-agent-models.py --check
+      - name: Diagrams in sync
+        run: python3 scripts/render-diagrams.py --check

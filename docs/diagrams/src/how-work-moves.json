@@ -1,0 +1,138 @@
+{
+  "title": "How work moves through Workcell",
+  "description": "A goal becomes a reviewed plan, then sealed tests, an implementation, review, and a merge the orchestrator makes on gate output — with blocked work returning to the human and failed gates returning to the builder.",
+  "direction": "TB",
+  "width": 880,
+  "nodes": [
+    {
+      "id": "goal",
+      "kind": "artifact",
+      "label": "Goal",
+      "sub": "a feature · a bug · a refactor · a reported symptom"
+    },
+    {
+      "id": "planner",
+      "kind": "agent",
+      "label": "planner",
+      "sub": "investigates read-only · writes the plan and its sidecar"
+    },
+    {
+      "id": "approval",
+      "kind": "human",
+      "label": "you approve",
+      "sub": "the plan, and every blocked or needs-decision return"
+    },
+    {
+      "id": "issues",
+      "kind": "artifact",
+      "label": "GitHub milestone and issues",
+      "sub": "every issue carries its acceptance tests"
+    },
+    {
+      "id": "testauthor",
+      "kind": "agent",
+      "label": "test-author",
+      "sub": "proves RED is real, then seals the tests"
+    },
+    {
+      "id": "builder",
+      "kind": "agent",
+      "label": "builder",
+      "sub": "implements against tests it cannot edit"
+    },
+    {
+      "id": "pr",
+      "kind": "artifact",
+      "label": "pull request",
+      "sub": "one issue · one workspace · one PR"
+    },
+    {
+      "id": "reviewer",
+      "kind": "agent",
+      "label": "code-reviewer",
+      "sub": "one lens each · no critical or high left standing"
+    },
+    {
+      "id": "integrator",
+      "kind": "agent",
+      "label": "integrator",
+      "sub": "retests the combined wave, returns the evidence"
+    },
+    {
+      "id": "gate",
+      "kind": "gate",
+      "label": "gate output",
+      "sub": "tdd-guard status · gh pr checks · CI conclusions"
+    },
+    {
+      "id": "merge",
+      "kind": "orchestrator",
+      "label": "orchestrator merges",
+      "sub": "reads the gate output, never an agent's claim"
+    },
+    {
+      "id": "docs",
+      "kind": "agent",
+      "label": "docs",
+      "sub": "READMEs, ADRs, and the changelog match reality"
+    },
+    {
+      "id": "deploy",
+      "kind": "agent",
+      "label": "deploy",
+      "sub": "a fresh explicit approval · verified · reversible"
+    }
+  ],
+  "edges": [
+    { "from": "goal", "to": "planner" },
+    { "from": "planner", "to": "approval", "label": "plan folio + sidecar" },
+    { "from": "approval", "to": "issues", "label": "approved" },
+    {
+      "from": "issues",
+      "to": "testauthor",
+      "label": "dispatched in dependency waves"
+    },
+    { "from": "testauthor", "to": "builder", "label": "handoff --to builder" },
+    { "from": "builder", "to": "pr", "label": "opens" },
+    { "from": "pr", "to": "reviewer" },
+    { "from": "reviewer", "to": "integrator" },
+    { "from": "integrator", "to": "gate" },
+    { "from": "gate", "to": "merge", "label": "green" },
+    { "from": "merge", "to": "docs" },
+    { "from": "docs", "to": "deploy" },
+    {
+      "from": "gate",
+      "to": "builder",
+      "label": "not green",
+      "dashed": true,
+      "side": "right"
+    },
+    {
+      "from": "builder",
+      "to": "approval",
+      "label": "blocked · needs-decision",
+      "dashed": true,
+      "side": "left"
+    }
+  ],
+  "groups": [
+    {
+      "kind": "orchestrator",
+      "label": "the orchestrator dispatches, holds the human gates, and merges — it writes nothing",
+      "nodes": [
+        "planner",
+        "approval",
+        "issues",
+        "testauthor",
+        "builder",
+        "pr",
+        "reviewer",
+        "integrator",
+        "gate",
+        "merge",
+        "docs",
+        "deploy"
+      ]
+    }
+  ]
+}

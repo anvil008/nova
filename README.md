@@ -110,18 +110,19 @@ project code, never runs a test suite, and never authors an artifact. It decides
 evidence a machine produced (`tdd-guard status --json`, `gh pr checks`, CI conclusions), not by
 believing an agent's summary. See [ADR 0007](docs/adr/0007-primary-agent-is-a-pure-orchestrator.md).
 
-```mermaid
-flowchart TB
-    Agent["Agent produces evidence<br/><i>tests · findings · commands</i>"]
-    Gate{"Gate output<br/><i>tdd-guard status · gh pr checks · CI</i>"}
-    Orch["Orchestrator reads the gate<br/><i>never edits, never runs a suite</i>"]
-    Merge["Merges on GREEN"]
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-work-moves-dark.svg">
+  <img alt="A goal becomes a plan, the plan waits for human approval, and the resulting GitHub issues move through a test-author, a builder, code-reviewers, and an integrator to a gate the orchestrator reads before merging, then to docs and deploy." src="docs/diagrams/how-work-moves-light.svg" width="100%">
+</picture>
 
-    Agent --> Gate --> Orch --> Merge
-```
-
-In words: an agent's own claim of success is never the input to a merge decision — only a gate a
-machine ran is.
+In words: a goal becomes a plan; the plan waits for your approval; only then does it become a GitHub
+milestone and its issues. Each issue is dispatched into a wave — a `test-author` seals its tests, a
+`builder` implements against tests it cannot edit, `code-reviewer`s take one lens each, and an
+`integrator` retests the combined wave. The orchestrator merges only when the gate output is green,
+then hands the result to `docs` and, after a fresh approval, to `deploy`. An agent's own claim of
+success is never the input to a merge decision — only a gate a machine ran is. Work that fails a
+gate returns to the builder; work that cannot proceed returns to you as `blocked` or
+`needs-decision`.
 
 **Authorship is separated and enforced by `tdd-guard`.** A `test-author` proves RED and seals the
 tests; the `builder` implements against them and is mechanically denied any edit to a sealed path.
@@ -129,20 +130,18 @@ For behaviour-preserving `code-refactor`/`perf` work, an `integrator` instead pr
 GREEN and takes a **baseline seal** — no `test-author`, no touched tests. Either way the Stop hook
 refuses to let the builder finish without fresh GREEN evidence that postdates the seal.
 
-```mermaid
-flowchart TB
-    TA["test-author: RED, seal<br/><i>or integrator: green baseline seal</i>"]
-    B["builder: implement<br/><i>sealed paths denied</i>"]
-    Stop{"Stop hook<br/><i>fresh GREEN?</i>"}
-    PR["PR allowed"]
-
-    TA --> B --> Stop
-    Stop -->|no| B
-    Stop -->|yes| PR
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/mechanical-gates-dark.svg">
+  <img alt="A test-author's red seal, or an integrator's green baseline seal, gates the builder, whose work must pass verify and a diff-review record before the Stop hook allows a pull request; an edit of a sealed path is denied instead." src="docs/diagrams/mechanical-gates-light.svg" width="100%">
+</picture>
 
 In words: the agent judged by the tests is never the agent who wrote them, and the guard — not a
-convention — is what makes that true. The full gate-by-gate walkthrough is
+convention — is what makes that true. A `test-author` proves RED and seals, or for
+behaviour-preserving work an `integrator` seals a green baseline; the `builder` then implements, and
+an edit of a sealed path is denied rather than warned about, amendable only through
+`reseal --reason`. `verify` accepts only a GREEN run that postdates the seal, `diff-review record`
+binds findings to the current diff, and the Stop hook allows a pull request only when all of that
+evidence is fresh — otherwise it sends the builder back. The full gate-by-gate walkthrough is
 **[docs/gates.md](docs/gates.md)**; the mode is [ADR 0009](docs/adr/0009-skills-are-dispatch-contracts.md).
 
 ## How the repository is laid out
@@ -158,6 +157,7 @@ workcell/
 ├── scripts/            the three bootstrap commands + the hook scripts they install
 ├── cmd/tdd-guard/      the gate binary binding RED, GREEN, and review evidence to one diff
 ├── docs/adr/           architecture decisions and their consequences
+├── docs/diagrams/      the README's visuals: JSON sources in src/, generated light and dark SVG
 └── evals/              structural, routing, and behavioral checks on skills and agents
 ```
 
@@ -217,7 +217,7 @@ bash scripts/hooks/tests/test_hooks.sh
 bash scripts/hooks/tests/test_plugin_hooks.sh
 bash scripts/tests/test_install.sh
 python3 -m unittest discover -s scripts/tests -p 'test_*.py'
-ruff check skills/ evals/
+ruff check skills/ evals/ scripts/render-diagrams.py
 shellcheck -S warning scripts/*.sh scripts/hooks/build-*
 for d in skills/*/tests; do python3 -m unittest discover -s "$d" -p 'test_*.py'; done
 python3 evals/run_evals.py --structural
@@ -226,6 +226,7 @@ python3 -m unittest discover -s evals/tests -p 'test_*.py'
 python3 skills/docs/scripts/docs_check.py .
 python3 scripts/sync-agents.py --check --diff
 python3 scripts/sync-agent-models.py --check
+python3 scripts/render-diagrams.py --check
 ```
 
 Architecture decisions live in [`docs/adr/`](docs/adr/); notable changes are summarized in
