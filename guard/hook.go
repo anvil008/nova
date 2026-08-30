@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -369,6 +370,14 @@ func stopGate(decoded payload, workingDirectory string) response {
 		cache := newLookups()
 		loaded := cache.load(resolved.repository)
 		if loaded == nil || loaded.seal == nil {
+			if loaded != nil {
+				if _, err := os.Stat(loaded.directory); err == nil {
+					return response{
+						deny:   true,
+						reason: "anvil-guard: no green evidence; run `anvil-guard verify --green-command <argv...>`",
+					}
+				}
+			}
 			sourcePaths, err := unsealedSourceChanges(resolved.repository)
 			if err == nil && len(sourcePaths) > 0 {
 				return response{

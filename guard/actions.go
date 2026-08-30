@@ -94,6 +94,12 @@ func handoff(loaded *state, to string) error {
 		return fmt.Errorf("handoff requires --to <role>")
 	}
 	if loaded.seal == nil {
+		// Reaching handoff means this repository entered the guard workflow. Keep
+		// that fact even though the handoff is refused, so Stop cannot mistake a
+		// skipped seal for a repository that never opted into the workflow.
+		if err := os.MkdirAll(loaded.directory, 0o700); err != nil {
+			return err
+		}
 		return fmt.Errorf("nothing to hand off: seal the tests first with `anvil-guard seal`")
 	}
 	if loaded.green != nil {
