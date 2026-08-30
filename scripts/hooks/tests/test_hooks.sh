@@ -40,11 +40,26 @@ jbt(){ jq -nc --arg c "$1" --arg a "$2" '{agent_type:$a,tool_input:{command:$c}}
 ja(){ jq -nc --arg c "$1" '{toolCall:{name:"run_command",args:{CommandLine:$c}}}'; }  # agy payload
 denied_claude(){ jq -e '.hookSpecificOutput.permissionDecision=="deny" and (.hookSpecificOutput.permissionDecisionReason|length>0)' >/dev/null 2>&1; }
 denied_agy(){ jq -e '.decision=="deny" and (.reason|length>0)' >/dev/null 2>&1; }
+mkrepo(){
+  local d=$1 br=${2:-issue-1}
+  git -c init.defaultBranch="$br" init -q "$d"
+  git -C "$d" config user.email t@example.invalid
+  git -C "$d" config user.name t
+  printf 'x\n' > "$d/f"; git -C "$d" add f
+  git -C "$d" -c commit.gpgsign=false commit -qm init
+}
 
 # --- build-guard corpus: every probe, every payload shape ----------------------------------------
 CORPUS_CWD="$TMP/corpus-repo"
 git -c init.defaultBranch=issue-1 init -q "$CORPUS_CWD"
 mkdir -p "$CORPUS_CWD/.agents/plugins/workcell"
+# The eval-mode corpus runs in its own repository — checked out on main, carrying the marker
+# bootstrap-eval.sh writes — so a `@…-eval` probe can never leak eval mode into the ordinary ones.
+EVAL_CWD="$TMP/corpus-eval-repo"
+mkrepo "$EVAL_CWD" main
+mkdir -p "$EVAL_CWD/.agents/plugins/workcell" "$EVAL_CWD/.workcell"
+printf '{"mode":"eval","startedAt":"1970-01-01T00:00:00Z","source":"bootstrap-eval"}\n' \
+  > "$EVAL_CWD/.workcell/eval-mode.json"
 
 # verdict <shape> <command> -> prints allow|deny|error. A shape is the payload one caller sends:
 # a harness's own session names nobody, a subagent's names it with agent_id or agent_type.
@@ -55,12 +70,15 @@ verdict(){
     claude-agent) out=$(jbi "$cmd" agent_01 | (cd "$CORPUS_CWD" && "$GUARD") 2>"$TMP/err"); rc=$? ;;
     codex-agent)  out=$(jbt "$cmd" workcell:builder | (cd "$CORPUS_CWD" && "$GUARD" codex) 2>"$TMP/err"); rc=$? ;;
     codex)        out=$(jb "$cmd" | (cd "$CORPUS_CWD" && "$GUARD" codex) 2>"$TMP/err"); rc=$? ;;
+    claude-eval)  out=$(jb "$cmd" | (cd "$EVAL_CWD" && "$GUARD") 2>"$TMP/err"); rc=$? ;;
+    claude-agent-eval) out=$(jbi "$cmd" agent_01 | (cd "$EVAL_CWD" && "$GUARD") 2>"$TMP/err"); rc=$? ;;
+    agy-eval)     out=$(ja "$cmd" | (cd "$EVAL_CWD" && "$GUARD" agy) 2>"$TMP/err"); rc=$? ;;
     *)            out=$(jb "$cmd" | (cd "$CORPUS_CWD" && "$GUARD") 2>"$TMP/err"); rc=$? ;;
   esac
   [[ $rc -eq 0 ]] || { echo "error(rc=$rc)"; return; }
   if [[ -z ${out//[[:space:]]/} ]]; then echo allow; return; fi
   case $shape in
-    agy) printf '%s' "$out" | denied_agy && { echo deny; return; } ;;
+    agy*) printf '%s' "$out" | denied_agy && { echo deny; return; } ;;
     *)   printf '%s' "$out" | denied_claude && { echo deny; return; } ;;
   esac
   echo "malformed($out)"
@@ -91,14 +109,6 @@ guard_in(){
     agy) guard_out=$(ja "$cmd" | (cd "$dir" && "$GUARD" agy) 2>"$TMP/err"); guard_rc=$? ;;
     *)   guard_out=$(jb "$cmd" | (cd "$dir" && "$GUARD")     2>"$TMP/err"); guard_rc=$? ;;
   esac
-}
-mkrepo(){
-  local d=$1 br=${2:-issue-1}
-  git -c init.defaultBranch="$br" init -q "$d"
-  git -C "$d" config user.email t@example.invalid
-  git -C "$d" config user.name t
-  printf 'x\n' > "$d/f"; git -C "$d" add f
-  git -C "$d" -c commit.gpgsign=false commit -qm init
 }
 is_deny_claude(){ printf '%s' "$1" | denied_claude; }
 is_deny_agy(){ printf '%s' "$1" | denied_agy; }
@@ -187,6 +197,34 @@ name="agy denies a merge from an unnamed caller"; check is_deny_agy "$guard_out"
 guard_out=$(jq -nc '{agent_type:"workcell:builder",toolCall:{args:{CommandLine:"gh pr merge 12 --merge"}}}' \
   | (cd "$plain" && "$GUARD" agy) 2>"$TMP/err"); guard_rc=$?
 name="agy denies a merge from a named builder"; check is_deny_agy "$guard_out"
+
+# --- eval mode: one file flips the verdicts, and only for the repository that carries it ---------
+# The same repository is probed before and after the marker appears, so the marker is the only
+# variable; a sibling repository and a -C into one pin that eval mode does not travel.
+evalrepo="$TMP/repo-eval"; mkrepo "$evalrepo" main
+sibling="$TMP/repo-eval-sibling"; mkrepo "$sibling" main
+guard_in "$evalrepo" claude 'git push origin main'
+name="push to main is denied before the eval marker exists"; check is_deny_claude "$guard_out"
+guard_in "$evalrepo" claude 'gh pr merge 12 --merge'
+name="the session may merge before the eval marker exists"; check is_allow "$guard_out"
+mkdir -p "$evalrepo/.workcell"
+printf '{"mode":"eval","startedAt":"1970-01-01T00:00:00Z","source":"bootstrap-eval"}\n' > "$evalrepo/.workcell/eval-mode.json"
+guard_in "$evalrepo" claude 'git push origin main'
+name="eval marker allows a push to main"; check is_allow "$guard_out"
+guard_in "$evalrepo" claude 'git commit -m x'
+name="eval marker allows a commit on main"; check is_allow "$guard_out"
+guard_in "$evalrepo/.." claude "git -C $evalrepo commit -m x"
+name="eval mode is read from the repository -C names, not the cwd"; check is_allow "$guard_out"
+guard_in "$evalrepo" claude 'gh pr merge 12 --merge'
+name="eval marker denies the merge the session could otherwise make"; check is_deny_claude "$guard_out"
+name="eval deny names eval mode and GitHub"
+check sh -c 'printf %s "$1" | grep -qF "eval mode: GitHub is out of scope"' _ "$(reason_of "$guard_out")"
+guard_in "$evalrepo" claude 'CARGO_TARGET_DIR=/tmp cargo build'
+name="eval marker leaves the RAM-tmpfs rule alone"; check is_deny_claude "$guard_out"
+guard_in "$sibling" claude 'git push origin main'
+name="the eval marker does not leak to a sibling repository"; check is_deny_claude "$guard_out"
+guard_in "$evalrepo" claude "git -C $sibling push origin main"
+name="a -C out of the eval repo is judged by the repository it names"; check is_deny_claude "$guard_out"
 
 # --- build-guard fails closed: exit 2 + reason on stderr ----------------------------------------
 nojq="$TMP/nojq"; mkdir -p "$nojq"

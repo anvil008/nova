@@ -71,6 +71,13 @@ conversation included: an orchestrator's merge is an ordinary merge of a reviewe
 request, never an override of a red check nor one armed to fire on checks no human has read. ADR
 0011 records the decision and its residual risk.
 
+One file changes those verdicts. A task repository bootstrapped for an unattended benchmark run
+carries `.workcell/eval-mode.json`; inside it the guard allows commit, merge, rebase, cherry-pick
+and push on the default branch, because that is where an eval's work has to land, and denies every
+`gh` call instead, the main conversation's merges included. Nothing else moves — the TDD state
+machine above least of all, since an eval measures the harness _with_ its gates. [Eval
+runs](eval-runs.md) has the recipe and ADR 0013 the decision.
+
 Claude Code, Antigravity, and Codex wire these to native tool events. Codex plugin hooks remain
 inactive until the user trusts them with `/hooks`, so its agent definitions also document explicit
 `build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions.

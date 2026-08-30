@@ -1,7 +1,11 @@
 # Workcell instruction evals
 
 These evals test whether skills and agents are complete, discoverable from realistic
-requests, and behaviorally faithful to their contracts. They use three tiers:
+requests, and behaviorally faithful to their contracts. For the other kind — harness evals, where
+Workcell runs unattended against an external benchmark task and is scored on the patch it
+produces — see [docs/eval-runs.md](../docs/eval-runs.md).
+
+They use three tiers:
 
 1. **Structural** is free and runs in CI. It checks skill frontmatter, full case coverage,
    trigger counts, behavioral entries, and fixture paths.
