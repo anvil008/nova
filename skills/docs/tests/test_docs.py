@@ -319,8 +319,7 @@ class DocsCheckTests(unittest.TestCase):
             )
 
     def test_readme_contract_parity(self):
-        documents = [
-            ROOT / "SKILL.md",
+        agents = [
             ROOT.parents[1] / "agents" / "claude" / "docs.md",
             ROOT.parents[1] / "agents" / "codex" / "docs.md",
             ROOT.parents[1] / "agents" / "agy" / "docs" / "agent.md",
@@ -335,7 +334,7 @@ class DocsCheckTests(unittest.TestCase):
             "concise, plain-language prose",
         )
         contracts = []
-        for path in documents:
+        for path in agents:
             with self.subTest(path=path):
                 content = path.read_text(encoding="utf-8")
                 for phrase in required:
@@ -344,6 +343,9 @@ class DocsCheckTests(unittest.TestCase):
                     content.split("## README contract\n\n", 1)[1].split("\n\n", 1)[0]
                 )
         self.assertTrue(all(contract == contracts[0] for contract in contracts[1:]))
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertNotIn("## README contract", skill)
+        self.assertIn("agents/bodies/docs.md", skill)
 
     def test_visual_readme_has_textual_equivalent(self):
         content = VISUAL_README.read_text(encoding="utf-8")

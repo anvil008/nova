@@ -7,9 +7,11 @@ description: Take one reported symptom — a stack trace, a failing CI job, an i
 
 Something is known to be broken. Reproduce it, understand it, fix it, and prove the fix with a test that failed first. One PR to `main`.
 
-This starts where [`code-analysis`](../code-analysis/SKILL.md) ends: that skill sweeps for defects nobody has reported, this one begins with a symptom somebody already hit. If you have a report, start here — hunting is wasted effort when the failure is already in your hands.
+You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-You are the orchestrator: you dispatch, hold the gates, and merge ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)). You read the report and the evidence, never the code.
+This orchestrator treats reproduction as the admission gate and carries the debugger's evidence into the fix dispatch.
+
+This starts where [`code-analysis`](../code-analysis/SKILL.md) ends: that skill sweeps for defects nobody has reported, this one begins with a symptom somebody already hit. If you have a report, start here — hunting is wasted effort when the failure is already in your hands.
 
 ## Reproduction is the gate
 
@@ -25,12 +27,12 @@ If the report is too thin to reproduce, the missing information is the finding �
 
 2. **Decide the scope.** The diagnosis usually names one defect; sometimes it names a class. Fix the reported defect. If the root cause implies siblings, list them and ask the human whether to widen — do not quietly turn a bug fix into a sweep.
 3. **Plan** only if the fix spans issues. A single-defect fix needs no folio: take the diagnosis straight to step 4. For a class of defects, dispatch the `planner` with the diagnosis and get approval as usual.
-4. **Fix, test-first.** Dispatch a `test-author` with the debugger's minimal case as the oracle — it is already a failing case, which is exactly what a seal wants — then a `builder` to fix it against a sealed test it cannot edit. This is the pipeline working as designed: the reproduction *is* the Definition of Done.
+4. **Fix, test-first.** For the single-defect path, use a stable lowercase symptom slug as the single-PR mode's `<planId>`, then send both agents a dispatch brief conforming to [`agents/handoff.md`](../../agents/handoff.md) with `issue: null`. Its `brief` carries the debugger's reproduction command and minimal case as the single acceptance test, with `name`, `kind`, and `oracle`; its `ownership` is the debugger's proposed fix location. Dispatch a `test-author` against that oracle — it is already a failing case, which is exactly what a seal wants — then a `builder` to fix it against a sealed test it cannot edit. The builder's intermediate PR body names the symptom and the reproduction instead of `Closes #<n>`.
 
    For a flaky fix, the acceptance test must run enough repetitions to distinguish "fixed" from "got lucky", and the debugger's measured rate sets that count.
 
 5. **Review** with the usual lens fan-out, weighted to `correctness` and to the area the defect lives in.
-6. **Integrate and open one PR** to `main` naming the symptom, the root cause, the introducing commit if there was one, and the test that now covers it. Merge on the evidence.
+6. **Integrate and open the final PR.** Run [`build`](../build/SKILL.md) in **single-PR mode**, dispatch the `integrator` over each wave, and merge intermediate PRs to the integration branch only on the evidence. The final PR from that branch to `main` names the symptom, reproduction, root cause, introducing commit if there was one, and covering test. For the single-defect `issue: null` path it names the symptom and the reproduction instead of `Closes #<n>`; for planned defects it repeats every per-issue `Closes #<n>` line.
 
 ## Boundaries
 

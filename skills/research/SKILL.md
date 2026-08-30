@@ -7,7 +7,9 @@ description: Investigate a question across multiple areas with parallel read-onl
 
 Investigate a goal across several areas at once and return one consolidated evidence packet.
 
-You are the orchestrator: you split the goal into areas, dispatch one read-only `research` agent per area, and own the synthesis and the conclusion. You never investigate an area yourself — subagent output is evidence, never the verdict, and an area you researched personally has no evidence envelope behind it ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
+You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+
+This orchestrator splits the goal into areas, dispatches one read-only `research` agent per area, and owns the synthesis and conclusion.
 
 ## Area split and fan-out
 
@@ -39,4 +41,4 @@ When a shareable report is wanted, write the synthesis as JSON — `{"verdict": 
 PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/render_research.py packet.json docs/research/research01-20260101-sample.html --synthesis synthesis.json --title "Sample" --repo owner/name --subject "what was researched"
 ```
 
-The renderer rejects a recommendation that cites an unknown finding and a `clean` verdict that carries recommendations. `templates/report.css` is the shared design system and must stay byte-identical to the planner and code-review copies; `templates/research.css` holds the research-only rules.
+The renderer rejects a recommendation that cites an unknown finding and a `clean` verdict that carries recommendations. Maintainers follow the [report-rendering contract](references/report-rendering.md).

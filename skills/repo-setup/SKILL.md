@@ -7,7 +7,9 @@ description: Make a repository ready for agentic development — interview the u
 
 Get a repository into the shape where agents can work in it safely: instruction files that say what the project is and how to verify it, a build and test command that actually runs, and gates that catch mistakes mechanically. Works on an established codebase or an empty directory.
 
-You are the orchestrator: you interview the human, dispatch the agents, and hold the gates ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)). The `docs` agent writes the instruction files; a `builder` writes any config that is code.
+You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+
+This orchestrator interviews the human and assigns documentation to `docs` and code-like configuration to `builder`.
 
 ## Read before you ask
 
@@ -37,7 +39,7 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
    ```
 
    Everything it writes is added to the repository's `info/exclude`, so none of it shows up in a diff or a commit. Any config that is genuinely code — a CI workflow, a build file, a Bazel target — goes through a `builder` test-first where it is testable, not hand-edited here.
-6. **Prove it.** Dispatch an `integrator` to run the documented build, test, and lint commands exactly as written in the instruction files. This is the whole point of the setup: if the commands in `AGENTS.md` do not run, the file is a liability. Fix and re-run until they do.
+6. **Prove it.** Dispatch an `integrator` with a brief conforming to [`agents/handoff.md`](../../agents/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. It runs the documented build, test, and lint commands exactly as written in the instruction files. This is the whole point of the setup: if the commands in `AGENTS.md` do not run, the file is a liability. Fix and re-run until they do.
 7. **Report** what was set up, what was left alone and why, and what the human still has to decide.
 
 ## Boundaries

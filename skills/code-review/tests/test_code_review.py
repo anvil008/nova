@@ -409,6 +409,26 @@ class CodeReviewSkillTests(unittest.TestCase):
             "is not a frontend change",
         ):
             self.assertIn(phrase, review)
+        for text in (skill, review):
+            self.assertIn("`devServer`", text)
+            self.assertNotIn("ask before starting a dev server", text.lower())
+
+    def test_renderer_detail_in_references(self):
+        skills = ROOT.parents[1] / "skills"
+        for name in ("planner", "code-review", "research"):
+            with self.subTest(skill=name):
+                skill = (skills / name / "SKILL.md").read_text(encoding="utf-8")
+                rendering = (skills / name / "references" / "report-rendering.md").read_text(
+                    encoding="utf-8"
+                )
+                self.assertNotIn("byte-identical", skill)
+                self.assertIn("references/report-rendering.md", skill)
+                self.assertIn("byte-identical", rendering)
+        review_rendering = (
+            skills / "code-review" / "references" / "report-rendering.md"
+        ).read_text(encoding="utf-8")
+        for phrase in ("Sections are fixed", "two non-interactive visuals", "prints"):
+            self.assertIn(phrase, review_rendering)
 
     def test_reconcile_files_issues_above_the_threshold_only(self):
         with tempfile.TemporaryDirectory() as tmp:

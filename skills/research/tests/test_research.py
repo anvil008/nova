@@ -191,8 +191,11 @@ class ResearchSkillTests(unittest.TestCase):
 
     def test_skill_documents_stance_driven_conflicts(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        for phrase in ("`stance`", "`contradicts`", "`supports`", "`neutral`", "byte-identical"):
+        for phrase in ("`stance`", "`contradicts`", "`supports`", "`neutral`"):
             self.assertIn(phrase, skill)
+        rendering = (ROOT / "references" / "report-rendering.md").read_text(encoding="utf-8")
+        self.assertNotIn("byte-identical", skill)
+        self.assertIn("byte-identical", rendering)
 
     def test_renders_packet_and_synthesis_to_self_contained_html(self):
         packet = json.loads((EXAMPLES / "expected-packet.json").read_text(encoding="utf-8"))
