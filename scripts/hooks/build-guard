@@ -316,7 +316,11 @@ rule_marker(){
   local base=$1 a t next=0; shift
   case $base in
     tee|cp|mv|install|ln|dd|truncate)
-      for a in "$@"; do is_eval_marker "$a" && deny "$marker_reason"; done ;;
+      # dd names its operands `of=<path>`/`if=<path>`, so the path is not the whole word.
+      for a in "$@"; do
+        t=$a; [[ $t =~ ^[A-Za-z_]+= ]] && t=${t#*=}
+        is_eval_marker "$t" && deny "$marker_reason"
+      done ;;
   esac
   for a in "$@"; do
     if ((next)); then next=0; is_eval_marker "$a" && deny "$marker_reason"; continue; fi
