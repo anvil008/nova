@@ -4,6 +4,12 @@
 #   claude: stdin .tool_input.command      -> {hookSpecificOutput:{permissionDecision:"deny",...}}
 #   agy:    stdin .toolCall.args.CommandLine -> {decision:"deny",reason:...}   (Antigravity contract)
 #
+# Merge authority: merging a pull request belongs to the main conversation, the only caller holding
+# the review and the checks. Claude Code and Codex stamp `agent_id`/`agent_type` into the PreToolUse
+# payload for a subagent's call and omit both for the main session, so the payload — not the
+# environment, which is identical either way — decides; Antigravity names no caller and registers
+# hooks session-wide, so merges there fail closed. `--admin`/`--auto` stay denied for everyone.
+#
 # This is a hard boundary, so it fails closed: exit 2 with a reason on stderr when jq is
 # missing, the payload is not JSON, or the payload carries no command. Silent (allow) otherwise.
 #
@@ -44,6 +50,14 @@ case "$harness" in
 esac
 cmd=$(printf '%s' "$payload" | jq -r "$filter" 2>/dev/null) || fail "hook payload is not valid JSON; failing closed"
 [[ -n $cmd ]] || fail "hook payload has no command for harness '$harness'; failing closed"
+
+# Who called: the calling subagent's identity, empty for a harness's own top-level session.
+# Read only by rule_gh. Antigravity carries no such field, so it stays empty there.
+caller=""
+if [[ $harness != agy ]]; then
+  caller=$(printf '%s' "$payload" | jq -r '.agent_id // .agent_type // empty' 2>/dev/null) \
+    || fail "hook payload is not valid JSON; failing closed"
+fi
 
 # Antigravity registers plugin hooks for the whole session rather than for one agent. Prefer an
 # explicit builder identity if a future payload supplies one; with today's identity-free payload,
@@ -209,11 +223,21 @@ rule_git(){
     ?*) git_alias "$sub" ;;
   esac
 }
+# Merging is the main conversation's call, so a named caller is a subagent and is denied. Only
+# Claude Code and Codex name one; on Antigravity every merge is denied because nothing there
+# distinguishes the session's own commands from an agent's.
 rule_gh(){
   local -a pos=(); positionals '-R|--repo|-X|--method|-f|-F|--field|--raw-field|-H|--header' "$@"
-  [[ ${pos[0]:-} == pr && ${pos[1]:-} == merge ]] && deny "builder must not merge pull requests — hand the PR back for review"
-  local a; for a in "$@"; do
-    [[ $a =~ /pulls/[0-9]+/merge$ ]] && deny "builder must not merge pull requests via the API"; done
+  local a why=""
+  [[ ${pos[0]:-} == pr && ${pos[1]:-} == merge ]] && why="builder must not merge pull requests — hand the PR back for review"
+  for a in "$@"; do
+    [[ $a =~ /pulls/[0-9]+/merge$ ]] && why="builder must not merge pull requests via the API"; done
+  [[ -n $why ]] || return 0
+  [[ $harness != agy && -z $caller ]] || deny "$why"
+  # What the main conversation gets is an ordinary merge of a pull request a human has seen green.
+  for a in "$@"; do
+    [[ $a == --admin || $a == --auto ]] && deny \
+      "gh pr merge $a bypasses the checks the pull request exists for — merge it plainly once review and CI are green"; done
 }
 rule_jj(){
   local sub="" ; local -a rest=() pos=()
