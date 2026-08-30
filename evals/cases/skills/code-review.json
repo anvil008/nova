@@ -1,0 +1,27 @@
+{
+  "name": "code-review",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {"prompt": "Organize a multi-lens audit of this PR and make independent skeptics validate every candidate before it merges.", "top_k": 3},
+      {"prompt": "Review this diff before merge, independently trying to disprove every proposed finding.", "top_k": 3},
+      {"prompt": "Produce a consolidated verdict for this change-set after adversarial finding checks.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Inspect only the frontend lens at fixed viewports and return evidence-backed UI findings.", "owner": "skill:code-reviewer-frontend-review"},
+      {"prompt": "Implement this assigned issue in its isolated branch and open its pull request.", "owner": "agent:builder"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Three reviewers proposed findings. One independent verifier disproved candidate C2. Produce the review outcome.",
+      "expected_output": "A review artifact containing only substantiated findings and a visible dropped record for C2.",
+      "expectations": [
+        "No finding reaches the verified findings list without an independent refutation attempt.",
+        "The refuted C2 candidate appears under dropped with its refutation evidence."
+      ]
+    }
+  ]
+}

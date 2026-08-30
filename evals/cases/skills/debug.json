@@ -1,0 +1,27 @@
+{
+  "name": "debug",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {"prompt": "This CI job has a stack trace; reproduce the reported failure, find its cause, and fix it test-first.", "top_k": 3},
+      {"prompt": "Track down this known flaky test from measured reproduction through one repair PR.", "top_k": 3},
+      {"prompt": "An incident has a concrete symptom. Diagnose it experimentally and cover the fix with a failing test.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Sweep the entire codebase for unreported correctness bugs and prove each one.", "owner": "skill:code-analysis"},
+      {"prompt": "Measure this hot path repeatedly and optimize only if the speedup exceeds the benchmark spread.", "owner": "skill:perf"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "A production report says only 'sometimes wrong' and provides no input, log, rate, or reproduction. Continue the fix workflow.",
+      "expected_output": "A stopped workflow that requests the concrete missing reproduction evidence.",
+      "expectations": [
+        "No builder or test-author is dispatched for an unreproduced symptom.",
+        "The response identifies the missing evidence needed to reproduce the report."
+      ]
+    }
+  ]
+}

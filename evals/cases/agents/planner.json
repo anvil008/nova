@@ -1,0 +1,27 @@
+{
+  "name": "planner",
+  "kind": "agent",
+  "trigger": {
+    "positive": [
+      {"prompt": "Investigate this one planning goal read-only and author its folio, sidecar, and acceptance oracles.", "top_k": 3},
+      {"prompt": "Do the read-only investigation for one planning goal, returning its folio and sidecar with testable issue oracles for the human.", "top_k": 3},
+      {"prompt": "Investigate one planning goal and author its review artifacts without writing to GitHub.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Orchestrate plan approval and apply the approved sidecar to GitHub milestones and issues.", "owner": "skill:planner"},
+      {"prompt": "Interview me about a brand-new feature and then carry it through one final pull request.", "owner": "skill:new-feature"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Plan an API migration, but the brief leaves the compatibility window undecided and either answer changes ownership.",
+      "expected_output": "A needs-decision agent handoff with no finalized sidecar assumption.",
+      "expectations": [
+        "The planner returns disposition needs-decision and states the unresolved scope question.",
+        "The planner does not choose a compatibility window or write GitHub resources."
+      ]
+    }
+  ]
+}
