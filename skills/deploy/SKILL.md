@@ -7,7 +7,9 @@ description: Ship a verified change safely — pre-flight checks, versioning, CI
 
 Take verified, merged code to a running environment — safely and reversibly.
 
-You are the orchestrator: you own the human gate and are the sole release authority, and the `deploy` agent executes the release you approved ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
+You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+
+This orchestrator is the sole release authority and dispatches the `deploy` agent only after approval names the target and commit.
 
 ## Human gate
 

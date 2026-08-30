@@ -307,9 +307,9 @@ class PlannerSkillTests(unittest.TestCase):
         self.assertIn("&lt;External API&gt;", rendered)
         self.assertNotIn("<External API>", rendered)
 
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("mixed-case ASCII slug", skill)
-        self.assertIn("string shorthand", skill)
+        contract = (ROOT / "references" / "sidecar-contract.md").read_text(encoding="utf-8")
+        self.assertIn("mixed-case ASCII slug", contract)
+        self.assertIn("string shorthand", contract)
 
     def test_brief_style_uppercase_keys_reconcile_without_duplication(self):
         plan = sample_plan()
@@ -785,9 +785,30 @@ class PlannerSkillTests(unittest.TestCase):
                     self.assertTrue(any(re.search(r"digest|sha256", key, re.IGNORECASE) for key in carrying))
 
     def test_skill_documents_reopen_done_and_marker_normalisation(self):
-        text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        text = (ROOT / "references" / "sidecar-contract.md").read_text(encoding="utf-8")
         self.assertIn("--reopen-done", text)
         self.assertIn("status:done", text)
+
+    def test_planner_contract_split(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        contract_path = ROOT / "references" / "sidecar-contract.md"
+        self.assertTrue(contract_path.exists())
+        contract = contract_path.read_text(encoding="utf-8")
+        self.assertIn("references/sidecar-contract.md", skill)
+        self.assertNotIn("```json", skill)
+        for field in (
+            '"planId"', '"planName"', '"repo"', '"generatedAt"', '"summary"',
+            '"architecture"', '"issues"', '"risks"',
+        ):
+            self.assertIn(field, contract)
+
+    def test_planner_renderer_detail_is_progressively_disclosed(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        rendering = (ROOT / "references" / "report-rendering.md").read_text(encoding="utf-8")
+        self.assertNotIn("byte-identical", skill)
+        self.assertIn("references/report-rendering.md", skill)
+        self.assertIn("byte-identical", rendering)
+        self.assertIn("fixed folio section order", rendering)
 
     def test_shared_report_css_is_byte_identical_across_skills(self):
         repo_root = ROOT.parents[1]

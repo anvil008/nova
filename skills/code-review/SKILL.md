@@ -7,11 +7,13 @@ description: Run a multi-lens, adversarially verified review of a pull request, 
 
 Review one pull request, diff, or integrated change-set before merge.
 
-You are the orchestrator: you select the lenses, dispatch the reviewers and verifiers, and own the consolidated verdict. You never inspect the change yourself — every finding comes from a read-only `code-reviewer` agent, and a lens you would have covered by reading the diff yourself is a lens you failed to dispatch ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
+You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+
+This orchestrator selects the lenses, dispatches the reviewers and verifiers, and owns the consolidated verdict.
 
 ## Lens selection and fan-out
 
-Read the change-set's **file list** — paths, extensions, and the shape of the diffstat, not the contents of the files — then select lenses from its actual risks. Reading a manifest of what changed is orchestration; reading the code to judge it is the reviewer's job:
+Use the change-set's **file list** and diffstat to select lenses from its actual risks:
 
 - correctness and tests are always selected;
 - security applies when trust boundaries, authentication or authorization, dependencies, secrets, or input handling change;
@@ -29,7 +31,7 @@ Select `frontend` when the change-set touches rendered UI: `.tsx` / `.jsx` / `.v
 
 That reviewer runs the [`code-reviewer-frontend-review`](../code-reviewer-frontend-review/SKILL.md) skill, which is the frontend lens's method rather than a separate review: a static pass over the changed components and styles, then a Playwright pass that resizes through a fixed viewport matrix — 4K (3840×2160), half-tiled 4K (1920×2160), QHD, 1080p, MacBook 16"/15"/13", a small laptop, tablet, and phone — capturing structure, screenshots, and an objective horizontal-overflow check at each. It returns the same envelope as every other lens, with `lens` set to `frontend`, so its findings dedupe, verify, and rank alongside the rest with no special-casing downstream.
 
-Two practical constraints. The reviewer needs Playwright browser tools; without them it runs the static pass only and must say so rather than assert runtime behaviour it never observed. And it must ask before starting a dev server and never point at production.
+The orchestrator sets `devServer` in the dispatch brief to `none`, a URL, or `start: <command>`; production URLs are never passed. The reviewer never asks. An absent field or `none` means the static pass only, and the reviewer records the runtime gap rather than asserting behaviour it never observed. A runtime pass also requires Playwright browser tools.
 
 ## Merge and adversarial verification
 
@@ -58,16 +60,7 @@ python3 skills/code-review/scripts/render_review.py review.json review.html \
 
 Only `review.json` and the output path are required; the rest default to honest placeholders. The renderer re-validates the merged JSON strictly and refuses unknown fields, so a hand-edited report cannot silently diverge from the pipeline that produced it.
 
-Sections are fixed: 01 Summary, 02 Findings, 03 Touched Files, 04 Refuted Candidates, 05 Method. Findings filter by severity and by lens, and each expands to its failure scenario, the refutation attempt, and the evidence. All CSS and JavaScript are inline; there are no external resource loads.
-
-Every report includes two non-interactive visuals derived solely from the validated review JSON and
-render context: a review topology showing lens fan-out through verification to verdict, and a
-verified-impact map grouped by file and severity. Both remain present for zero-finding reviews,
-include equivalent text for assistive technology, work without JavaScript or network access, and
-remain legible in print. They summarize the report; they never replace the detailed findings,
-refutations, filters, or reconciliation data.
-
-Styling comes from two files. [templates/report.css](templates/report.css) is the shared Foundry Zero report design system and is **byte-identical** to `skills/planner/templates/report.css`; a test enforces that, so change both together or neither. [templates/review.css](templates/review.css) holds review-only components. The report is theme-aware, responsive, and prints: filters are suppressed, hidden rows are restored, and disclosure rows open.
+Maintainers of the renderer and templates follow the [report-rendering contract](references/report-rendering.md).
 
 ## GitHub issues
 
