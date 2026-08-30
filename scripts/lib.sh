@@ -70,6 +70,22 @@ git_exclude_add(){
   done
 }
 
+# git_exclude_remove PATH... -> the inverse: drops each PATH from the repository's info/exclude
+# and leaves every other line, so an uninstall gives back exactly the file it found. Rewritten
+# through a temp file, since in-place editing is not portable. Non-zero outside a repository.
+git_exclude_remove(){
+  local ex tmp p
+  ex=$(git rev-parse --git-path info/exclude 2>/dev/null) || return 1
+  [[ -f $ex ]] || return 0
+  for p in "$@"; do
+    grep -qxF "$p" "$ex" || continue
+    tmp="$ex.workcell.$$"
+    grep -vxF "$p" "$ex" > "$tmp" || true
+    cat "$tmp" > "$ex"; rm -f "$tmp"
+    echo "  un-ignored $p in $ex"
+  done
+}
+
 # report_unowned DIR... -> names every entry in each DIR that is not one of our links,
 # so an uninstall says what it deliberately left behind. Same ownership test as
 # unlink_owned, so the two can never disagree.

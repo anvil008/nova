@@ -3,9 +3,11 @@
 # test_hooks.sh runs every probe through build-guard for each default payload shape and
 # asserts the verdict. An expectation may name one shape instead, as `expected@shape`:
 # `claude` / `codex` for a harness's own top-level session, `claude-agent` / `codex-agent`
-# for a payload naming the subagent that made the call, `agy` for Antigravity's. Keep the
-# deny set to unambiguous policy violations and the allow set to the false positives we
-# have actually hit.
+# for a payload naming the subagent that made the call, `agy` for Antigravity's. The three
+# `-eval` shapes (`claude-eval`, `claude-agent-eval`, `agy-eval`) send the same payloads from a
+# separate repository carrying .workcell/eval-mode.json; every unscoped probe runs outside it,
+# which is what proves eval mode changes nothing anywhere else. Keep the deny set to unambiguous
+# policy violations and the allow set to the false positives we have actually hit.
 
 # --- deny: pushing to / rewriting main and master -----------------------------------
 deny|git push
@@ -83,6 +85,41 @@ deny|gh pr merge 42 --squash --auto
 deny|gh pr merge --auto
 deny@codex|gh pr merge 12 --merge --admin
 deny@codex|gh pr merge 12 --auto
+
+# --- eval mode: the task repo carries .workcell/eval-mode.json (ADR 0013) ------------
+# Relaxed: the work of an unattended eval lands on the task repo's default branch.
+allow@claude-eval|git push origin main
+allow@claude-eval|git push origin master
+allow@claude-eval|git push
+allow@claude-eval|git push --force origin main
+allow@claude-eval|git commit -m x
+allow@claude-eval|git merge feat
+allow@claude-eval|git rebase feat
+allow@claude-eval|git cherry-pick abc123
+allow@claude-eval|git checkout main && git commit -m x
+allow@claude-eval|jj git push
+allow@claude-eval|jj git push --bookmark main
+allow@claude-eval|jj bookmark set main -r @ && jj git push
+allow@claude-agent-eval|git push origin main
+allow@claude-agent-eval|git commit -m x
+allow@agy-eval|git push origin main
+# Tightened: GitHub is out of scope for an eval, top-level session included.
+deny@claude-eval|gh pr merge 12 --merge
+deny@claude-eval|gh api repos/o/r/pulls/42
+deny@claude-eval|gh pr create --base main --title x
+deny@claude-eval|gh issue list
+deny@claude-eval|gh pr view 42
+deny@claude-agent-eval|gh pr merge 12 --merge
+deny@agy-eval|gh pr view 42
+# Unchanged: eval mode removes the human pauses, not the other rules.
+deny@claude-eval|git branch -f main HEAD~3
+deny@claude-eval|git update-ref refs/heads/main HEAD
+deny@claude-eval|CARGO_TARGET_DIR=/tmp cargo build
+deny@claude-eval|cargo build --target-dir /dev/shm/t
+deny@claude-eval|echo push origin main | xargs git
+deny@claude-eval|git -c alias.yolo='push --force' yolo origin main
+# ...and an inline alias whose body the guard CAN read expands to a push the task repo now allows.
+allow@claude-eval|git -c alias.p=push p origin main
 
 # --- deny: cargo build artifacts on the RAM-backed tmpfs ----------------------------
 deny|CARGO_TARGET_DIR=/tmp cargo build
