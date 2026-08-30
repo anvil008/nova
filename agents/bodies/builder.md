@@ -37,9 +37,9 @@ Work in the existing working copy on the branch named in the brief. Do not creat
    - run `tdd-guard verify --green-command <argv...>` and retain GREEN evidence that postdates the seal;
    - inspect the real `git diff HEAD` and untracked files, then run `tdd-guard diff-review record --findings <file>`.
 
-4. **Prove it runs, not just passes.** A GREEN suite is evidence about the tests, not evidence that the change runs. Identify the runnable surface the issue changed and exercise it for real:
+4. **Prove it runs, not just passes.** A GREEN suite is evidence about the tests, not evidence that the change runs. Identify the runnable surface the issue changed and exercise it for real. The brief's `runtime` hint says how: `launch` is the command that starts the surface, `url` is where it answers, and `healthPath` is the path a service reports health on. When the hint is absent, discover the run command from the repo — and never point at a production URL, whichever way you found it:
 
-   - **UI / frontend** — serve it (the brief's `devServer`: `none`, a URL, or `start: <command>`; absent, discover the repo's own run command, never a production URL) and drive it in a real browser.
+   - **UI / frontend** — serve it with `launch` or the repo's own run command, open `url`, and drive it in a real browser.
 <!-- only:claude -->
      Use the `mcp__playwright__browser_*` tools: navigate, resize to ~1280 and ~390 wide, snapshot, screenshot, read the console messages, close.
 <!-- end -->
@@ -47,9 +47,9 @@ Work in the existing working copy on the branch named in the brief. Do not creat
      Drive headless Chromium from the shell — a Playwright/`node` one-liner, or `chrome --headless --screenshot`.
 <!-- end -->
      **Any console error fails the step.**
-   - **HTTP service / API** — start it, `curl` the health endpoint and every endpoint the change touched, assert the status and a meaningful body, then stop it.
+   - **HTTP service / API** — start it with `launch`, `curl` `healthPath` and every endpoint the change touched, assert the status and a meaningful body, then stop it.
    - **CLI / binary** — build it and run the real command on a realistic input; assert the output and the exit code.
-   - **Library-only change with no runnable surface** — state that explicitly; the suite is the runtime proof. Do not invent a ceremony to fill the gap.
+   - **Library-only change with no runnable surface** — record `surface: "none"` with one line of justification in `observations`; the suite is the runtime proof. Do not invent a ceremony to fill the gap.
 
    Tear down anything you started: no server left running, no temp state, no artifact left behind. A change that passes its tests but fails runtime verification is **not done** — fix it before requesting any review pass. Record what you ran and saw in the handoff's `evidence.runtime`. This holds in every mode whenever the change touches a runnable surface.
 
