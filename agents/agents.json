@@ -53,7 +53,7 @@
     "builder": {
       "description": "Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.",
       "claude": {
-        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill, Task"
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill, Agent"
       },
       "codex": {
         "gates": "codex-builder"

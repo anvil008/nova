@@ -38,7 +38,7 @@ The symptom is usually a failure — a stack trace, a failing job, a flaky test.
 
 7. **For a flaky failure, measure the rate.** Nondeterminism is not diagnosed by a single run. Run the case enough times to state a failure rate with the count behind it — "17/200 under `-race`, 0/200 without" — and look for the usual causes: shared state, ordering assumptions, real clocks, unawaited work, and test pollution from a neighbour.
 
-8. Return one `anvil.agent-handoff/v1` record with the reproduction command and its `commandId`, the minimal case, the experiments you ran and what each ruled in or out, the root cause with `file:line` evidence, the introducing commit if you found one, the failure rate for a flaky case, a proposed fix location, result, and disposition.
+8. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the reproduction command and its `commandId`, the minimal case, the experiments you ran and what each ruled in or out, the root cause with `file:line` evidence, the introducing commit if you found one, the failure rate for a flaky case, a proposed fix location, result, and disposition.
 
 ## Boundaries
 

@@ -21,7 +21,7 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
 ## Procedure
 
-1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, `acceptanceTests`, and `ownershipHint`.
+1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, `acceptanceTests`, and `ownershipHint`, which the dispatch mirrors in `ownership`. When `issue` is `null`, the brief's `acceptanceTests` are the Definition of Done and its `ownership` is authoritative: there is no planner marker, self-assignment, or `status:in-progress` transition, and the builder's later PR names the symptom and reproduction instead of `Closes #<n>`.
 2. **Ensure the repository is jj-managed.** If `.jj/` is absent, adopt the existing history in place from the repo root:
 
    ```bash
@@ -30,14 +30,15 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
    Colocation keeps `.git/` working, so git tooling, CI, and `gh` are unaffected. Run this only at the repo root, never inside a workspace, and never hand-edit `.jj/`.
 
-3. **Take the workspace the builder will inherit.** You create it; the builder works in it and tears it down:
+3. **Take the workspace the builder will inherit.** Create the exact `workspace` and `branch` named in the dispatch brief; the builder works there and tears it down. These fields replace any issue-key derivation, including when `issue` is `null`:
 
    ```bash
-   jj workspace add --name <issue-key> ../<repo>-<issue-key> -r <integration-base>
+   jj workspace add --name <branch> <workspace> -r <base>
+   cd <workspace>
    jj bookmark create <branch> -r @
    ```
 
-   `<integration-base>` is `trunk()` unless the orchestrator explicitly told you to stack on another branch. Work only inside that directory for the rest of the task, and never push `main`.
+   `base` is `trunk()` unless the orchestrator explicitly supplied an integration branch. Work only inside `workspace` for the rest of the task, and never push `main`.
 
 4. **Author every `acceptanceTests` entry as a real test against the real codebase.** Each entry's `oracle` is the observable pass condition; assert that condition, not a proxy for it. A test that would pass against an empty implementation is not a Definition of Done.
 5. **Prove genuine RED.** A test that fails with `ImportError`, `ModuleNotFoundError`, a syntax error, or a missing fixture is *broken*, not red — it proves nothing about behaviour, and sealing it hands the builder a Definition of Done that is satisfied by making an import resolve. Import the real symbols. Where the implementation does not exist yet, create the smallest signature-only stub — the function, class, or endpoint with the right name and arity, returning nothing useful — so the test reaches its assertion and fails *on the assertion*. Capture the non-zero run.
@@ -55,11 +56,20 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
    This relaxes the Stop gate only. It never marks the change ready: `tdd-guard status --json` still reports `ready: false` until the builder verifies GREEN and records a diff review.
 
-8. Return one `anvil.agent-handoff/v1` record with the branch, the workspace path, the sealed test paths, the red command and its `commandId`, the mapping from each `acceptanceTests` entry to the test that covers it, result, and disposition.
+8. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with the branch, the workspace path, the sealed test paths, the red command and its `commandId`, the mapping from each `acceptanceTests` entry to the test that covers it, result, and disposition.
+
+## Rationalizations
+
+| Rationalization | Reality |
+| --- | --- |
+| this oracle is close enough | A proxy assertion can pass while the promised behaviour is still absent. |
+| an ImportError is still red | Import failure proves the test is broken, not that product behaviour is missing. |
+| I'll stub a little behaviour so the test reaches further. | A stub may provide only the signature needed to reach the real assertion. |
+| The builder can add the edge cases later. | Every acceptance test in the brief must be runnable, genuinely RED, and sealed now. |
 
 ## Boundaries
 
-Write tests, and only the signature-only stubs step 5 requires to make a failure honest. Never write an implementation, never make one of your tests pass, and never weaken an oracle to make it easier to satisfy. Write only files matched by the issue's `ownershipHint`; everything else is read-only. Never open a pull request, never merge, never commit to or push `main`, and never `jj abandon` the bookmark you created.
+Write tests, and only the signature-only stubs step 5 requires to make a failure honest. Never write an implementation, never make one of your tests pass, and never weaken an oracle to make it easier to satisfy. Write only files matched by the dispatch's `ownership`; for issue work this is the issue's `ownershipHint`. Everything else is read-only. Never open a pull request, never merge, never commit to or push `main`, and never `jj abandon` the bookmark you created.
 
 If an `acceptanceTests` entry cannot be expressed as a runnable failing test — the oracle is not observable, or it needs a decision the plan did not make — stop and return it **unsealed** with disposition `blocked`, naming the entry and why. Sealing a weak test is worse than sealing nothing: it converts an open question into a gate the builder can pass without doing the work.
 
