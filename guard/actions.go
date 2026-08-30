@@ -461,6 +461,9 @@ func handoffTreeUntouched(loaded *state) (bool, error) {
 
 func stopBlockers(loaded *state) ([]string, error) {
 	blockers := make([]string, 0, 3)
+	if loaded.seal == nil {
+		return append(blockers, "no seal; run `anvil-guard seal --tests <globs> --red-command <argv...>` (or `--green-baseline <argv...>` for a refactor) first"), nil
+	}
 	changed, err := loaded.changedTests()
 	if err != nil {
 		return nil, err
