@@ -41,16 +41,16 @@
       "sub": "implements against tests it cannot edit"
     },
     {
+      "id": "reviewer",
+      "kind": "agent",
+      "label": "code-reviewer",
+      "sub": "read-only, one lens each · at most two passes"
+    },
+    {
       "id": "pr",
       "kind": "artifact",
       "label": "pull request",
       "sub": "one issue · one workspace · one PR"
-    },
-    {
-      "id": "reviewer",
-      "kind": "agent",
-      "label": "code-reviewer",
-      "sub": "one lens each · no critical or high left standing"
     },
     {
       "id": "integrator",
@@ -93,9 +93,17 @@
       "label": "dispatched in dependency waves"
     },
     { "from": "testauthor", "to": "builder", "label": "handoff --to builder" },
-    { "from": "builder", "to": "pr", "label": "opens" },
-    { "from": "pr", "to": "reviewer" },
-    { "from": "reviewer", "to": "integrator" },
+    {
+      "from": "builder",
+      "to": "reviewer",
+      "label": "the change-set, before any PR exists"
+    },
+    {
+      "from": "reviewer",
+      "to": "pr",
+      "label": "nothing critical or high stands · the builder opens it"
+    },
+    { "from": "pr", "to": "integrator" },
     { "from": "integrator", "to": "gate" },
     { "from": "gate", "to": "merge", "label": "green" },
     { "from": "merge", "to": "docs" },
@@ -108,9 +116,9 @@
       "side": "right"
     },
     {
-      "from": "builder",
+      "from": "reviewer",
       "to": "approval",
-      "label": "blocked · needs-decision",
+      "label": "critical or high stands: blocked, no PR",
       "dashed": true,
       "side": "left"
     }

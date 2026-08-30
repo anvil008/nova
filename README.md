@@ -112,17 +112,18 @@ believing an agent's summary. See [ADR 0007](docs/adr/0007-primary-agent-is-a-pu
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-work-moves-dark.svg">
-  <img alt="A goal becomes a plan, the plan waits for human approval, and the resulting GitHub issues move through a test-author, a builder, code-reviewers, and an integrator to a gate the orchestrator reads before merging, then to docs and deploy." src="docs/diagrams/how-work-moves-light.svg" width="100%">
+  <img alt="A goal becomes a plan, the plan waits for human approval, and the resulting GitHub issues move through a test-author, a builder, and code-reviewers before a pull request opens, then an integrator and a gate the orchestrator reads before merging, then docs and deploy." src="docs/diagrams/how-work-moves-light.svg" width="100%">
 </picture>
 
 In words: a goal becomes a plan; the plan waits for your approval; only then does it become a GitHub
 milestone and its issues. Each issue is dispatched into a wave — a `test-author` seals its tests, a
-`builder` implements against tests it cannot edit, `code-reviewer`s take one lens each, and an
-`integrator` retests the combined wave. The orchestrator merges only when the gate output is green,
-then hands the result to `docs` and, after a fresh approval, to `deploy`. An agent's own claim of
-success is never the input to a merge decision — only a gate a machine ran is. Work that fails a
-gate returns to the builder; work that cannot proceed returns to you as `blocked` or
-`needs-decision`.
+`builder` implements against tests it cannot edit, and `code-reviewer`s take one lens each over the
+change-set _before any pull request exists_, at most two passes. Only a change-set with no
+`critical` or `high` finding left standing becomes a pull request; an `integrator` then retests the
+combined wave. The orchestrator merges only when the gate output is green, then hands the result to
+`docs` and, after a fresh approval, to `deploy`. An agent's own claim of success is never the input
+to a merge decision — only a gate a machine ran is. Work that fails a gate returns to the builder;
+a finding that still stands after two passes returns as `blocked`, with no PR opened at all.
 
 **Authorship is separated and enforced by `tdd-guard`.** A `test-author` proves RED and seals the
 tests; the `builder` implements against them and is mechanically denied any edit to a sealed path.
