@@ -319,9 +319,10 @@ class BuildSkillTests(unittest.TestCase):
             self.assertIn(phrase, skill)
 
     def test_every_harness_builder_publishes_the_jj_workspace_lifecycle(self):
-        """jj setup, workspace isolation, bounded review, PR, teardown — in that order,
-        identically across harnesses. A builder that skips teardown leaks a working copy;
-        one that tears down before the PR exists strands the branch."""
+        """jj setup, workspace isolation, runtime proof, bounded review, PR, teardown — in
+        that order, identically across harnesses. A builder that skips teardown leaks a working
+        copy; one that tears down before the PR exists strands the branch; one that reviews
+        before running the change reviews something nobody has seen work."""
         builders = [
             ROOT.parents[1] / "agents" / "claude" / "builder.md",
             ROOT.parents[1] / "agents" / "codex" / "builder.md",
@@ -330,6 +331,7 @@ class BuildSkillTests(unittest.TestCase):
         ordered = [
             "jj workspace list",
             "tdd-guard verify",
+            "Prove it runs, not just passes",
             "at most two passes",
             "jj git push",
             "jj workspace forget",

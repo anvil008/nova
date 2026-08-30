@@ -37,14 +37,30 @@ Work in the existing working copy on the branch named in the brief. Do not creat
    - run `tdd-guard verify --green-command <argv...>` and retain GREEN evidence that postdates the seal;
    - inspect the real `git diff HEAD` and untracked files, then run `tdd-guard diff-review record --findings <file>`.
 
-4. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN, hand the change-set to {{reviewerDispatch}} and act on what comes back:
+4. **Prove it runs, not just passes.** A GREEN suite is evidence about the tests, not evidence that the change runs. Identify the runnable surface the issue changed and exercise it for real:
+
+   - **UI / frontend** — serve it (the brief's `devServer`: `none`, a URL, or `start: <command>`; absent, discover the repo's own run command, never a production URL) and drive it in a real browser.
+<!-- only:claude -->
+     Use the `mcp__playwright__browser_*` tools: navigate, resize to ~1280 and ~390 wide, snapshot, screenshot, read the console messages, close.
+<!-- end -->
+<!-- only:codex,agy -->
+     Drive headless Chromium from the shell — a Playwright/`node` one-liner, or `chrome --headless --screenshot`.
+<!-- end -->
+     **Any console error fails the step.**
+   - **HTTP service / API** — start it, `curl` the health endpoint and every endpoint the change touched, assert the status and a meaningful body, then stop it.
+   - **CLI / binary** — build it and run the real command on a realistic input; assert the output and the exit code.
+   - **Library-only change with no runnable surface** — state that explicitly; the suite is the runtime proof. Do not invent a ceremony to fill the gap.
+
+   Tear down anything you started: no server left running, no temp state, no artifact left behind. A change that passes its tests but fails runtime verification is **not done** — fix it before requesting any review pass. Record what you ran and saw in the handoff's `evidence.runtime`. This holds in every mode whenever the change touches a runnable surface.
+
+5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN and the change is proven to run, hand the change-set to {{reviewerDispatch}} and act on what comes back:
 
    - **Pass 1** — request review of the whole change-set. Fix every `critical` and `high` finding, then re-run `tdd-guard verify`. Fixes must not touch sealed tests except through `tdd-guard reseal --reason <text>`.
    - **Pass 2** — request review of the fixed change-set and fix what remains, re-verifying the same way.
    - **Stop after two passes.** If any `critical` or `high` finding still stands, do **not** open the PR: return the unresolved findings with disposition `blocked` and let the orchestrator decide.
    - `medium`, `low`, and `nit` findings never block the PR. Record them in the PR body so the human reviewer sees what was left.
 
-5. Push the bookmark and open a pull request **against `main`** containing `Closes #<n>` and the planner issue marker. When `issue` is `null`, the PR body names the symptom and reproduction instead of `Closes #<n>` and omits the planner marker. Pass `--base` explicitly; never rely on the repository's default branch. Do not merge it.
+6. Push the bookmark and open a pull request **against `main`** containing `Closes #<n>` and the planner issue marker. When `issue` is `null`, the PR body names the symptom and reproduction instead of `Closes #<n>` and omits the planner marker. Pass `--base` explicitly; never rely on the repository's default branch. Do not merge it.
 
    ```bash
    jj git push --named <branch>=<branch>   # first push: creates and tracks the remote bookmark
@@ -55,7 +71,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
    Pass the brief's `base` field to `--base`: the base ref must match the
    `<integration-base>` the `test-author` branched from, or the PR diff will contain commits you did not write.
 
-6. **Delete your workspace, and only after the PR exists.** Forgetting stops tracking the working copy; the bookmark and its commits stay in the repo, so the open PR is unaffected:
+7. **Delete your workspace, and only after the PR exists.** Forgetting stops tracking the working copy; the bookmark and its commits stay in the repo, so the open PR is unaffected:
 
    ```bash
    jj workspace forget <branch>
@@ -65,10 +81,10 @@ Work in the existing working copy on the branch named in the brief. Do not creat
    Never forget a workspace before the PR is open, and never `jj abandon` the bookmark the PR points at.
 
 <!-- only:claude,codex -->
-7. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with branch, PR, changedFiles, tests (every entry cites its `commandId`), the review passes and their outcome, result, and disposition.
+8. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with branch, PR, changedFiles, tests (every entry cites its `commandId`), the runtime evidence, the review passes and their outcome, result, and disposition.
 <!-- end -->
 <!-- only:agy -->
-7. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with branch, PR, changedFiles, tests (every entry cites its `commandId`), the review passes and their outcome, result, and disposition.
+8. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with branch, PR, changedFiles, tests (every entry cites its `commandId`), the runtime evidence, the review passes and their outcome, result, and disposition.
 <!-- end -->
 
 ## Rationalizations
@@ -79,12 +95,13 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 | medium findings can wait for the PR | They may remain, but every one must be visible in the PR body. |
 | I'll tidy this nearby code while I'm here. | Unrelated cleanup broadens ownership and belongs in separate work. |
 | The focused test is green, so verification is done. | GREEN requires the agreed project suite and fresh command evidence. |
+| The suite is green, so it obviously runs. | The suite exercises the tests' view of the change. Run the real surface, or say it has none. |
 
 ## Boundaries
 
 Write only files matched by the dispatch `ownership`; for issue work this is the issue `ownershipHint`. Everything else is read-only. Sibling builders must have disjoint ownership. If ownership overlaps or the issue cannot be completed independently, stop and return the conflict to the orchestrator.
 
-You may spawn {{reviewerSpawn}}, for your own change-set only, and only for the two review passes in step 4. That is the single exception: never spawn a builder, never nest a workflow unit, and never fan out beyond your own issue. Never broaden the issue, push or commit to `main`, merge the PR, or claim synthesis, integration, or overall completion.
+You may spawn {{reviewerSpawn}}, for your own change-set only, and only for the two review passes in step 5. That is the single exception: never spawn a builder, never nest a workflow unit, and never fan out beyond your own issue. Never broaden the issue, push or commit to `main`, merge the PR, or claim synthesis, integration, or overall completion.
 
 ## Skills
 
