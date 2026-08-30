@@ -1,30 +1,43 @@
 ---
 name: build
-description: Execute an approved planner milestone as resumable dependency waves of isolated builders, then integrate and verify each wave.
+description: Execute an approved planner milestone as resumable dependency waves of isolated test-author and builder agents, then have an integrator verify each wave.
 ---
 
 # Build
 
 Execute one approved milestone plan. Inputs are its plan name, GitHub issues, and `plan.sidecar.json`. The sidecar supplies stable `key`, `dependsOn`, `ownershipHint`, `wave`, and the durable planner marker. GitHub is the source of truth for issue state; resume by reading it again and re-deriving the current wave.
 
+You are the orchestrator. You schedule waves, dispatch agents, hold the gates, and merge — you never write, test, or verify the target project yourself ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
+
 ## Wave loop
 
-1. Validate the sidecar and capture GitHub issue state. An issue is done when it is closed or carries the `status:done` label; the label lets the primary agent mark an issue done after combined GREEN without closing it yet, and `waves.py` treats both identically. An issue is unblocked only when every dependency issue is done. The current wave is every unblocked, not-done issue in the earliest unfinished declared wave. `skills/build/scripts/waves.py` provides a strict offline dry-run over a captured snapshot.
-2. Check ownership before dispatch. Run one builder per unblocked issue in parallel, each in its own **jj workspace**, only when `ownershipHint` globs are genuinely independent. Serialize overlapping ownership. `waves.py` rejects a sidecar whose grouped wave (1 and up) has overlapping hints; wave 0 is the ungrouped bucket, so an overlap there is warned about, not rejected, and must be serialized by hand.
+1. Validate the sidecar and capture GitHub issue state. An issue is done when it is closed or carries the `status:done` label; the label lets you mark an issue done after combined GREEN without closing it yet, and `waves.py` treats both identically. An issue is unblocked only when every dependency issue is done. The current wave is every unblocked, not-done issue in the earliest unfinished declared wave. `skills/build/scripts/waves.py` provides a strict offline dry-run over a captured snapshot.
+2. Check ownership before dispatch. Run one issue-pair per unblocked issue in parallel, each in its own **jj workspace**, only when `ownershipHint` globs are genuinely independent. Serialize overlapping ownership. `waves.py` rejects a sidecar whose grouped wave (1 and up) has overlapping hints; wave 0 is the ungrouped bucket, so an overlap there is warned about, not rejected, and must be serialized by hand.
 
-   Dispatch every builder in a wave on the same integration base, and make that base `trunk()` unless you are
+   Dispatch every issue in a wave on the same integration base, and make that base `trunk()` unless you are
    deliberately stacking. Builders open their PRs against `main` with an explicit `--base`, so handing one a
    sibling's bookmark or an unmerged PR head puts commits it did not write into its diff.
 
-   Builders share one repo and isolate through `jj workspace add`, not through separate clones or git worktrees — one repo, one operation log, many working copies. Ensure the repo is jj-managed before the first wave dispatches; a builder landing in a git-only repo will adopt it with `jj git init --colocate`, and it is cheaper to do that once up front than to race two builders doing it at the same moment.
+   Agents share one repo and isolate through `jj workspace add`, not through separate clones or git worktrees — one repo, one operation log, many working copies. Ensure the repo is jj-managed before the first wave dispatches; a `test-author` landing in a git-only repo will adopt it with `jj git init --colocate`, and it is cheaper to do that once up front than to race two of them doing it at the same moment.
 
-3. Collect each branch, PR, changed files, command-linked test evidence, and the outcome of the builder's two review passes. A builder reviews its own change-set before opening a PR and stops after two passes; one that returns `blocked` has unresolved `critical`/`high` findings and **no PR** — decide whether to re-dispatch, re-scope, or escalate. A builder that returns `blocked` may be re-dispatched at most twice per issue; after the second re-dispatch still returns `blocked`, mark the issue **stalled** in the wave summary and the loop escalates to the human instead of dispatching again. A builder completes one issue; it does not merge or declare the milestone done.
+3. **Dispatch each issue in two phases, in order.** The separation is the point: the agent that defines "done" is not the agent judged against it.
 
-   Builders tear down their own workspace once their PR is open. If a builder dies mid-issue, its workspace is left behind: `jj workspace list` shows it, `jj workspace forget <name>` plus removing the directory reclaims it, and the bookmark and commits survive that.
-4. Treat every PR as tested on its old base. The primary agent integrates the wave by serial merge plus retest, or on an integration branch, and runs a combined GREEN verification before marking issues done. Merge only after combined green.
-5. Refresh GitHub state, advance, and repeat until no planned issue remains.
+   - **Phase 1 — `test-author`.** It creates the workspace and branch, writes the issue's `acceptanceTests` as real failing tests, proves honest RED, and runs `tdd-guard seal`. A `test-author` that returns `blocked` could not express an acceptance test as a runnable failing test — that is a **plan** defect, not a build one. Do not dispatch the builder; take the unsealed entry back to the planner or the human.
+   - **Phase 2 — `builder`.** Only after the seal exists. It enters the same workspace, implements, verifies GREEN, self-reviews, opens the PR, and tears the workspace down. It cannot edit the sealed tests: the guard denies those edits outright.
 
-The primary agent is the sole synthesis, final verification, and completion authority and must never force-push main, merge before combined GREEN, or infer completion from a builder report alone.
+   Never run the two phases concurrently, and never dispatch a builder for an issue with no seal — an unsealed builder is a builder grading its own homework.
+
+   The single exception is a **behaviour-preserving refactor**, where there is nothing to seal: `tdd-guard seal` demands a non-zero red command and the suite is green from the start. [`code-refactor`](../code-refactor/SKILL.md) runs without a test-author and gates on a green baseline plus an untouched-tests diff instead. In that mode **you create the workspace and branch yourself** before dispatching the builder — a jj branch operation, which is orchestration — because no test-author exists to do it.
+
+4. Collect each branch, PR, changed files, command-linked test evidence, and the outcome of the builder's two review passes. A builder reviews its own change-set before opening a PR and stops after two passes; one that returns `blocked` has unresolved `critical`/`high` findings and **no PR** — decide whether to re-dispatch, re-scope, or escalate. A builder that returns `blocked` may be re-dispatched at most twice per issue; after the second re-dispatch still returns `blocked`, mark the issue **stalled** in the wave summary and escalate to the human instead of dispatching again. A builder completes one issue; it does not merge or declare the milestone done.
+
+   Builders tear down their own workspace once their PR is open. If an agent dies mid-issue, its workspace is left behind: `jj workspace list` shows it, `jj workspace forget <name>` plus removing the directory reclaims it, and the bookmark and commits survive that.
+5. **Treat every PR as tested on its old base.** Dispatch an `integrator` to build the combined state — serial merge onto a scratch ref, or a named integration branch — and to run the full suite there. It returns command-linked evidence and the mechanical gate output; it does not decide anything.
+
+   Accept the wave on the **evidence**, not on the summary: a combined GREEN run whose `commandId`s you can see, `tdd-guard status --json` fresh for every issue, and `gh pr checks` passing. A prose claim of success from any agent is worth nothing. If the integrator names an offending PR, send that issue back to its builder and re-integrate; do not merge a wave around it.
+6. Merge only after combined green, then refresh GitHub state, advance, and repeat until no planned issue remains.
+
+You are the sole completion authority. Never force-push `main`, never merge before combined GREEN, and never infer completion from an agent's report — read the gates.
 
 ## Offline demonstration
 

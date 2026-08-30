@@ -1,0 +1,98 @@
+{
+  "_comment": [
+    "Per-agent model and thinking level, per harness. This file is the single source:",
+    "`scripts/sync-agent-models.py` writes these values into every agent's frontmatter,",
+    "and `--check` fails when a file has drifted. bootstrap-plugins.sh syncs before it",
+    "installs, so editing here and re-running the installer is the whole workflow.",
+    "",
+    "Fields per harness, and where each one actually takes effect \u2014 verified against",
+    "each CLI, not assumed. The three harnesses differ in what they can scope per agent:",
+    "",
+    "  claude -> model: opus | sonnet | haiku | inherit   effort: low|medium|high|xhigh",
+    "            Both are real agent frontmatter. Fully per-agent.",
+    "",
+    "  codex  -> model: <model id>                        effort: low|medium|high|xhigh",
+    "            Codex reads NO per-agent model surface: a plugin manifest accepts no",
+    "            `agents` key, and a skill\u0027s agents/openai.yaml is UI metadata only. So",
+    "            these are written twice \u2014 into agents/codex/*.md, which documents intent",
+    "            and will matter once Codex agents ship as skills, and into a real",
+    "            profile at $CODEX_HOME/swarm-<agent>.config.toml, which `codex",
+    "            --profile swarm-<agent>` layers over the base config. The profile is",
+    "            the half that works today.",
+    "",
+    "  agy    -> model: pro | flash | inherit             (no per-agent effort)",
+    "            `model` is real agent frontmatter, defaulting to `inherit` (the",
+    "            parent\u0027s model). Antigravity does have reasoning effort, but only",
+    "            session-wide, via the `/effort` command or the `--effort` launch flag \u2014",
+    "            there is no frontmatter key for it, so an effort set here would be a lie.",
+    "",
+    "An agent inherits `defaults` for any field it does not override."
+  ],
+  "defaults": {
+    "claude": { "model": "sonnet", "effort": "medium" },
+    "codex": { "model": "gpt-5.6-sol", "effort": "medium" },
+    "agy": { "model": "flash" }
+  },
+  "agents": {
+    "planner": {
+      "_why": "Investigation and decomposition set the ceiling for the whole milestone; a weak plan costs every wave after it.",
+      "claude": { "model": "opus", "effort": "xhigh" },
+      "codex": { "effort": "high" },
+      "agy": { "model": "pro" }
+    },
+    "test-author": {
+      "_why": "Writes the Definition of Done nobody downstream can weaken. A lazy oracle here is invisible and permanent.",
+      "claude": { "model": "opus", "effort": "high" },
+      "codex": { "effort": "high" },
+      "agy": { "model": "pro" }
+    },
+    "builder": {
+      "_why": "Implements against a fixed target, with the guard and two review passes behind it.",
+      "claude": { "model": "opus", "effort": "high" },
+      "codex": { "effort": "high" },
+      "agy": { "model": "pro" }
+    },
+    "code-reviewer": {
+      "_why": "One lens over one diff, structured output. Narrow and repeated, so it runs cheap and often.",
+      "claude": { "model": "sonnet", "effort": "medium" },
+      "codex": { "effort": "medium" },
+      "agy": { "model": "flash" }
+    },
+    "integrator": {
+      "_why": "Runs commands and reports evidence. The judgment is bisecting a combined failure, not writing code.",
+      "claude": { "model": "sonnet", "effort": "medium" },
+      "codex": { "effort": "medium" },
+      "agy": { "model": "pro" }
+    },
+    "research": {
+      "_why": "Gathers evidence for one area; the orchestrator synthesizes. Breadth matters more than depth per agent.",
+      "claude": { "model": "sonnet", "effort": "low" },
+      "codex": { "effort": "low" },
+      "agy": { "model": "flash" }
+    },
+    "docs": {
+      "_why": "Prose against a fixed standard, over code someone else already settled.",
+      "claude": { "model": "sonnet", "effort": "medium" },
+      "codex": { "effort": "medium" },
+      "agy": { "model": "flash" }
+    },
+    "deploy": {
+      "_why": "Outward-facing and hard to reverse; a wrong call costs more than the tokens saved.",
+      "claude": { "model": "opus", "effort": "high" },
+      "codex": { "effort": "high" },
+      "agy": { "model": "pro" }
+    },
+    "debugger": {
+      "_why": "Hypothesis forming and refutation is the hardest reasoning in the fleet; a wrong root cause sends a builder to fix the wrong thing.",
+      "claude": { "model": "opus", "effort": "xhigh" },
+      "codex": { "effort": "high" },
+      "agy": { "model": "pro" }
+    },
+    "benchmarker": {
+      "_why": "Disciplined measurement, not deep reasoning. The rigour is in the method, which this file cannot buy with a bigger model.",
+      "claude": { "model": "sonnet", "effort": "medium" },
+      "codex": { "effort": "medium" },
+      "agy": { "model": "flash" }
+    }
+  }
+}

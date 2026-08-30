@@ -5,7 +5,7 @@ description: Run a documentation-standardization and review pass — enforce the
 
 # Docs
 
-Bring a repository's documentation up to standard and keep it there. The primary agent owns the result; the `docs` agent does the writing.
+Bring a repository's documentation up to standard and keep it there. The orchestrator owns the result; the `docs` agent does the writing ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
 
 ## README contract
 

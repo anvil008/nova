@@ -589,12 +589,16 @@ class CodeReviewSkillTests(unittest.TestCase):
     def test_agent_and_skill_publish_required_role_and_orchestration_boundaries(self):
         agent = AGENT.read_text(encoding="utf-8")
         frontmatter = agent.split("---", 2)[1].strip().splitlines()
-        self.assertEqual([line.split(":", 1)[0] for line in frontmatter], ["name", "description", "tools"])
+        keys = [line.split(":", 1)[0] for line in frontmatter]
+        self.assertEqual(keys[:3], ["name", "description", "tools"])
+        # model and effort come from agents/models.json; test_docs owns their values.
+        self.assertEqual(set(keys) - {"name", "description", "tools"}, {"model", "effort"})
         self.assertEqual(frontmatter[0], "name: code-reviewer")
         tools = [t.strip() for t in frontmatter[2].split(":", 1)[1].split(",")]
         self.assertEqual(tools[:5], ["Read", "Grep", "Glob", "Bash", "Skill"])
         for phrase in (
             "ONE review lens", "correctness | security | performance | tests | api-contract",
+            "backend | integrations",
             "actively try to break or refute", "failureScenario", "confidence",
             "No edits, ever", "do not spawn", "overall completion",
         ):

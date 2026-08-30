@@ -36,6 +36,7 @@ const (
 	greenFileName      = "green.json"
 	diffReviewFileName = "diff-review.json"
 	archReviewFileName = "arch-review.json"
+	handoffFileName    = "handoff.json"
 )
 
 // DefaultTestPatterns is the fleet-wide test surface. A repository narrows or
@@ -151,6 +152,23 @@ type ArchReview struct {
 	Base       Base                          `json:"base"`
 }
 
+// Handoff records that the agent which sealed the tests finished its part and
+// owes the implementation to a different agent. It exists because a test-author
+// legitimately stops with a seal and no GREEN: without this marker the Stop gate
+// -- which is written for an implementer -- would deadlock it.
+//
+// A handoff relaxes the Stop gate only. It never satisfies the merge gate: an
+// orchestrator reads Ready, which still requires GREEN and a fresh diff review.
+type Handoff struct {
+	HandedOffAt string `json:"handedOffAt"`
+	To          string `json:"to"`
+	// Base pins the working tree as it was handed over. The Stop relaxation
+	// covers *that* state and nothing after it: once the next agent changes a
+	// byte, it owes GREEN like any implementer, so a builder cannot coast to a
+	// clean stop on the test-author's handoff.
+	Base Base `json:"base"`
+}
+
 // Status is the machine-readable state the orchestrator reconciles.
 type Status struct {
 	APIVersion   string      `json:"apiVersion"`
@@ -162,6 +180,7 @@ type Status struct {
 	Green        *Green      `json:"green,omitempty"`
 	DiffReview   *DiffReview `json:"diffReview,omitempty"`
 	ArchReview   *ArchReview `json:"archReview,omitempty"`
+	Handoff      *Handoff    `json:"handoff,omitempty"`
 	ChangedTests []string    `json:"changedTests"`
 	DiffStale    bool        `json:"diffStale"`
 	ArchStale    bool        `json:"archStale"`
@@ -285,6 +304,7 @@ type state struct {
 	green      *Green
 	diffReview *DiffReview
 	archReview *ArchReview
+	handoff    *Handoff
 }
 
 func loadState(workingDirectory string) (*state, error) {
@@ -314,6 +334,9 @@ func loadRepositoryState(repository string) (*state, error) {
 		return nil, err
 	}
 	if loaded.archReview, err = readJSON[ArchReview](filepath.Join(directory, archReviewFileName)); err != nil {
+		return nil, err
+	}
+	if loaded.handoff, err = readJSON[Handoff](filepath.Join(directory, handoffFileName)); err != nil {
 		return nil, err
 	}
 	return loaded, nil
@@ -432,3 +455,4 @@ func (s *state) sealPath() string       { return filepath.Join(s.directory, seal
 func (s *state) greenPath() string      { return filepath.Join(s.directory, greenFileName) }
 func (s *state) diffReviewPath() string { return filepath.Join(s.directory, diffReviewFileName) }
 func (s *state) archReviewPath() string { return filepath.Join(s.directory, archReviewFileName) }
+func (s *state) handoffPath() string    { return filepath.Join(s.directory, handoffFileName) }

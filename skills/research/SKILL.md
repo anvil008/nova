@@ -5,7 +5,9 @@ description: Investigate a question across multiple areas with parallel read-onl
 
 # Research
 
-Investigate a goal across several areas at once and return one consolidated evidence packet. The primary agent running this skill owns the synthesis and the conclusion; subagent output is evidence, never the verdict.
+Investigate a goal across several areas at once and return one consolidated evidence packet.
+
+You are the orchestrator: you split the goal into areas, dispatch one read-only `research` agent per area, and own the synthesis and the conclusion. You never investigate an area yourself — subagent output is evidence, never the verdict, and an area you researched personally has no evidence envelope behind it ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)).
 
 ## Area split and fan-out
 
@@ -29,7 +31,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/merge_research.py s
 
 ## Report
 
-Return the consolidated packet: per-area findings with evidence, the conflicts, the coverage summary, the gaps, and the open questions. The primary agent owns synthesis and decides what the evidence means.
+Return the consolidated packet: per-area findings with evidence, the conflicts, the coverage summary, the gaps, and the open questions. The orchestrator owns synthesis and decides what the evidence means — deciding is orchestration; gathering is not.
 
 When a shareable report is wanted, write the synthesis as JSON — `{"verdict": "clean|advisory|action-needed", "summary": "...", "recommendations": [{"priority": "high|medium|low", "title", "detail", "refs": ["F1-01"]}]}` — where each `ref` is a finding id (`F<area index>-<finding index>`) from the packet, and render both into a self-contained HTML page in the shared Foundry Zero report style (`docs/research/research<NN>-<YYYYMMDD>-<title>.html`):
 
