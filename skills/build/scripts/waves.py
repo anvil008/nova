@@ -14,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PLANNER_VALIDATOR = ROOT.parent / "planner" / "scripts" / "render_plan.py"
 SNAPSHOT_FIELDS = {"repo", "milestone", "issues"}
 STATE_ISSUE_FIELDS = {"number", "body", "labels", "state"}
+# Optional: hand-written snapshots predate it, `gh` always supplies it.
+STATE_ISSUE_OPTIONAL_FIELDS = frozenset({"state_reason"})
+STATE_REASONS = frozenset({None, "completed", "not_planned", "reopened"})
 MARKER = re.compile(
     r"<!--\s*swarm-planner\s+"
     r"planId=([a-z0-9]+(?:-[a-z0-9]+)*)\s+"
@@ -34,13 +37,30 @@ def planner_module():
     return module
 
 
-def exact_fields(value: dict, expected: set[str], where: str) -> None:
+def exact_fields(value: dict, expected: set[str], where: str, optional: frozenset[str] = frozenset()) -> None:
     missing = expected - value.keys()
-    unknown = value.keys() - expected
+    unknown = value.keys() - expected - optional
     if missing:
         raise BuildError(f"{where}: missing field(s): {', '.join(sorted(missing))}")
     if unknown:
         raise BuildError(f"{where}: unknown field(s): {', '.join(sorted(unknown))}")
+
+
+def label_names(labels: object) -> list[str] | None:
+    """gh's label shape, normalised: `gh api repos/{repo}/issues` and
+    `gh issue list --json labels` both return label objects, while hand-written
+    snapshots use strings. Mirrors label_names() in the sibling
+    skills/planner/scripts/reconcile_github.py, duplicated because build loads only
+    the planner's sidecar validator. Returns None if any entry is neither shape."""
+    if not isinstance(labels, list):
+        return None
+    names: list[str] = []
+    for label in labels:
+        name = label.get("name") if isinstance(label, dict) else label
+        if not isinstance(name, str) or not name:
+            return None
+        names.append(name)
+    return names
 
 
 def issue_key(body: str, index: int, plan_id: str) -> str:
@@ -68,18 +88,25 @@ def validate_snapshot(value: object, plan: dict) -> dict[str, dict]:
     for index, issue in enumerate(value["issues"]):
         if not isinstance(issue, dict):
             raise BuildError(f"snapshot.issues[{index}] must be an object")
-        exact_fields(issue, STATE_ISSUE_FIELDS, f"snapshot.issues[{index}]")
+        exact_fields(issue, STATE_ISSUE_FIELDS, f"snapshot.issues[{index}]", STATE_ISSUE_OPTIONAL_FIELDS)
         if not isinstance(issue["number"], int) or isinstance(issue["number"], bool) or issue["number"] < 1:
             raise BuildError(f"snapshot.issues[{index}].number must be a positive integer")
         if not isinstance(issue["body"], str):
             raise BuildError(f"snapshot.issues[{index}].body must be a string")
         if issue["state"] not in {"open", "closed"}:
             raise BuildError(f"snapshot.issues[{index}].state must be open or closed")
-        labels = issue["labels"]
-        if not isinstance(labels, list) or any(not isinstance(label, str) or not label for label in labels):
-            raise BuildError(f"snapshot.issues[{index}].labels must be an array of non-empty strings")
-        if len(labels) != len(set(labels)):
-            raise BuildError(f"snapshot.issues[{index}].labels contains duplicates")
+        if issue.get("state_reason") not in STATE_REASONS:
+            reasons = ", ".join(sorted(reason for reason in STATE_REASONS if reason))
+            raise BuildError(f"snapshot.issues[{index}].state_reason must be null or one of: {reasons}")
+        names = label_names(issue["labels"])
+        if names is None:
+            raise BuildError(
+                f"snapshot.issues[{index}].labels must be an array of non-empty strings "
+                "or gh label objects carrying a non-empty name"
+            )
+        duplicates = sorted({name for name in names if names.count(name) > 1})
+        if duplicates:
+            raise BuildError(f"snapshot.issues[{index}].labels contains duplicates: {', '.join(duplicates)}")
         key = issue_key(issue["body"], index, plan["planId"])
         if key in by_key:
             raise BuildError(f"duplicate snapshot issue marker: {key}")
@@ -108,7 +135,15 @@ def validate_acyclic(plan: dict) -> None:
 
 
 def is_done(issue: dict) -> bool:
-    return issue["state"] == "closed" or "status:done" in issue["labels"]
+    """Closed with `status:done`, or closed as completed (e.g. by a merged PR).
+
+    A `not_planned` closure is housekeeping — reconcile_github.py closes stale issues
+    that way precisely so they are never mistaken for finished work — and an open
+    issue is never done however it is labelled. Kept in step with
+    skills/planner/scripts/reconcile_github.py:is_done."""
+    return issue["state"] == "closed" and (
+        "status:done" in label_names(issue["labels"]) or issue.get("state_reason") == "completed"
+    )
 
 
 GLOB_CHARS = frozenset("*?[")

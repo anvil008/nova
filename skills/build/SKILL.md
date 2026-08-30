@@ -11,7 +11,26 @@ You are the orchestrator. You schedule waves, dispatch agents, hold the gates, a
 
 ## Wave loop
 
-1. Validate the sidecar and capture GitHub issue state. An issue is done when it is closed or carries the `status:done` label; the label lets you mark an issue done after combined GREEN without closing it yet, and `waves.py` treats both identically. An issue is unblocked only when every dependency issue is done. The current wave is every unblocked, not-done issue in the earliest unfinished declared wave. `skills/build/scripts/waves.py` provides a strict offline dry-run over a captured snapshot.
+1. Validate the sidecar and capture GitHub issue state. An issue is done when it is **closed** and either carries the `status:done` label or was closed as `completed`; the label lets you mark an issue done after combined GREEN without closing it yet, and a `not_planned` closure is housekeeping, never finished work (`skills/planner/scripts/reconcile_github.py` closes stale issues that way on purpose). An open issue is never done, however it is labelled. An issue is unblocked only when every dependency issue is done. The current wave is every unblocked, not-done issue in the earliest unfinished declared wave. `skills/build/scripts/waves.py` provides a strict offline dry-run over a captured snapshot.
+
+   Capture that snapshot with `REPO` and `MILESTONE` exported (`REPO=owner/repo`, `MILESTONE` the milestone title). It writes `{repo, milestone, issues:[{number, body, labels, state, state_reason}]}` and drops the pull requests the issues endpoint returns alongside issues. The milestone is filtered by title in `jq`, so `--paginate` is not optional — the `100` cap is over every milestoned issue in the repo, not over this milestone's — and `jq -s` is what flattens the one array per page `--paginate` emits into a single snapshot:
+
+   ```bash
+   gh api --paginate "repos/$REPO/issues?milestone=*&state=all&per_page=100" \
+     | jq -s --arg repo "$REPO" --arg milestone "$MILESTONE" '{
+         repo: $repo,
+         milestone: $milestone,
+         issues: [
+           .[][]
+           | select(has("pull_request") | not)
+           | select(.milestone.title == $milestone)
+           | {number, body, labels: [.labels[].name], state, state_reason}
+         ] | sort_by(.number)
+       }' > issue-state.json
+   ```
+
+   `waves.py` also accepts gh's raw label objects, so a snapshot captured any other way (`gh issue list --json labels`) validates unchanged.
+
 2. Check ownership before dispatch. Run one issue-pair per unblocked issue in parallel, each in its own **jj workspace**, only when `ownershipHint` globs are genuinely independent. Serialize overlapping ownership. `waves.py` rejects a sidecar whose grouped wave (1 and up) has overlapping hints; wave 0 is the ungrouped bucket, so an overlap there is warned about, not rejected, and must be serialized by hand.
 
    Dispatch every issue in a wave on the same integration base, and make that base `trunk()` unless you are
