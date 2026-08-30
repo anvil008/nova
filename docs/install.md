@@ -32,6 +32,10 @@ skill's `agents/openai.yaml` is UI metadata only. So the installer also writes
 base config; that is the half that works today. It never touches a profile it did not write, and
 `--uninstall` removes only its own.
 
+Because Codex has no plugin-level agents, each of Workcell's 10 agents ships as a Codex skill named
+`agent-<name>` with an `agents/openai.yaml`. Those agent skills and the 17 shared workflow skills
+arrive as 27 entries, all namespaced `workcell:<name>`.
+
 Antigravity does have reasoning effort, but session-wide via `/effort` or `--effort` — there is no
 frontmatter key, so the manifest deliberately offers none rather than writing a value that does
 nothing. Anything an agent leaves out falls back to `defaults`. To apply or verify by hand:

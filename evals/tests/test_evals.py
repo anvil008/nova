@@ -253,7 +253,7 @@ class EvalRunnerTests(unittest.TestCase):
         for command in commands:
             self.assertIn(command, ci)
             self.assertIn(command, readme)
-        self.assertRegex(readme, r"(?s)`research` \| findings envelope")
+        self.assertRegex(readme, r"`research`\s*\|\s*findings envelope")
         self.assertIn("single-PR mode", readme)
         self.assertIn("agents/handoff.md", readme)
         for issue in ("#85", "#86", "#87"):

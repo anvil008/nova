@@ -100,8 +100,7 @@ earlier install are covered in **[docs/install.md](docs/install.md)**.
 
 The boundary is written down in [ADR 0007](docs/adr/0007-primary-agent-is-a-pure-orchestrator.md);
 the dispatch and return shape every agent uses is [`agents/handoff.md`](agents/handoff.md)
-([ADR 0008](docs/adr/0008-agent-handoff-contract.md)). `research` | findings envelope is that
-agent's row above, exactly: it returns evidence, never a written report or a conclusion.
+([ADR 0008](docs/adr/0008-agent-handoff-contract.md)).
 
 ## How it works
 
@@ -167,9 +166,10 @@ manifest, hooks, and symlinks back to `agents/` and `skills/`, with no content o
 and Codex link `skills/` whole; the Antigravity wrapper's per-skill links regenerate on every
 install from `skills/` minus the skills owned by one of its agents. Codex copies a plugin into its
 cache and drops any symlink pointing outside the plugin root, so `scripts/build-codex-plugin.py`
-stages a real tree instead of relying on links. Antigravity provides an `agy plugin` CLI, but its
-install paths (`~/.gemini/antigravity-cli/plugins/`) are not a stable documented contract, so
-Workcell symlinks the `plugins/agy/` wrapper there instead.
+stages a real tree instead of relying on links; [the Codex installation details](docs/install.md#choosing-models-and-thinking-levels)
+explain how its agents and shared skills are packaged and named. Antigravity provides an
+`agy plugin` CLI, but its install paths (`~/.gemini/antigravity-cli/plugins/`) are not a stable
+documented contract, so Workcell symlinks the `plugins/agy/` wrapper there instead.
 
 ## Evals
 
@@ -207,10 +207,16 @@ in shape — both honest, neither better at everything:
 The same substantive checks CI runs:
 
 ```sh
-go mod tidy && git diff --exit-code -- go.mod go.sum
-go build ./... && go vet ./... && go test -count=1 -race ./...
+python3 -m pip install ruff
+go mod tidy
+git diff --exit-code -- go.mod go.sum
+go build ./...
+go vet ./...
+go test -count=1 -race ./...
 bash scripts/hooks/tests/test_hooks.sh
+bash scripts/hooks/tests/test_plugin_hooks.sh
 bash scripts/tests/test_install.sh
+python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 ruff check skills/ evals/
 shellcheck -S warning scripts/*.sh scripts/hooks/build-*
 for d in skills/*/tests; do python3 -m unittest discover -s "$d" -p 'test_*.py'; done
@@ -218,6 +224,8 @@ python3 evals/run_evals.py --structural
 python3 evals/run_evals.py --min-rank1 77
 python3 -m unittest discover -s evals/tests -p 'test_*.py'
 python3 skills/docs/scripts/docs_check.py .
+python3 scripts/sync-agents.py --check --diff
+python3 scripts/sync-agent-models.py --check
 ```
 
 Architecture decisions live in [`docs/adr/`](docs/adr/); notable changes are summarized in
