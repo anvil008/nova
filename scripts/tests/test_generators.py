@@ -246,6 +246,54 @@ class GeneratorTests(unittest.TestCase):
                     self.assertIn(expected, result.stderr)
                     self.assertFalse((root / "dist/codex/plugins").exists())
 
+    def test_codex_plugin_embeds_model_and_effort_routes(self):
+        temporary, root = self.copy_root(
+            "agents/codex",
+            "agents/models.json",
+            "plugins/codex",
+            "skills",
+            "scripts/build-codex-plugin.py",
+        )
+        with temporary:
+            manifest_path = root / "agents/models.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["agents"]["builder"]["codex"] = {
+                "model": "gpt-test-builder",
+                "effort": "xhigh",
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            result = run(root, "scripts/build-codex-plugin.py")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            staged = root / "dist/codex/plugins/workcell/skills"
+            for relative in ("build/SKILL.md", "agent-builder/SKILL.md"):
+                text = (staged / relative).read_text(encoding="utf-8")
+                self.assertIn("Codex specialist routing (generated)", text)
+                self.assertIn(
+                    "`builder`: `model=gpt-test-builder`, `reasoning_effort=xhigh`",
+                    text,
+                )
+                self.assertIn("do not silently fall back", text)
+                self.assertIn("`fork_turns` to `none`", text)
+
+    def test_codex_plugin_rejects_invalid_runtime_effort(self):
+        temporary, root = self.copy_root(
+            "agents/codex",
+            "agents/models.json",
+            "plugins/codex",
+            "skills",
+            "scripts/build-codex-plugin.py",
+        )
+        with temporary:
+            manifest_path = root / "agents/models.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["agents"]["builder"].setdefault("codex", {})["effort"] = "ultra"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            result = run(root, "scripts/build-codex-plugin.py")
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("builder/codex effort", result.stderr)
+            self.assertFalse((root / "dist/codex/plugins").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

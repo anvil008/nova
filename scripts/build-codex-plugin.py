@@ -46,6 +46,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "plugins" / "codex"
 SKILLS = ROOT / "skills"
 AGENTS = ROOT / "agents" / "codex"
+MODELS = ROOT / "agents" / "models.json"
 OUT = ROOT / "dist" / "codex"
 
 PLUGIN = "workcell"
@@ -54,12 +55,60 @@ MARKETPLACE = "workcell-local"
 # Agent names collide with skill names (docs, research, planner, deploy), so they
 # are namespaced. The prefix is also what tells a reader which are which.
 AGENT_PREFIX = "agent-"
+CODEX_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 
 
 class BuildError(Exception):
     pass
+
+
+def codex_routing() -> dict[str, dict[str, str]]:
+    """Resolve the runtime model and effort for every Codex specialist."""
+    data = json.loads(MODELS.read_text(encoding="utf-8"))
+    defaults = data.get("defaults", {}).get("codex", {})
+    agents = data.get("agents", {})
+    routing: dict[str, dict[str, str]] = {}
+    for name, spec in sorted(agents.items()):
+        if name.startswith("_"):
+            continue
+        values = dict(defaults)
+        values.update(spec.get("codex", {}))
+        model = values.get("model")
+        effort = values.get("effort")
+        if not isinstance(model, str) or not model.strip():
+            raise BuildError(f"agents/models.json: {name}/codex has no model")
+        if effort not in CODEX_EFFORTS:
+            raise BuildError(
+                f"agents/models.json: {name}/codex effort {effort!r} "
+                f"must be one of {sorted(CODEX_EFFORTS)}"
+            )
+        routing[name] = {"model": model.strip(), "effort": effort}
+    if not routing:
+        raise BuildError("agents/models.json: no Codex agent routes")
+    return routing
+
+
+def codex_dispatch_contract(routing: dict[str, dict[str, str]]) -> str:
+    """Instructions that turn models.json into real spawn_agent overrides."""
+    rows = "\n".join(
+        f"- `{name}`: `model={values['model']}`, `reasoning_effort={values['effort']}`"
+        for name, values in routing.items()
+    )
+    return f"""
+
+## Codex specialist routing (generated)
+
+This table is generated from `agents/models.json`; never infer or inherit a specialist's model.
+Whenever this skill dispatches a Workcell specialist with `spawn_agent`, pass both the exact
+`model` and `reasoning_effort` below. Model overrides cannot use a full-history fork: set
+`fork_turns` to `none` or the smallest positive number that carries the required context, and put
+the complete assignment and acceptance criteria in `message`. If the configured model or effort
+is unavailable, stop and report the route that failed; do not silently fall back to the parent.
+
+{rows}
+"""
 
 
 def frontmatter_field(text: str, field: str, path: Path) -> str:
@@ -100,11 +149,16 @@ def plugin_manifest(version: str) -> dict:
     }
 
 
-def agent_skill(name: str, text: str, path: Path) -> tuple[str, str]:
+def agent_skill(
+    name: str, text: str, path: Path, dispatch_contract: str
+) -> tuple[str, str]:
     """Wrap one agent definition as a Codex skill plus its openai.yaml."""
     description = frontmatter_field(text, "description", path)
     body = FRONTMATTER.sub("", text).lstrip("\n")
-    skill = f"---\nname: {AGENT_PREFIX}{name}\ndescription: {description}\n---\n\n{body}"
+    skill = (
+        f"---\nname: {AGENT_PREFIX}{name}\ndescription: {description}\n---\n\n"
+        f"{body.rstrip()}\n{dispatch_contract}"
+    )
 
     display = name.replace("-", " ").title()
     short = description.split(".")[0].strip()
@@ -121,7 +175,7 @@ def agent_skill(name: str, text: str, path: Path) -> tuple[str, str]:
     return skill, agent_yaml
 
 
-def validate_sources() -> tuple[str, list[Path], list[tuple[Path, str]]]:
+def validate_sources() -> tuple[str, list[Path], list[tuple[Path, str]], dict[str, dict[str, str]]]:
     """Validate every source before replacing OUT, so failures leave no partial tree."""
     if not SOURCE.is_dir():
         raise BuildError(f"missing plugin source {SOURCE.relative_to(ROOT)}")
@@ -139,11 +193,12 @@ def validate_sources() -> tuple[str, list[Path], list[tuple[Path, str]]]:
         frontmatter_field(text, "name", agent)
         frontmatter_field(text, "description", agent)
         agents.append((agent, text))
-    return version, skill_dirs, agents
+    return version, skill_dirs, agents, codex_routing()
 
 
 def build() -> Path:
-    version, skill_dirs, agent_sources = validate_sources()
+    version, skill_dirs, agent_sources, routing = validate_sources()
+    dispatch_contract = codex_dispatch_contract(routing)
 
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -166,11 +221,18 @@ def build() -> Path:
     skills = 0
     for skill_dir in skill_dirs:
         shutil.copytree(skill_dir, skills_out / skill_dir.name, symlinks=False)
+        skill_path = skills_out / skill_dir.name / "SKILL.md"
+        skill_path.write_text(
+            skill_path.read_text(encoding="utf-8").rstrip()
+            + "\n"
+            + dispatch_contract,
+            encoding="utf-8",
+        )
         skills += 1
 
     agents = 0
     for agent, text in agent_sources:
-        skill_text, agent_yaml = agent_skill(agent.stem, text, agent)
+        skill_text, agent_yaml = agent_skill(agent.stem, text, agent, dispatch_contract)
         target = skills_out / f"{AGENT_PREFIX}{agent.stem}"
         (target / "agents").mkdir(parents=True)
         (target / "SKILL.md").write_text(skill_text, encoding="utf-8")

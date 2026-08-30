@@ -6,6 +6,14 @@ ROOT="$(cd "$HERE/../../.." && pwd)"
 CLAUDE="$ROOT/plugins/claude"
 CODEX="$ROOT/plugins/codex"
 AGY="$ROOT/plugins/agy"
+HOOK_TEST_HOME=$(mktemp -d)
+trap 'rm -rf -- "$HOOK_TEST_HOME"' EXIT
+mkdir -p "$HOOK_TEST_HOME/.local/bin"
+# Codex commands use the installed path literally. Mirror that layout in a throwaway
+# home so this test exercises the manifest command without requiring bootstrap-tools.
+for hook in "$ROOT"/scripts/hooks/build-*; do
+  ln -s "$hook" "$HOOK_TEST_HOME/.local/bin/${hook##*/}"
+done
 pass=0; fail=0
 ok(){ printf 'ok   %s\n' "$1"; pass=$((pass+1)); }
 no(){ printf 'FAIL %s\n' "$1"; fail=$((fail+1)); }
@@ -52,7 +60,7 @@ codex_matcher=$(jq -r '.hooks.PreToolUse[] | select(.matcher | split("|") | inde
 codex_command=$(jq -r '.hooks.PreToolUse[] | select(.matcher | split("|") | index("Bash")) | .hooks[0].command' "$CODEX/hooks/hooks.json" | head -n1)
 name="Codex Bash matcher matches a recorded payload"; check sh -c 'printf "%s\n" "$1" | grep -Eq "$2"' _ Bash "$codex_matcher"
 name="Codex matched guard command denies a main push"
-check sh -c 'printf "%s" "$1" | PATH="$2:$PATH" bash -c "$3" | jq -e '\''.hookSpecificOutput.permissionDecision == "deny"'\'' >/dev/null' _ "$payload" "$ROOT/scripts/hooks" "$codex_command"
+check sh -c 'printf "%s" "$1" | HOME="$2" bash -c "$3" | jq -e '\''.hookSpecificOutput.permissionDecision == "deny"'\'' >/dev/null' _ "$payload" "$HOOK_TEST_HOME" "$codex_command"
 
 name="Antigravity plugin hook manifest is plugin-owned, not a symlink"
 check sh -c 'test -f "$1" && test ! -L "$1"' _ "$AGY/hooks.json"

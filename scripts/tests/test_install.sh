@@ -336,8 +336,8 @@ for harness in claude codex; do
   out=$(PATH="$stubs:$PATH" "$BOOTSTRAP" --install "$TMP/project-rename-repo" 2>&1); rc=$?
   [[ $rc -eq 0 ]] || no "project-local $harness migration exits zero (rc=$rc): $out"
   if [[ $harness == claude ]]; then del=uninstall; else del=remove; fi
-  call_line "$log" "plugin $del workcell@workcell-local" >/dev/null \
-    && call_line "$log" "plugin marketplace remove workcell-local" >/dev/null \
+  call_line "$log" "plugin $del swarm-coder@swarm-coder-local" >/dev/null \
+    && call_line "$log" "plugin marketplace remove swarm-coder-local" >/dev/null \
     && ok "project-local $harness install retires the legacy registration" \
     || no "project-local $harness install retires the legacy registration"
 done

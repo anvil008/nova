@@ -86,10 +86,10 @@ if ((install)); then
       esac
       # Retire a project-local registration made before the Workcell rename. Both
       # CLIs return non-zero when an item is absent, so migration cleanup is best-effort.
-      "$cli" plugin "$del" workcell@workcell-local --scope local >/dev/null 2>&1 \
-        || "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
-      "$cli" plugin marketplace remove workcell-local --scope local >/dev/null 2>&1 \
-        || "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+      "$cli" plugin "$del" swarm-coder@swarm-coder-local --scope local >/dev/null 2>&1 \
+        || "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
+      "$cli" plugin marketplace remove swarm-coder-local --scope local >/dev/null 2>&1 \
+        || "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace add "$ROOT" --scope local >/dev/null 2>&1 \
         || "$cli" plugin marketplace add "$ROOT" >/dev/null
       "$cli" plugin "$add" workcell@workcell-local --scope local >/dev/null 2>&1 \

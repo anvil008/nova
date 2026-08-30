@@ -127,8 +127,8 @@ MARKET_HARNESSES=(
 if [[ $MODE == install ]]; then
   sync_agy_skills
   # Retire owned Antigravity links created under the former product name.
-  unlink_owned "$HOME/.gemini/config/plugins/workcell"
-  unlink_owned "$HOME/.gemini/antigravity-cli/plugins/workcell"
+  unlink_owned "$HOME/.gemini/config/plugins/swarm-coder"
+  unlink_owned "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
   bad=0
   for dst in ${PLAN_DST[@]+"${PLAN_DST[@]}"}; do
     link_owned "$ROOT/plugins/agy" "$dst" $FORCE || bad=$((bad+1))
@@ -138,8 +138,8 @@ else
   for dst in ${PLAN_DST[@]+"${PLAN_DST[@]}"}; do unlink_owned "$dst"; done
   # Remove live links created before the Workcell rename when they still point
   # into this repository. Foreign paths remain protected by unlink_owned.
-  unlink_owned "$HOME/.gemini/config/plugins/workcell"
-  unlink_owned "$HOME/.gemini/antigravity-cli/plugins/workcell"
+  unlink_owned "$HOME/.gemini/config/plugins/swarm-coder"
+  unlink_owned "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
   # Pre-ADR-0005 layout: one link per agent and per skill, straight into the harness
   # root. Swept by directory rather than by today's names, so links left by agents and
   # skills that have since been renamed go too. Anything not ours is passed over in
@@ -183,11 +183,11 @@ for spec in "${MARKET_HARNESSES[@]}"; do
     command -v "$cli" >/dev/null || { echo "$h: skipped — $guard exists but the $cli CLI is not on PATH"; continue; }
     # Retire the pre-rename registration before adding Workcell. These commands
     # are harmless when no legacy installation exists.
-    "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
-    "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+    "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
+    "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
     # Pre-marketplace layout: a bare symlink in the harness's plugin directory, which
     # neither CLI ever discovers. Remove it so it cannot shadow the real install.
-    unlink_owned "$HOME/.$h/plugins/workcell"
+    unlink_owned "$HOME/.$h/plugins/swarm-coder"
     unlink_owned "$HOME/.$h/plugins/workcell"
     root="$ROOT"
     if [[ $h == codex ]]; then
@@ -209,11 +209,11 @@ for spec in "${MARKET_HARNESSES[@]}"; do
       echo "codex: trust the Workcell plugin hooks with /hooks, or use --dangerously-bypass-hook-trust for one invocation"
     fi
   else
-    unlink_owned "$HOME/.$h/plugins/workcell"
+    unlink_owned "$HOME/.$h/plugins/swarm-coder"
     unlink_owned "$HOME/.$h/plugins/workcell"
     if command -v "$cli" >/dev/null; then
-      "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
-      "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+      "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
+      "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
       # Clean up installations made before the Workcell rename.
       "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
