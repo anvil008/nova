@@ -49,9 +49,15 @@ def run_helper(sidecar, snapshot):
 
 class BuildSkillTests(unittest.TestCase):
     def test_example_dry_run_is_deterministic(self):
-        expected = json.loads((EXAMPLES / "expected-waves.json").read_text(encoding="utf-8"))
-        first = run_helper(EXAMPLES / "plan.sidecar.json", EXAMPLES / "issue-state.json")
-        second = run_helper(EXAMPLES / "plan.sidecar.json", EXAMPLES / "issue-state.json")
+        expected = json.loads(
+            (EXAMPLES / "expected-waves.json").read_text(encoding="utf-8")
+        )
+        first = run_helper(
+            EXAMPLES / "plan.sidecar.json", EXAMPLES / "issue-state.json"
+        )
+        second = run_helper(
+            EXAMPLES / "plan.sidecar.json", EXAMPLES / "issue-state.json"
+        )
         self.assertEqual(first.returncode, 0, first.stderr)
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(first.stdout, second.stdout)
@@ -60,7 +66,9 @@ class BuildSkillTests(unittest.TestCase):
         self.assertEqual([item["key"] for item in expected["unblocked"]], ["API", "UI"])
 
     def test_reuses_strict_planner_sidecar_validation(self):
-        sidecar = json.loads((EXAMPLES / "plan.sidecar.json").read_text(encoding="utf-8"))
+        sidecar = json.loads(
+            (EXAMPLES / "plan.sidecar.json").read_text(encoding="utf-8")
+        )
         sidecar["unexpected"] = True
         with tempfile.TemporaryDirectory() as tmp:
             invalid = Path(tmp) / "invalid.json"
@@ -70,7 +78,9 @@ class BuildSkillTests(unittest.TestCase):
         self.assertIn("unexpected", result.stderr.lower())
 
     def test_rejects_invalid_issue_snapshot_and_marker_mismatch(self):
-        snapshot = json.loads((EXAMPLES / "issue-state.json").read_text(encoding="utf-8"))
+        snapshot = json.loads(
+            (EXAMPLES / "issue-state.json").read_text(encoding="utf-8")
+        )
         snapshot["issues"][0]["extra"] = "not allowed"
         with tempfile.TemporaryDirectory() as tmp:
             invalid = Path(tmp) / "invalid-state.json"
@@ -79,7 +89,9 @@ class BuildSkillTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unknown field", result.stderr.lower())
 
-        snapshot = json.loads((EXAMPLES / "issue-state.json").read_text(encoding="utf-8"))
+        snapshot = json.loads(
+            (EXAMPLES / "issue-state.json").read_text(encoding="utf-8")
+        )
         snapshot["issues"][0]["body"] = "marker removed"
         with tempfile.TemporaryDirectory() as tmp:
             invalid = Path(tmp) / "invalid-marker.json"
@@ -89,7 +101,9 @@ class BuildSkillTests(unittest.TestCase):
         self.assertIn("durable planner marker", result.stderr.lower())
 
     def test_rejects_dependency_cycles(self):
-        sidecar = json.loads((EXAMPLES / "plan.sidecar.json").read_text(encoding="utf-8"))
+        sidecar = json.loads(
+            (EXAMPLES / "plan.sidecar.json").read_text(encoding="utf-8")
+        )
         sidecar["issues"][0]["dependsOn"] = ["Integration"]
         with tempfile.TemporaryDirectory() as tmp:
             invalid = Path(tmp) / "cycle.json"
@@ -112,7 +126,9 @@ class BuildSkillTests(unittest.TestCase):
         """`status:done` marks a *closed* issue finished. Doneness is agreed with
         skills/planner/scripts/reconcile_github.py: closed AND (status:done OR completed)."""
         snapshot = self._snapshot()
-        snapshot["issues"][0].update(state="closed", state_reason="not_planned", labels=["status:done"])
+        snapshot["issues"][0].update(
+            state="closed", state_reason="not_planned", labels=["status:done"]
+        )
         result = self._run_snapshot(snapshot)
         self.assertEqual(result.returncode, 0, result.stderr)
         output = json.loads(result.stdout)
@@ -120,7 +136,9 @@ class BuildSkillTests(unittest.TestCase):
         self.assertIn("Foundation", output["done"])
 
         # An open issue is never done, however it is labelled: GitHub state is the truth.
-        snapshot["issues"][0].update(state="open", state_reason=None, labels=["status:done"])
+        snapshot["issues"][0].update(
+            state="open", state_reason=None, labels=["status:done"]
+        )
         result = self._run_snapshot(snapshot)
         self.assertEqual(result.returncode, 0, result.stderr)
         output = json.loads(result.stdout)
@@ -151,7 +169,10 @@ class BuildSkillTests(unittest.TestCase):
         self.assertEqual([item["key"] for item in output["unblocked"]], ["API", "UI"])
 
         # Strings and objects may be mixed, as label_names() in the reconciler allows.
-        snapshot["issues"][0]["labels"] = ["build", {"id": "2", "name": "status:done", "color": "fff"}]
+        snapshot["issues"][0]["labels"] = [
+            "build",
+            {"id": "2", "name": "status:done", "color": "fff"},
+        ]
         result = self._run_snapshot(snapshot)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Foundation", json.loads(result.stdout)["done"])
@@ -180,7 +201,9 @@ class BuildSkillTests(unittest.TestCase):
         """reconcile_github.py closes housekeeping issues with state_reason=not_planned
         exactly so they are never mistaken for finished work; waves.py must agree."""
         snapshot = self._snapshot()
-        snapshot["issues"][0].update(state="closed", state_reason="not_planned", labels=["build"])
+        snapshot["issues"][0].update(
+            state="closed", state_reason="not_planned", labels=["build"]
+        )
         result = self._run_snapshot(snapshot)
         self.assertEqual(result.returncode, 0, result.stderr)
         output = json.loads(result.stdout)
@@ -201,13 +224,17 @@ class BuildSkillTests(unittest.TestCase):
         for labels, state_reason in cases:
             with self.subTest(labels=labels, state_reason=state_reason):
                 snapshot = self._snapshot()
-                snapshot["issues"][0].update(state="closed", state_reason=state_reason, labels=labels)
+                snapshot["issues"][0].update(
+                    state="closed", state_reason=state_reason, labels=labels
+                )
                 result = self._run_snapshot(snapshot)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 output = json.loads(result.stdout)
                 self.assertEqual(output["done"], ["Foundation"])
                 self.assertEqual(output["currentWave"], 2)
-                self.assertEqual([item["key"] for item in output["unblocked"]], ["API", "UI"])
+                self.assertEqual(
+                    [item["key"] for item in output["unblocked"]], ["API", "UI"]
+                )
 
     def test_snapshot_rejects_unknown_issue_fields_even_beside_state_reason(self):
         """state_reason becomes an optional field, not an open door."""
@@ -242,16 +269,19 @@ class BuildSkillTests(unittest.TestCase):
     def _documented_capture_command(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         blocks = [
-            block for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
+            block
+            for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
             if "gh " in block and "jq" in block
         ]
         self.assertEqual(
-            len(blocks), 1,
+            len(blocks),
+            1,
             "SKILL.md must document exactly one copy-pasteable `gh ... | jq ...` capture "
             "command that turns gh output into the waves.py snapshot",
         )
         lines = [
-            line for line in blocks[0].splitlines()
+            line
+            for line in blocks[0].splitlines()
             if line.strip() and not line.lstrip().startswith("#")
         ]
         return "\n".join(lines).strip()
@@ -259,38 +289,52 @@ class BuildSkillTests(unittest.TestCase):
     def test_documented_capture_command_produces_a_valid_snapshot(self):
         """Run the command SKILL.md actually publishes over a real gh response, rather
         than a restatement of it: a documented transform nobody executes is a guess."""
-        self.assertIsNotNone(shutil.which("jq"), "jq is required to run the documented capture command")
+        self.assertIsNotNone(
+            shutil.which("jq"), "jq is required to run the documented capture command"
+        )
         command = self._documented_capture_command()
         self.assertRegex(
-            command, r"^gh\s+api\b",
+            command,
+            r"^gh\s+api\b",
             "the capture command must read repos/{owner}/{repo}/issues via `gh api`; "
             f"{GH_RAW.name} is that response, and the test substitutes it for the gh call",
         )
         pipe = self._first_shell_pipe(command)
-        self.assertGreater(pipe, 0, "the capture command must pipe gh's output into a jq transform")
+        self.assertGreater(
+            pipe, 0, "the capture command must pipe gh's output into a jq transform"
+        )
         transform = "cat " + shlex.quote(str(GH_RAW)) + " " + command[pipe:]
         with tempfile.TemporaryDirectory() as tmp:
             # $REPO and $MILESTONE are the only inputs the command may assume.
             run = subprocess.run(
-                ["bash", "-c", transform], cwd=tmp, text=True, capture_output=True,
-                env={**os.environ, **CAPTURE_ENV}, check=False,
+                ["bash", "-c", transform],
+                cwd=tmp,
+                text=True,
+                capture_output=True,
+                env={**os.environ, **CAPTURE_ENV},
+                check=False,
             )
             self.assertEqual(run.returncode, 0, run.stderr)
             produced = run.stdout.strip()
             if not produced:
                 written = sorted(Path(tmp).glob("*.json"))
-                self.assertEqual(len(written), 1, "the capture command produced no snapshot")
+                self.assertEqual(
+                    len(written), 1, "the capture command produced no snapshot"
+                )
                 produced = written[0].read_text(encoding="utf-8")
             snapshot = json.loads(produced)
             self.assertEqual(set(snapshot), {"repo", "milestone", "issues"})
             self.assertEqual(snapshot["repo"], CAPTURE_ENV["REPO"])
             self.assertEqual(snapshot["milestone"], CAPTURE_ENV["MILESTONE"])
             self.assertEqual(
-                sorted(issue["number"] for issue in snapshot["issues"]), [101, 102, 103, 104],
+                sorted(issue["number"] for issue in snapshot["issues"]),
+                [101, 102, 103, 104],
                 "pull requests come back from the issues endpoint and carry no planner marker",
             )
             for issue in snapshot["issues"]:
-                self.assertEqual(set(issue), {"number", "body", "labels", "state", "state_reason"})
+                self.assertEqual(
+                    set(issue), {"number", "body", "labels", "state", "state_reason"}
+                )
             captured = Path(tmp) / "captured-snapshot.json"
             captured.write_text(json.dumps(snapshot), encoding="utf-8")
             result = run_helper(SIDECAR, captured)
@@ -307,9 +351,16 @@ class BuildSkillTests(unittest.TestCase):
         for required in ("name", "description", "tools"):
             self.assertIn(required, keys)
         for phrase in (
-            "exactly one assigned GitHub issue", "status:in-progress", "sealed tests",
-            "tdd-guard reseal --reason", "tdd-guard verify", "git diff HEAD",
-            "diff-review record", "Closes #", "anvil.agent-handoff/v1", "ownershipHint",
+            "exactly one assigned GitHub issue",
+            "status:in-progress",
+            "sealed tests",
+            "tdd-guard reseal --reason",
+            "tdd-guard verify",
+            "git diff HEAD",
+            "diff-review record",
+            "Closes #",
+            "anvil.agent-handoff/v1",
+            "ownershipHint",
         ):
             self.assertIn(phrase, agent)
         # Authorship moved to the specifier: a builder that can seal can define its own
@@ -318,8 +369,12 @@ class BuildSkillTests(unittest.TestCase):
 
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for phrase in (
-            "GitHub is the source of truth", "current wave", "jj workspace",
-            "combined GREEN", "sole completion authority", "force-push `main`",
+            "GitHub is the source of truth",
+            "current wave",
+            "jj workspace",
+            "combined GREEN",
+            "sole completion authority",
+            "force-push `main`",
         ):
             self.assertIn(phrase, skill)
 
@@ -349,7 +404,9 @@ class BuildSkillTests(unittest.TestCase):
                 for phrase in ordered:
                     self.assertIn(phrase, agent, f"{path}: missing {phrase!r}")
                     positions.append(agent.index(phrase))
-                self.assertEqual(positions, sorted(positions), f"{path}: lifecycle out of order")
+                self.assertEqual(
+                    positions, sorted(positions), f"{path}: lifecycle out of order"
+                )
                 # Teardown must be gated on the PR existing.
                 self.assertIn("only after the PR exists", agent)
                 self.assertIn("never `jj abandon` the bookmark", agent)
@@ -359,16 +416,21 @@ class BuildSkillTests(unittest.TestCase):
 
     def test_claude_builder_can_actually_reach_the_reviewer(self):
         """The review passes are unreachable unless the harness grants a spawn tool."""
-        agent = (ROOT.parents[1] / "agents" / "claude" / "builder.md").read_text(encoding="utf-8")
+        agent = (ROOT.parents[1] / "agents" / "claude" / "builder.md").read_text(
+            encoding="utf-8"
+        )
         tools = next(
-            line.split(":", 1)[1] for line in agent.split("---", 2)[1].splitlines()
+            line.split(":", 1)[1]
+            for line in agent.split("---", 2)[1].splitlines()
             if line.startswith("tools:")
         )
         self.assertIn("Agent", [tool.strip() for tool in tools.split(",")])
 
-
     def test_wave_ownership_overlap_detection(self):
-        self.assertTrue(hasattr(waves, "globs_overlap"), "waves does not have globs_overlap function")
+        self.assertTrue(
+            hasattr(waves, "globs_overlap"),
+            "waves does not have globs_overlap function",
+        )
         self.assertTrue(waves.globs_overlap("skills/planner/**", "skills/**"))
         self.assertFalse(waves.globs_overlap("skills/planner/**", "skills/build/**"))
 
@@ -380,10 +442,7 @@ class BuildSkillTests(unittest.TestCase):
             "repo": "owner/repo",
             "generatedAt": "2026-08-26T12:00:00Z",
             "summary": "Overlap testing",
-            "architecture": {
-                "components": [],
-                "diagramsMermaid": {}
-            },
+            "architecture": {"components": [], "diagramsMermaid": {}},
             "issues": [
                 {
                     "key": "A",
@@ -393,7 +452,9 @@ class BuildSkillTests(unittest.TestCase):
                     "dependsOn": [],
                     "ownershipHint": "skills/planner/**",
                     "wave": 1,
-                    "acceptanceTests": [{"name": "test", "kind": "unit", "oracle": "pass"}]
+                    "acceptanceTests": [
+                        {"name": "test", "kind": "unit", "oracle": "pass"}
+                    ],
                 },
                 {
                     "key": "B",
@@ -403,9 +464,11 @@ class BuildSkillTests(unittest.TestCase):
                     "dependsOn": [],
                     "ownershipHint": "skills/**",
                     "wave": 1,
-                    "acceptanceTests": [{"name": "test", "kind": "unit", "oracle": "pass"}]
-                }
-            ]
+                    "acceptanceTests": [
+                        {"name": "test", "kind": "unit", "oracle": "pass"}
+                    ],
+                },
+            ],
         }
         snapshot = {
             "repo": "owner/repo",
@@ -415,15 +478,15 @@ class BuildSkillTests(unittest.TestCase):
                     "number": 1,
                     "body": "Body A\n\n<!-- workcell-planner planId=overlap-test issue=A -->",
                     "labels": [],
-                    "state": "open"
+                    "state": "open",
                 },
                 {
                     "number": 2,
                     "body": "Body B\n\n<!-- workcell-planner planId=overlap-test issue=B -->",
                     "labels": [],
-                    "state": "open"
-                }
-            ]
+                    "state": "open",
+                },
+            ],
         }
         # Verify that waves.derive raises waves.BuildError due to overlap
         with self.assertRaises(Exception) as ctx:
@@ -441,26 +504,42 @@ class BuildSkillTests(unittest.TestCase):
     def test_fallback_matcher_agrees_with_full_match(self):
         """Below 3.13 the fnmatch-style fallback carries the issue's canonical cases."""
         cases = [
-            ("src/a/b/c.py", "src/**", True), ("src/a/b/c.py", "src/a/b/c.py", True),
-            ("src/a/b/d.py", "src/a/b/c.py", False), ("lib/x.py", "src/*.py", False),
-            ("src/a/b.py", "src/*.py", False), ("a/b/c", "a/**/c", True),
-            ("abc/d", "a**", False), ("a/xz", "a/[!y]z", True), ("a/[!]", "a/[!]", True), ("a/x", "a/[\\x]", True),
+            ("src/a/b/c.py", "src/**", True),
+            ("src/a/b/c.py", "src/a/b/c.py", True),
+            ("src/a/b/d.py", "src/a/b/c.py", False),
+            ("lib/x.py", "src/*.py", False),
+            ("src/a/b.py", "src/*.py", False),
+            ("a/b/c", "a/**/c", True),
+            ("abc/d", "a**", False),
+            ("a/xz", "a/[!y]z", True),
+            ("a/[!]", "a/[!]", True),
+            ("a/x", "a/[\\x]", True),
         ]
         for path, pattern, expected in cases:
             with self.subTest(path=path, pattern=pattern):
-                self.assertEqual(waves._glob_to_regex(pattern).match(path) is not None, expected)
+                self.assertEqual(
+                    waves._glob_to_regex(pattern).match(path) is not None, expected
+                )
                 self.assertEqual(waves.path_matches(path, pattern), expected)
         self.assertFalse(waves.globs_overlap("src/[!a]/x.py", "src/a/x.py"))
 
     def _overlap_plan(self, wave):
         issue = lambda key: {
-            "key": key, "title": f"Issue {key}", "body": f"Body {key}", "labels": ["build"],
-            "dependsOn": [], "ownershipHint": "skills/build/**", "wave": wave,
+            "key": key,
+            "title": f"Issue {key}",
+            "body": f"Body {key}",
+            "labels": ["build"],
+            "dependsOn": [],
+            "ownershipHint": "skills/build/**",
+            "wave": wave,
             "acceptanceTests": [{"name": "test", "kind": "unit", "oracle": "pass"}],
         }
         sidecar = {
-            "planId": "overlap-test", "planName": "Overlap test", "repo": "owner/repo",
-            "generatedAt": "2026-08-26T12:00:00Z", "summary": "Overlap testing",
+            "planId": "overlap-test",
+            "planName": "Overlap test",
+            "repo": "owner/repo",
+            "generatedAt": "2026-08-26T12:00:00Z",
+            "summary": "Overlap testing",
             "architecture": {
                 "changeSummary": "Two issues that claim the same paths.",
                 "components": [{"name": "Build", "purpose": "Overlapping ownership."}],
@@ -473,10 +552,15 @@ class BuildSkillTests(unittest.TestCase):
             "risks": [],
         }
         snapshot = {
-            "repo": "owner/repo", "milestone": "Overlap test",
+            "repo": "owner/repo",
+            "milestone": "Overlap test",
             "issues": [
-                {"number": n, "body": f"Body {k}\n\n<!-- workcell-planner planId=overlap-test issue={k} -->",
-                 "labels": [], "state": "open"}
+                {
+                    "number": n,
+                    "body": f"Body {k}\n\n<!-- workcell-planner planId=overlap-test issue={k} -->",
+                    "labels": [],
+                    "state": "open",
+                }
                 for n, k in ((1, "A"), (2, "B"))
             ],
         }
@@ -516,7 +600,11 @@ class BuildSkillTests(unittest.TestCase):
         result = self._run_overlap_plan(1)
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn("overlapping ownershipHint", result.stderr)
-        self.assertEqual(result.stdout.strip(), "", "a rejected plan must print no dispatchable output")
+        self.assertEqual(
+            result.stdout.strip(),
+            "",
+            "a rejected plan must print no dispatchable output",
+        )
 
     def test_grouped_wave_overlap_raises_without_warning(self):
         sidecar, snapshot = self._overlap_plan(1)
@@ -539,14 +627,18 @@ class BuildSkillTests(unittest.TestCase):
             "tdd-guard seal",
         ]
         for path in authors:
-            with self.subTest(agent=path.parent.name if path.name == "agent.md" else path.name):
+            with self.subTest(
+                agent=path.parent.name if path.name == "agent.md" else path.name
+            ):
                 self.assertTrue(path.exists(), path)
                 agent = path.read_text(encoding="utf-8")
                 positions = []
                 for phrase in ordered:
                     self.assertIn(phrase, agent, f"{path}: missing {phrase!r}")
                     positions.append(agent.index(phrase))
-                self.assertEqual(positions, sorted(positions), f"{path}: lifecycle out of order")
+                self.assertEqual(
+                    positions, sorted(positions), f"{path}: lifecycle out of order"
+                )
                 # An import error is not RED; sealing one hands over a hollow gate.
                 self.assertIn("ImportError", agent)
                 self.assertIn("signature-only stub", agent)
@@ -564,13 +656,20 @@ class BuildSkillTests(unittest.TestCase):
 
     def test_skill_documents_redispatch_cap(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        for phrase in ("`status:done`", "at most twice", "stalled", "escalate to the human"):
+        for phrase in (
+            "`status:done`",
+            "at most twice",
+            "stalled",
+            "escalate to the human",
+        ):
             self.assertIn(phrase, skill)
 
     # --- dependency-gated selection with ownership deferral ----------------
     def _pull_forward(self):
         """The pull-forward fixture, run as a process, with its declared expectation."""
-        result = run_helper(PULL_FORWARD / "plan.sidecar.json", PULL_FORWARD / "issue-state.json")
+        result = run_helper(
+            PULL_FORWARD / "plan.sidecar.json", PULL_FORWARD / "issue-state.json"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         return result, json.loads(result.stdout)
 
@@ -591,33 +690,60 @@ class BuildSkillTests(unittest.TestCase):
         core = self._entry(output["unblocked"], "Core")
         docs = self._entry(output["unblocked"], "Docs")
         for entry in (core, docs):
-            self.assertIn("pulledForward", entry, "unblocked entries must report pulledForward")
-        self.assertIs(docs["pulledForward"], True, "a later declared wave was pulled forward")
+            self.assertIn(
+                "pulledForward", entry, "unblocked entries must report pulledForward"
+            )
+        self.assertIs(
+            docs["pulledForward"], True, "a later declared wave was pulled forward"
+        )
         self.assertEqual(docs["wave"], 2)
-        self.assertIs(core["pulledForward"], False, "an issue at the current wave is not pulled forward")
+        self.assertIs(
+            core["pulledForward"],
+            False,
+            "an issue at the current wave is not pulled forward",
+        )
         self.assertEqual(core["wave"], 1)
 
         # currentWave is still the earliest declared wave holding an unfinished issue.
-        sidecar = json.loads((PULL_FORWARD / "plan.sidecar.json").read_text(encoding="utf-8"))
-        unfinished = [issue for issue in sidecar["issues"] if issue["key"] not in output["done"]]
-        self.assertEqual(output["currentWave"], min(issue["wave"] for issue in unfinished))
+        sidecar = json.loads(
+            (PULL_FORWARD / "plan.sidecar.json").read_text(encoding="utf-8")
+        )
+        unfinished = [
+            issue for issue in sidecar["issues"] if issue["key"] not in output["done"]
+        ]
+        self.assertEqual(
+            output["currentWave"], min(issue["wave"] for issue in unfinished)
+        )
         self.assertEqual(output["currentWave"], 1)
         self.assertEqual(output["done"], ["Foundation"])
 
-        expected = json.loads((PULL_FORWARD / "expected-waves.json").read_text(encoding="utf-8"))
+        expected = json.loads(
+            (PULL_FORWARD / "expected-waves.json").read_text(encoding="utf-8")
+        )
         self.assertEqual(output, expected)
-        self.assertEqual(result.stdout, run_helper(
-            PULL_FORWARD / "plan.sidecar.json", PULL_FORWARD / "issue-state.json"
-        ).stdout)
+        self.assertEqual(
+            result.stdout,
+            run_helper(
+                PULL_FORWARD / "plan.sidecar.json", PULL_FORWARD / "issue-state.json"
+            ).stdout,
+        )
 
     def test_blocked_issue_is_never_selected(self):
         """Pulling work forward must not pull it forward *past its dependencies*. `Followup`
         depends on the unfinished `Core`, so it is neither dispatchable nor merely deferred."""
         _, output = self._pull_forward()
-        sidecar = json.loads((PULL_FORWARD / "plan.sidecar.json").read_text(encoding="utf-8"))
-        followup = next(issue for issue in sidecar["issues"] if issue["key"] == "Followup")
+        sidecar = json.loads(
+            (PULL_FORWARD / "plan.sidecar.json").read_text(encoding="utf-8")
+        )
+        followup = next(
+            issue for issue in sidecar["issues"] if issue["key"] == "Followup"
+        )
         self.assertEqual(followup["dependsOn"], ["Core"])
-        self.assertNotIn("Core", output["done"], "the fixture must keep Followup's dependency unfinished")
+        self.assertNotIn(
+            "Core",
+            output["done"],
+            "the fixture must keep Followup's dependency unfinished",
+        )
         self.assertNotIn("Followup", [item["key"] for item in output["unblocked"]])
         self.assertIn("deferred", output)
         self.assertNotIn("Followup", [item["key"] for item in output["deferred"]])
@@ -630,20 +756,27 @@ class BuildSkillTests(unittest.TestCase):
         result, output = self._pull_forward()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("Sweep", [item["key"] for item in output["unblocked"]])
-        self.assertIn("deferred", output, "the dry-run must report the candidates it held back")
+        self.assertIn(
+            "deferred", output, "the dry-run must report the candidates it held back"
+        )
         deferred = self._entry(output["deferred"], "Sweep")
-        self.assertIsNotNone(deferred, "a ready but overlapping candidate must be reported as deferred")
+        self.assertIsNotNone(
+            deferred, "a ready but overlapping candidate must be reported as deferred"
+        )
         self.assertEqual(deferred["overlapsWith"], "Core")
         self.assertEqual(deferred["ownershipHint"], "src/**")
         self.assertEqual(deferred["wave"], 3)
         self.assertEqual(deferred["number"], 204)
         self.assertTrue(
-            waves.globs_overlap(deferred["ownershipHint"], self._entry(output["unblocked"], "Core")["ownershipHint"]),
+            waves.globs_overlap(
+                deferred["ownershipHint"],
+                self._entry(output["unblocked"], "Core")["ownershipHint"],
+            ),
             "the fixture must actually collide, or this test proves nothing",
         )
         hints = [item["ownershipHint"] for item in output["unblocked"]]
         for index, first in enumerate(hints):
-            for second in hints[index + 1:]:
+            for second in hints[index + 1 :]:
                 self.assertFalse(
                     waves.globs_overlap(first, second),
                     f"concurrently dispatchable hints must be disjoint: {first!r} and {second!r}",
@@ -653,15 +786,18 @@ class BuildSkillTests(unittest.TestCase):
         """The `waves.py` invocation SKILL.md actually publishes for a given fixture."""
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         blocks = [
-            block for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
+            block
+            for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
             if "waves.py" in block and fixture in block
         ]
         self.assertEqual(
-            len(blocks), 1,
+            len(blocks),
+            1,
             f"SKILL.md must document exactly one offline dry-run over {fixture}",
         )
         lines = [
-            line for line in blocks[0].splitlines()
+            line
+            for line in blocks[0].splitlines()
             if line.strip() and not line.lstrip().startswith("#")
         ]
         return "\n".join(lines).strip()
@@ -673,15 +809,23 @@ class BuildSkillTests(unittest.TestCase):
         command = self._documented_waves_command("examples/plan.sidecar.json")
         runs = [
             subprocess.run(
-                ["bash", "-c", command], cwd=REPO_ROOT, text=True, capture_output=True, check=False,
+                ["bash", "-c", command],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
             )
             for _ in range(2)
         ]
         for run in runs:
             self.assertEqual(run.returncode, 0, run.stderr)
-        self.assertEqual(runs[0].stdout, runs[1].stdout, "the offline dry-run must be byte-identical")
+        self.assertEqual(
+            runs[0].stdout, runs[1].stdout, "the offline dry-run must be byte-identical"
+        )
         output = json.loads(runs[0].stdout)
-        expected = json.loads((EXAMPLES / "expected-waves.json").read_text(encoding="utf-8"))
+        expected = json.loads(
+            (EXAMPLES / "expected-waves.json").read_text(encoding="utf-8")
+        )
         self.assertEqual(output, expected)
         self.assertEqual([item["key"] for item in output["unblocked"]], ["API", "UI"])
         for item in output["unblocked"]:
@@ -700,11 +844,14 @@ class BuildSkillTests(unittest.TestCase):
         )
         for phrase in retired:
             # assertNotIn would dump the whole SKILL.md into the failure report.
-            self.assertTrue(phrase not in skill, f"retired wave-selection prose survives: {phrase!r}")
+            self.assertTrue(
+                phrase not in skill,
+                f"retired wave-selection prose survives: {phrase!r}",
+            )
         for phrase in (
-            "regardless of declared wave",   # selection is gated on dependencies, not on the wave
+            "regardless of declared wave",  # selection is gated on dependencies, not on the wave
             "earliest unfinished declared wave",  # currentWave keeps its meaning, as reporting
-            "in-flight set",                 # the ownership check spans every candidate
+            "in-flight set",  # the ownership check spans every candidate
             "deferred",
             "later round",
             "pulled forward",
@@ -757,7 +904,9 @@ class SpeculativeSpecifierTests(unittest.TestCase):
     def wave_loop_steps(self):
         """The wave loop's numbered steps, in document order, keyed by their number."""
         section = self.wave_loop()
-        marks = [(match.group(1), match.start()) for match in WAVE_STEP.finditer(section)]
+        marks = [
+            (match.group(1), match.start()) for match in WAVE_STEP.finditer(section)
+        ]
         self.assertTrue(marks, "the wave loop must keep its numbered steps")
         steps = {}
         for index, (number, start) in enumerate(marks):
@@ -770,16 +919,22 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         speculation — first such paragraph through last. Anchoring to step 5 is the point:
         the allowance exists only to fill the integrator run it overlaps."""
         step = self.wave_loop_steps().get("5")
-        self.assertIsNotNone(step, "wave loop step 5 — the integrator step — must exist")
-        paragraphs = [para.strip() for para in re.split(r"\n\s*\n", step) if para.strip()]
-        hits = [index for index, para in enumerate(paragraphs) if SPECULATION.search(para)]
+        self.assertIsNotNone(
+            step, "wave loop step 5 — the integrator step — must exist"
+        )
+        paragraphs = [
+            para.strip() for para in re.split(r"\n\s*\n", step) if para.strip()
+        ]
+        hits = [
+            index for index, para in enumerate(paragraphs) if SPECULATION.search(para)
+        ]
         self.assertTrue(
             hits,
             "wave loop step 5 must carry a speculative-specifier subsection: while the "
             "integrator runs the combined suite, the orchestrator may dispatch specifiers "
             "for issues that are not unblocked yet.\nStep 5 currently reads:\n" + step,
         )
-        return "\n\n".join(paragraphs[hits[0]:hits[-1] + 1])
+        return "\n\n".join(paragraphs[hits[0] : hits[-1] + 1])
 
     @staticmethod
     def sentences(text):
@@ -790,7 +945,8 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         """The first sentence satisfying every pattern — returned so a caller can assert
         further about that same sentence rather than about the document at large."""
         matches = [
-            candidate for candidate in self.sentences(text)
+            candidate
+            for candidate in self.sentences(text)
             if all(re.search(pattern, candidate, re.IGNORECASE) for pattern in patterns)
         ]
         self.assertTrue(
@@ -818,7 +974,11 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         )
         self.sentence(
             subsection,
-            [r"(acceptanceTests|acceptance tests|failing tests)", r"\bseal", r"\bRED\b"],
+            [
+                r"(acceptanceTests|acceptance tests|failing tests)",
+                r"\bseal",
+                r"\bRED\b",
+            ],
             "the subsection must say the speculative specifier runs the standard Phase 1 "
             "unrelaxed: acceptance tests written as failing tests, honest RED, then seal",
         )
@@ -834,8 +994,10 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         )
         self.sentence(
             subsection,
-            [r"(skips?|skipping|without|forgo\w*|omits?)",
-             r"(deficien\w*|correct|complete|fine|valid)"],
+            [
+                r"(skips?|skipping|without|forgo\w*|omits?)",
+                r"(deficien\w*|correct|complete|fine|valid)",
+            ],
             "the subsection must say the plain sequence stays correct — a run that skips "
             "speculation is not deficient",
         )
@@ -847,10 +1009,12 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         subsection = self.speculation_subsection()
         self.sentence(
             subsection,
-            [r"\b(imports?|compiles?)\b",
-             r"(dependenc\w*|merged)",
-             r"(cannot|can't|can not|must not|never|ineligible|not eligible|disqualif\w*)",
-             r"specul"],
+            [
+                r"\b(imports?|compiles?)\b",
+                r"(dependenc\w*|merged)",
+                r"(cannot|can't|can not|must not|never|ineligible|not eligible|disqualif\w*)",
+                r"specul",
+            ],
             "the subsection must disqualify from speculation an issue whose acceptance "
             "tests need the dependency's merged code to import or compile",
         )
@@ -881,8 +1045,10 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         )
         self.sentence(
             subsection,
-            [r"(bounces?|offending PR|sent back|goes back|rejects?)",
-             r"(re-?prov\w*|re-?seal\w*|redo\w*|redone|again)"],
+            [
+                r"(bounces?|offending PR|sent back|goes back|rejects?)",
+                r"(re-?prov\w*|re-?seal\w*|redo\w*|redone|again)",
+            ],
             "the subsection must name the rework a bounced wave costs a speculative seal",
         )
         self.sentence(
@@ -899,9 +1065,11 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         )
         self.sentence(
             subsection,
-            [r"\b(nothing|no|not)\b",
-             r"(mechanical\w*|automatic\w*|automated)",
-             r"(stale\w*)"],
+            [
+                r"\b(nothing|no|not)\b",
+                r"(mechanical\w*|automatic\w*|automated)",
+                r"(stale\w*)",
+            ],
             "the subsection must say nothing mechanical catches a stale speculative seal — "
             "the guard binds a seal to the sealed tests and the red command, not to the "
             "base it was proved on — so the discipline is textual",
@@ -919,8 +1087,12 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         )
         self.sentence(
             subsection,
-            [r"(phase 2|builder)", r"(only after|not until|once)", r"(dependenc\w*|deps)",
-             r"merged"],
+            [
+                r"(phase 2|builder)",
+                r"(only after|not until|once)",
+                r"(dependenc\w*|deps)",
+                r"merged",
+            ],
             "the subsection must say Phase 2 for a speculated issue starts only after its "
             "dependencies are merged, in a workspace on the merged base",
         )
@@ -932,7 +1104,11 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         )
         self.sentence(
             subsection,
-            [r"(passes?|no longer fails?|fails? differently)", r"specifier", r"re-?seal"],
+            [
+                r"(passes?|no longer fails?|fails? differently)",
+                r"specifier",
+                r"re-?seal",
+            ],
             "the subsection must say a sealed test that now passes, or fails differently, "
             "goes back to a `specifier` to reseal",
         )
@@ -951,7 +1127,8 @@ class SpeculativeSpecifierTests(unittest.TestCase):
             "the wave loop keeps six numbered steps, in order and unrenumbered",
         )
         self.assertLess(
-            skill.index("Phase 1"), skill.index("Phase 2"),
+            skill.index("Phase 1"),
+            skill.index("Phase 2"),
             "Phase 1 must still precede Phase 2",
         )
         for phrase in (
@@ -964,7 +1141,9 @@ class SpeculativeSpecifierTests(unittest.TestCase):
             "It cannot edit the sealed tests: the guard denies those edits outright.",
         ):
             # `assertIn` would dump the whole SKILL.md into the failure report.
-            self.assertTrue(phrase in skill, f"pinned prose lost to the edit: {phrase!r}")
+            self.assertTrue(
+                phrase in skill, f"pinned prose lost to the edit: {phrase!r}"
+            )
 
         # ADR 0007's boundary is still the second paragraph after the title.
         after_title = skill.split("\n# ", 1)[1].split("\n\n", 1)[1]
@@ -979,14 +1158,235 @@ class SpeculativeSpecifierTests(unittest.TestCase):
         # Exactly one `gh ... | jq` capture block, as
         # test_documented_capture_command_produces_a_valid_snapshot requires.
         blocks = [
-            block for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
+            block
+            for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
             if "gh " in block and "jq" in block
         ]
         self.assertEqual(
-            len(blocks), 1,
+            len(blocks),
+            1,
             "SKILL.md must keep exactly one copy-pasteable `gh ... | jq ...` capture command",
         )
 
+
+# --- the raw wiki trace of an accepted wave -----------------------------------------
+# Inline code spans are masked before sentences are split, because the commands this
+# contract is about carry full stops of their own (`wiki.py status --repo .`) and a naive
+# split would tear one statement into three.
+CODE_SPAN = re.compile(r"`[^`]*`")
+# The step that accepts the wave: the one carrying the acceptance instruction.
+ACCEPTANCE = re.compile(r"Accept the wave on the")
+MERGE_STEP = re.compile(r"Merge only after combined green")
+
+
+class WikiBuildTraceTests(unittest.TestCase):
+    """`build` records each accepted wave as a raw wiki trace, opt-in, and records only.
+
+    Every oracle reads the statement *in place* — inside the wave-acceptance step of the
+    wave loop — because a sentence about recording that lives anywhere else is not the
+    instruction the orchestrator executes when it accepts a wave, and a file-wide substring
+    search would be satisfied by words scattered across sections that mean other things.
+    """
+
+    def skill(self):
+        return (ROOT / "SKILL.md").read_text(encoding="utf-8")
+
+    def wave_loop(self):
+        parts = self.skill().split("\n## Wave loop\n", 1)
+        self.assertEqual(len(parts), 2, "SKILL.md must keep its `## Wave loop` section")
+        return parts[1].split("\n## ", 1)[0]
+
+    def wave_loop_steps(self):
+        """The wave loop's numbered steps, in document order, keyed by their number."""
+        section = self.wave_loop()
+        marks = [
+            (match.group(1), match.start()) for match in WAVE_STEP.finditer(section)
+        ]
+        self.assertTrue(marks, "the wave loop must keep its numbered steps")
+        steps = {}
+        for index, (number, start) in enumerate(marks):
+            end = marks[index + 1][1] if index + 1 < len(marks) else len(section)
+            steps[number] = section[start:end]
+        return steps
+
+    def _step_matching(self, pattern, why):
+        steps = self.wave_loop_steps()
+        hits = [number for number, text in steps.items() if pattern.search(text)]
+        self.assertEqual(len(hits), 1, f"{why}\nWave loop steps: {sorted(steps)}")
+        return hits[0], steps[hits[0]]
+
+    def acceptance_step(self):
+        """The wave-acceptance step: where the integrator's evidence is read and the wave
+        is accepted on it. Returned as (number, text)."""
+        return self._step_matching(
+            ACCEPTANCE,
+            "exactly one wave loop step must accept the wave on the integrator's evidence",
+        )
+
+    @staticmethod
+    def paragraphs(text):
+        return [para.strip() for para in re.split(r"\n\s*\n", text) if para.strip()]
+
+    @classmethod
+    def sentences(cls, text):
+        """Sentences, with inline code spans held together across their full stops."""
+        flat = re.sub(r"\s+", " ", text).strip()
+        spans = []
+
+        def stash(match):
+            spans.append(match.group(0))
+            return f"\x00{len(spans) - 1}\x00"
+
+        masked = CODE_SPAN.sub(stash, flat)
+
+        def restore(part):
+            return re.sub(r"\x00(\d+)\x00", lambda m: spans[int(m.group(1))], part)
+
+        return [restore(part) for part in SENTENCE_SPLIT.split(masked) if part.strip()]
+
+    def sentence(self, text, patterns, why):
+        """The first sentence satisfying every pattern — returned so a caller can assert
+        further about that same sentence rather than about the document at large."""
+        matches = [
+            candidate
+            for candidate in self.sentences(text)
+            if all(re.search(pattern, candidate, re.IGNORECASE) for pattern in patterns)
+        ]
+        self.assertTrue(
+            matches,
+            f"{why}\nNo single sentence matched all of {patterns!r}.\nSearched:\n{text}",
+        )
+        return matches[0]
+
+    def matching_paragraphs(self, text, patterns):
+        """Indexes of the paragraphs carrying a single sentence that matches every pattern."""
+        found = []
+        for index, para in enumerate(self.paragraphs(text)):
+            for candidate in self.sentences(para):
+                if all(
+                    re.search(pattern, candidate, re.IGNORECASE) for pattern in patterns
+                ):
+                    found.append(index)
+                    break
+        return found
+
+    def test_an_accepted_wave_records_a_raw_trace(self):
+        """One statement in the wave-acceptance step names `wiki.py record` and
+        `--kind build-wave`, and it sits after the evidence is read and before the merge is
+        reported: the record is of a wave that was accepted, and it is not what the merge
+        waits on."""
+        number, step = self.acceptance_step()
+        hits = self.matching_paragraphs(
+            step, [r"wiki\.py record", r"--kind\s+build-wave"]
+        )
+        self.assertTrue(
+            hits,
+            "the wave-acceptance step must carry one statement naming `wiki.py record` "
+            "and `--kind build-wave`.\nThe step currently reads:\n" + step,
+        )
+        paragraphs = self.paragraphs(step)
+        # An instruction buried in the speculative-specifier subsection is about the next
+        # round's seals, not about the wave just accepted.
+        placed = [index for index in hits if not SPECULATION.search(paragraphs[index])]
+        self.assertTrue(
+            placed,
+            "the recording statement must live in the acceptance flow itself, not inside "
+            "the speculative-specifier subsection:\n"
+            + "\n\n".join(paragraphs[index] for index in hits),
+        )
+        accepted = self.matching_paragraphs(step, [ACCEPTANCE.pattern, r"evidence"])
+        self.assertTrue(
+            accepted, "the acceptance step must still accept on the evidence"
+        )
+        self.assertGreater(
+            min(placed),
+            min(accepted),
+            "the record comes after the wave is accepted on the integrator's evidence, "
+            "never before it:\n" + step,
+        )
+        merge_number, _ = self._step_matching(
+            MERGE_STEP, "exactly one wave loop step must report the merge"
+        )
+        self.assertLess(
+            int(number),
+            int(merge_number),
+            "the recording step must precede the step that merges and reports the wave",
+        )
+
+    def test_the_opt_in_check_is_the_status_command(self):
+        """The whole recording step is conditioned on `wiki.py status --repo .` reporting a
+        present namespace — the one call that also refuses a repository in eval mode — and
+        nothing anywhere in the file probes for a wiki directory inside the repository."""
+        _, step = self.acceptance_step()
+        self.sentence(
+            step,
+            [
+                r"wiki\.py status",
+                r"--repo \.",
+                r"\bpresent\b",
+                r"namespace",
+                r"\b(only when|only if|unless)\b",
+            ],
+            "the wave-acceptance step must condition the entire recording step on "
+            "`python3 skills/wiki/scripts/wiki.py status --repo .` reporting a present "
+            "namespace — only when it does is anything recorded",
+        )
+        skill = self.skill()
+        # assertNotIn would dump the whole SKILL.md into the failure report.
+        self.assertTrue(
+            ".workcell/wiki" not in skill,
+            "the opt-in test is the `status` command, never a repository-local "
+            "`.workcell/wiki/` directory: the store lives outside every repository",
+        )
+        self.assertIsNone(
+            re.search(r"(\btest\s+-d\b|\[\s*-d\s)", skill),
+            "no shell directory test may stand in for `wiki.py status`",
+        )
+
+    def test_build_records_but_never_consolidates(self):
+        """One statement says `build` writes raw evidence only and names the `wiki` skill as
+        where consolidation happens, so nothing in the wave loop dispatches a documenter."""
+        self.sentence(
+            self.skill(),
+            [
+                r"\brecords?\b",
+                r"\braw\b",
+                r"\b(never|not|no)\b",
+                r"consolidat",
+                r"(`wiki`|wiki skill)",
+            ],
+            "SKILL.md must state, in one sentence, that `build` records raw evidence only "
+            "and never consolidates — that is the `wiki` skill's job",
+        )
+        self.assertTrue(
+            "documenter" not in self.wave_loop(),
+            "the wave loop dispatches no documenter: consolidation is not build's to run",
+        )
+
+    def test_recording_never_gates_a_merge(self):
+        """A failed or skipped record does not block or delay the merge, and the merge gate
+        is still exactly what it was: combined GREEN, fresh `tdd-guard status --json` for
+        every issue, and `gh pr checks` passing."""
+        skill = self.skill()
+        self.sentence(
+            skill,
+            [
+                r"fail\w*",
+                r"skip\w*",
+                r"record",
+                r"\b(never|not|no|nor)\b",
+                r"(block\w*|gate\w*|delay\w*|hold\w*|stop\w*)",
+                r"merge",
+            ],
+            "SKILL.md must state, in one sentence, that a failed or skipped record never "
+            "blocks or delays the merge",
+        )
+        self.sentence(
+            skill,
+            [r"combined GREEN", r"tdd-guard status --json", r"gh pr checks"],
+            "the merge gate must still be restated in one sentence as combined GREEN plus "
+            "a fresh `tdd-guard status --json` for every issue plus `gh pr checks` passing",
+        )
 
 
 if __name__ == "__main__":
