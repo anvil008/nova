@@ -30,7 +30,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 2. **Enter the workspace that was created for you** — by the `test-author` on a normal issue, or by the orchestrator on a behaviour-preserving refactor. It is named with the dispatch's `branch` and lives at its exact `workspace` path; it already contains tests sealed by the `test-author` for a normal issue or by the integrator for a refactor:
 
    ```bash
-   jj workspace list                       # confirm <branch> is live
+   workcell-ws list                        # = jj workspace list — confirm <branch> is live
    cd <workspace>
    ```
 
@@ -75,11 +75,10 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 7. **Delete your workspace, and only after the PR exists.** Forgetting stops tracking the working copy; the bookmark and its commits stay in the repo, so the open PR is unaffected:
 
    ```bash
-   jj workspace forget <branch>
-   rm -rf <workspace>
+   workcell-ws forget <branch>   # = jj workspace forget <branch> + rm -rf <workspace>
    ```
 
-   Never forget a workspace before the PR is open, and never `jj abandon` the bookmark the PR points at.
+   Never forget a workspace before the PR is open, and never `jj abandon` the bookmark the PR points at. The helper refuses to touch the primary working copy and never deletes the bookmark; if a run of yours ever dies before this step, `workcell-ws sweep` names what it stranded and `--apply` reclaims it. The standard is `docs/workspaces.md`.
 
 8. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with branch, PR, changedFiles, tests (every entry cites its `commandId`), the runtime evidence, the review passes and their outcome, result, and disposition.
 
