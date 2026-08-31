@@ -66,25 +66,25 @@ class GeneratorTests(unittest.TestCase):
         with temporary:
             generated = run(root, "scripts/sync-agents.py")
             self.assertEqual(generated.returncode, 0, generated.stderr)
-            path = root / "agents/claude/scribe.md"
+            path = root / "agents/claude/documenter.md"
             original = path.read_text(encoding="utf-8")
             path.write_text(original + "\ndrift\n", encoding="utf-8")
             drift = run(root, "scripts/sync-agents.py", "--check")
             self.assertEqual(drift.returncode, 1, drift.stderr)
-            self.assertIn("agents/claude/scribe.md", drift.stdout)
+            self.assertIn("agents/claude/documenter.md", drift.stdout)
             path.write_text(original, encoding="utf-8")
             clean = run(root, "scripts/sync-agents.py", "--check")
             self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
 
     def test_sync_agents_rejects_malformed_inputs(self):
         mutations = {
-            "nested only block": lambda root: (root / "agents/bodies/scribe.md").write_text(
-                (root / "agents/bodies/scribe.md").read_text(encoding="utf-8")
+            "nested only block": lambda root: (root / "agents/bodies/documenter.md").write_text(
+                (root / "agents/bodies/documenter.md").read_text(encoding="utf-8")
                 + "\n<!-- only:codex -->\n<!-- only:codex -->\n<!-- end -->\n<!-- end -->\n",
                 encoding="utf-8",
             ),
-            "unknown token": lambda root: (root / "agents/bodies/scribe.md").write_text(
-                (root / "agents/bodies/scribe.md").read_text(encoding="utf-8") + "\n{{undefinedToken}}\n",
+            "unknown token": lambda root: (root / "agents/bodies/documenter.md").write_text(
+                (root / "agents/bodies/documenter.md").read_text(encoding="utf-8") + "\n{{undefinedToken}}\n",
                 encoding="utf-8",
             ),
             "missing gate": self._set_missing_gate,
@@ -97,13 +97,13 @@ class GeneratorTests(unittest.TestCase):
                     mutate(root)
                     result = run(root, "scripts/sync-agents.py", "--check")
                     self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-                    self.assertRegex(result.stderr, r"scribe|agents\.json")
+                    self.assertRegex(result.stderr, r"documenter|agents\.json")
 
     @staticmethod
     def _set_missing_gate(root: Path) -> None:
         path = root / "agents/agents.json"
         manifest = json.loads(path.read_text(encoding="utf-8"))
-        manifest["agents"]["scribe"]["codex"]["gates"] = "does-not-exist"
+        manifest["agents"]["documenter"]["codex"]["gates"] = "does-not-exist"
         path.write_text(json.dumps(manifest), encoding="utf-8")
 
     @staticmethod
@@ -193,7 +193,7 @@ class GeneratorTests(unittest.TestCase):
         for harness, text in self.agent_variants("integrator"):
             with self.subTest(agent="integrator", harness=harness):
                 self.assert_mode_section(text, "mode: baseline")
-        for name in ("builder", "oracle"):
+        for name in ("builder", "specifier"):
             for harness, text in self.agent_variants(name):
                 with self.subTest(agent=name, harness=harness, check="no-issue"):
                     self.assertIn("`issue` is `null`", text)
@@ -212,7 +212,7 @@ class GeneratorTests(unittest.TestCase):
                 self.assertNotIn("skills/planner/SKILL.md", planner)
 
     def test_rationalization_tables_present(self):
-        for name in ("builder", "oracle", "planner"):
+        for name in ("builder", "specifier", "planner"):
             for harness, text in self.agent_variants(name):
                 with self.subTest(agent=name, harness=harness):
                     section = text.split("## Rationalizations", 1)

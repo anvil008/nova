@@ -17,9 +17,9 @@
       "id": 1,
       "kind": "dialogue",
       "prompt": "Optimize a measured hot path while preserving all observable results. Describe the correctness gate around the builder.",
-      "expected_output": "A benchmarked optimization transcript using a green baseline seal and no oracle.",
+      "expected_output": "A benchmarked optimization transcript using a green baseline seal and no specifier.",
       "expectations": [
-        "No oracle is dispatched for the behavior-preserving optimization.",
+        "No specifier is dispatched for the behavior-preserving optimization.",
         "An integrator proves the existing correctness tests green and seals them before the refactor-mode builder.",
         "The tests remain byte-identical and the post-change benchmark is compared against baseline spread."
       ]

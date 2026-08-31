@@ -71,8 +71,8 @@ class SkillContractTests(unittest.TestCase):
         for phrase in (
             "`mode: refactor`",
             "`mode: baseline`",
-            "no `oracle`",
-            "benchmarker baseline",
+            "no `specifier`",
+            "profiler baseline",
             "`baselineCommand`",
             "`sealedTests`",
             "`kind: baseline`",

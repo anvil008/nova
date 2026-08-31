@@ -36,7 +36,7 @@
   <path class="edge" marker-end="url(#arrow)" d="M 440 426 L 440 454"/>
   <path class="edge" marker-end="url(#arrow)" d="M 440 502 L 440 530"/>
   <path class="edge dashed" marker-end="url(#arrow-muted)" d="M 289 478 L 98 478 Q 89 478 89 469 L 89 259 Q 89 250 98 250 L 285 250"/>
-  <rect class="k-agent" x="115" y="74" width="310" height="48" rx="10"/><text class="label" x="270" y="94.5">oracle</text><text class="sub" x="270" y="110">writes the acceptance tests, then runs RED</text>
+  <rect class="k-agent" x="115" y="74" width="310" height="48" rx="10"/><text class="label" x="270" y="94.5">specifier</text><text class="sub" x="270" y="110">writes the acceptance tests, then runs RED</text>
   <rect class="k-agent" x="455" y="74" width="310" height="48" rx="10"/><text class="label" x="610" y="94.5">integrator (baseline)</text><text class="sub" x="610" y="110">behaviour-preserving work: proves the suite green</text>
   <polygon class="k-gate" points="305,150 575,150 591,174 575,198 305,198 289,174"/><text class="label" x="440" y="170.5">tdd-guard seal</text><text class="sub" x="440" y="186">kind: red, or kind: baseline for refactor work</text>
   <rect class="k-agent" x="285" y="226" width="310" height="48" rx="10"/><text class="label" x="440" y="246.5">builder implements</text><text class="sub" x="440" y="262">a different agent from the one that wrote the tests</text>
