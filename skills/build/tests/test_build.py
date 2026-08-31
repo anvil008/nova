@@ -24,6 +24,11 @@ SCRIPT = ROOT / "scripts" / "waves.py"
 EXAMPLES = ROOT / "examples"
 SIDECAR = EXAMPLES / "plan.sidecar.json"
 STATE = EXAMPLES / "issue-state.json"
+# The pull-forward fixture set: one unfinished wave-1 straggler, a later-wave issue whose
+# dependencies are already done, a deliberately coarse late hint that overlaps the straggler,
+# and an issue still blocked behind it.
+PULL_FORWARD = EXAMPLES / "pull-forward"
+REPO_ROOT = ROOT.parents[1]
 # The unedited response of `gh api repos/{owner}/{repo}/issues` for the demo milestone:
 # label objects, snake_case `state_reason`, and a pull request among the issues.
 GH_RAW = EXAMPLES / "gh-issues-raw.json"
@@ -456,8 +461,16 @@ class BuildSkillTests(unittest.TestCase):
         sidecar = {
             "planId": "overlap-test", "planName": "Overlap test", "repo": "owner/repo",
             "generatedAt": "2026-08-26T12:00:00Z", "summary": "Overlap testing",
-            "architecture": {"components": [], "diagramsMermaid": {}},
+            "architecture": {
+                "changeSummary": "Two issues that claim the same paths.",
+                "components": [{"name": "Build", "purpose": "Overlapping ownership."}],
+                "diagramsMermaid": {
+                    "currentArchitecture": "flowchart LR\n  A --- B",
+                    "targetArchitecture": "flowchart LR\n  A --- B",
+                },
+            },
             "issues": [issue("A"), issue("B")],
+            "risks": [],
         }
         snapshot = {
             "repo": "owner/repo", "milestone": "Overlap test",
@@ -469,16 +482,41 @@ class BuildSkillTests(unittest.TestCase):
         }
         return sidecar, snapshot
 
-    def test_wave_zero_not_hard_failed(self):
-        sidecar, snapshot = self._overlap_plan(0)
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr):
-            output = waves.derive(sidecar, waves.validate_snapshot(snapshot, sidecar))
-        self.assertEqual([item["key"] for item in output["unblocked"]], ["A", "B"])
-        lines = [line for line in stderr.getvalue().splitlines() if line.strip()]
-        self.assertEqual(len(lines), 1, stderr.getvalue())
+    def _run_overlap_plan(self, wave):
+        """The shared overlap pair, run the way the orchestrator runs it: as a process."""
+        sidecar, snapshot = self._overlap_plan(wave)
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar_path = Path(tmp) / "plan.sidecar.json"
+            snapshot_path = Path(tmp) / "issue-state.json"
+            sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+            snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+            return run_helper(sidecar_path, snapshot_path)
+
+    def test_wave_zero_overlap_serializes_instead_of_warning_only(self):
+        """Wave 0 is the ungrouped bucket, so an overlap there is not a plan defect — but a
+        warning the orchestrator has to act on by hand is not a safeguard. The pair is still
+        warned about once, naming both keys, and now exactly one of them is dispatchable."""
+        result = self._run_overlap_plan(0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual([item["key"] for item in output["unblocked"]], ["A"])
+        self.assertIn("deferred", output)
+        self.assertEqual([item["key"] for item in output["deferred"]], ["B"])
+        self.assertEqual(output["deferred"][0].get("overlapsWith"), "A")
+        lines = [line for line in result.stderr.splitlines() if line.strip()]
+        self.assertEqual(len(lines), 1, result.stderr)
+        for key in ("'A'", "'B'"):
+            self.assertIn(key, lines[0])
         self.assertIn("overlapping ownershiphint", lines[0].lower())
         self.assertIn("wave 0", lines[0].lower())
+
+    def test_declared_grouped_wave_overlap_still_fails(self):
+        """A grouped wave (1 and up) is the planner asserting parallelism; hints that cannot
+        deliver it are a plan defect, not something to quietly serialize."""
+        result = self._run_overlap_plan(1)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("overlapping ownershipHint", result.stderr)
+        self.assertEqual(result.stdout.strip(), "", "a rejected plan must print no dispatchable output")
 
     def test_grouped_wave_overlap_raises_without_warning(self):
         sidecar, snapshot = self._overlap_plan(1)
@@ -528,6 +566,163 @@ class BuildSkillTests(unittest.TestCase):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for phrase in ("`status:done`", "at most twice", "stalled", "escalate to the human"):
             self.assertIn(phrase, skill)
+
+    # --- dependency-gated selection with ownership deferral ----------------
+    def _pull_forward(self):
+        """The pull-forward fixture, run as a process, with its declared expectation."""
+        result = run_helper(PULL_FORWARD / "plan.sidecar.json", PULL_FORWARD / "issue-state.json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result, json.loads(result.stdout)
+
+    @staticmethod
+    def _entry(entries, key):
+        return next((item for item in entries if item["key"] == key), None)
+
+    def test_pull_forward_selects_a_ready_later_wave_issue(self):
+        """One straggler must not freeze an issue whose own dependencies are already merged.
+        `Core` is an unfinished wave-1 issue; `Docs` is declared in wave 2 and depends only on
+        the finished `Foundation`, so it is selected in the same round and flagged as pulled
+        forward. `currentWave` keeps its old meaning — the earliest unfinished declared wave —
+        as reporting, never as a filter."""
+        result, output = self._pull_forward()
+        keys = [item["key"] for item in output["unblocked"]]
+        self.assertEqual(keys, ["Core", "Docs"])
+
+        core = self._entry(output["unblocked"], "Core")
+        docs = self._entry(output["unblocked"], "Docs")
+        for entry in (core, docs):
+            self.assertIn("pulledForward", entry, "unblocked entries must report pulledForward")
+        self.assertIs(docs["pulledForward"], True, "a later declared wave was pulled forward")
+        self.assertEqual(docs["wave"], 2)
+        self.assertIs(core["pulledForward"], False, "an issue at the current wave is not pulled forward")
+        self.assertEqual(core["wave"], 1)
+
+        # currentWave is still the earliest declared wave holding an unfinished issue.
+        sidecar = json.loads((PULL_FORWARD / "plan.sidecar.json").read_text(encoding="utf-8"))
+        unfinished = [issue for issue in sidecar["issues"] if issue["key"] not in output["done"]]
+        self.assertEqual(output["currentWave"], min(issue["wave"] for issue in unfinished))
+        self.assertEqual(output["currentWave"], 1)
+        self.assertEqual(output["done"], ["Foundation"])
+
+        expected = json.loads((PULL_FORWARD / "expected-waves.json").read_text(encoding="utf-8"))
+        self.assertEqual(output, expected)
+        self.assertEqual(result.stdout, run_helper(
+            PULL_FORWARD / "plan.sidecar.json", PULL_FORWARD / "issue-state.json"
+        ).stdout)
+
+    def test_blocked_issue_is_never_selected(self):
+        """Pulling work forward must not pull it forward *past its dependencies*. `Followup`
+        depends on the unfinished `Core`, so it is neither dispatchable nor merely deferred."""
+        _, output = self._pull_forward()
+        sidecar = json.loads((PULL_FORWARD / "plan.sidecar.json").read_text(encoding="utf-8"))
+        followup = next(issue for issue in sidecar["issues"] if issue["key"] == "Followup")
+        self.assertEqual(followup["dependsOn"], ["Core"])
+        self.assertNotIn("Core", output["done"], "the fixture must keep Followup's dependency unfinished")
+        self.assertNotIn("Followup", [item["key"] for item in output["unblocked"]])
+        self.assertIn("deferred", output)
+        self.assertNotIn("Followup", [item["key"] for item in output["deferred"]])
+
+    def test_overlapping_candidate_is_deferred_not_dispatched(self):
+        """`Sweep` is ready — it has no dependencies at all — but its deliberately coarse
+        `src/**` hint collides with the already-selected `Core`. Selection order is by declared
+        wave, so the coarse late hint defers itself instead of starving what it overlaps, and
+        nothing overlapping is ever handed out concurrently."""
+        result, output = self._pull_forward()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("Sweep", [item["key"] for item in output["unblocked"]])
+        self.assertIn("deferred", output, "the dry-run must report the candidates it held back")
+        deferred = self._entry(output["deferred"], "Sweep")
+        self.assertIsNotNone(deferred, "a ready but overlapping candidate must be reported as deferred")
+        self.assertEqual(deferred["overlapsWith"], "Core")
+        self.assertEqual(deferred["ownershipHint"], "src/**")
+        self.assertEqual(deferred["wave"], 3)
+        self.assertEqual(deferred["number"], 204)
+        self.assertTrue(
+            waves.globs_overlap(deferred["ownershipHint"], self._entry(output["unblocked"], "Core")["ownershipHint"]),
+            "the fixture must actually collide, or this test proves nothing",
+        )
+        hints = [item["ownershipHint"] for item in output["unblocked"]]
+        for index, first in enumerate(hints):
+            for second in hints[index + 1:]:
+                self.assertFalse(
+                    waves.globs_overlap(first, second),
+                    f"concurrently dispatchable hints must be disjoint: {first!r} and {second!r}",
+                )
+
+    def _documented_waves_command(self, fixture):
+        """The `waves.py` invocation SKILL.md actually publishes for a given fixture."""
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        blocks = [
+            block for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
+            if "waves.py" in block and fixture in block
+        ]
+        self.assertEqual(
+            len(blocks), 1,
+            f"SKILL.md must document exactly one offline dry-run over {fixture}",
+        )
+        lines = [
+            line for line in blocks[0].splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        return "\n".join(lines).strip()
+
+    def test_shipped_demo_selection_is_unchanged_and_deterministic(self):
+        """The new fields must not move the shipped demo's outcome: `API` and `UI` remain the
+        two dispatchable issues, neither pulled forward, with nothing deferred. Run the command
+        SKILL.md publishes, not a restatement of it."""
+        command = self._documented_waves_command("examples/plan.sidecar.json")
+        runs = [
+            subprocess.run(
+                ["bash", "-c", command], cwd=REPO_ROOT, text=True, capture_output=True, check=False,
+            )
+            for _ in range(2)
+        ]
+        for run in runs:
+            self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(runs[0].stdout, runs[1].stdout, "the offline dry-run must be byte-identical")
+        output = json.loads(runs[0].stdout)
+        expected = json.loads((EXAMPLES / "expected-waves.json").read_text(encoding="utf-8"))
+        self.assertEqual(output, expected)
+        self.assertEqual([item["key"] for item in output["unblocked"]], ["API", "UI"])
+        for item in output["unblocked"]:
+            self.assertIs(item["pulledForward"], False, item)
+        self.assertEqual(output["deferred"], [])
+        self.assertEqual(output["currentWave"], 2)
+
+    def test_skill_text_defines_dependency_gated_selection(self):
+        """The prose the orchestrator reads has to describe the selection it will actually get:
+        dependency-gated, checked for ownership across the whole in-flight set, with collisions
+        deferred to a later round rather than serialized by hand."""
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        retired = (
+            "The current wave is every unblocked, not-done issue in the earliest unfinished declared wave.",
+            "must be serialized by hand",
+        )
+        for phrase in retired:
+            # assertNotIn would dump the whole SKILL.md into the failure report.
+            self.assertTrue(phrase not in skill, f"retired wave-selection prose survives: {phrase!r}")
+        for phrase in (
+            "regardless of declared wave",   # selection is gated on dependencies, not on the wave
+            "earliest unfinished declared wave",  # currentWave keeps its meaning, as reporting
+            "in-flight set",                 # the ownership check spans every candidate
+            "deferred",
+            "later round",
+            "pulled forward",
+        ):
+            self.assertTrue(phrase in skill, f"SKILL.md must state: {phrase!r}")
+        # Pins other tests depend on, restated here so this edit cannot quietly drop them.
+        for phrase in (
+            "current wave",
+            "combined GREEN",
+            "closed **and** (`status:done` or `state_reason == completed`)",
+            "waves.py",
+        ):
+            self.assertTrue(phrase in skill, f"pinned prose lost: {phrase!r}")
+        # The offline demonstration gains the pull-forward fixture, and exactly one capture
+        # command may remain: test_documented_capture_command_produces_a_valid_snapshot
+        # requires a single `gh ... | jq` block.
+        self._documented_waves_command("examples/pull-forward/plan.sidecar.json")
+        self._documented_capture_command()
 
 
 if __name__ == "__main__":
