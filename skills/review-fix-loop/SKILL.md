@@ -12,7 +12,7 @@ You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure
 
 This orchestrator owns `loop-branch`, the iteration bound, and the stop decision returned by `loop_state.py`.
 
-The harness `/loop` provides the repetition. This skill provides what one iteration *does* and,
+The harness `/loop` provides the repetition. This skill provides what one iteration _does_ and,
 more importantly, when the loop must stop. Loop state lives in a file rather than in the session,
 because `/loop` re-invokes with a fresh context each tick and an agent that cannot remember which
 pass it is on will happily run forever.
@@ -67,20 +67,24 @@ Do this once, then never again for the life of the loop.
 2. **Decide.** Feed the merged review to the state file and obey the answer:
 
    ```bash
-   python3 skills/review-fix-loop/scripts/loop_state.py record review.json
+   python3 skills/review-fix-loop/scripts/loop_state.py record .workcell/review-pass-<n>.json
    ```
+
+   Give each pass's merged review its own pass number and keep it. The state file holds counts
+   and a fingerprint, never the findings, so a single overwritten `review.json` would leave the
+   loop with only its last pass to account for.
 
    It prints `continue`, plus the iteration count and a reason. It stops the loop on:
 
-   | Status | Meaning |
-   |---|---|
-   | `converged` | No findings at or above `--min-severity`. Lower findings may remain — `latest.findings` counts them, and the merged review JSON lists them. This is the good ending. |
-   | `stalled` | Two consecutive passes reported an *identical* set of findings at or above `--min-severity` — the fixer is not moving. Clearing only lower findings does not count as movement. |
-   | `exhausted` | Hit the iteration bound. |
+   | Status      | Meaning                                                                                                                                                                         |
+   | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `converged` | No findings at or above `--min-severity`. Lower findings may remain — `latest.findings` counts them, and the merged review JSON lists them. This is the good ending.            |
+   | `stalled`   | Two consecutive passes reported an _identical_ set of findings at or above `--min-severity` — the fixer is not moving. Clearing only lower findings does not count as movement. |
+   | `exhausted` | Hit the iteration bound.                                                                                                                                                        |
 
 3. **Fix — only if `continue` is true.** Dispatch the `builder` to fix the reported findings,
    ranked by severity, `critical` and `high` first. Findings below `--min-severity` are optional
-   for the builder; fixing them is welcome but not what the loop is waiting on. Its dispatch brief conforms to [`agents/handoff.md`](../../agents/handoff.md) and carries `mode: loop`: use the existing working copy on `loop-branch`, open no PR, and run no self-review passes. The brief also carries the findings, implicated ownership, documented verification command, and any sealed-test paths; everything else holds, including `tdd-guard reseal --reason <text>` for a justified sealed-test amendment.
+   for the builder; fixing them is welcome but not what the loop is waiting on. Its dispatch brief conforms to [`agents/handoff.md`](../../agents/handoff.md) and carries `mode: loop`: use the existing working copy on `loop-branch`, open no PR, and run no self-review passes. The `mode: loop` brief carries the findings, the implicated ownership, the documented verification command, and any sealed-test paths — and never the wiki or a namespace path, because the store sits outside every repository and the brief is the only way it could reach the fixer. Everything else holds, including `tdd-guard reseal --reason <text>` for a justified sealed-test amendment.
 
 4. **Verify and commit.** Read the builder's command-linked verification evidence. A red suite ends the iteration — commit nothing, and let the next pass see the same findings, which is exactly the signal `stalled` is designed to catch. On green, commit the iteration with the pass number in the message.
 
@@ -102,6 +106,60 @@ unsupervised change, so the loop is designed to end early and honestly rather th
 In all three cases the work sits on `loop-branch` and nothing has merged. Opening a PR, filing the
 remaining findings as issues (`reconcile_findings.py`), or discarding the branch is the human's
 call.
+
+## When the loop stops — consolidate what the passes learned
+
+The loop's endings are worth remembering: `converged`, `stalled`, and `exhausted` all consolidate
+here, because a stalled or exhausted ending says more about the change than a clean one does and
+throwing it away leaves the next loop to rediscover it. It runs once the loop has reported its
+ending status, pass count, and remaining findings, and it neither changes that report nor stands in
+for it; it is the only place in this skill that touches the [`wiki`](../wiki/SKILL.md).
+
+1. **Ask whether the project opted in.** This is a command, never a directory test: the store
+   lives outside every repository, so nothing in the working copy can answer it.
+
+   ```bash
+   python3 -B skills/wiki/scripts/wiki.py status --repo .
+   ```
+
+   It prints the resolved `projectKey`, the namespace path, and `present`. When `present: false`
+   comes back the project has no namespace, and the loop ends exactly as it ends today — no
+   record, no dispatch, no extra tokens, and nothing changed about what the human was handed. The
+   same command refuses a repository in eval mode, which ends this step the same way.
+
+2. **Record the evidence, before anything is dispatched.** One write-once bundle holds every pass's
+   merged review with the loop state beside them, so the reading that follows has something
+   immutable to point at:
+
+   ```bash
+   python3 -B skills/wiki/scripts/wiki.py record --repo . \
+     --id <YYYY-MM-DD>-review-fix-loop-<slug> --kind review-fix-loop \
+     --summary "<ending status and pass count>" \
+     --file .workcell/review-pass-1.json --file .workcell/review-pass-<n>.json \
+     --file .workcell/review-fix-loop.json
+   ```
+
+   This copies files that already exist and writes no prose, which is why the orchestrator runs it
+   before there is any agent to attribute a write to; every page of prose is composed later, by the
+   agent dispatched in step 3, through this same CLI. `record` prints the raw id it wrote, and the
+   dispatch below cites that printed id rather than a path.
+
+3. **Dispatch the consolidation.** Exactly one `documenter` dispatch, conforming to
+   [`agents/handoff.md`](../../agents/handoff.md); a fan-out would race on the same append-only
+   pages. Its `ownership` is the namespace path that `status` printed —
+   `~/.workcell/wiki/<project-key>/**` — resolved at dispatch time rather than written here as a
+   literal. The brief carries that ownership, the raw id, the ending status and the pass count,
+   the question worth answering — what recurred across the passes, and what the fixer could not
+   reach from the findings alone — and
+   [`skills/wiki/references/wiki-layout.md`](../wiki/references/wiki-layout.md) as the artifact
+   contract it writes to. The agent composes its own prose and passes it to `wiki.py`, and never
+   edits a file in the namespace directly — one CLI as the sole writer is what keeps write-once
+   bundles, append-only pages, and the invariants `check` re-proves true.
+
+4. **Read the gate.** The exit step is done when `wiki.py check` exits zero, having re-hashed
+   every recorded file against its manifest and re-linked every citation. The orchestrator never
+   reads the pattern pages to judge them; it sends each offender `check` names back to the same
+   agent instead of repairing a namespace itself.
 
 ## Boundaries
 
