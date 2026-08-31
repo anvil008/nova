@@ -142,7 +142,9 @@ def is_done(issue: dict) -> bool:
     issue is never done however it is labelled. Kept in step with
     skills/planner/scripts/reconcile_github.py:is_done."""
     return issue["state"] == "closed" and (
-        "status:done" in label_names(issue["labels"]) or issue.get("state_reason") == "completed"
+        # `or []` only satisfies the type checker: validate_snapshot has already rejected any
+        # label shape label_names() cannot normalise, so None never reaches here.
+        "status:done" in (label_names(issue["labels"]) or []) or issue.get("state_reason") == "completed"
     )
 
 
@@ -233,8 +235,9 @@ def globs_overlap(g1: str, g2: str) -> bool:
 
 
 def validate_ownership_overlap(plan: dict) -> None:
-    """Overlapping ownership inside a grouped wave is a hard error; wave 0 is the
-    ungrouped bucket, so an overlap there only warns."""
+    """Overlapping ownership inside a grouped wave is a hard error — the planner asserted a
+    parallelism the hints cannot deliver. Wave 0 is the ungrouped bucket, so an overlap there
+    only warns; derive() then defers the second issue rather than dispatching the pair."""
     waves_dict: dict[int, list[dict]] = {}
     for issue in plan["issues"]:
         waves_dict.setdefault(issue["wave"], []).append(issue)
@@ -270,19 +273,37 @@ def derive(plan: dict, snapshot: dict[str, dict]) -> dict:
     waves = [{"wave": wave, "issues": keys} for wave, keys in sorted(ordered_waves.items())]
     done = [issue["key"] for issue in plan["issues"] if is_done(snapshot[issue["key"]])]
     unfinished = [issue for issue in plan["issues"] if issue["key"] not in done]
+    # Reporting only: the earliest declared wave still holding an unfinished issue. It is what
+    # `pulledForward` is measured against, never a filter on selection.
     current_wave = min((issue["wave"] for issue in unfinished), default=None)
-    unblocked = []
-    for issue in unfinished:
-        if issue["wave"] != current_wave:
-            continue
-        if all(is_done(snapshot[dependency]) for dependency in issue["dependsOn"]):
-            state = snapshot[issue["key"]]
-            unblocked.append({
-                "key": issue["key"],
-                "number": state["number"],
-                "ownershipHint": issue["ownershipHint"],
-                "wave": issue["wave"],
-            })
+    # Dependency-gated: a candidate is any not-done issue whose dependencies are all done,
+    # whatever wave declared it, so one straggler cannot freeze work that is already ready.
+    # Ordered by declared wave first, so a deliberately coarse late hint (a whole-repository
+    # documentation pass, say) defers itself rather than starving the issues it overlaps;
+    # sorted() is stable, so sidecar order breaks ties inside a wave.
+    ready = sorted(
+        (issue for issue in unfinished if all(is_done(snapshot[dep]) for dep in issue["dependsOn"])),
+        key=lambda issue: issue["wave"],
+    )
+    unblocked: list[dict] = []
+    deferred: list[dict] = []
+    for issue in ready:
+        entry = {
+            "key": issue["key"],
+            "number": snapshot[issue["key"]]["number"],
+            "ownershipHint": issue["ownershipHint"],
+            "wave": issue["wave"],
+        }
+        # Ownership is checked across the whole in-flight set, not per declared wave: an
+        # overlapping candidate is deferred to a later round, never dispatched concurrently.
+        clash = next(
+            (chosen for chosen in unblocked if globs_overlap(chosen["ownershipHint"], entry["ownershipHint"])),
+            None,
+        )
+        if clash:
+            deferred.append({**entry, "overlapsWith": clash["key"]})
+        else:
+            unblocked.append({**entry, "pulledForward": issue["wave"] > current_wave})
     return {
         "planId": plan["planId"],
         "planName": plan["planName"],
@@ -290,6 +311,7 @@ def derive(plan: dict, snapshot: dict[str, dict]) -> dict:
         "waves": waves,
         "currentWave": current_wave,
         "unblocked": unblocked,
+        "deferred": deferred,
         "done": done,
     }
 
