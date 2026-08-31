@@ -106,7 +106,7 @@ type TestObservation struct {
 	Tests   []TestSealTest
 	Green   CheckEvidence
 	Command CommandEvidence
-	// Guard is the record set anvil-guard produced. When present, the green
+	// Guard is the record set tdd-guard produced. When present, the green
 	// command must be one of those records rather than an id the verifier
 	// simply wrote down.
 	Guard *GuardSnapshot

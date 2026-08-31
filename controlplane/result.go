@@ -84,7 +84,7 @@ type DiffReview struct {
 // ArchReview is the executable architecture-conformance evidence a multi-file
 // or feature change carries beside its diff review. Structural design has to be
 // a check the machine ran, not prose the agent wrote (CodeSpec RQ3), so the
-// cited command must resolve to the arch-review run anvil-guard recorded: the
+// cited command must resolve to the arch-review run tdd-guard recorded: the
 // digest pins the assertion set, and the passed/assertions summary says how many
 // structural rules held.
 type ArchReview struct {
@@ -190,7 +190,7 @@ type ResultExpectation struct {
 	CapabilityDigest        string
 	RequiredChecks          []string
 	RequiredArtifacts       []string
-	// Guard is the record set anvil-guard produced for this repository. When
+	// Guard is the record set tdd-guard produced for this repository. When
 	// present, every cited commandId must resolve inside it.
 	Guard *GuardSnapshot
 }

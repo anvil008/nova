@@ -16,8 +16,7 @@ The symptom is usually a failure — a stack trace, a failing job, a flaky test.
 
 1. **Reproduce before theorizing.** Take the report — a stack trace, a failing CI job, a customer description, a flaky test — and drive it to a command that fails on demand. Record the exact argv, the environment, and the observed output. Until you have that, everything else is speculation dressed as analysis.
 
-   When the symptom lives in a web UI, reproduce it in a real browser, not by reading the code:
-   drive the page with the `agent-browser` CLI — `open <url>`, `snapshot`, `eval <js>`, `console`, `errors`. Run `agent-browser skills get core` first if unsure.
+   When the symptom lives in a web UI, reproduce it in a real browser, not by reading the code: drive the page with the `agent-browser` CLI — `open <url>`, `snapshot`, `eval <js>`, `console`, `errors` — and read what the shell cannot see through its diagnostics: `network requests [--filter <pattern>]` for the waterfall, `network har start|stop` for full request detail, `trace start|stop` for a Chrome DevTools performance trace. Run `agent-browser skills get core` first if unsure.
 
    If it will not reproduce, that is a finding, not a failure: report what you tried, what the report implies must be true, and which of those you could not establish. A bug that cannot be reproduced must not be "fixed" by guessing.
 

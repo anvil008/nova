@@ -29,7 +29,7 @@ harness's own CLI:
 
 ```
 <cli> plugin marketplace add <repo>
-<cli> plugin install workcell@workcell-local
+<cli> plugin install workcell@workcell
 ```
 
 The root is the marketplace root deliberately. Each wrapper reaches the single source

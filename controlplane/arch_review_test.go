@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// archReviewSnapshot is the record set anvil-guard produced when it ran the
+// archReviewSnapshot is the record set tdd-guard produced when it ran the
 // structural architecture-conformance check itself.
 func archReviewSnapshot() *GuardSnapshot {
 	snapshot := guardSnapshot()
@@ -41,7 +41,7 @@ func resultWithArchReview(t *testing.T) (WorkflowResult, ResultExpectation) {
 }
 
 // The executable architecture check is a structural design gate, so its cited
-// command must resolve to an arch-review run anvil-guard actually performed.
+// command must resolve to an arch-review run tdd-guard actually performed.
 func TestWorkflowResultArchReviewMustResolveToAGuardRecord(t *testing.T) {
 	result, expected := resultWithArchReview(t)
 	expected.Guard = archReviewSnapshot()

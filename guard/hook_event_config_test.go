@@ -19,8 +19,8 @@ func TestHookEventUnsealed(t *testing.T) {
 			if strings.TrimSpace(stdout) != "" {
 				t.Fatalf("stdout = %q, want empty", stdout)
 			}
-			if !strings.Contains(stderr, "anvil-guard hook misconfigured: --event") {
-				t.Fatalf("stderr = %q, want containing 'anvil-guard hook misconfigured: --event'", stderr)
+			if !strings.Contains(stderr, "tdd-guard hook misconfigured: --event") {
+				t.Fatalf("stderr = %q, want containing 'tdd-guard hook misconfigured: --event'", stderr)
 			}
 		})
 
@@ -32,8 +32,8 @@ func TestHookEventUnsealed(t *testing.T) {
 			if strings.TrimSpace(stdout) != "" {
 				t.Fatalf("stdout = %q, want empty", stdout)
 			}
-			if !strings.Contains(stderr, "anvil-guard hook misconfigured: --event") {
-				t.Fatalf("stderr = %q, want containing 'anvil-guard hook misconfigured: --event'", stderr)
+			if !strings.Contains(stderr, "tdd-guard hook misconfigured: --event") {
+				t.Fatalf("stderr = %q, want containing 'tdd-guard hook misconfigured: --event'", stderr)
 			}
 		})
 
@@ -76,8 +76,8 @@ func TestHookEventSealed(t *testing.T) {
 					t.Fatalf("decision = %v, want deny", inner["permissionDecision"])
 				}
 				reason := inner["permissionDecisionReason"].(string)
-				if !strings.HasPrefix(reason, "anvil-guard hook misconfigured: --event") {
-					t.Fatalf("reason = %q, want prefix 'anvil-guard hook misconfigured: --event'", reason)
+				if !strings.HasPrefix(reason, "tdd-guard hook misconfigured: --event") {
+					t.Fatalf("reason = %q, want prefix 'tdd-guard hook misconfigured: --event'", reason)
 				}
 			case "codex":
 				if code != 0 {
@@ -91,8 +91,8 @@ func TestHookEventSealed(t *testing.T) {
 					t.Fatalf("decision = %v, want block", decoded["decision"])
 				}
 				reason := decoded["reason"].(string)
-				if !strings.HasPrefix(reason, "anvil-guard hook misconfigured: --event") {
-					t.Fatalf("reason = %q, want prefix 'anvil-guard hook misconfigured: --event'", reason)
+				if !strings.HasPrefix(reason, "tdd-guard hook misconfigured: --event") {
+					t.Fatalf("reason = %q, want prefix 'tdd-guard hook misconfigured: --event'", reason)
 				}
 			case "agy":
 				if code != 0 {
@@ -106,8 +106,8 @@ func TestHookEventSealed(t *testing.T) {
 					t.Fatalf("decision = %v, want deny", decoded["decision"])
 				}
 				reason := decoded["reason"].(string)
-				if !strings.HasPrefix(reason, "anvil-guard hook misconfigured: --event") {
-					t.Fatalf("reason = %q, want prefix 'anvil-guard hook misconfigured: --event'", reason)
+				if !strings.HasPrefix(reason, "tdd-guard hook misconfigured: --event") {
+					t.Fatalf("reason = %q, want prefix 'tdd-guard hook misconfigured: --event'", reason)
 				}
 			}
 		})
@@ -129,8 +129,8 @@ func TestHookEventSealed(t *testing.T) {
 					t.Fatalf("decision = %v, want deny", inner["permissionDecision"])
 				}
 				reason := inner["permissionDecisionReason"].(string)
-				if !strings.HasPrefix(reason, "anvil-guard hook misconfigured: --event") {
-					t.Fatalf("reason = %q, want prefix 'anvil-guard hook misconfigured: --event'", reason)
+				if !strings.HasPrefix(reason, "tdd-guard hook misconfigured: --event") {
+					t.Fatalf("reason = %q, want prefix 'tdd-guard hook misconfigured: --event'", reason)
 				}
 			case "codex":
 				if code != 0 {
@@ -144,8 +144,8 @@ func TestHookEventSealed(t *testing.T) {
 					t.Fatalf("decision = %v, want block", decoded["decision"])
 				}
 				reason := decoded["reason"].(string)
-				if !strings.HasPrefix(reason, "anvil-guard hook misconfigured: --event") {
-					t.Fatalf("reason = %q, want prefix 'anvil-guard hook misconfigured: --event'", reason)
+				if !strings.HasPrefix(reason, "tdd-guard hook misconfigured: --event") {
+					t.Fatalf("reason = %q, want prefix 'tdd-guard hook misconfigured: --event'", reason)
 				}
 			case "agy":
 				if code != 0 {
@@ -159,8 +159,8 @@ func TestHookEventSealed(t *testing.T) {
 					t.Fatalf("decision = %v, want deny", decoded["decision"])
 				}
 				reason := decoded["reason"].(string)
-				if !strings.HasPrefix(reason, "anvil-guard hook misconfigured: --event") {
-					t.Fatalf("reason = %q, want prefix 'anvil-guard hook misconfigured: --event'", reason)
+				if !strings.HasPrefix(reason, "tdd-guard hook misconfigured: --event") {
+					t.Fatalf("reason = %q, want prefix 'tdd-guard hook misconfigured: --event'", reason)
 				}
 			}
 		})
@@ -182,7 +182,7 @@ func TestHookEventSealed(t *testing.T) {
 				if validEvent == "Stop" || validEvent == "SubagentStop" {
 					// Should refuse stop because no green evidence
 					if harness == "claude" {
-						if code != 2 || !strings.Contains(stderr, "anvil-guard:") {
+						if code != 2 || !strings.Contains(stderr, "tdd-guard:") {
 							t.Fatalf("claude stop refusal exit=%d stderr=%q", code, stderr)
 						}
 					} else if harness == "codex" {
@@ -229,8 +229,8 @@ func TestHookEventTargetRepositorySealedFromOutsideCwd(t *testing.T) {
 		t.Fatalf("decision = %v, want deny", inner["permissionDecision"])
 	}
 	reason := inner["permissionDecisionReason"].(string)
-	if !strings.HasPrefix(reason, "anvil-guard hook misconfigured: --event") {
-		t.Fatalf("reason = %q, want prefix 'anvil-guard hook misconfigured: --event'", reason)
+	if !strings.HasPrefix(reason, "tdd-guard hook misconfigured: --event") {
+		t.Fatalf("reason = %q, want prefix 'tdd-guard hook misconfigured: --event'", reason)
 	}
 }
 

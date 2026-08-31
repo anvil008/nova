@@ -4,14 +4,13 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import re
 import sys
 from pathlib import Path, PurePath
 
-ROOT = Path(__file__).resolve().parents[1]
-PLANNER_VALIDATOR = ROOT.parent / "planner" / "scripts" / "render_plan.py"
+import plan_sidecar
+
 SNAPSHOT_FIELDS = {"repo", "milestone", "issues"}
 STATE_ISSUE_FIELDS = {"number", "body", "labels", "state"}
 # Optional: hand-written snapshots predate it, `gh` always supplies it.
@@ -28,15 +27,6 @@ class BuildError(ValueError):
     pass
 
 
-def planner_module():
-    spec = importlib.util.spec_from_file_location("v3_planner_render", PLANNER_VALIDATOR)
-    if spec is None or spec.loader is None:
-        raise BuildError(f"cannot load planner validator: {PLANNER_VALIDATOR}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def exact_fields(value: dict, expected: set[str], where: str, optional: frozenset[str] = frozenset()) -> None:
     missing = expected - value.keys()
     unknown = value.keys() - expected - optional
@@ -50,8 +40,8 @@ def label_names(labels: object) -> list[str] | None:
     """gh's label shape, normalised: `gh api repos/{repo}/issues` and
     `gh issue list --json labels` both return label objects, while hand-written
     snapshots use strings. Mirrors label_names() in the sibling
-    skills/planner/scripts/reconcile_github.py, duplicated because build loads only
-    the planner's sidecar validator. Returns None if any entry is neither shape."""
+    skills/plan/scripts/reconcile_github.py, duplicated because build ships
+    self-contained. Returns None if any entry is neither shape."""
     if not isinstance(labels, list):
         return None
     names: list[str] = []
@@ -140,7 +130,7 @@ def is_done(issue: dict) -> bool:
     A `not_planned` closure is housekeeping — reconcile_github.py closes stale issues
     that way precisely so they are never mistaken for finished work — and an open
     issue is never done however it is labelled. Kept in step with
-    skills/planner/scripts/reconcile_github.py:is_done."""
+    skills/plan/scripts/reconcile_github.py:is_done."""
     return issue["state"] == "closed" and (
         # `or []` only satisfies the type checker: validate_snapshot has already rejected any
         # label shape label_names() cannot normalise, so None never reaches here.
@@ -322,8 +312,7 @@ def main() -> int:
     parser.add_argument("snapshot", type=Path)
     args = parser.parse_args()
     try:
-        validator = planner_module()
-        plan = validator.validate_plan(json.loads(args.sidecar.read_text(encoding="utf-8")))
+        plan = plan_sidecar.validate_plan(json.loads(args.sidecar.read_text(encoding="utf-8")))
         snapshot = validate_snapshot(json.loads(args.snapshot.read_text(encoding="utf-8")), plan)
         print(json.dumps(derive(plan, snapshot), indent=2, sort_keys=False))
     except (OSError, json.JSONDecodeError, BuildError, ValueError) as error:

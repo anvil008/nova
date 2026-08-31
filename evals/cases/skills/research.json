@@ -9,7 +9,7 @@
     ],
     "negative": [
       {"prompt": "Investigate exactly the storage subsystem and return its structured source-backed findings.", "owner": "agent:researcher"},
-      {"prompt": "Turn this repository change into an approved implementation folio and issue sidecar.", "owner": "skill:planner"}
+      {"prompt": "Turn this repository change into an approved implementation folio and issue sidecar.", "owner": "skill:plan"}
     ]
   },
   "evals": [

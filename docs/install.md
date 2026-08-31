@@ -16,15 +16,14 @@ whole machine, and upgrading from an earlier install.
    is present in apm's single global scope (`~/.apm/apm.yml`), the CLI the `builder` and `reviewer`
    drive browsers through on every harness.
 3. Runs `scripts/bootstrap-tools.sh --install` (external dependencies, the `tdd-guard` gate, and the
-   `agent-browser` CLI binary itself), then `scripts/bootstrap-plugins.sh` (MCP servers and the
-   Workcell plugin, into every harness found).
+   `agent-browser` CLI binary itself), then `scripts/bootstrap-plugins.sh` (the Workcell plugin,
+   into every harness found).
 
-`bootstrap-plugins.sh` also registers the `chrome-devtools` MCP server (`npx -y
-chrome-devtools-mcp@latest`, the `debugger`'s deep diagnostic surface — see
-[docs/gates.md](gates.md)) at user scope in whichever of Claude, Codex, Antigravity, and Grok are
-installed, through each harness's own CLI — apm's MCP entries are project-scoped only. It retires
-any `playwright` MCP entry it previously registered under that exact command, and never touches an
-entry it did not write.
+No MCP server is registered: every browser surface, the `debugger`'s diagnostics included
+(network waterfall, HAR capture, performance traces), runs through the `agent-browser` CLI
+(ADR 0012), which costs no per-session tool tokens. `bootstrap-plugins.sh` retires the
+`playwright` and `chrome-devtools` MCP entries earlier versions registered — only when an entry
+still runs exactly the command Workcell wrote; it never touches an entry it did not write.
 
 Each step is idempotent and safe to re-run; `scripts/bootstrap.sh --uninstall` reverses only the
 plugin installer (the tools stay, since other work may share them).

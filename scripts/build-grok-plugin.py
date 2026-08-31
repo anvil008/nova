@@ -26,10 +26,11 @@ rewritten to ../skills/; ../handoff.md already resolves to the copied file.
 
 from __future__ import annotations
 
-import json
 import shutil
 import sys
 from pathlib import Path
+
+import lib_dist
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist" / "grok"
@@ -52,31 +53,25 @@ def main() -> int:
                 f"missing {required.relative_to(ROOT)} — run scripts/sync-agents.py first"
             )
 
-    shutil.rmtree(DIST, ignore_errors=True)
-    PLUGIN.mkdir(parents=True)
+    lib_dist.reset_dist(DIST, PLUGIN)
 
-    (DIST / ".grok-plugin").mkdir()
-    (DIST / ".grok-plugin" / "marketplace.json").write_text(
-        json.dumps(
-            {
-                "name": "workcell-local",
-                "owner": {"name": "Foundry Zero"},
-                "metadata": {
-                    "description": "Staged marketplace for the Workcell Grok Build plugin."
-                },
-                "plugins": [
-                    {
-                        "name": "workcell",
-                        "source": "./plugins/workcell",
-                        "description": "Workcell: multi-agent planning, building, review, and docs for Grok Build.",
-                        "category": "Developer Tools",
-                    }
-                ],
+    lib_dist.write_json(
+        DIST / ".grok-plugin" / "marketplace.json",
+        {
+            "name": "workcell",
+            "owner": {"name": "Foundry Zero"},
+            "metadata": {
+                "description": "Staged marketplace for the Workcell Grok Build plugin."
             },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
+            "plugins": [
+                {
+                    "name": "workcell",
+                    "source": "./plugins/workcell",
+                    "description": "Workcell: multi-agent planning, building, review, and docs for Grok Build.",
+                    "category": "Developer Tools",
+                }
+            ],
+        },
     )
 
     (PLUGIN / ".claude-plugin").mkdir()

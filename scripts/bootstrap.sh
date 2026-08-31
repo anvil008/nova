@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # bootstrap.sh — the whole Workcell setup in one command, at user (global) level.
 #
-#   scripts/bootstrap.sh              # apm + external tools + MCP servers + the plugin, every harness
+#   scripts/bootstrap.sh              # apm + external tools + the plugin, every harness
 #   scripts/bootstrap.sh --uninstall  # remove everything the plugin installer owns
 #
 # A thin orchestrator over the existing trio, in dependency order:
@@ -14,7 +14,7 @@
 #                               package model), so apm is a peer tool here, not the
 #                               installer.
 #   2. bootstrap-tools.sh       external binaries + the tdd-guard gate + hook wrappers
-#   3. bootstrap-plugins.sh     MCP servers and the Workcell plugin, into every harness found
+#   3. bootstrap-plugins.sh     the Workcell plugin, into every harness found
 #
 # Each step is idempotent; re-run at will. Uninstall reverses only step 3: the
 # tools are shared with other work and stay.

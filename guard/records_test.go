@@ -32,7 +32,7 @@ func recordsByKind(t *testing.T, records []controlplane.GuardRecord) map[string]
 	return byKind
 }
 
-// The orchestrator has to be able to tell a commandId anvil-guard produced from
+// The orchestrator has to be able to tell a commandId tdd-guard produced from
 // one an agent typed, so `status --json` publishes the records with their
 // evidence rather than a bare boolean.
 func TestStatusJSONListsTheRecordsGuardProduced(t *testing.T) {
