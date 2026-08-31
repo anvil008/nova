@@ -38,12 +38,14 @@ mkjj(){  # mkjj DIR -> a colocated jj repo whose trunk() resolves through a loca
   jj git init --colocate "$1" >/dev/null 2>&1
 }
 # merge_in VCS REPO REF -> put REF strictly behind the default branch, the way a merged pull
-# request leaves it. The jj side moves the remote-tracking ref trunk() resolves through.
+# request leaves it. The jj side moves the remote-tracking ref trunk() resolves through, keeping
+# the old tip as a second parent so successive merges accumulate rather than replace each other.
 merge_in(){
-  local vcs=$1 repo=$2 ref=$3 tip new
+  local vcs=$1 repo=$2 ref=$3 tip head new
   if [[ $vcs == jj ]]; then
     tip=$(jj -R "$repo" --ignore-working-copy log --no-graph -r "$ref" -T 'commit_id') || return 1
-    new=$(git -C "$repo" commit-tree "$tip^{tree}" -p "$tip" -m "merge $ref") || return 1
+    head=$(git -C "$repo" rev-parse refs/remotes/origin/main) || return 1
+    new=$(git -C "$repo" commit-tree "$tip^{tree}" -p "$tip" -p "$head" -m "merge $ref") || return 1
     git -C "$repo" update-ref refs/remotes/origin/main "$new" || return 1
     jj -R "$repo" --ignore-working-copy git import >/dev/null 2>&1
   else
@@ -56,7 +58,7 @@ mkjj_noremote(){ seed "$1"; jj git init --colocate "$1" >/dev/null 2>&1; }
 # agent leaves, and the only honest way to build a stale-dir (a bare .jj/.git directory is a
 # different repository, not a workspace of ours).
 orphan(){
-  local vcs=$1 repo=$2 key=$3
+  local vcs=$1 repo=$2 key=${3//\//-}   # a directory and a jj workspace spell the key's slash as a dash
   if [[ $vcs == jj ]]; then jj -R "$repo" --ignore-working-copy workspace forget "$key" >/dev/null 2>&1
   else rm -rf "$repo/.git/worktrees/$(basename "$repo")-$key"; git -C "$repo" worktree prune
   fi
@@ -90,7 +92,7 @@ check bash -c '"$1" --help | grep -qE "add .*<key>" && "$1" --help | grep -q "sw
 
 # --- one suite, run against both version-control systems ------------------------------------------
 suite(){
-  local vcs=$1 repo=$2 tag="$1:" before after log_before log_after key leak rc out
+  local vcs=$1 repo=$2 tag="$1:" before after log_before log_after key dir leak rc out
 
   name="$tag add creates the sibling workspace, populated"
   "$WS" add feat-one --repo "$repo" > "$TMP/$vcs-add.out" 2>&1
@@ -102,8 +104,14 @@ suite(){
   name="$tag the workspace is a $vcs working copy, not the other kind"
   if [[ $vcs == jj ]]; then check test -e "$repo-feat-one/.jj"
   else check bash -c '[ -e "$1/.git" ] && [ ! -e "$1/.jj" ]' _ "$repo-feat-one"; fi
-  name="$tag add refuses a key that is not [a-z0-9][a-z0-9-]*"
+  name="$tag add refuses a key whose slug is not [a-z0-9][a-z0-9-]*"
   check nope "$WS" add Feat_Two --repo "$repo"
+  name="$tag add refuses a key with a second slash"
+  check nope "$WS" add feature/a/b --repo "$repo"
+  name="$tag add refuses a leading slash"
+  check nope "$WS" add /feature --repo "$repo"
+  name="$tag add refuses a trailing slash"
+  check nope "$WS" add feature/ --repo "$repo"
   name="$tag add refuses an existing directory at the target path"
   check nope "$WS" add feat-one --repo "$repo"
 
@@ -126,20 +134,49 @@ suite(){
   name="$tag forget refuses a key it has no workspace for"
   check nope "$WS" forget never-existed --repo "$repo"
 
+  # --- a type-prefixed key: slashed as a bookmark/branch, dashed as a directory --------------------
+  name="$tag add takes a <type>/<slug> key, at the dashed sibling path"
+  "$WS" add feature/typed-one --repo "$repo" > "$TMP/$vcs-typed.out" 2>&1
+  check test -e "$repo-feature-typed-one/seed.txt"
+  name="$tag ... never creating a nested directory for the slash"
+  check nope test -e "$repo-feature/typed-one"
+  name="$tag ... and the bookmark/branch keeps the slash"
+  check has_ref "$repo" feature/typed-one
+  name="$tag ... add names the dashed path and the slashed bookmark/branch"
+  check bash -c 'grep -qF "$2" "$1" && grep -qF "feature/typed-one" "$1"' _ \
+    "$TMP/$vcs-typed.out" "$repo-feature-typed-one"
+  name="$tag list reports a slashed key by its key, not by its directory"
+  check is_state "$repo" feature/typed-one active
+  name="$tag ... and not under the dashed directory name"
+  check nope listed "$repo" feature-typed-one
+  name="$tag forget takes the slashed key back"
+  "$WS" forget feature/typed-one --repo "$repo" >/dev/null 2>&1
+  check nope test -d "$repo-feature-typed-one"
+  name="$tag ... deregistering it"
+  check nope listed "$repo" feature/typed-one
+  name="$tag ... and keeping its bookmark/branch"
+  check has_ref "$repo" feature/typed-one
+
   # --- the leak shapes a crashed agent leaves behind -----------------------------------------------
-  "$WS" add stale-one --repo "$repo" >/dev/null 2>&1   # loses its directory     -> stale-reg
-  "$WS" add live-one  --repo "$repo" >/dev/null 2>&1   # unmerged work           -> active
-  "$WS" add gone-one  --repo "$repo" >/dev/null 2>&1   # merged into the default -> merged
-  for key in live-one gone-one; do
-    printf '%s\n' "$key" > "$repo-$key/$key.txt"
-    if [[ $vcs == jj ]]; then (cd "$repo-$key" && jj describe -m "$key work" >/dev/null 2>&1)
-    else git -C "$repo-$key" add -A && git -C "$repo-$key" -c commit.gpgsign=false commit -qm "$key work"
+  "$WS" add stale-one   --repo "$repo" >/dev/null 2>&1  # loses its directory     -> stale-reg
+  "$WS" add live-one    --repo "$repo" >/dev/null 2>&1  # unmerged work           -> active
+  "$WS" add gone-one    --repo "$repo" >/dev/null 2>&1  # merged into the default -> merged
+  "$WS" add bug/gone-two --repo "$repo" >/dev/null 2>&1 # ... and the same, type-prefixed
+  for key in live-one gone-one bug/gone-two; do
+    dir="$repo-${key//\//-}"
+    printf '%s\n' "$key" > "$dir/${key//\//-}.txt"
+    if [[ $vcs == jj ]]; then (cd "$dir" && jj describe -m "$key work" >/dev/null 2>&1)
+    else git -C "$dir" add -A && git -C "$dir" -c commit.gpgsign=false commit -qm "$key work"
     fi
   done
   merge_in "$vcs" "$repo" gone-one
+  merge_in "$vcs" "$repo" bug/gone-two
   "$WS" add ghost-one --repo "$repo" >/dev/null 2>&1   # a real workspace whose registration is lost
   printf 'leftover\n' > "$repo-ghost-one/leftover.txt"
   orphan "$vcs" "$repo" ghost-one
+  "$WS" add doc/ghost-two --repo "$repo" >/dev/null 2>&1  # ... and the same, type-prefixed
+  printf 'leftover\n' > "$repo-doc-ghost-two/leftover.txt"
+  orphan "$vcs" "$repo" doc/ghost-two
   # After the orphan step, because git's prune deregisters every worktree whose directory is gone.
   rm -rf "$repo-stale-one"                             # the directory an agent removed by hand
   # An INDEPENDENT repository that merely collides with the naming convention. Nothing here may
@@ -157,13 +194,18 @@ suite(){
   check is_state "$repo" gone-one merged
   name="$tag list reports an unmerged workspace as active"
   check is_state "$repo" live-one active
+  name="$tag list reports a merged type-prefixed workspace under its slashed key"
+  check is_state "$repo" bug/gone-two merged
+  name="$tag list recovers the slashed key of a stale-dir from its bookmark/branch"
+  check is_state "$repo" doc/ghost-two stale-dir
 
   # --- sweep is read-only without --apply ----------------------------------------------------------
   before=$(siblings "$repo"); log_before=$(oplog "$vcs" "$repo")
   "$WS" sweep --repo "$repo" > "$TMP/$vcs-sweep.out" 2>&1
   after=$(siblings "$repo"); log_after=$(oplog "$vcs" "$repo")
 
-  for leak in 'stale-reg +stale-one' 'stale-dir +ghost-one' 'merged +gone-one' 'ref +gone-one'; do
+  for leak in 'stale-reg +stale-one' 'stale-dir +ghost-one' 'merged +gone-one' 'ref +gone-one' \
+              'stale-dir +doc/ghost-two' 'merged +bug/gone-two' 'ref +bug/gone-two'; do
     name="$tag sweep without --apply reports: $leak"; check saw "$vcs-sweep.out" "$leak"
   done
   name="$tag sweep without --apply never names an unmerged workspace"
@@ -190,9 +232,15 @@ suite(){
   check saw "$vcs-apply.out" 'kept +stale-dir +ghost-one.*--force overrides'
   name="$tag sweep --apply never deletes a colliding foreign repository"
   check test -e "$repo-other-one/seed.txt"
+  name="$tag sweep --apply removes the merged type-prefixed workspace and its branch"
+  check nope test -d "$repo-bug-gone-two"
+  name="$tag ... deleting the slashed bookmark/branch with it"
+  check nope has_ref "$repo" bug/gone-two
   name="$tag sweep --apply --force does reclaim the stale directory"
   "$WS" sweep --apply --force --repo "$repo" >/dev/null 2>&1
   check nope test -d "$repo-ghost-one"
+  name="$tag ... including a type-prefixed one, at its dashed path"
+  check nope test -d "$repo-doc-ghost-two"
   name="$tag sweep --apply --force still never deletes a foreign repository"
   check test -e "$repo-other-one/seed.txt"
   name="$tag sweep --apply keeps the unmerged workspace";    check test -d "$repo-live-one"

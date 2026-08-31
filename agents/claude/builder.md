@@ -74,7 +74,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 7. **Delete your workspace, and only after the PR exists.** Forgetting stops tracking the working copy; the bookmark and its commits stay in the repo, so the open PR is unaffected:
 
    ```bash
-   workcell-ws forget <branch>   # = jj workspace forget <branch> + rm -rf <workspace>
+   workcell-ws forget <branch>   # = jj workspace forget <branch, / as -> + rm -rf <workspace>
    ```
 
    Never forget a workspace before the PR is open, and never `jj abandon` the bookmark the PR points at. The helper refuses to touch the primary working copy and never deletes the bookmark; if a run of yours ever dies before this step, `workcell-ws sweep` names what it stranded and `--apply` reclaims it. The standard is `docs/workspaces.md`.
