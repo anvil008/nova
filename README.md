@@ -63,7 +63,7 @@ It never overwrites something it does not own — a real file or directory where
 is refused by name. Model/effort configuration, a per-project install, and upgrading from an
 earlier install are covered in **[docs/install.md](docs/install.md)**.
 
-## All 17 skills
+## All 18 skills
 
 **Entry points — one PR, start to finish:** `new-feature`, `code-analysis`, `code-refactor`,
 `debug`, `perf`, `repo-setup` (see [Start here](#start-here) for what each guarantees).
@@ -79,6 +79,7 @@ earlier install are covered in **[docs/install.md](docs/install.md)**.
 | Research | [`research`](skills/research/SKILL.md)                                 | Parallel read-only investigation merged into one evidence packet                                            |
 | Docs     | [`docs`](skills/docs/SKILL.md)                                         | Standardizes and updates documentation, records ADRs, runs the docs gate                                    |
 | Deploy   | [`deploy`](skills/deploy/SKILL.md)                                     | Preflight, approved release, post-deploy verification, rollback path                                        |
+| Memory   | [`wiki`](skills/wiki/SKILL.md)                                         | Consolidates a project's finished runs into a persistent namespace outside the repository                   |
 | Support  | [`jj`](skills/jj/SKILL.md)                                             | Jujutsu version control for repositories that use it                                                        |
 | Support  | [`use-other-harness`](skills/use-other-harness/SKILL.md)               | Explicit, user-triggered escape hatch to run a subagent in a different harness                              |
 
@@ -157,7 +158,7 @@ evidence is fresh — otherwise it sends the builder back. The full gate-by-gate
 ```
 workcell/
 ├── agents/            generated per harness — edit agents/bodies/ + agents.json, then sync-agents.py
-├── skills/             17 shared workflows: planner, build, code-review, docs, deploy, …
+├── skills/             18 shared workflows: planner, build, code-review, docs, deploy, …
 ├── plugins/            one thin wrapper per harness — no content of its own
 │   ├── claude/          .claude-plugin/plugin.json, hooks/hooks.json
 │   ├── codex/           .codex-plugin/plugin.json, hooks.json — staged into dist/codex/, not symlinked

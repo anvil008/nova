@@ -2,6 +2,30 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [The wiki layer — persistent per-project knowledge] - 2026-08-31
+
+### Added
+
+- **A persistent knowledge store outside every repository**, at `$WORKCELL_WIKI_HOME`
+  (default `~/.workcell/wiki/`), with one namespace per project key. The key is the normalized
+  `origin` remote — `git@github.com:anvil008/workcell.git` and `https://github.com/anvil008/workcell`
+  collapse to `github-com-anvil008-workcell` — or, with no remote, the toplevel basename plus a hash
+  of its absolute path. It resolves through the primary toplevel exactly as `workcell-ws` does, so
+  every per-issue workspace of one repository answers with one key, and it obeys the same
+  `[a-z0-9][a-z0-9-]*` spelling rule.
+- **`skills/wiki/scripts/wiki.py`, the store's only writer** — `key`, `init`, `status`, `record`,
+  `pattern`, `check`. Raw bundles are write-once with hashed manifests, pattern pages are
+  append-only prose with dated evidence citations, `index.md` is derived from the pages, and
+  `logs.md` gains one line per write. Nothing deletes: there is no reset and no rollback. A
+  namespace refuses a repository it was not created for, naming both sources, and a repository in
+  eval mode is refused outright.
+- **The `wiki` skill** — the opt-in rule (no namespace means no dispatch), the single `documenter`
+  dispatch whose `ownership` is the namespace path and which writes only through `wiki.py`,
+  `wiki.py check` as the completion gate, an offline demonstration over a shipped sample namespace,
+  and the two standing boundaries: runtime agents are never given the wiki, and a project pattern
+  never amends Workcell's shared `skills/`. The artifact contract is
+  `skills/wiki/references/wiki-layout.md`.
+
 ## [Branch and workspace names carry a type prefix] - 2026-08-31
 
 ### Added
