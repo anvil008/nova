@@ -5,7 +5,7 @@ description: Build a new feature end-to-end, starting with a real interview — 
 
 # New feature
 
-Take a feature from a sentence to a merged PR. The difference from running [`planner`](../planner/SKILL.md) directly is the front of it: you interview the human properly *before* anything is planned, because the cheapest place to fix a misunderstanding is before an agent has built on it.
+Take a feature from a sentence to a merged PR. The difference from running [`plan`](../plan/SKILL.md) directly is the front of it: you interview the human properly *before* anything is planned, because the cheapest place to fix a misunderstanding is before an agent has built on it.
 
 You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 

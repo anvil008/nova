@@ -2,7 +2,7 @@
 
 This reference is for maintainers of `render_plan.py` and its templates. Operators keep using the renderer commands in `SKILL.md`.
 
-Use [`templates/plan.html.tmpl`](../templates/plan.html.tmpl) through the renderer. Keep the fixed folio section order — 01 Overview, 02 Architecture, 03 Task Breakdown, 04 Execution Waves, 05 Risks, 06 Milestone & Execution — and all CSS and Mermaid code inline. The HTML must remain useful without JavaScript: every Mermaid diagram starts as a Claude-Artifact-compatible `<pre class="mermaid">` source block and includes a source-details fallback that becomes visible if rendering fails.
+Use [`templates/plan.html.tmpl`](../templates/plan.html.tmpl) through the renderer. Keep the fixed folio section order — 01 Overview, 02 Architecture, 03 Task Breakdown, 04 Execution Waves, 05 Risks, 06 Milestone & Execution — and all CSS inline. Diagrams are drawn at build time by [`scripts/diagrams.py`](../scripts/diagrams.py) as deterministic inline SVG (ADR 0010's approach): `architecture.diagramsMermaid` stays the authoring format, but no Mermaid runtime ships and the HTML needs no JavaScript to be complete.
 
 Section 02 renders the strict `currentArchitecture` and `targetArchitecture` pair side by side as **Current** and **Proposed**, followed by responsive stacking on narrow screens. It also renders the escaped `changeSummary`, so the visual remains understandable to people while the sidecar remains precise enough for machine consumers.
 

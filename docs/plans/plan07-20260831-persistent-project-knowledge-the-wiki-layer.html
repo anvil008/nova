@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Persistent project knowledge — the wiki layer · Workcell Plan</title>
+  <!-- workcell-planner planId=persistent-project-wiki -->
+  <style>/* Foundry Zero report design system.
+   Shared core for the planner folio, the code-review report, and the research packet.
+   This file is byte-identical in skills/planner, skills/code-review, and skills/research;
+   a test asserts that. Skill-specific rules live alongside it. */
+
+:root, [data-theme="dark"] {
+  --bg: oklch(0.19 0.012 250);
+  --bg-2: oklch(0.225 0.014 250);
+  --bg-3: oklch(0.265 0.016 250);
+  --bg-4: oklch(0.305 0.018 250);
+  --line: oklch(0.325 0.018 250);
+  --line-2: oklch(0.415 0.020 250);
+  --txt: oklch(0.945 0.006 250);
+  --txt-2: oklch(0.735 0.014 250);
+  --txt-3: oklch(0.590 0.016 250);
+  --acc: oklch(0.700 0.145 255);
+  --acc-bg: oklch(0.265 0.045 255);
+  --sev-critical: oklch(0.680 0.180 22);
+  --sev-critical-bg: oklch(0.290 0.070 22);
+  --sev-high: oklch(0.775 0.145 62);
+  --sev-high-bg: oklch(0.295 0.060 62);
+  --sev-medium: oklch(0.820 0.130 95);
+  --sev-medium-bg: oklch(0.300 0.055 95);
+  --sev-low: oklch(0.740 0.090 230);
+  --sev-low-bg: oklch(0.280 0.045 230);
+  --sev-nit: oklch(0.700 0.030 250);
+  --sev-nit-bg: oklch(0.280 0.014 250);
+  --ok: oklch(0.780 0.130 155);
+  --ok-bg: oklch(0.275 0.055 155);
+  --mut: var(--txt-3); /* alias the generated diagrams paint neutral nodes with */
+  --gap: 46px;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: oklch(0.980 0.004 250);
+  --bg-2: oklch(1 0 0);
+  --bg-3: oklch(0.962 0.006 250);
+  --bg-4: oklch(0.935 0.008 250);
+  --line: oklch(0.900 0.008 250);
+  --line-2: oklch(0.820 0.012 250);
+  --txt: oklch(0.245 0.014 250);
+  --txt-2: oklch(0.455 0.016 250);
+  --txt-3: oklch(0.585 0.016 250);
+  --acc: oklch(0.520 0.170 258);
+  --acc-bg: oklch(0.955 0.022 258);
+  --sev-critical: oklch(0.505 0.190 22);
+  --sev-critical-bg: oklch(0.940 0.045 22);
+  --sev-high: oklch(0.560 0.140 55);
+  --sev-high-bg: oklch(0.945 0.050 62);
+  --sev-medium: oklch(0.560 0.115 90);
+  --sev-medium-bg: oklch(0.950 0.055 95);
+  --sev-low: oklch(0.520 0.110 230);
+  --sev-low-bg: oklch(0.945 0.035 230);
+  --sev-nit: oklch(0.520 0.020 250);
+  --sev-nit-bg: oklch(0.945 0.006 250);
+  --ok: oklch(0.470 0.115 155);
+  --ok-bg: oklch(0.938 0.050 155);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+}
+
+a { color: var(--acc); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 4px; }
+::selection { background: var(--acc-bg); }
+
+.mono, .kbd, code, pre {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* ── Chrome: toolbar ───────────────────────────────────────────── */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 8px 22px;
+  flex-wrap: wrap;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.bar-mark {
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--acc); color: var(--bg);
+  display: grid; place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; font-weight: 700;
+}
+.bar-name { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.01em; }
+.bar-spacer { flex: 1; }
+.chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 5px;
+  background: var(--acc-bg); color: var(--acc); border: 1px solid var(--line);
+}
+.bar button {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; padding: 5px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg-3); color: var(--txt-2);
+  cursor: pointer;
+}
+.bar button:hover { border-color: var(--line-2); color: var(--txt); }
+.bar-note {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+
+/* ── Chrome: shell and contents rail ───────────────────────────── */
+
+.shell {
+  display: grid;
+  grid-template-columns: 246px minmax(0, 1fr);
+  align-items: start;
+  max-width: 1420px;
+  margin: 0 auto;
+}
+
+.rail {
+  position: sticky;
+  top: 56px;
+  align-self: start;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 28px 18px 60px 22px;
+  border-right: 1px solid var(--line);
+}
+.rail-title, .eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--txt-3);
+}
+.rail-title { margin-bottom: 12px; }
+.rail nav { display: flex; flex-direction: column; gap: 1px; }
+.rail nav a {
+  display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: baseline;
+  padding: 5px 8px; border-radius: 6px; font-size: 13px;
+  color: var(--txt-2); border-left: 2px solid transparent;
+}
+.rail nav a:hover { background: var(--bg-3); text-decoration: none; color: var(--txt); }
+.rail nav a .num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; color: var(--txt-3);
+}
+.rail-foot {
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; line-height: 1.8; color: var(--txt-3);
+  overflow-wrap: anywhere;
+}
+
+main { padding: 34px 44px 120px; max-width: 1010px; min-width: 0; }
+
+/* ── Sections ──────────────────────────────────────────────────── */
+
+.section { margin-bottom: var(--gap); scroll-margin-top: 68px; }
+.section-head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.section-head .num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.section-head h2 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; flex: 1; }
+.section-head .count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+h3 { font-size: 13.5px; font-weight: 600; margin: 22px 0 10px; letter-spacing: -0.005em; }
+p { margin: 0 0 14px; max-width: 76ch; }
+.lede { font-size: 16.5px; color: var(--txt-2); max-width: 68ch; }
+.muted { color: var(--txt-3); }
+
+/* ── Header block ──────────────────────────────────────────────── */
+
+.doc-eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 10px;
+}
+h1 { margin: 0 0 10px; font-size: 33px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.18; }
+
+.verdict-row { display: flex; gap: 12px; align-items: stretch; margin: 20px 0; flex-wrap: wrap; }
+.verdict {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 17px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg-2);
+  flex: 1; min-width: 320px;
+}
+.verdict-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--txt-3); }
+.verdict-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt-3);
+}
+.verdict-value { font-weight: 600; font-size: 15px; }
+
+.meter { display: flex; gap: 3px; }
+.meter i { width: 15px; height: 5px; border-radius: 3px; background: var(--bg-4); }
+.meter i.on { background: var(--acc); }
+
+.meta-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.meta-grid > div { background: var(--bg-2); padding: 11px 14px; min-width: 0; }
+.meta-grid dt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 3px;
+}
+.meta-grid dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px; color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Metrics ───────────────────────────────────────────────────── */
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.metric { padding: 13px 15px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); }
+.metric .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.metric .v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+.metric .v span { font-size: 12.5px; font-weight: 400; color: var(--txt-3); margin-left: 4px; }
+.metric .d {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.metric.tone-critical .v { color: var(--sev-critical); }
+.metric.tone-high .v { color: var(--sev-high); }
+.metric.tone-ok .v { color: var(--ok); }
+
+/* ── Cards, chips, callouts ────────────────────────────────────── */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.card { padding: 14px 16px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); min-width: 0; }
+.card h3 { margin: 0 0 5px; font-size: 14.5px; }
+.card p { margin: 0; color: var(--txt-2); font-size: 13.5px; }
+
+.tag {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; padding: 1px 6px; border-radius: 4px;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--txt-3);
+}
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.callout {
+  display: grid; grid-template-columns: 18px 1fr; gap: 10px;
+  padding: 11px 14px; border-radius: 9px; margin: 14px 0;
+  border: 1px solid var(--line); background: var(--bg-2); font-size: 13.5px;
+}
+.callout .mark { font-weight: 700; }
+.callout p { margin: 0; }
+.callout.warn { background: var(--sev-high-bg); }
+.callout.warn .mark { color: var(--sev-high); }
+.callout.note { background: var(--acc-bg); }
+.callout.note .mark { color: var(--acc); }
+.callout.blocker { background: var(--sev-critical-bg); }
+.callout.blocker .mark { color: var(--sev-critical); }
+
+.spec {
+  display: grid; grid-template-columns: 16px 1fr; gap: 10px;
+  margin: 0 0 16px; padding: 9px 12px;
+  background: var(--acc-bg); border: 1px dashed var(--line-2); border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; line-height: 1.7; color: var(--txt-2);
+}
+.spec .mark { color: var(--acc); font-weight: 700; }
+.spec b { color: var(--txt); }
+[data-hints="off"] .spec { display: none; }
+
+/* ── Severity ──────────────────────────────────────────────────── */
+
+.sev {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+}
+.sev-critical { background: var(--sev-critical-bg); color: var(--sev-critical); }
+.sev-high     { background: var(--sev-high-bg);     color: var(--sev-high); }
+.sev-medium   { background: var(--sev-medium-bg);   color: var(--sev-medium); }
+.sev-low      { background: var(--sev-low-bg);      color: var(--sev-low); }
+.sev-nit      { background: var(--sev-nit-bg);      color: var(--sev-nit); }
+
+.bar-critical { background: var(--sev-critical); }
+.bar-high     { background: var(--sev-high); }
+.bar-medium   { background: var(--sev-medium); }
+.bar-low      { background: var(--sev-low); }
+.bar-nit      { background: var(--sev-nit); }
+
+/* ── Tables ────────────────────────────────────────────────────── */
+
+.table-shell { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); font-weight: 500; background: var(--bg-3);
+}
+td { font-size: 13.5px; }
+td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+/* ── Diagrams ──────────────────────────────────────────────────── */
+
+.diagram-shell {
+  overflow-x: auto; border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; background: var(--bg-2);
+}
+/* Generated at build time at its natural size; the shell scrolls rather than
+   shrinking the labels, and print falls back to fitting the page. */
+.diagram-shell > svg.diagram { display: block; margin: 0 auto; }
+.diagram-text { margin-top: 10px; color: var(--txt-3); font-size: 12px; }
+.diagram-text summary { cursor: pointer; }
+.diagram-text ul { margin: 8px 0 0; padding-left: 20px; }
+.diagram-text li { margin: 3px 0; overflow-wrap: anywhere; }
+
+/* ── Disclosure rows ───────────────────────────────────────────── */
+
+.rows { display: flex; flex-direction: column; gap: 9px; }
+.row {
+  border-radius: 10px; background: var(--bg-2);
+  border: 1px solid var(--line); overflow: hidden;
+}
+.row > summary {
+  display: grid; grid-template-columns: 4px 1fr auto;
+  align-items: stretch; cursor: pointer; list-style: none;
+}
+.row > summary::-webkit-details-marker { display: none; }
+.row > summary:hover { background: var(--bg-3); }
+.row .stripe { grid-row: 1; }
+.row .row-body { padding: 13px 16px; min-width: 0; }
+.row .row-title { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 5px; }
+.row .row-title strong { font-weight: 600; font-size: 15px; }
+.row .row-meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+.row .caret {
+  display: grid; place-items: center; padding: 0 16px; color: var(--txt-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+}
+.row[open] .caret { transform: rotate(180deg); }
+.row-detail { padding: 4px 16px 16px 20px; border-top: 1px solid var(--line); }
+
+.block { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); margin-top: 12px; }
+.block .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 5px;
+}
+.block p { margin: 0; font-size: 13.8px; max-width: 74ch; }
+/* Neutral on purpose: severity is carried by the stripe and badge, so tinting
+   the impact block by severity would double-encode it — and mis-encode it on a
+   low finding. */
+.block.impact { background: var(--bg-3); }
+.block.impact .k { color: var(--txt-2); }
+.block.proof { background: var(--ok-bg); }
+.block.proof .k { color: var(--ok); }
+
+/* ── Motion, print, narrow viewports ───────────────────────────── */
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.pulse { animation: pulse 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail {
+    position: static; max-height: none; border-right: 0;
+    border-bottom: 1px solid var(--line); padding: 20px 22px;
+  }
+  .rail nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  main { padding: 26px 22px 90px; }
+  h1 { font-size: 27px; }
+}
+
+@media (max-width: 560px) {
+  .bar { padding: 8px 14px; gap: 9px; }
+  main { padding: 22px 14px 70px; }
+  .rail { padding: 16px 14px; }
+  h1 { font-size: 23px; }
+  .verdict { min-width: 0; }
+}
+
+@media print {
+  .bar, .rail, .spec, .no-print { display: none !important; }
+  .shell { display: block; max-width: none; }
+  main { padding: 0; max-width: none; }
+  body { background: #fff; color: #111; font-size: 10.5pt; }
+  .section { break-inside: auto; margin-bottom: 22px; }
+  .section-head, .card, .metric, .row, .block, .verdict { break-inside: avoid; }
+  .row > summary { cursor: default; }
+  .row-detail { display: block !important; border-top: 1px solid #ddd; }
+  .diagram-shell, .table-shell { overflow: visible; }
+  .diagram-shell > svg.diagram { max-width: 100%; height: auto; }
+  a { color: inherit; text-decoration: none; }
+}
+
+/* Planner folio — additions on top of report.css. */
+
+/* Wave palette. Consumed as var() by the generated diagram SVGs, so dependency
+   nodes follow the active theme instead of a baked-in hex. */
+:root, [data-theme="dark"] {
+  --wave-1: oklch(0.345 0.085 255);
+  --wave-2: oklch(0.345 0.085 305);
+  --wave-3: oklch(0.345 0.080 155);
+  --wave-4: oklch(0.345 0.080 62);
+  --wave-5: oklch(0.345 0.020 250);
+  --wave-stroke: oklch(0.600 0.090 255);
+  --wave-text: oklch(0.945 0.006 250);
+}
+[data-theme="light"] {
+  --wave-1: oklch(0.930 0.035 255);
+  --wave-2: oklch(0.930 0.035 300);
+  --wave-3: oklch(0.930 0.035 155);
+  --wave-4: oklch(0.935 0.040 62);
+  --wave-5: oklch(0.935 0.008 250);
+  --wave-stroke: oklch(0.640 0.080 255);
+  --wave-text: oklch(0.245 0.014 250);
+}
+
+/* ── Generated diagrams ───────────────────────── */
+
+/* render_plan.py draws every diagram as inline SVG at build time and names the
+   paint rather than baking it, so a diagram follows the theme toggle with the
+   rest of the page. Node kind is carried by shape, not by colour alone. */
+
+svg.diagram text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+svg.diagram .d-shape { fill: var(--bg-3); stroke: var(--line-2); stroke-width: 1.6; }
+svg.diagram .d-inner { fill: none; stroke-width: 1; }
+svg.diagram .d-label { font-size: 13px; font-weight: 600; fill: var(--txt); text-anchor: middle; }
+svg.diagram .d-sub { font-size: 11px; font-style: italic; fill: var(--txt-2); text-anchor: middle; }
+svg.diagram .d-edge { fill: none; stroke: var(--txt-3); stroke-width: 1.6; }
+svg.diagram .d-dashed { stroke-dasharray: 6 4; }
+svg.diagram .d-thick { stroke-width: 3; }
+svg.diagram .d-arrowhead { fill: var(--txt-3); }
+svg.diagram .d-chip { fill: var(--bg-2); stroke: var(--line); stroke-width: 1; }
+svg.diagram .d-edgelabel { font-size: 11px; fill: var(--txt-2); }
+/* Dotted, so a subgraph frame never reads as one of the dashed edges. */
+svg.diagram .d-frame { fill: none; stroke: var(--acc); stroke-width: 1.4; stroke-dasharray: 1 4; stroke-linecap: round; }
+svg.diagram .d-frametext { font-size: 11px; font-weight: 600; fill: var(--acc); }
+svg.diagram .d-plate { fill: var(--bg-2); }
+
+svg.diagram .neutral .d-shape { fill: transparent; stroke: var(--mut); }
+svg.diagram .neutral .d-label, svg.diagram .neutral .d-sub { fill: var(--mut); }
+svg.diagram .wave1 .d-shape { fill: var(--wave-1); stroke: var(--wave-stroke); }
+svg.diagram .wave2 .d-shape { fill: var(--wave-2); stroke: var(--wave-stroke); }
+svg.diagram .wave3 .d-shape { fill: var(--wave-3); stroke: var(--wave-stroke); }
+svg.diagram .wave4 .d-shape { fill: var(--wave-4); stroke: var(--wave-stroke); }
+svg.diagram .wave5 .d-shape { fill: var(--wave-5); stroke: var(--wave-stroke); }
+svg.diagram [class*="wave"] .d-label, svg.diagram [class*="wave"] .d-sub { fill: var(--wave-text); }
+
+/* ── Approval gate ─────────────────────────────────────────────── */
+
+.gate-proposed { background: var(--sev-medium-bg); }
+.gate-proposed .verdict-dot { background: var(--sev-medium); }
+.gate-approved { background: var(--ok-bg); }
+.gate-approved .verdict-dot { background: var(--ok); }
+.gate-applied { background: var(--acc-bg); }
+.gate-applied .verdict-dot { background: var(--acc); }
+
+.gate-steps {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.gate-steps .step { padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); background: var(--bg-3); }
+.gate-steps .step.now { border-color: var(--acc); color: var(--acc); background: var(--acc-bg); }
+.gate-steps .step.done { color: var(--ok); border-color: var(--line-2); }
+
+/* ── Architecture comparison ──────────────────────────────────── */
+
+.architecture-delta {
+  margin: 16px 0 12px; padding: 13px 15px; border-left: 3px solid var(--acc);
+  border-radius: 0 9px 9px 0; background: var(--acc-bg);
+}
+.architecture-delta .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--acc);
+}
+.architecture-delta p { margin: 4px 0 0; max-width: 74ch; color: var(--txt-2); }
+.architecture-comparison {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.architecture-state {
+  min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2);
+}
+.architecture-state h3 { margin-top: 0; }
+.architecture-state.current h3 { color: var(--txt-2); }
+.architecture-state.proposed { border-color: var(--acc); }
+.architecture-state.proposed h3 { color: var(--acc); }
+
+/* ── Waves ─────────────────────────────────────────────────────── */
+
+.waves { display: flex; flex-direction: column; gap: 10px; }
+.wave {
+  display: grid; grid-template-columns: 132px minmax(0, 1fr);
+  gap: 14px; align-items: start;
+  padding: 13px 15px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.wave-label { min-width: 0; }
+.wave-label .n {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.wave-label .t { font-weight: 600; font-size: 14.5px; }
+.wave-label .c {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.wave-items { display: flex; gap: 7px; flex-wrap: wrap; }
+.wave-item {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  padding: 5px 10px; border-radius: 7px;
+  background: var(--bg-3); border: 1px solid var(--line); font-size: 13px;
+}
+.wave-item .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; color: var(--acc);
+}
+.wave.ungrouped { border-style: dashed; }
+.wave.ungrouped .wave-label .t { color: var(--txt-3); }
+
+/* ── Issues ────────────────────────────────────────────────────── */
+
+.issue-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--acc);
+}
+.issue-body { white-space: pre-wrap; margin: 10px 0 0; color: var(--txt-2); font-size: 13.8px; max-width: 74ch; }
+.issue-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 18px; margin-top: 12px;
+}
+.issue-facts .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.issue-facts .v {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; color: var(--txt-2); overflow-wrap: anywhere;
+}
+
+/* ── Risk matrix ───────────────────────────────────────────────── */
+
+.risk-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; align-items: start; }
+
+.matrix {
+  padding: 16px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.matrix-grid { display: grid; grid-template-columns: 30px repeat(3, 1fr); gap: 6px; }
+.matrix-y {
+  display: grid; place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+  writing-mode: vertical-rl; transform: rotate(180deg);
+}
+.cell {
+  min-height: 62px; border-radius: 8px; border: 1px solid var(--line);
+  padding: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
+}
+.cell.s1 { background: var(--sev-low-bg); }
+.cell.s2 { background: var(--sev-low-bg); }
+.cell.s3 { background: var(--sev-medium-bg); }
+.cell.s4 { background: var(--sev-high-bg); }
+.cell.s6 { background: var(--sev-high-bg); }
+.cell.s9 { background: var(--sev-critical-bg); }
+.cell .pin {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+  background: var(--bg-2); border: 1px solid var(--line-2); color: var(--txt);
+  align-self: flex-start;
+}
+.matrix-x {
+  display: grid; grid-template-columns: 30px repeat(3, 1fr); gap: 6px; margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.matrix-x span { text-align: center; }
+.matrix-axis {
+  margin-top: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; color: var(--txt-3);
+}
+
+.risk-list { display: flex; flex-direction: column; gap: 9px; }
+.risk {
+  padding: 13px 15px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.risk-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 6px; }
+.risk-head .id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--txt-2);
+}
+.risk-head strong { font-weight: 600; font-size: 14.5px; flex: 1; }
+.risk-head .owner {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.risk p { margin: 0; font-size: 13.5px; color: var(--txt-2); max-width: 74ch; }
+.risk p .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+  margin-right: 6px;
+}
+
+.empty {
+  padding: 26px; text-align: center; border-radius: 10px;
+  border: 1px dashed var(--line-2); color: var(--txt-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
+}
+
+@media (max-width: 900px) {
+  .architecture-comparison { grid-template-columns: minmax(0, 1fr); }
+  .risk-layout { grid-template-columns: minmax(0, 1fr); }
+  .wave { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+
+.lede p { margin: 0 0 0.85em; }
+.lede p:last-child { margin-bottom: 0; }
+.issue-body p { margin: 0 0 0.7em; }
+.issue-body p:last-child { margin-bottom: 0; }
+</style>
+  <script>
+  document.documentElement.dataset.theme =
+    window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  </script>
+</head>
+<body>
+
+<div class="bar">
+  <span class="bar-name"><span class="bar-mark">WC</span>Workcell</span>
+  <span class="chip">Implementation Plan</span>
+  <span class="bar-spacer"></span>
+  <span class="bar-note">persistent-project-wiki</span>
+  <button type="button" id="hints-toggle">&#9671; hints</button>
+  <button type="button" id="theme-toggle" aria-label="Toggle colour theme">&#9788;</button>
+</div>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail-title">Contents</div>
+    <nav>
+      <a href="#overview"><span class="num">01</span><span>Overview</span></a>
+      <a href="#architecture"><span class="num">02</span><span>Architecture</span></a>
+      <a href="#tasks"><span class="num">03</span><span>Task Breakdown</span></a>
+      <a href="#waves"><span class="num">04</span><span>Execution Waves</span></a>
+      <a href="#risks"><span class="num">05</span><span>Risks</span></a>
+      <a href="#execution"><span class="num">06</span><span>Milestone &amp; Execution</span></a>
+    </nav>
+    <div class="rail-foot">
+      <div>repo · anvil008/workcell</div>
+      <div>plan · persistent-project-wiki</div>
+      <div>issues · 4</div>
+    </div>
+  </aside>
+
+  <main>
+
+    <section class="section" id="header">
+      <div class="doc-eyebrow">Plan &middot; generated <time datetime="2026-08-31T10:20:00Z">August 31, 2026</time></div>
+      <h1>Persistent project knowledge — the wiki layer</h1>
+      <div class="lede"><p>Workcell forgets. A review-fix loop runs up to ten fresh multi-lens reviews and ends by handing a branch to a human; the next loop on the next branch rediscovers the same finding from scratch, and a <code>stalled</code> ending — the most informative result the loop produces — leaves nothing behind at all. This milestone lands the smallest useful slice of a WikiSkill-style persistent knowledge layer: the mechanism ships here, the data lives in one global store namespaced per project, and a project that never opts in behaves exactly as it does today.</p><p><strong>Storage (revised).</strong> The store is <code>$WORKCELL_WIKI_HOME</code>, defaulting to <code>~/.workcell/wiki/</code>, with one namespace directory per project: <code>~/.workcell/wiki/&lt;project-key&gt;/</code>. The earlier per-repository <code>.workcell/wiki/</code> layout is dropped. Namespacing is absolute — there is no flat shared wiki and no cross-project namespace in v1. Two facts found while investigating are worth stating rather than assuming: <code>~/.workcell/</code> does <strong>not</strong> exist today (the home-level roots this repository uses are <code>~/.local/bin</code>, <code>~/.claude</code>, <code>~/.codex</code>, <code>~/.gemini</code>, and <code>~/.agents</code>), so this milestone creates it; and the only environment-variable precedent is <code>WORKCELL_EVAL_TASK_DIR</code>, so the override is named <code>WORKCELL_WIKI_HOME</code> to match.</p><p><strong>Project key (the new design point).</strong> <code>wiki.py key --repo &lt;path&gt;</code> resolves a target repository&#x27;s *primary* toplevel exactly as <code>workcell-ws</code> does — through <code>.jj/repo</code> for a secondary jj workspace, through the first <code>git worktree list --porcelain</code> entry for git — so every <code>build</code> per-issue workspace of one repository answers with one key. From that toplevel the key is the normalized <code>origin</code> remote (<code>github-com-anvil008-workcell</code>; <code>git@github.com:anvil008/workcell.git</code> and <code>https://github.com/anvil008/workcell</code> collapse to the same key), falling back to <code>&lt;toplevel-basename&gt;-&lt;8 hex of sha256 of the resolved absolute toplevel&gt;</code> when there is no remote. Either way the key is reduced to the character class <code>workcell-ws</code> already enforces for a key part — <code>[a-z0-9][a-z0-9-]*</code>, no slash — so a wiki key and a workspace key obey one spelling rule. Collisions are refused rather than resolved: each namespace records the source it was created from in <code>project.json</code>, every later command re-resolves and compares, and a mismatch is refused by name instead of silently sharing or silently forking a namespace. Renaming or retiring a namespace is a human act, like entering eval mode.</p><p><strong>What the move buys and costs.</strong> The paper&#x27;s ablation — the inference agent is denied wiki access — now holds trivially: the store is outside every repository, so no working copy, no <code>build</code> workspace, no diff, and no scored eval patch can contain it. Knowledge also compounds across every clone and workspace of one project rather than per checkout. The residual moves: the wiki is now per machine and per user rather than per team (R-01), and because it sits outside the repository the harness&#x27;s own permission model is the only thing between an agent and the store (R-07). Read-only investigation confirms Workcell&#x27;s own gates do not stand in the way: <code>build-guard</code> has no outside-repository write rule — its only path denials are the eval marker and RAM-backed build target directories — and <code>tdd-guard</code>&#x27;s sealed-path check returns false for any path outside the repository, so no guard change is needed, exactly as scoped.</p><p><strong>Unchanged from the approved shape.</strong> No proposer and no validation gate; no new agent and no new handoff mode — consolidation is one <code>documenter</code> dispatch; hooks on <code>review-fix-loop</code>&#x27;s three stop statuses plus record-only on an accepted <code>build</code> wave; a repository in eval mode is refused, now checked against the *target* repository the namespace was resolved from. The two-layer split stands: the wiki is untracked local working memory, and only its distilled output feeds committed project-local overlays in the target repo. One tightening falls out of the move: the consolidating agent never uses an editor tool on the store — it composes prose and hands it to <code>wiki.py</code>, which makes the CLI the sole writer mechanically rather than by convention.</p><p>One structural fact of this repository shapes the issue split. A new skill cannot land in pieces: CI runs <code>evals/run_evals.py --structural</code> on every pull request, which fails unless <code>evals/cases/skills/wiki.json</code> lands in the same commit as <code>skills/wiki/SKILL.md</code>, and <code>scripts/tests/test_install.sh</code> derives <code>plugins/agy/skills/</code> from <code>skills/*/</code> and fails unless the <code>wiki</code> link lands with it. Those three trees share no narrower parent, so the skill is one issue with a <code><strong></code> hint, alone in wave 1, where the width costs no parallelism. The two hook issues that follow are narrow and genuinely parallel; the documentation pass is the usual repository-wide <code></strong></code> issue at the end.</p><p>The previous <code>plan.sidecar.json</code> at the repository root was plan06, milestone 8 &#x27;Overlap the build wave loop&#x27; — closed on GitHub with all five issues closed, and its folio preserved at <code>docs/plans/plan06-20260830-overlap-the-build-wave-loop.html</code>. It is consumed, so overwriting it loses nothing.</p></div>
+
+      <div class="verdict-row">
+        <div class="verdict gate-proposed">
+          <span class="verdict-dot pulse"></span>
+          <div>
+            <div class="verdict-label">Status</div>
+            <div class="verdict-value">Proposed &mdash; awaiting explicit human approval</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gate-steps">
+        <span class="step now">1 · review this folio</span>
+        <span class="step">2 · approve the sidecar</span>
+        <span class="step">3 · reconcile milestone</span>
+      </div>
+
+      <div class="meta-grid" style="margin-top: 20px;">
+        <div><dt>Repository</dt><dd>anvil008/workcell</dd></div>
+        <div><dt>Plan id</dt><dd>persistent-project-wiki</dd></div>
+        <div><dt>Generated</dt><dd>2026-08-31T10:20:00Z</dd></div>
+        <div><dt>Issues</dt><dd>4</dd></div>
+        <div><dt>Waves</dt><dd>3</dd></div>
+        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/workcell/milestones">Persistent project knowledge — the wiki layer</a></dd></div>
+      </div>
+    </section>
+
+    <section class="section" id="overview">
+      <div class="section-head"><span class="num">01</span><h2>Overview</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>metrics + goal</b> &mdash; headline counts a reviewer can scan, then the outcome this plan buys. Lead with the decision, not the process.</div>
+      </div>
+      <div class="metrics"><div class="metric"><div class="k">Issues</div><div class="v">4</div><div class="d">3 parallel waves</div></div><div class="metric"><div class="k">Acceptance tests</div><div class="v">34</div><div class="d">definition of done</div></div><div class="metric"><div class="k">External deps</div><div class="v">0</div><div class="d">all internal</div></div><div class="metric tone-critical"><div class="k">Risks</div><div class="v">7</div><div class="d">1 in the top band</div></div></div>
+      <p class="muted">Nothing is written to GitHub until a human approves this plan. Approval is bound to the sidecar, not to this page: if the sidecar changes after approval, the changed plan must be presented again.</p>
+    </section>
+
+    <section class="section" id="architecture">
+      <div class="section-head"><span class="num">02</span><h2>Architecture</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>current + proposed</b> &mdash; compare the smallest meaningful system boundary, then state the operational change in plain language.</div>
+      </div>
+      <div class="cards"><article class="card"><h3>skills/wiki/scripts/wiki.py</h3><p>The only writer: key, init, status, record, pattern, check. Resolves a target repository&#x27;s primary toplevel the way `workcell-ws` does, derives the project key from it, refuses a repository in eval mode, and never deletes anything.</p></article><article class="card"><h3>~/.workcell/wiki/&lt;project-key&gt;/</h3><p>The data, outside every repository: project.json identity, raw/ write-once bundles, patterns/, index.md, logs.md, and skill-impact.md reserved for the proposer milestone. Root overridable with WORKCELL_WIKI_HOME.</p></article><article class="card"><h3>skills/wiki/references/wiki-layout.md</h3><p>The artifact contract the consolidating agent writes to: project key derivation and collision rules, and the exact shape of a raw bundle, a pattern page, an index row, a log line, and a skill-impact entry.</p></article><article class="card"><h3>skills/wiki/SKILL.md</h3><p>The dispatch contract: when consolidation runs, the opt-in rule, the single namespace-scoped documenter dispatch that writes only through the CLI, the mechanical gate, and the two standing boundaries.</p></article><article class="card"><h3>skills/review-fix-loop/SKILL.md</h3><p>The v1 hook point: the loop&#x27;s exit consolidates on all three stop statuses, or does nothing at all when the project has no namespace.</p></article><article class="card"><h3>skills/build/SKILL.md</h3><p>The cheap hook point: an accepted wave records the integrator&#x27;s evidence as a raw trace and never consolidates or gates on it.</p></article><article class="card"><h3>agents/bodies/documenter.md</h3><p>The writer, unchanged in v1 — dispatched with the resolved namespace as its ownership and the layout contract in its brief rather than given a new mode.</p></article><article class="card"><h3>docs/adr/0019</h3><p>The decision record: the global store with per-project namespaces, key derivation and collision refusal, the durability rules per layer, and the boundaries the wiki must not cross.</p></article></div>
+      <div class="architecture-delta"><span class="k">What changes</span><p>This changes what happens after work finishes, not how work is judged, and it puts the result outside the repository that produced it. Today a review-fix loop records each pass into `.workcell/review-fix-loop.json`, stops on `converged`, `stalled`, or `exhausted`, and hands the branch over; the merged review JSONs die with the session, and an accepted `build` wave&#x27;s integrator evidence dies with the merge. After this milestone both endings ask `wiki.py` one question — what is this repository&#x27;s project key, does a namespace for it exist, and is this repository in eval mode — and, only when a namespace exists and eval mode is off, copy their evidence into an immutable raw bundle under `~/.workcell/wiki/&lt;project-key&gt;/`. The loop then dispatches exactly one `documenter`, scoped to that namespace and handed the layout contract, which writes only through `wiki.py`; the orchestrator accepts the work on `wiki.py check` exiting zero rather than on prose. Nothing in the gate chain moves: the loop&#x27;s bound and stop conditions, `tdd-guard`, the combined-GREEN merge gate, and every runtime agent&#x27;s brief are untouched, no guard rule changes, and a project with no namespace sees none of it.</p></div>
+      <div class="architecture-comparison">
+        <article class="architecture-state current">
+          <h3>Current</h3>
+          <div class="diagram-shell"><svg class="diagram" xmlns="http://www.w3.org/2000/svg" width="996.38" height="222" viewBox="0 0 996.38 222" role="img" aria-labelledby="d-current-title d-current-desc" style="max-width: 996.38px; width: 100%; height: auto"><title id="d-current-title">Current architecture</title><desc id="d-current-desc">8 nodes and 7 relationships; the same content is listed as text beneath the diagram.</desc><defs><marker id="d-current-arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="d-arrowhead" d="M0,0 L10,4 L0,8 Z"/></marker></defs><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 167 93 L 222 93"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 382 93 L 482.19 93 Q 490.19 93 490.19 85 L 490.19 65 Q 490.19 57 498.19 57 L 598.38 57"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 670.38 38 L 670.38 22 Q 670.38 14 662.38 14 L 103 14 Q 95 14 95 22 L 95 74"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 382 93 L 468.19 93 Q 476.19 93 476.19 101 L 476.19 109 Q 476.19 117 484.19 117 L 570.38 117"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 770.38 117 L 790.38 117 Q 793.38 117 793.38 120 L 793.38 120 Q 793.38 123 796.38 123 L 816.38 123"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 176 153 L 247 153"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 357 153 L 459.19 153 Q 467.19 153 467.19 161 L 467.19 175 Q 467.19 183 475.19 183 L 577.38 183"/><g class="d-node"><rect class="d-shape" x="23" y="74" width="144" height="38" rx="3"/><text class="d-label" x="95" y="97">code-review pass</text></g><g class="d-node"><rect class="d-shape" x="222" y="74" width="160" height="38" rx="3"/><text class="d-label" x="302" y="97">loop_state.py record</text></g><g class="d-node"><rect class="d-shape" x="598.38" y="38" width="144" height="38" rx="3"/><text class="d-label" x="670.38" y="61">builder mode loop</text></g><g class="d-node"><rect class="d-shape" x="570.38" y="98" width="200" height="38" rx="3"/><text class="d-label" x="670.38" y="121">branch handed to the human</text></g><g class="d-node"><rect class="d-shape" x="816.38" y="98" width="166" height="50" rx="3"/><text class="d-label" x="899.38" y="119">findings end with the</text><text class="d-label" x="899.38" y="135">session</text></g><g class="d-node"><rect class="d-shape" x="14" y="134" width="162" height="38" rx="3"/><text class="d-label" x="95" y="157">build wave accepted</text></g><g class="d-node"><rect class="d-shape" x="247" y="134" width="110" height="38" rx="3"/><text class="d-label" x="302" y="157">merge</text></g><g class="d-node"><rect class="d-shape" x="577.38" y="158" width="186" height="50" rx="3"/><text class="d-label" x="670.38" y="179">integrator evidence ends</text><text class="d-label" x="670.38" y="195">with the merge</text></g><rect class="d-chip" x="462.3" y="66" width="55.78" height="18" rx="5"/><text class="d-edgelabel" text-anchor="middle" x="490.19" y="79">continue</text><rect class="d-chip" x="390" y="96" width="172.38" height="18" rx="5"/><text class="d-edgelabel" text-anchor="middle" x="476.19" y="109">converged / stalled / exhausted</text></svg></div><details class="diagram-text"><summary>Current architecture in words</summary><ul><li>code-review pass → loop_state.py record</li><li>loop_state.py record → builder mode loop (continue)</li><li>builder mode loop → code-review pass</li><li>loop_state.py record → branch handed to the human (converged / stalled / exhausted)</li><li>branch handed to the human → findings end with the session</li><li>build wave accepted → merge</li><li>merge → integrator evidence ends with the merge</li></ul></details>
+        </article>
+        <article class="architecture-state proposed">
+          <h3>Proposed</h3>
+          <div class="diagram-shell"><svg class="diagram" xmlns="http://www.w3.org/2000/svg" width="1985.88" height="220" viewBox="0 0 1985.88 220" role="img" aria-labelledby="d-proposed-title d-proposed-desc" style="max-width: 1985.88px; width: 100%; height: auto"><title id="d-proposed-title">Proposed architecture</title><desc id="d-proposed-desc">10 nodes and 11 relationships; the same content is listed as text beneath the diagram.</desc><defs><marker id="d-proposed-arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="d-arrowhead" d="M0,0 L10,4 L0,8 Z"/></marker></defs><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 167 63 L 186.5 63 Q 194.5 63 194.5 71 L 194.5 85 Q 194.5 93 202.5 93 L 222 93"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 382 93 L 482.19 93 Q 490.19 93 490.19 85 L 490.19 65 Q 490.19 57 498.19 57 L 598.38 57"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 670.38 38 L 670.38 22 Q 670.38 14 662.38 14 L 103 14 Q 95 14 95 22 L 95 44"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 382 93 L 468.19 93 Q 476.19 93 476.19 101 L 476.19 115 Q 476.19 123 484.19 123 L 570.38 123"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 95 142 L 95 164 Q 95 172 103 172 L 662.38 172 Q 670.38 172 670.38 164 L 670.38 148"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 670.38 148 L 670.38 180 Q 670.38 188 678.38 188 L 1863.88 188 Q 1871.88 188 1871.88 180 L 1871.88 112"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 770.38 123 L 823.13 123 Q 831.13 123 831.13 115 L 831.13 101 Q 831.13 93 839.13 93 L 891.88 93"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 1081.88 93 L 1127.88 93"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 1313.88 93 L 1359.88 93"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 1559.88 93 L 1605.88 93"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 1725.88 93 L 1771.88 93"/><g class="d-node"><rect class="d-shape" x="23" y="44" width="144" height="38" rx="3"/><text class="d-label" x="95" y="67">code-review pass</text></g><g class="d-node"><rect class="d-shape" x="222" y="74" width="160" height="38" rx="3"/><text class="d-label" x="302" y="97">loop_state.py record</text></g><g class="d-node"><rect class="d-shape" x="598.38" y="38" width="144" height="38" rx="3"/><text class="d-label" x="670.38" y="61">builder mode loop</text></g><g class="d-node"><rect class="d-shape" x="570.38" y="98" width="200" height="50" rx="3"/><text class="d-label" x="670.38" y="119">wiki.py resolves the project</text><text class="d-label" x="670.38" y="135">key and refuses eval mode</text></g><g class="d-node"><rect class="d-shape" x="14" y="104" width="162" height="38" rx="3"/><text class="d-label" x="95" y="127">build wave accepted</text></g><g class="d-node"><rect class="d-shape" x="1771.88" y="74" width="200" height="38" rx="3"/><text class="d-label" x="1871.88" y="97">branch handed to the human</text></g><g class="d-node"><rect class="d-shape" x="891.88" y="68" width="190" height="50" rx="3"/><text class="d-label" x="986.88" y="89">immutable raw bundle in</text><text class="d-label" x="986.88" y="105">the global namespace</text></g><g class="d-node"><rect class="d-shape" x="1127.88" y="68" width="186" height="50" rx="3"/><text class="d-label" x="1220.88" y="89">one documenter, writing</text><text class="d-label" x="1220.88" y="105">only through wiki.py</text></g><g class="d-node"><rect class="d-shape" x="1359.88" y="68" width="200" height="50" rx="3"/><text class="d-label" x="1459.88" y="89">patterns and index and logs,</text><text class="d-label" x="1459.88" y="105">outside every repository</text></g><g class="d-node"><rect class="d-shape" x="1605.88" y="74" width="120" height="38" rx="3"/><text class="d-label" x="1665.88" y="97">wiki.py check</text></g><rect class="d-chip" x="462.3" y="66" width="55.78" height="18" rx="5"/><text class="d-edgelabel" text-anchor="middle" x="490.19" y="79">continue</text><rect class="d-chip" x="390" y="99" width="172.38" height="18" rx="5"/><text class="d-edgelabel" text-anchor="middle" x="476.19" y="112">converged / stalled / exhausted</text><rect class="d-chip" x="1228.17" y="188" width="85.92" height="18" rx="5"/><text class="d-edgelabel" text-anchor="middle" x="1271.13" y="201">no namespace</text><rect class="d-chip" x="778.38" y="99" width="105.5" height="18" rx="5"/><text class="d-edgelabel" text-anchor="middle" x="831.13" y="112">namespace exists</text></svg></div><details class="diagram-text"><summary>Proposed architecture in words</summary><ul><li>code-review pass → loop_state.py record</li><li>loop_state.py record → builder mode loop (continue)</li><li>builder mode loop → code-review pass</li><li>loop_state.py record → wiki.py resolves the project key and refuses eval mode (converged / stalled / exhausted)</li><li>build wave accepted → wiki.py resolves the project key and refuses eval mode</li><li>wiki.py resolves the project key and refuses eval mode → branch handed to the human (no namespace)</li><li>wiki.py resolves the project key and refuses eval mode → immutable raw bundle in the global namespace (namespace exists)</li><li>immutable raw bundle in the global namespace → one documenter, writing only through wiki.py</li><li>one documenter, writing only through wiki.py → patterns and index and logs, outside every repository</li><li>patterns and index and logs, outside every repository → wiki.py check</li><li>wiki.py check → branch handed to the human</li></ul></details>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="tasks">
+      <div class="section-head"><span class="num">03</span><h2>Task Breakdown</h2><span class="count">4 issues</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>issues</b> &mdash; data: issues[]{key, title, body, labels, dependsOn, ownershipHint, wave}. One independently deliverable concern per issue. Acceptance tests are deliberately absent here; they render into the GitHub issue body.</div>
+      </div>
+      <div class="rows"><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">WikiStore</span><strong>The wiki layer: global per-project store, layout contract, and the `wiki` skill</strong></div><div class="row-meta"><span>Wave 1</span><span>**</span><span class="tag">planning</span><span class="tag">skills</span><span class="tag">type:feature</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="issue-body"><p>Ship the persistent knowledge layer itself — one store outside every repository, namespaced per project, the contract that says what belongs in each layer, the offline CLI that is its only writer, and the skill&#x27;s dispatch contract. Nothing consumes it yet; the two hook issues in wave 2 do that.</p><p><strong>Where it lives.</strong> <code>$WORKCELL_WIKI_HOME</code>, defaulting to <code>~/.workcell/wiki/</code>, with one namespace per project at <code>~/.workcell/wiki/&lt;project-key&gt;/</code>. Note that <code>~/.workcell/</code> does not exist today — this repository&#x27;s home-level roots are <code>~/.local/bin</code>, <code>~/.claude</code>, <code>~/.codex</code>, <code>~/.gemini</code>, and <code>~/.agents</code> — so this issue creates it; and <code>WORKCELL_WIKI_HOME</code> follows the only environment-variable precedent in the tree, <code>WORKCELL_EVAL_TASK_DIR</code>.</p><p><strong>The project key.</strong> <code>wiki.py key --repo &lt;path&gt;</code> is a subcommand of its own so the derivation is directly inspectable and directly testable:</p><p>1. Resolve the target repository&#x27;s <strong>primary</strong> toplevel exactly as <code>workcell-ws</code> does — through the <code>.jj/repo</code> indirection for a secondary jj workspace, through the first <code>git worktree list --porcelain</code> entry for git — so every <code>build</code> per-issue workspace of one repository answers with one key. 2. If that repository has an <code>origin</code> remote, the key is the normalized remote: scheme, user, and port stripped, a trailing <code>.git</code> stripped, lower-cased, host and path segments joined with dashes — <code>github-com-anvil008-workcell</code>. <code>git@github.com:anvil008/workcell.git</code> and <code>https://github.com/anvil008/workcell</code> must collapse to the same key. 3. With no remote, the key falls back to <code>&lt;toplevel-basename&gt;-&lt;first 8 hex of the sha256 of the resolved absolute toplevel&gt;</code>. 4. Either way the key is reduced to the character class <code>workcell-ws</code> already enforces for a key part — <code>[a-z0-9][a-z0-9-]*</code>, every other character written as a dash and runs collapsed, no slash — so a wiki key and a workspace key obey one spelling rule and neither can carry a path separator. 5. Collisions are refused, not resolved. <code>project.json</code> in the namespace records <code>projectKey</code>, <code>source</code> (<code>remote</code> or <code>path</code>), the origin or toplevel it was derived from, and <code>createdAt</code>. Every later command re-resolves and compares; a mismatch exits non-zero naming both the recorded and the resolved source. Renaming or retiring a namespace is a human act, like entering eval mode.</p><p><strong>Layout</strong>, created by <code>wiki.py init</code> inside the namespace:</p><p>- <code>project.json</code> — the identity record above. - <code>raw/&lt;id&gt;/</code> — one immutable bundle per recorded run: <code>manifest.json</code> (<code>id</code>, <code>kind</code>, <code>recordedAt</code>, <code>summary</code>, and every copied file with its sha256) plus the copied evidence files. Write-once. - <code>patterns/&lt;slug&gt;.md</code> — one failure mode or successful strategy per page, with a dated Evidence section citing raw ids. Append-only prose. - <code>index.md</code> — the catalog, one row per pattern page with its occurrence count and last-seen date. - <code>logs.md</code> — the chronological evolution log, one appended line per write. - <code>skill-impact.md</code> — the accept/reject audit trail for skill-change proposals. v1 creates the file and documents its format in the reference; nothing writes an entry yet.</p><p><strong>CLI.</strong> <code>key</code>, <code>init</code>, <code>status</code>, <code>record</code>, <code>pattern</code>, <code>check</code>. Every subcommand takes <code>--repo &lt;path&gt;</code> (default the working directory) naming the <strong>target repository</strong>, from which it resolves the key and reads that repository&#x27;s <code>.workcell/eval-mode.json</code>: a repository in eval mode is refused, which is what keeps a benchmark run from writing into or reading from a persistent namespace. <code>--namespace &lt;dir&gt;</code> names a namespace directory directly, bypassing both resolutions, for the shipped demo and the tests. No subcommand deletes anything — there is no reset and no rollback — and <code>check</code> proves the raw layer&#x27;s immutability by re-hashing every recorded file against its manifest. The tests must drive <code>WORKCELL_WIKI_HOME</code> at a temporary directory; a suite that writes into the developer&#x27;s real home is a defect.</p><p><strong><code>skills/wiki/references/wiki-layout.md</code></strong> — the artifact contract the consolidating agent writes to, per ADR 0009: key derivation and collision rules, and the exact shape of a raw bundle, a pattern page, an index row, a log line, and a skill-impact entry, plus the rule that a pattern page accumulates evidence and is never rewritten to say something different.</p><p><strong><code>skills/wiki/SKILL.md</code></strong> — the dispatch contract: the canonical ADR-0007 orchestrator paragraph, one line on what this orchestrator owns, the opt-in rule (no namespace means no record, no dispatch, and no tokens spent), the single <code>documenter</code> dispatch whose <code>ownership</code> is the resolved namespace path and which <strong>writes only through <code>wiki.py</code>, never with an editor tool</strong>, <code>wiki.py check</code> as the completion gate, an offline demonstration over <code>skills/wiki/examples/sample-namespace</code>, and the two standing boundaries — runtime agents (<code>specifier</code>, <code>builder</code>, <code>reviewer</code>, <code>integrator</code>) are never given the wiki, and project patterns feed project-local overlays in the target repository only, while Workcell&#x27;s shared <code>skills/</code> continue to change through evidence-backed pull requests gated by the eval tiers.</p><p><strong>Also in this issue, because CI couples them:</strong> <code>evals/cases/skills/wiki.json</code> (three or more positive prompts, two negatives naming their owner, one <code>dialogue</code> eval — <code>run_evals.py --structural</code> fails if the case and the SKILL.md do not land together) and the <code>plugins/agy/skills/wiki</code> symlink (<code>scripts/tests/test_install.sh</code> derives that directory from <code>skills/*/</code> and fails if it drifts). That coupling across <code>skills/</code>, <code>evals/</code>, and <code>plugins/</code> is why the ownership hint is <code>**</code>; the issue is alone in wave 1, so the width costs no parallelism.</p><p><strong>Out of scope:</strong> the skill proposer, validation-gated skill updates, any write to <code>skill-impact.md</code>, cross-project or shared namespaces, and any change to an agent body, <code>agents/handoff.md</code>, or a guard rule — read-only investigation confirmed no guard change is needed, since <code>build-guard</code> has no outside-repository write rule and <code>tdd-guard</code>&#x27;s sealed-path check returns false outside the repository.</p></div><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">LoopExit</span><strong>Consolidate the review-fix loop&#x27;s findings into the wiki when it stops</strong></div><div class="row-meta"><span>Wave 2</span><span>skills/review-fix-loop/**</span><span class="tag">planning</span><span class="tag">orchestration</span><span class="tag">type:feature</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="issue-body"><p><code>review-fix-loop</code> is where Workcell most obviously rediscovers what it already knew: each tick runs a fresh multi-lens review with no memory of the last loop, and when the loop ends the merged reviews go to a human and then nowhere. Give the loop an exit step that turns them into persistent knowledge, without touching the bound, the stop conditions, <code>--min-severity</code>, or <code>loop_state.py</code>.</p><p>Add to <code>skills/review-fix-loop/SKILL.md</code>:</p><p>1. A <strong><code>When the loop stops</code></strong> section reached on all three stop statuses. <code>stalled</code> and <code>exhausted</code> are the most informative endings the loop produces, not reasons to skip. 2. <strong>The opt-in check first.</strong> Run <code>python3 skills/wiki/scripts/wiki.py status --repo .</code>; when it reports <code>present: false</code> the loop ends exactly as it does today — no record, no dispatch, no extra tokens, no change to what the human is handed. The same command is what refuses a repository in eval mode. 3. <strong>A mechanical record before any dispatch</strong>: <code>python3 skills/wiki/scripts/wiki.py record --repo . --kind review-fix-loop --summary &lt;ending status and pass count&gt; --file &lt;each merged review JSON&gt; --file </code>.workcell/review-fix-loop.json`<code>. It prints the raw id the dispatch then cites. 4. <strong>One </code>documenter<code> dispatch</strong> conforming to </code>agents/handoff.md<code>, carrying as </code>ownership<code> the namespace path that </code>status<code> printed — </code>~/.workcell/wiki/&lt;project-key&gt;/<strong><code>, resolved at dispatch time rather than written as a literal — plus the recorded raw id and </code>skills/wiki/references/wiki-layout.md<code> as the contract it writes to. State that the agent composes its prose and passes it to </code>wiki.py<code>, and never edits a file in the namespace directly: the store sits outside the repository, and one CLI as the sole writer is what keeps </code>check<code>&#x27;s invariants true. The orchestrator judges the result by </code>wiki.py check<code> exiting zero and never by reading the pattern pages — reading a file&#x27;s contents to judge it is not orchestration. 5. </strong>The boundary restated where it can be violated.** The </code>mode: loop` builder&#x27;s brief carries findings, ownership, the verification command and the sealed paths — never the wiki and never the namespace path. The store now sits outside every repository, so the loop&#x27;s working copy cannot expose it by accident; the brief is the only way it could travel, and it does not.</p><p>Reference the layout contract and the script by path; cross-links to <code>skills/wiki/SKILL.md</code> are fine, since wave 1 has landed by the time this issue is dispatched.</p></div><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">WikiStore</div></div><div><div class="k">Ownership</div><div class="v">skills/review-fix-loop/**</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">BuildTrace</span><strong>Record each accepted build wave as a raw wiki trace</strong></div><div class="row-meta"><span>Wave 2</span><span>skills/build/**</span><span class="tag">planning</span><span class="tag">orchestration</span><span class="tag">type:feature</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="issue-body"><p><code>build</code> already collects exactly what the wiki&#x27;s raw layer wants and then throws it away at the merge: the integrator&#x27;s combined-run commands with their <code>commandId</code>s, per-issue <code>tdd-guard status --json</code>, and the gate output the orchestrator merged on. Record it. Do not consolidate it — that is the <code>wiki</code> skill&#x27;s job and today it runs from <code>review-fix-loop</code>.</p><p>Add to the wave-acceptance step of <code>skills/build/SKILL.md</code>: after the wave is accepted on evidence and before the merge is reported, and <strong>only when <code>python3 skills/wiki/scripts/wiki.py status --repo .</code> reports a present namespace</strong>, run <code>python3 skills/wiki/scripts/wiki.py record --repo . --kind build-wave --summary &lt;plan id and wave&gt; --file &lt;the integrator&#x27;s evidence&gt;</code>. The same <code>status</code> call is what refuses a repository in eval mode, so the eval path needs no separate condition here.</p><p>State three limits in the skill, because each of them is a thing a reader will otherwise assume wrongly:</p><p>- <code>build</code> records raw evidence only and never dispatches a consolidation. - A failed or skipped record never blocks or delays a merge. The merge gate is unchanged: combined GREEN, <code>tdd-guard status --json</code> fresh for every issue, and <code>gh pr checks</code> passing. - A project with no namespace runs the wave loop exactly as it does today.</p><p>No change to <code>waves.py</code>, to the done definition, to single-PR mode, or to the speculative-specifier allowance. The store is outside every repository, so no builder workspace gains a path, no diff gains a file, and the ownership hints the wave dispatches on are unaffected.</p></div><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">WikiStore</div></div><div><div class="k">Ownership</div><div class="v">skills/build/**</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">WikiDocs</span><strong>Record the wiki layer: ADR 0019, README, eval-runs, changelog</strong></div><div class="row-meta"><span>Wave 3</span><span>**</span><span class="tag">planning</span><span class="tag">docs</span><span class="tag">type:feature</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="issue-body"><p>Write the decision down and make the current-state documentation true. This is the usual repository-wide documentation pass, so its hint is <code>**</code> and it serializes itself at the end.</p><p><strong><code>docs/adr/0019-&lt;slug&gt;.md</code></strong>, with <code>## Status</code>, <code>## Context</code>, <code>## Decision</code>, <code>## Consequences</code>. The Decision states, each as its own claim:</p><p>- The mechanism ships in Workcell; the data lives in one store outside every repository at <code>$WORKCELL_WIKI_HOME</code>, defaulting to <code>~/.workcell/wiki/</code>, with one namespace per project at <code>~/.workcell/wiki/&lt;project-key&gt;/</code>. <code>~/.workcell/</code> is a new root this decision introduces; the override name follows <code>WORKCELL_EVAL_TASK_DIR</code>, the only prior precedent. - Per-project namespacing is absolute: no flat shared wiki and no cross-project namespace. - The project key is the normalized <code>origin</code> remote, falling back to the toplevel basename plus a hash of the resolved absolute toplevel, resolved from the repository&#x27;s primary toplevel the way <code>workcell-ws</code> resolves one — so every workspace of a repository shares a key — and spelled in the character class <code>workcell-ws</code> already enforces. - Identity is recorded rather than inferred: <code>project.json</code> names the source the namespace was created from, and a mismatch is refused by name rather than silently sharing or forking a namespace. - A namespace&#x27;s existence is the entire opt-in. A project without one behaves exactly as it does today. - Three layers with three different durability rules: <code>raw/</code> is write-once, the wiki (<code>patterns/</code>, <code>index.md</code>, <code>logs.md</code>, <code>skill-impact.md</code>) is append-only and is never reset or rolled back, and <code>skills/</code> is untouched by this decision. - <strong>The ablation now holds trivially.</strong> Because the store is outside every repository, no working copy, no <code>build</code> workspace, no pull-request diff, and no scored eval patch can contain it — the property the earlier per-repository design had to argue for is now structural, and it is why no guard change is needed. Record what was checked: <code>build-guard</code> has no outside-repository write rule, its only path denials being the eval-mode marker and RAM-backed build target directories, and <code>tdd-guard</code>&#x27;s sealed-path check returns false for anything outside the repository. - A repository in eval mode neither records nor consolidates, checked against the target repository the namespace was resolved from. - The two-layer split: the wiki is untracked local working memory, and only its distilled output feeds committed project-local overlays in the target repository. Runtime agents are never given the wiki, and Workcell&#x27;s shared <code>skills/</code> continue to change through evidence-backed pull requests gated by the eval tiers, because model- and project-specific workarounds in a shared skill transfer negatively.</p><p>The Consequences name the accepted residuals: the wiki is now per machine and per user rather than per team, with <code>WORKCELL_WIKI_HOME</code> as the relocation lever and a real export path left to the proposer milestone; and because the store sits outside the repository, the harness&#x27;s own permission model is the remaining surface, which is why every write goes through one <code>wiki.py</code> invocation rather than an editor tool.</p><p><strong><code>README.md</code></strong>: both skill counts move from 17 to 18, the skills table gains a <code>wiki</code> row linking <code>skills/wiki/SKILL.md</code>, and the prose gains a short paragraph saying what the layer is, where it lives, and what it deliberately is not.</p><p><strong><code>docs/eval-runs.md</code></strong>: one statement that a repository in eval mode neither records to nor consolidates a wiki, so a benchmark run cannot contaminate or be contaminated by persistent knowledge.</p><p><strong><code>CHANGELOG.md</code></strong>: a new entry naming the layer, the global per-project store, the review-fix-loop exit consolidation, the <code>build</code> raw-trace hook, and ADR-0019.</p></div><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">WikiStore, LoopExit, BuildTrace</div></div><div><div class="k">Ownership</div><div class="v">**</div></div><div><div class="k">Wave</div><div class="v">Wave 3</div></div></div></div></details></div>
+      <h3>Dependency graph</h3>
+      <div class="diagram-shell"><svg class="diagram" xmlns="http://www.w3.org/2000/svg" width="702" height="218" viewBox="0 0 702 218" role="img" aria-labelledby="d-deps-title d-deps-desc" style="max-width: 702px; width: 100%; height: auto"><title id="d-deps-title">Issue dependency graph</title><desc id="d-deps-desc">4 nodes and 5 relationships; the same content is listed as text beneath the diagram.</desc><defs><marker id="d-deps-arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="d-arrowhead" d="M0,0 L10,4 L0,8 Z"/></marker></defs><path class="d-edge" marker-end="url(#d-deps-arrow)" d="M 196 97 L 211 97 Q 219 97 219 89 L 219 62 Q 219 54 227 54 L 242 54"/><path class="d-edge" marker-end="url(#d-deps-arrow)" d="M 196 97 L 211 97 Q 219 97 219 105 L 219 140 Q 219 148 227 148 L 242 148"/><path class="d-edge" marker-end="url(#d-deps-arrow)" d="M 105 145 L 105 196 Q 105 204 113 204 L 580 204 Q 588 204 588 196 L 588 137"/><path class="d-edge" marker-end="url(#d-deps-arrow)" d="M 442 54 L 457 54 Q 465 54 465 62 L 465 89 Q 465 97 473 97 L 488 97"/><path class="d-edge" marker-end="url(#d-deps-arrow)" d="M 442 148 L 457 148 Q 465 148 465 140 L 465 105 Q 465 97 473 97 L 488 97"/><g class="d-node wave1"><rect class="d-shape" x="14" y="49" width="182" height="96" rx="3"/><text class="d-label" x="105" y="70">The wiki layer: global</text><text class="d-label" x="105" y="86">per-project store, layout</text><text class="d-label" x="105" y="102">contract, and the `wiki`</text><text class="d-label" x="105" y="118">skill</text><text class="d-sub" x="105" y="132.5">WikiStore</text></g><g class="d-node wave2"><rect class="d-shape" x="242" y="14" width="200" height="80" rx="3"/><text class="d-label" x="342" y="35">Consolidate the review-fix</text><text class="d-label" x="342" y="51">loop's findings into the wiki</text><text class="d-label" x="342" y="67">when it stops</text><text class="d-sub" x="342" y="81.5">LoopExit</text></g><g class="d-node wave2"><rect class="d-shape" x="242" y="116" width="200" height="64" rx="3"/><text class="d-label" x="342" y="137">Record each accepted build</text><text class="d-label" x="342" y="153">wave as a raw wiki trace</text><text class="d-sub" x="342" y="167.5">BuildTrace</text></g><g class="d-node wave3"><rect class="d-shape" x="488" y="57" width="200" height="80" rx="3"/><text class="d-label" x="588" y="78">Record the wiki layer: ADR</text><text class="d-label" x="588" y="94">0019, README, eval-runs,</text><text class="d-label" x="588" y="110">changelog</text><text class="d-sub" x="588" y="124.5">WikiDocs</text></g></svg></div><details class="diagram-text"><summary>Issue dependency graph in words</summary><ul><li>The wiki layer: global per-project store, layout contract, and the `wiki` skill [WikiStore] → Consolidate the review-fix loop's findings into the wiki when it stops [LoopExit]</li><li>The wiki layer: global per-project store, layout contract, and the `wiki` skill [WikiStore] → Record each accepted build wave as a raw wiki trace [BuildTrace]</li><li>The wiki layer: global per-project store, layout contract, and the `wiki` skill [WikiStore] → Record the wiki layer: ADR 0019, README, eval-runs, changelog [WikiDocs]</li><li>Consolidate the review-fix loop's findings into the wiki when it stops [LoopExit] → Record the wiki layer: ADR 0019, README, eval-runs, changelog [WikiDocs]</li><li>Record each accepted build wave as a raw wiki trace [BuildTrace] → Record the wiki layer: ADR 0019, README, eval-runs, changelog [WikiDocs]</li></ul></details>
+      <h3>Dependency table</h3>
+      <div class="table-shell"><table><thead><tr><th class="mono">Key</th><th>Issue</th><th>Depends on</th><th>Wave</th><th>Ownership</th></tr></thead><tbody><tr><td class="mono">WikiStore</td><td>The wiki layer: global per-project store, layout contract, and the `wiki` skill</td><td class="mono">—</td><td class="mono">1</td><td class="mono">**</td></tr><tr><td class="mono">LoopExit</td><td>Consolidate the review-fix loop&#x27;s findings into the wiki when it stops</td><td class="mono">WikiStore</td><td class="mono">2</td><td class="mono">skills/review-fix-loop/**</td></tr><tr><td class="mono">BuildTrace</td><td>Record each accepted build wave as a raw wiki trace</td><td class="mono">WikiStore</td><td class="mono">2</td><td class="mono">skills/build/**</td></tr><tr><td class="mono">WikiDocs</td><td>Record the wiki layer: ADR 0019, README, eval-runs, changelog</td><td class="mono">WikiStore, LoopExit, BuildTrace</td><td class="mono">3</td><td class="mono">**</td></tr></tbody></table></div>
+    </section>
+
+    <section class="section" id="waves">
+      <div class="section-head"><span class="num">04</span><h2>Execution Waves</h2><span class="count">3 waves</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>waves</b> &mdash; derived from issues[].wave. A wave is a parallelisable set, not a duration. Only issues with genuinely disjoint ownership belong in the same wave.</div>
+      </div>
+      <div class="waves"><div class="wave"><div class="wave-label"><div class="n">Wave 1</div><div class="t">Single</div><div class="c">1 issue</div></div><div class="wave-items"><span class="wave-item"><span class="k">WikiStore</span>The wiki layer: global per-project store, layout contract, and the `wiki` skill</span></div></div><div class="wave"><div class="wave-label"><div class="n">Wave 2</div><div class="t">Parallel</div><div class="c">2 issues</div></div><div class="wave-items"><span class="wave-item"><span class="k">LoopExit</span>Consolidate the review-fix loop&#x27;s findings into the wiki when it stops</span><span class="wave-item"><span class="k">BuildTrace</span>Record each accepted build wave as a raw wiki trace</span></div></div><div class="wave"><div class="wave-label"><div class="n">Wave 3</div><div class="t">Single</div><div class="c">1 issue</div></div><div class="wave-items"><span class="wave-item"><span class="k">WikiDocs</span>Record the wiki layer: ADR 0019, README, eval-runs, changelog</span></div></div></div>
+      <h3>Wave order</h3>
+      <div class="diagram-shell"><svg class="diagram" xmlns="http://www.w3.org/2000/svg" width="172" height="264" viewBox="0 0 172 264" role="img" aria-labelledby="d-waves-title d-waves-desc" style="max-width: 172px; width: 100%; height: auto"><title id="d-waves-title">Execution wave order</title><desc id="d-waves-desc">3 nodes and 2 relationships; the same content is listed as text beneath the diagram.</desc><defs><marker id="d-waves-arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="d-arrowhead" d="M0,0 L10,4 L0,8 Z"/></marker></defs><path class="d-edge" marker-end="url(#d-waves-arrow)" d="M 86 62 L 86 108"/><path class="d-edge" marker-end="url(#d-waves-arrow)" d="M 86 156 L 86 202"/><g class="d-node wave1"><rect class="d-shape" x="31" y="14" width="110" height="48" rx="3"/><text class="d-label" x="86" y="35">Wave 1</text><text class="d-sub" x="86" y="49.5">WikiStore</text></g><g class="d-node wave2"><rect class="d-shape" x="14" y="108" width="144" height="48" rx="3"/><text class="d-label" x="86" y="129">Wave 2</text><text class="d-sub" x="86" y="143.5">LoopExit · BuildTrace</text></g><g class="d-node wave3"><rect class="d-shape" x="31" y="202" width="110" height="48" rx="3"/><text class="d-label" x="86" y="223">Wave 3</text><text class="d-sub" x="86" y="237.5">WikiDocs</text></g></svg></div><details class="diagram-text"><summary>Execution wave order in words</summary><ul><li>Wave 1 [WikiStore] → Wave 2 [LoopExit · BuildTrace]</li><li>Wave 2 [LoopExit · BuildTrace] → Wave 3 [WikiDocs]</li></ul></details>
+    </section>
+
+    <section class="section" id="risks">
+      <div class="section-head"><span class="num">05</span><h2>Risks</h2><span class="count">7</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>risk-matrix</b> &mdash; data: risks[]{id, title, likelihood: 1|2|3, impact: 1|2|3, owner, mitigation}. The cell is likelihood&times;impact; anything in the top-right band needs a named owner.</div>
+      </div>
+      <div class="risk-layout"><div class="matrix"><div class="matrix-grid"><div class="matrix-y">high</div><div class="cell s3"></div><div class="cell s6"><span class="pin">R-01</span></div><div class="cell s9"></div><div class="matrix-y">med</div><div class="cell s2"><span class="pin">R-05</span></div><div class="cell s4"><span class="pin">R-02</span><span class="pin">R-03</span><span class="pin">R-04</span><span class="pin">R-06</span><span class="pin">R-07</span></div><div class="cell s6"></div><div class="matrix-y">low</div><div class="cell s1"></div><div class="cell s2"></div><div class="cell s3"></div></div><div class="matrix-x"><span></span><span>low</span><span>med</span><span>high</span></div><div class="matrix-axis">likelihood &uarr; &middot; impact &rarr;</div></div><div class="risk-list"><article class="risk"><div class="risk-head"><span class="id">R-01</span><strong>A global store is per machine and per user, so knowledge still does not reach a team</strong><span class="owner">repository owner adopting the wiki</span></div><p><span class="k">Likelihood high &middot; impact med</span></p><p><span class="k">Mitigation</span>The move already buys the larger win: every clone and every `build` workspace of one project now shares one namespace instead of fragmenting per checkout, and the paper&#x27;s ablation holds structurally because the store is outside every repository. `WORKCELL_WIKI_HOME` makes the root relocatable onto synced or shared storage without a code change, and `wiki.py status` reports `present: false` and exits zero wherever a namespace is missing. A real export/import path stays named as proposer-milestone work in ADR 0019&#x27;s consequences rather than assumed away.</p></article><article class="risk"><div class="risk-head"><span class="id">R-02</span><strong>Two projects resolve to one key, or a renamed remote orphans a namespace</strong><span class="owner">WikiStore builder</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>Identity is recorded, not inferred: `project.json` stores the source the namespace was created from, every command re-resolves and compares, and a mismatch is refused by name — naming both the recorded and the resolved source — instead of silently sharing or silently forking. `wiki.py key --repo &lt;path&gt;` prints the key and its source, so the answer is inspectable before anything is written, and renaming or retiring a namespace stays a human act.</p></article><article class="risk"><div class="risk-head"><span class="id">R-03</span><strong>An eighteenth skill description pushes routing below the 77% rank-1 floor</strong><span class="owner">WikiStore builder</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>The case ships in the same pull request as the skill because CI requires it, and both free tiers are acceptance tests on that issue: `--structural` for coverage and description collision, `--min-rank1 77` for the floor. The description is written to sit away from `docs` and `research` — persistent knowledge from finished runs, explicitly not user-facing documentation — and `run_evals.py` reports a collision at 50% before it fails at 75%.</p></article><article class="risk"><div class="risk-head"><span class="id">R-04</span><strong>Wave 1 is wide and wave 1 is one issue, so a bad split cannot be recovered by parallelism</strong><span class="owner">build orchestrator</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>The width is forced by CI coupling across `skills/`, `evals/`, and `plugins/`, not chosen, and it is spent where it is free: wave 1 has one issue, so nothing is serialized behind it. The issue is bounded to a store, a contract, and a skill file with no consumers — the two hook issues in wave 2 are what wire it in, and either can bounce back to its builder without disturbing the other.</p></article><article class="risk"><div class="risk-head"><span class="id">R-06</span><strong>The documenter is asked to do root-cause work outside its docs-only job</strong><span class="owner">wiki skill</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>The brief hands it the loop&#x27;s own verified findings — file, claim, failure scenario, and the independent verification evidence that substantiated each — rather than a codebase to diagnose, so the work is grouping and citing rather than debugging. It writes only through `wiki.py`, never with an editor tool, and `wiki.py check` is the gate. A dedicated mode or agent is deferred to the proposer milestone, where the job genuinely changes.</p></article><article class="risk"><div class="risk-head"><span class="id">R-07</span><strong>The store sits outside every repository, where a harness sandbox or permission prompt may block the write</strong><span class="owner">operator adopting the wiki</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>Workcell&#x27;s own gates were checked read-only and do not stand in the way: `build-guard` has no outside-repository write rule, its only path denials being the eval-mode marker and RAM-backed build target directories, and `tdd-guard`&#x27;s sealed-path check returns false for anything outside the repository. That leaves only the harness&#x27;s own permission model, and every write goes through a single `wiki.py` Bash invocation rather than editor tools, which is one surface an operator can allow once and the documenter contract already assumes.</p></article><article class="risk"><div class="risk-head"><span class="id">R-05</span><strong>Consolidation spends an extra agent dispatch on every loop ending</strong><span class="owner">review-fix-loop orchestrator</span></div><p><span class="k">Likelihood med &middot; impact low</span></p><p><span class="k">Mitigation</span>It runs once per loop rather than once per pass, and only for a project that opted in by creating a namespace. The record step is mechanical and free; only the pattern-writing pass costs tokens, and its ownership is one directory.</p></article></div></div>
+    </section>
+
+    <section class="section" id="execution">
+      <div class="section-head"><span class="num">06</span><h2>Milestone &amp; Execution</h2></div>
+      <div class="callout note"><span class="mark">&#9679;</span>
+        <p>After review, explicit human approval is required before the milestone or any issue is written to GitHub. Reconciliation uses stable plan and issue markers, updates changed work, and closes removed work. Re-running an unchanged plan produces no mutations.</p>
+      </div>
+      <div class="cards">
+        <article class="card"><h3>1 &middot; Review</h3><p>Read this folio and the sidecar together. They must describe the same scope.</p></article>
+        <article class="card"><h3>2 &middot; Approve</h3><p>Approval names a human identity and applies to this exact sidecar. A changed sidecar needs fresh approval.</p></article>
+        <article class="card"><h3>3 &middot; Reconcile</h3><p>Milestones only, never a GitHub Project. Preview read-only first, then apply.</p></article>
+      </div>
+      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/workcell/milestones">Persistent project knowledge — the wiki layer</a> in anvil008/workcell.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    document.getElementById("theme-toggle").innerHTML = next === "light" ? "&#9789;" : "&#9788;";
+  });
+
+  document.getElementById("hints-toggle").addEventListener("click", () => {
+    root.dataset.hints = root.dataset.hints === "off" ? "on" : "off";
+  });
+
+  // Print needs every disclosure open; restore the reader's state afterwards.
+  let reopened = [];
+  window.addEventListener("beforeprint", () => {
+    reopened = [...document.querySelectorAll("details:not([open])")];
+    reopened.forEach((node) => { node.open = true; });
+  });
+  window.addEventListener("afterprint", () => {
+    reopened.forEach((node) => { node.open = false; });
+    reopened = [];
+  });
+})();
+</script>
+</body>
+</html>

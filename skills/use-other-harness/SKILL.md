@@ -1,6 +1,6 @@
 ---
 name: use-other-harness
-description: ONLY when the user explicitly asks to run a subagent in a DIFFERENT coding harness (Claude Code, Codex, or Antigravity) via headless mode. The user must name the harness, the model, and the effort. Never invoke this for automatic cross-harness routing — it is an explicit, user-triggered escape hatch, not a router.
+description: ONLY when the user explicitly asks to run a subagent in a DIFFERENT coding harness (Claude Code, Codex, Antigravity, or Grok Build) via headless mode. The user must name the harness, the model, and the effort. Never invoke this for automatic cross-harness routing — it is an explicit, user-triggered escape hatch, not a router.
 ---
 
 # Use another harness (headless)
@@ -15,7 +15,7 @@ on, and read back.
 Only when the **user explicitly asks** to run work in another harness, and only after they
 have specified:
 
-- **harness** — `claude` (Claude Code) · `codex` (Codex) · `antigravity` (`agy`)
+- **harness** — `claude` (Claude Code) · `codex` (Codex) · `antigravity` (`agy`) · `grok` (Grok Build)
 - **model** — the exact model id for that harness
 - **effort** — the reasoning effort (where the harness supports it)
 
@@ -46,13 +46,19 @@ agy -p "<task prompt>" --model <model> --effort <low|medium|high> \
   --dangerously-skip-permissions
 ```
 
+**Grok Build (`grok`)**
+```bash
+grok -p "<task prompt>" -m <model> --effort <low|medium|high> \
+  --always-approve
+```
+
 ## Notes
 
 - Each command auto-approves tools inside a workspace sandbox (`--approve-for-me` /
-  `--dangerously-skip-permissions`), so scope it to one repo/dir and review the diff after.
+  `--dangerously-skip-permissions` / `--always-approve`), so scope it to one repo/dir and review the diff after.
 - For long runs, launch in the background and wait for the process to exit rather than
   polling; then read the captured output (`-o` file or stdout) and summarize it.
 - Structured result: Codex `-o <file>`; `agy --json-schema <schema>`; Claude
-  `--output-format json`.
+  `--output-format json`; Grok `--output-format json` (long briefs via `--prompt-file`).
 - This is a leaf capability. The spawned agent does one bounded job and returns its output;
   it does not orchestrate, and you own integrating whatever it produced.

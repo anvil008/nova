@@ -249,9 +249,9 @@ func hook(options Options, harnessName Harness, eventOverride string) int {
 	if !isKnownHookEvent(eventOverride) {
 		var configErr string
 		if eventOverride == "" {
-			configErr = "anvil-guard hook misconfigured: --event is required (must be PreToolUse, PostToolUse, Stop, or SubagentStop)"
+			configErr = "tdd-guard hook misconfigured: --event is required (must be PreToolUse, PostToolUse, Stop, or SubagentStop)"
 		} else {
-			configErr = fmt.Sprintf("anvil-guard hook misconfigured: --event %q is not a known event (must be PreToolUse, PostToolUse, Stop, or SubagentStop)", eventOverride)
+			configErr = fmt.Sprintf("tdd-guard hook misconfigured: --event %q is not a known event (must be PreToolUse, PostToolUse, Stop, or SubagentStop)", eventOverride)
 		}
 		sealed := false
 		if decodeErr != nil {
@@ -280,7 +280,7 @@ func hook(options Options, harnessName Harness, eventOverride string) int {
 		}
 		return emit(options, harnessName, event, response{
 			deny:   true,
-			reason: "anvil-guard: refusing an unreadable hook payload while a test seal is in force: " + decodeErr.Error(),
+			reason: "tdd-guard: refusing an unreadable hook payload while a test seal is in force: " + decodeErr.Error(),
 		})
 	}
 	workingDirectory := decoded.workingDirectory(options.Dir)
@@ -328,7 +328,7 @@ func preToolUse(harnessName Harness, decoded payload, workingDirectory string) r
 	if len(blocked) == 0 {
 		return response{}
 	}
-	return response{deny: true, reason: "anvil-guard: sealed test paths may not be edited during implementation: " + strings.Join(blocked, ", ") + "; amend them with `anvil-guard reseal --reason <text>` instead"}
+	return response{deny: true, reason: "tdd-guard: sealed test paths may not be edited during implementation: " + strings.Join(blocked, ", ") + "; amend them with `tdd-guard reseal --reason <text>` instead"}
 }
 
 func postToolUse(harnessName Harness, decoded payload, workingDirectory string) response {
@@ -347,7 +347,7 @@ func postToolUse(harnessName Harness, decoded payload, workingDirectory string) 
 	if len(messages) == 0 {
 		return response{}
 	}
-	return response{notify: true, reason: "anvil-guard: sealed tests changed during implementation: " + strings.Join(messages, "; ") + "; restore them or record `anvil-guard reseal --reason <text>`"}
+	return response{notify: true, reason: "tdd-guard: sealed tests changed during implementation: " + strings.Join(messages, "; ") + "; restore them or record `tdd-guard reseal --reason <text>`"}
 }
 
 func stopGate(decoded payload, workingDirectory string) response {
@@ -363,7 +363,7 @@ func stopGate(decoded payload, workingDirectory string) response {
 		}
 	}
 	if len(blockers) > 0 {
-		return response{deny: true, reason: "anvil-guard: " + strings.Join(blockers, "; ")}
+		return response{deny: true, reason: "tdd-guard: " + strings.Join(blockers, "; ")}
 	}
 	if resolved.repository != "" {
 		cache := newLookups()
@@ -374,7 +374,7 @@ func stopGate(decoded payload, workingDirectory string) response {
 					if found, err := stopGateBlockers(loaded); err == nil && len(found) > 0 {
 						return response{
 							deny:   true,
-							reason: "anvil-guard: " + strings.Join(found, "; "),
+							reason: "tdd-guard: " + strings.Join(found, "; "),
 						}
 					}
 				}
@@ -383,7 +383,7 @@ func stopGate(decoded payload, workingDirectory string) response {
 			if err == nil && len(sourcePaths) > 0 {
 				return response{
 					notify: true,
-					reason: "anvil-guard: source changed without a TDD seal: " + strings.Join(sourcePaths, ", ") + " — RED->seal->GREEN was skipped",
+					reason: "tdd-guard: source changed without a TDD seal: " + strings.Join(sourcePaths, ", ") + " — RED->seal->GREEN was skipped",
 				}
 			}
 		}

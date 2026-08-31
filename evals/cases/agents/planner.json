@@ -8,7 +8,7 @@
       {"prompt": "Investigate one planning goal and author its review artifacts without writing to GitHub.", "top_k": 3}
     ],
     "negative": [
-      {"prompt": "Orchestrate plan approval and apply the approved sidecar to GitHub milestones and issues.", "owner": "skill:planner"},
+      {"prompt": "Orchestrate plan approval and apply the approved sidecar to GitHub milestones and issues.", "owner": "skill:plan"},
       {"prompt": "Interview me about a brand-new feature and then carry it through one final pull request.", "owner": "skill:new-feature"}
     ]
   },

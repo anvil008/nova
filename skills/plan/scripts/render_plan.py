@@ -12,14 +12,34 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# A caller loading this module by file location leaves its directory off
+# sys.path, so the sibling import has to place it there itself.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import diagrams
+
 ROOT = Path(__file__).resolve().parents[1]
 TOP_FIELDS = {
-    "planId", "planName", "repo", "generatedAt", "summary",
-    "architecture", "issues", "risks",
+    "planId",
+    "planName",
+    "repo",
+    "generatedAt",
+    "summary",
+    "architecture",
+    "issues",
+    "risks",
 }
 RISK_FIELDS = {"id", "title", "likelihood", "impact", "owner", "mitigation"}
 ARCH_FIELDS = {"components", "changeSummary", "diagramsMermaid"}
-ISSUE_FIELDS = {"key", "title", "body", "labels", "dependsOn", "ownershipHint", "wave", "acceptanceTests"}
+ISSUE_FIELDS = {
+    "key",
+    "title",
+    "body",
+    "labels",
+    "dependsOn",
+    "ownershipHint",
+    "wave",
+    "acceptanceTests",
+}
 ACC_REQUIRED = {"name", "kind", "oracle"}
 ACC_ALLOWED = {"name", "kind", "oracle", "testPath", "stub"}
 ACC_KINDS = {"unit", "integration", "e2e"}
@@ -73,26 +93,37 @@ def validate_plan(plan: object) -> dict:
         raise PlanError("architecture must be an object")
     require_exact_fields(architecture, ARCH_FIELDS, "architecture")
     nonempty_string(architecture["changeSummary"], "architecture.changeSummary")
-    if not isinstance(architecture["components"], list) or not architecture["components"]:
+    if (
+        not isinstance(architecture["components"], list)
+        or not architecture["components"]
+    ):
         raise PlanError("architecture.components must be a non-empty array")
     for index, component in enumerate(architecture["components"]):
         if isinstance(component, str):
             nonempty_string(component, f"architecture.components[{index}]")
         elif isinstance(component, dict):
-            require_exact_fields(component, {"name", "purpose"}, f"architecture.components[{index}]")
+            require_exact_fields(
+                component, {"name", "purpose"}, f"architecture.components[{index}]"
+            )
             nonempty_string(component["name"], f"architecture.components[{index}].name")
-            nonempty_string(component["purpose"], f"architecture.components[{index}].purpose")
+            nonempty_string(
+                component["purpose"], f"architecture.components[{index}].purpose"
+            )
         else:
-            raise PlanError(f"architecture.components[{index}] must be a string or name/purpose object")
-    diagrams = architecture["diagramsMermaid"]
-    if not isinstance(diagrams, dict) or not diagrams:
+            raise PlanError(
+                f"architecture.components[{index}] must be a string or name/purpose object"
+            )
+    sources = architecture["diagramsMermaid"]
+    if not isinstance(sources, dict) or not sources:
         raise PlanError("architecture.diagramsMermaid must be a non-empty object")
-    for key, source in diagrams.items():
+    for key, source in sources.items():
         nonempty_string(key, "architecture.diagramsMermaid key")
         nonempty_string(source, f"architecture.diagramsMermaid.{key}")
     for required_diagram in ("currentArchitecture", "targetArchitecture"):
-        if required_diagram not in diagrams:
-            raise PlanError(f"architecture.diagramsMermaid.{required_diagram} is required")
+        if required_diagram not in sources:
+            raise PlanError(
+                f"architecture.diagramsMermaid.{required_diagram} is required"
+            )
 
     issues = plan["issues"]
     if not isinstance(issues, list) or not issues:
@@ -119,8 +150,12 @@ def validate_plan(plan: object) -> dict:
                 f"issues[{index}].ownershipHint takes one path or glob, not {hint!r}"
             )
         issue["ownershipHint"] = hint
-        if not isinstance(issue["labels"], list) or any(not isinstance(label, str) or not label for label in issue["labels"]):
-            raise PlanError(f"issues[{index}].labels must be an array of non-empty strings")
+        if not isinstance(issue["labels"], list) or any(
+            not isinstance(label, str) or not label for label in issue["labels"]
+        ):
+            raise PlanError(
+                f"issues[{index}].labels must be an array of non-empty strings"
+            )
         if len(set(issue["labels"])) != len(issue["labels"]):
             raise PlanError(f"issues[{index}].labels contains duplicates")
         if not isinstance(issue["dependsOn"], list):
@@ -134,11 +169,17 @@ def validate_plan(plan: object) -> dict:
                 )
             dependencies.append(dependency)
         issue["dependsOn"] = dependencies
-        if not isinstance(issue["wave"], int) or isinstance(issue["wave"], bool) or issue["wave"] < 0:
+        if (
+            not isinstance(issue["wave"], int)
+            or isinstance(issue["wave"], bool)
+            or issue["wave"] < 0
+        ):
             raise PlanError(f"issues[{index}].wave must be a non-negative integer")
         tests = issue["acceptanceTests"]
         if not isinstance(tests, list) or not tests:
-            raise PlanError(f"issues[{index}].acceptanceTests must be a non-empty array")
+            raise PlanError(
+                f"issues[{index}].acceptanceTests must be a non-empty array"
+            )
         for tindex, spec in enumerate(tests):
             twhere = f"issues[{index}].acceptanceTests[{tindex}]"
             if not isinstance(spec, dict):
@@ -146,12 +187,18 @@ def validate_plan(plan: object) -> dict:
             missing = ACC_REQUIRED - spec.keys()
             unknown = spec.keys() - ACC_ALLOWED
             if missing:
-                raise PlanError(f"{twhere}: missing field(s): {', '.join(sorted(missing))}")
+                raise PlanError(
+                    f"{twhere}: missing field(s): {', '.join(sorted(missing))}"
+                )
             if unknown:
-                raise PlanError(f"{twhere}: unknown field(s): {', '.join(sorted(unknown))}")
+                raise PlanError(
+                    f"{twhere}: unknown field(s): {', '.join(sorted(unknown))}"
+                )
             nonempty_string(spec["name"], f"{twhere}.name")
             if spec["kind"] not in ACC_KINDS:
-                raise PlanError(f"{twhere}.kind must be one of: {', '.join(sorted(ACC_KINDS))}")
+                raise PlanError(
+                    f"{twhere}.kind must be one of: {', '.join(sorted(ACC_KINDS))}"
+                )
             nonempty_string(spec["oracle"], f"{twhere}.oracle")
             if "testPath" in spec:
                 nonempty_string(spec["testPath"], f"{twhere}.testPath")
@@ -184,7 +231,11 @@ def validate_risks(risks: object) -> None:
         nonempty_string(risk["mitigation"], f"{where}.mitigation")
         for axis in ("likelihood", "impact"):
             value = risk[axis]
-            if not isinstance(value, int) or isinstance(value, bool) or value not in (1, 2, 3):
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or value not in (1, 2, 3)
+            ):
                 raise PlanError(f"{where}.{axis} must be 1, 2, or 3")
 
 
@@ -195,6 +246,23 @@ SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 
 def escaped(value: object) -> str:
     return html.escape(str(value), quote=True)
+
+
+BOLD = re.compile(r"\*\*(.+?)\*\*")
+CODE = re.compile(r"`([^`]+)`")
+
+
+def prose(value: object) -> str:
+    """Escape, then render the two inline marks plan text actually uses —
+    **bold** and `code` — and split blank-line-separated paragraphs into
+    <p> blocks, so a long summary reads as prose rather than one wall."""
+    paragraphs = []
+    for block in re.split(r"\n\s*\n", str(value).strip()):
+        text = escaped(" ".join(block.split()))
+        text = BOLD.sub(r"<strong>\1</strong>", text)
+        text = CODE.sub(r"<code>\1</code>", text)
+        paragraphs.append(f"<p>{text}</p>")
+    return "".join(paragraphs)
 
 
 def title_slug(plan_name: str, limit: int = 60) -> str:
@@ -225,20 +293,10 @@ def plan_path(plan: dict, plans_dir: Path) -> Path:
             except OSError:
                 continue
     number = next(n for n in range(1, len(taken) + 2) if n not in taken)
-    date = datetime.fromisoformat(plan["generatedAt"].replace("Z", "+00:00")).strftime("%Y%m%d")
+    date = datetime.fromisoformat(plan["generatedAt"].replace("Z", "+00:00")).strftime(
+        "%Y%m%d"
+    )
     return plans_dir / f"plan{number:02d}-{date}-{title_slug(plan['planName'])}.html"
-
-
-MERMAID_UNSAFE = {
-    '"': "'", "\n": " ", "[": "(", "]": ")",
-    # Comments, statement separators, and markup would otherwise let a title
-    # inject directives or HTML into the diagram source.
-    "#": "-", ";": ",", "`": "'", "<": "(", ">": ")",
-}
-
-
-def mermaid_label(value: str) -> str:
-    return "".join(MERMAID_UNSAFE.get(char, char) for char in value)
 
 
 def node_id(key: str) -> str:
@@ -253,60 +311,47 @@ def wave_slot(wave: int) -> int:
     return (wave - 1) % WAVE_SLOTS + 1
 
 
-def diagram(source: str, label: str) -> str:
-    safe_source = escaped(source)
-    return (
-        f'<div class="diagram-shell" aria-label="{escaped(label)}">'
-        f'<pre class="mermaid">{safe_source}</pre>'
-        '<details class="diagram-fallback"><summary>Diagram source</summary>'
-        '<p class="diagram-error"></p>'
-        f'<pre>{safe_source}</pre></details></div>'
-    )
+def authored_diagram(source: str, key: str, dom_id: str, title: str) -> str:
+    """A sidecar diagram. Mermaid stays the authoring format; SVG is what ships."""
+    parsed = diagrams.parse(source, f"architecture.diagramsMermaid.{key}")
+    return diagrams.block(parsed, dom_id, title)
 
 
-def dependency_source(issues: list[dict]) -> str:
-    by_key = {issue["key"]: issue for issue in issues}
-    lines = ["flowchart LR"]
-    unknown: set[str] = set()
-    # Wave nodes are painted by the themeCSS the template injects, keyed on the
-    # slot class, so they follow the active theme. Mermaid still needs a
-    # declaration on every classDef, hence the placeholder fill.
-    waves = sorted({issue["wave"] for issue in issues if issue["wave"] > 0})
-    for slot in sorted({wave_slot(wave) for wave in waves}):
-        lines.append(f"  classDef wave{slot} fill:transparent")
-    lines.append("  classDef neutral fill:transparent,stroke:#6b6b6b,color:#6b6b6b")
+def dependency_diagram(issues: list[dict]) -> diagrams.Diagram:
+    """The issue DAG, built straight from the validated issues. Wave paint comes
+    from the slot class, which plan.css resolves against the active theme."""
+    known = {issue["key"] for issue in issues}
+    diagram = diagrams.Diagram("LR")
     for issue in issues:
-        lines.append(f'  {node_id(issue["key"])}["{mermaid_label(issue["title"])}"]')
+        slot = f"wave{wave_slot(issue['wave'])}" if issue["wave"] > 0 else "neutral"
+        diagram.node(node_id(issue["key"]), issue["title"], sub=issue["key"], css=slot)
     for issue in issues:
         for dependency in issue["dependsOn"]:
-            if dependency not in by_key:
-                unknown.add(dependency)
-                lines.append(f'  {node_id(dependency)}["{mermaid_label(dependency)} (external)"]')
-            lines.append(f"  {node_id(dependency)} --> {node_id(issue['key'])}")
-    for issue in issues:
-        class_name = f"wave{wave_slot(issue['wave'])}" if issue["wave"] > 0 else "neutral"
-        lines.append(f"  class {node_id(issue['key'])} {class_name}")
-    for dependency in sorted(unknown):
-        lines.append(f"  class {node_id(dependency)} neutral")
-    return "\n".join(lines)
+            if dependency not in known:
+                diagram.node(
+                    node_id(dependency), f"{dependency} (external)", css="neutral"
+                )
+            diagram.edge(node_id(dependency), node_id(issue["key"]))
+    return diagram
 
 
-def waves_source(issues: list[dict]) -> str:
+def waves_diagram(issues: list[dict]) -> diagrams.Diagram:
     grouped: dict[int, list[dict]] = {}
     for issue in issues:
         grouped.setdefault(issue["wave"], []).append(issue)
     ordered = sorted(wave for wave in grouped if wave > 0)
-    lines = ["flowchart TD", "  classDef neutral fill:transparent,stroke:#6b6b6b,color:#6b6b6b"]
+    diagram = diagrams.Diagram("TD")
     for wave in ordered:
-        titles = " · ".join(mermaid_label(issue["key"]) for issue in grouped[wave])
-        lines.append(f'  wave_{wave}["Wave {wave}<br/>{titles}"]')
+        keys = " · ".join(issue["key"] for issue in grouped[wave])
+        diagram.node(
+            f"wave_{wave}", f"Wave {wave}", sub=keys, css=f"wave{wave_slot(wave)}"
+        )
     for left, right in itertools.pairwise(ordered):
-        lines.append(f"  wave_{left} --> wave_{right}")
+        diagram.edge(f"wave_{left}", f"wave_{right}")
     if 0 in grouped:
-        titles = " · ".join(mermaid_label(issue["key"]) for issue in grouped[0])
-        lines.append(f'  ungrouped["Ungrouped<br/>{titles}"]')
-        lines.append("  class ungrouped neutral")
-    return "\n".join(lines)
+        keys = " · ".join(issue["key"] for issue in grouped[0])
+        diagram.node("ungrouped", "Ungrouped", sub=keys, css="neutral")
+    return diagram
 
 
 def components_html(components: list[object]) -> str:
@@ -316,22 +361,40 @@ def components_html(components: list[object]) -> str:
             name, purpose = component["name"], component["purpose"]
         else:
             name, purpose = component, "Target component"
-        cards.append(f'<article class="card"><h3>{escaped(name)}</h3><p>{escaped(purpose)}</p></article>')
+        cards.append(
+            f'<article class="card"><h3>{escaped(name)}</h3><p>{escaped(purpose)}</p></article>'
+        )
     return "".join(cards)
 
 
 def metrics_html(plan: dict) -> str:
     issues = plan["issues"]
     known = {issue["key"] for issue in issues}
-    external = sorted({dep for issue in issues for dep in issue["dependsOn"] if dep not in known})
+    external = sorted(
+        {dep for issue in issues for dep in issue["dependsOn"] if dep not in known}
+    )
     waves = sorted({issue["wave"] for issue in issues if issue["wave"] > 0})
-    top_risks = [risk for risk in plan["risks"] if risk["likelihood"] * risk["impact"] >= 6]
+    top_risks = [
+        risk for risk in plan["risks"] if risk["likelihood"] * risk["impact"] >= 6
+    ]
     tests = sum(len(issue["acceptanceTests"]) for issue in issues)
     cells = [
         ("Issues", len(issues), "", f"{len(waves)} parallel waves", ""),
         ("Acceptance tests", tests, "", "definition of done", ""),
-        ("External deps", len(external), "", ", ".join(external) if external else "all internal", "high" if external else ""),
-        ("Risks", len(plan["risks"]), "", f"{len(top_risks)} in the top band", "critical" if top_risks else "ok"),
+        (
+            "External deps",
+            len(external),
+            "",
+            ", ".join(external) if external else "all internal",
+            "high" if external else "",
+        ),
+        (
+            "Risks",
+            len(plan["risks"]),
+            "",
+            f"{len(top_risks)} in the top band",
+            "critical" if top_risks else "ok",
+        ),
     ]
     tiles = []
     for label, value, unit, delta, tone in cells:
@@ -348,25 +411,27 @@ def metrics_html(plan: dict) -> str:
 def issues_html(issues: list[dict]) -> str:
     rows = []
     for issue in issues:
-        labels = "".join(f'<span class="tag">{escaped(label)}</span>' for label in issue["labels"])
+        labels = "".join(
+            f'<span class="tag">{escaped(label)}</span>' for label in issue["labels"]
+        )
         depends = ", ".join(issue["dependsOn"]) or "—"
-        wave = f'Wave {issue["wave"]}' if issue["wave"] else "Ungrouped"
+        wave = f"Wave {issue['wave']}" if issue["wave"] else "Ungrouped"
         rows.append(
             '<details class="row"><summary>'
             '<span class="stripe bar-low"></span>'
             '<div class="row-body">'
             f'<div class="row-title"><span class="issue-key">{escaped(issue["key"])}</span>'
-            f'<strong>{escaped(issue["title"])}</strong></div>'
+            f"<strong>{escaped(issue['title'])}</strong></div>"
             f'<div class="row-meta"><span>{escaped(wave)}</span><span>{escaped(issue["ownershipHint"])}</span>'
-            f'{labels}</div></div>'
+            f"{labels}</div></div>"
             '<span class="caret">&#9662;</span></summary>'
             '<div class="row-detail">'
-            f'<p class="issue-body">{escaped(issue["body"])}</p>'
+            f'<div class="issue-body">{prose(issue["body"])}</div>'
             '<div class="issue-facts">'
             f'<div><div class="k">Depends on</div><div class="v">{escaped(depends)}</div></div>'
             f'<div><div class="k">Ownership</div><div class="v">{escaped(issue["ownershipHint"])}</div></div>'
             f'<div><div class="k">Wave</div><div class="v">{escaped(wave)}</div></div>'
-            '</div></div></details>'
+            "</div></div></details>"
         )
     return "".join(rows)
 
@@ -383,7 +448,9 @@ def issue_table(issues: list[dict]) -> str:
         )
     return (
         '<table><thead><tr><th class="mono">Key</th><th>Issue</th><th>Depends on</th>'
-        "<th>Wave</th><th>Ownership</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+        "<th>Wave</th><th>Ownership</th></tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table>"
     )
 
 
@@ -442,11 +509,13 @@ def risks_html(risks: list[dict]) -> str:
             cells.append(f'<div class="cell s{likelihood * impact}">{pins}</div>')
 
     entries = []
-    for risk in sorted(risks, key=lambda r: (-(r["likelihood"] * r["impact"]), r["id"])):
+    for risk in sorted(
+        risks, key=lambda r: (-(r["likelihood"] * r["impact"]), r["id"])
+    ):
         entries.append(
             '<article class="risk">'
             f'<div class="risk-head"><span class="id">{escaped(risk["id"])}</span>'
-            f'<strong>{escaped(risk["title"])}</strong>'
+            f"<strong>{escaped(risk['title'])}</strong>"
             f'<span class="owner">{escaped(risk["owner"])}</span></div>'
             f'<p><span class="k">Likelihood {AXIS[risk["likelihood"]]} &middot; impact {AXIS[risk["impact"]]}</span></p>'
             f'<p><span class="k">Mitigation</span>{escaped(risk["mitigation"])}</p>'
@@ -465,17 +534,20 @@ def risks_html(risks: list[dict]) -> str:
 def render(plan: dict) -> str:
     templates = ROOT / "templates"
     template = (templates / "plan.html.tmpl").read_text(encoding="utf-8")
-    css = (templates / "report.css").read_text(encoding="utf-8") + "\n" + (templates / "plan.css").read_text(encoding="utf-8")
-    mermaid_js = (ROOT / "assets" / "mermaid.min.js").read_text(encoding="utf-8").replace("</script", "<\\/script")
+    css = (
+        (templates / "report.css").read_text(encoding="utf-8")
+        + "\n"
+        + (templates / "plan.css").read_text(encoding="utf-8")
+    )
     generated = datetime.fromisoformat(plan["generatedAt"].replace("Z", "+00:00"))
     waves = {issue["wave"] for issue in plan["issues"] if issue["wave"] > 0}
     replacements = {
         "PLAN_MARKER": PLAN_MARKER.format(plan_id=plan["planId"]),
-        "DOCUMENT_TITLE": escaped(f"{plan['planName']} · Foundry Zero Plan"),
+        "DOCUMENT_TITLE": escaped(f"{plan['planName']} · Workcell Plan"),
         "INLINE_CSS": css,
         "PLAN_ID": escaped(plan["planId"]),
         "PLAN_NAME": escaped(plan["planName"]),
-        "SUMMARY": escaped(plan["summary"]),
+        "SUMMARY": prose(plan["summary"]),
         "GENERATED_AT": escaped(plan["generatedAt"]),
         "DISPLAY_DATE": escaped(generated.strftime("%B %d, %Y")),
         "MILESTONE_URL": escaped(f"https://github.com/{plan['repo']}/milestones"),
@@ -486,15 +558,28 @@ def render(plan: dict) -> str:
         "METRICS": metrics_html(plan),
         "COMPONENTS": components_html(plan["architecture"]["components"]),
         "ARCHITECTURE_DELTA": escaped(plan["architecture"]["changeSummary"]),
-        "CURRENT_ARCHITECTURE_DIAGRAM": diagram(plan["architecture"]["diagramsMermaid"]["currentArchitecture"], "Current architecture"),
-        "PROPOSED_ARCHITECTURE_DIAGRAM": diagram(plan["architecture"]["diagramsMermaid"]["targetArchitecture"], "Proposed architecture"),
+        "CURRENT_ARCHITECTURE_DIAGRAM": authored_diagram(
+            plan["architecture"]["diagramsMermaid"]["currentArchitecture"],
+            "currentArchitecture",
+            "d-current",
+            "Current architecture",
+        ),
+        "PROPOSED_ARCHITECTURE_DIAGRAM": authored_diagram(
+            plan["architecture"]["diagramsMermaid"]["targetArchitecture"],
+            "targetArchitecture",
+            "d-proposed",
+            "Proposed architecture",
+        ),
         "ISSUE_CARDS": issues_html(plan["issues"]),
-        "DEPENDENCY_DIAGRAM": diagram(dependency_source(plan["issues"]), "Issue dependency DAG"),
+        "DEPENDENCY_DIAGRAM": diagrams.block(
+            dependency_diagram(plan["issues"]), "d-deps", "Issue dependency graph"
+        ),
         "ISSUE_TABLE": issue_table(plan["issues"]),
         "WAVES": waves_html(plan["issues"]),
         "RISKS": risks_html(plan["risks"]),
-        "WAVES_DIAGRAM": diagram(waves_source(plan["issues"]), "Execution waves"),
-        "MERMAID_JS": mermaid_js,
+        "WAVES_DIAGRAM": diagrams.block(
+            waves_diagram(plan["issues"]), "d-waves", "Execution wave order"
+        ),
     }
     return substitute_tokens(template, replacements)
 
@@ -512,7 +597,9 @@ def substitute_tokens(template: str, replacements: dict[str, str]) -> str:
 
     rendered = re.sub(r"\{\{([A-Z_]+)\}\}", substitute, template)
     if leftovers:
-        raise PlanError(f"unresolved template token(s): {', '.join(sorted(set(leftovers)))}")
+        raise PlanError(
+            f"unresolved template token(s): {', '.join(sorted(set(leftovers)))}"
+        )
     return rendered
 
 
@@ -520,7 +607,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sidecar", type=Path)
     parser.add_argument(
-        "output", type=Path, nargs="?",
+        "output",
+        type=Path,
+        nargs="?",
         help="explicit output path; omit to use <plans-dir>/plan<NN>-<YYYYMMDD>-<title>.html",
     )
     parser.add_argument("--plans-dir", type=Path, default=Path("docs/plans"))
@@ -531,7 +620,7 @@ def main() -> int:
         rendered = render(plan)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(rendered, encoding="utf-8")
-    except (OSError, json.JSONDecodeError, PlanError) as error:
+    except (OSError, json.JSONDecodeError, PlanError, diagrams.DiagramError) as error:
         print(f"planner render error: {error}", file=sys.stderr)
         return 1
     print(f"rendered {output}")

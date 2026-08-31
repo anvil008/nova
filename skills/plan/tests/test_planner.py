@@ -156,11 +156,11 @@ def writes_attempted(log):
 class StructureParser(HTMLParser):
     def __init__(self):
         super().__init__()
-        self.mermaid_blocks = 0
+        self.diagram_svgs = 0
 
     def handle_starttag(self, tag, attrs):
-        if tag == "pre" and "mermaid" in dict(attrs).get("class", "").split():
-            self.mermaid_blocks += 1
+        if tag == "svg" and "diagram" in dict(attrs).get("class", "").split():
+            self.diagram_svgs += 1
 
 
 class PlannerSkillTests(unittest.TestCase):
@@ -198,10 +198,15 @@ class PlannerSkillTests(unittest.TestCase):
             self.assertIn(token, rendered)
         self.assertNotIn("https://cdn", rendered)
         self.assertNotIn("<link rel=", rendered)
-        self.assertIn("mermaid.initialize", rendered)
-        self.assertIn("flowchart LR", rendered)
-        self.assertIn("flowchart TD", rendered)
-        self.assertIn("diagram-fallback", rendered)
+        self.assertNotIn("mermaid", rendered.lower())
+        self.assertIn("diagram-text", rendered)
+        # Branding is Workcell; the mark keeps the shared bar theme.
+        self.assertIn('<span class="bar-mark">WC</span>Workcell</span>', rendered)
+        self.assertNotIn("Foundry Zero</span>", rendered)  # the shared CSS keeps its design-system comment
+        # Diagrams scale down inside their container instead of clipping.
+        self.assertIn("width: 100%; height: auto", rendered)
+        # The summary renders as paragraphs with inline marks, not one escaped wall.
+        self.assertIn('<div class="lede"><p>', rendered)
         self.assertIn('class="architecture-state current"', rendered)
         self.assertIn('class="architecture-state proposed"', rendered)
         self.assertIn(">Current</h3>", rendered)
@@ -212,7 +217,7 @@ class PlannerSkillTests(unittest.TestCase):
 
         parser = StructureParser()
         parser.feed(rendered)
-        self.assertGreaterEqual(parser.mermaid_blocks, 4)
+        self.assertGreaterEqual(parser.diagram_svgs, 4)
         headings = [
             "Overview",
             "Architecture",
@@ -301,9 +306,9 @@ class PlannerSkillTests(unittest.TestCase):
             result = self.run_script(RENDER, sidecar, output)
             self.assertEqual(result.returncode, 0, result.stderr)
             rendered = output.read_text(encoding="utf-8")
-        self.assertIn("issue_External_API", rendered)
-        self.assertIn("class issue_External_API neutral", rendered)
-        self.assertIn("stroke:var(--mut)!important", rendered)
+        self.assertIn("External-API (external)", rendered)
+        self.assertIn('<g class="d-node neutral">', rendered)
+        self.assertIn("stroke: var(--mut)", rendered)
         self.assertIn("&lt;External API&gt;", rendered)
         self.assertNotIn("<External API>", rendered)
 
@@ -601,27 +606,17 @@ class PlannerSkillTests(unittest.TestCase):
 
     def test_token_in_user_text_is_inert(self):
         plan = sample_plan()
-        plan["summary"] = "Beware {{MERMAID_JS}} and {{ISSUE_CARDS}} in prose."
+        plan["summary"] = "Beware {{INLINE_CSS}} and {{ISSUE_CARDS}} in prose."
         with tempfile.TemporaryDirectory() as tmp:
             sidecar = Path(tmp) / "plan.sidecar.json"
             sidecar.write_text(json.dumps(plan), encoding="utf-8")
             result = self.run_script(RENDER, sidecar, Path(tmp) / "out.html")
             self.assertEqual(result.returncode, 0, result.stderr)
             rendered = (Path(tmp) / "out.html").read_text(encoding="utf-8")
-        self.assertIn("Beware {{MERMAID_JS}} and {{ISSUE_CARDS}} in prose.", rendered)
-        bundle_head = (ROOT / "assets" / "mermaid.min.js").read_text(encoding="utf-8")[:200]
-        self.assertEqual(rendered.count(bundle_head), 1)
+        self.assertIn("Beware {{INLINE_CSS}} and {{ISSUE_CARDS}} in prose.", rendered)
+        css_head = (ROOT / "templates" / "report.css").read_text(encoding="utf-8")[:200]
+        self.assertEqual(rendered.count(css_head), 1)
         self.assertEqual(rendered.count('class="issue-key"'), len(plan["issues"]))
-
-    def test_mermaid_label_neutralises_directive_and_markup_characters(self):
-        sys.path.insert(0, SCRIPTS_DIR)
-        import render_plan
-
-        label = render_plan.mermaid_label('a#b;c`d<e>f"g[h]\ni')
-        for char in '#;`<>"[]\n':
-            self.assertNotIn(char, label)
-        self.assertIn("a", label)
-        self.assertIn("i", label)
 
     def test_reconcile_does_not_reopen_done_issues_unless_asked(self):
         plan = sample_plan()
@@ -812,17 +807,17 @@ class PlannerSkillTests(unittest.TestCase):
 
     def test_shared_report_css_is_byte_identical_across_skills(self):
         repo_root = ROOT.parents[1]
-        planner = (repo_root / "skills" / "planner" / "templates" / "report.css").read_bytes()
+        planner = (repo_root / "skills" / "plan" / "templates" / "report.css").read_bytes()
         for skill in ("code-review", "research"):
             other = (repo_root / "skills" / skill / "templates" / "report.css").read_bytes()
             self.assertEqual(
                 planner, other,
-                f"report.css must stay byte-identical in skills/planner and skills/{skill}",
+                f"report.css must stay byte-identical in skills/plan and skills/{skill}",
             )
 
     def test_skill_requires_approval_and_documents_milestones_only(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertTrue(skill.startswith("---\nname: planner\n"))
+        self.assertTrue(skill.startswith("---\nname: plan\n"))
         self.assertIn("human approval", skill.lower())
         self.assertIn("must stop", skill.lower())
         self.assertIn("GitHub milestone", skill)

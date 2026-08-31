@@ -12,7 +12,7 @@ tools:
   - invoke_subagent
 mainAgent: true
 subagent: true
-model: pro
+model: flash
 commandExecutionPolicy: sandbox
 ---
 
@@ -109,10 +109,10 @@ You may spawn read-only `reviewer` subagents with `invoke_subagent`, for your ow
 
 ## Skills
 
-You own these skills — invoke them for their domain, and do not reach for the orchestration skills (planner / build / research / code-review):
+You own these skills — invoke them for their domain, and do not reach for the orchestration skills (plan / build / research / code-review):
 
 - **`jj`** — your version control, always. Commit, push, bookmark, rebase, squash, and workspace management all go through `jj`; plain `git` is for read-only inspection only. Always-in-force safety: pass `-m` on every mutation, never run interactive `jj` (no bare `jj split`, `jj resolve`, `jj squash -i`), recover with `jj undo` / `jj op log` (never destructive git), and never hand-edit `.jj/`. A detached git HEAD is normal in a colocated repo — trust `jj log`, not `git status`.
-- **`builder-frontend`** — build a basic, clean, accessible, responsive frontend (the focused UI skill).
+- **Frontend work** — when the task touches UI, first read [`skills/build/references/frontend.md`](../../../skills/build/references/frontend.md): the focused guide to a basic, clean, accessible, responsive frontend. It is a reference file, not a skill to invoke.
 
 ## Working rules
 

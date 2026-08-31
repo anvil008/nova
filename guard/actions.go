@@ -100,7 +100,7 @@ func handoff(loaded *state, to string) error {
 		if err := os.MkdirAll(loaded.directory, 0o700); err != nil {
 			return err
 		}
-		return fmt.Errorf("nothing to hand off: seal the tests first with `anvil-guard seal`")
+		return fmt.Errorf("nothing to hand off: seal the tests first with `tdd-guard seal`")
 	}
 	if loaded.green != nil {
 		return fmt.Errorf("green evidence already exists; the implementation is done, so there is nothing to hand off")
@@ -131,7 +131,7 @@ func handoff(loaded *state, to string) error {
 // never blocks: test strength is a signal, not a new gate.
 func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage float64, stderr io.Writer) error {
 	if loaded.seal == nil {
-		return fmt.Errorf("no seal for %s; run `anvil-guard seal` first", loaded.repository)
+		return fmt.Errorf("no seal for %s; run `tdd-guard seal` first", loaded.repository)
 	}
 	if len(greenCommand) == 0 {
 		return fmt.Errorf("verify requires --green-command <argv...>")
@@ -146,7 +146,7 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 		return err
 	}
 	if len(changed) > 0 {
-		return fmt.Errorf("sealed tests changed since the seal: %s; run `anvil-guard reseal --reason <text>` to amend them explicitly", strings.Join(changed, ", "))
+		return fmt.Errorf("sealed tests changed since the seal: %s; run `tdd-guard reseal --reason <text>` to amend them explicitly", strings.Join(changed, ", "))
 	}
 	before, err := loaded.sealedTestStats()
 	if err != nil {
@@ -177,7 +177,7 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 		if coverage, ok := measureCoverage(loaded.repository, coverageCommand); ok {
 			green.CoveragePercent = &coverage
 			if minCoverage > 0 && coverage < minCoverage {
-				fmt.Fprintf(stderr, "anvil-guard: coverage %.1f%% is below --min-coverage %.1f%% (advisory, not a gate)\n", coverage, minCoverage)
+				fmt.Fprintf(stderr, "tdd-guard: coverage %.1f%% is below --min-coverage %.1f%% (advisory, not a gate)\n", coverage, minCoverage)
 			}
 		}
 	}
@@ -330,7 +330,7 @@ func archCheck(loaded *state, assertionsPath string, stderr io.Writer) (int, err
 		if err := writeJSON(loaded.archReviewPath(), review); err != nil {
 			return 1, err
 		}
-		fmt.Fprintln(stderr, "anvil-guard: ast-grep is not installed; architecture conformance recorded as unverified")
+		fmt.Fprintln(stderr, "tdd-guard: ast-grep is not installed; architecture conformance recorded as unverified")
 		return 0, nil
 	}
 	runs := make([]controlplane.CommandEvidence, 0, len(document.Assertions))
@@ -388,7 +388,7 @@ func archCheck(loaded *state, assertionsPath string, stderr io.Writer) (int, err
 		return 1, err
 	}
 	if !allPassed {
-		fmt.Fprintf(stderr, "anvil-guard: architecture conformance failed: %s\n", strings.Join(violations, ", "))
+		fmt.Fprintf(stderr, "tdd-guard: architecture conformance failed: %s\n", strings.Join(violations, ", "))
 		return 2, nil
 	}
 	return 0, nil
@@ -462,7 +462,7 @@ func handoffTreeUntouched(loaded *state) (bool, error) {
 func stopBlockers(loaded *state) ([]string, error) {
 	blockers := make([]string, 0, 3)
 	if loaded.seal == nil {
-		return append(blockers, "no seal; run `anvil-guard seal --tests <globs> --red-command <argv...>` (or `--green-baseline <argv...>` for a refactor) first"), nil
+		return append(blockers, "no seal; run `tdd-guard seal --tests <globs> --red-command <argv...>` (or `--green-baseline <argv...>` for a refactor) first"), nil
 	}
 	changed, err := loaded.changedTests()
 	if err != nil {
@@ -472,16 +472,16 @@ func stopBlockers(loaded *state) ([]string, error) {
 		blockers = append(blockers, "sealed tests changed without a recorded amendment: "+strings.Join(changed, ", "))
 	}
 	if loaded.green == nil {
-		blockers = append(blockers, "no green evidence; run `anvil-guard verify --green-command <argv...>`")
+		blockers = append(blockers, "no green evidence; run `tdd-guard verify --green-command <argv...>`")
 	} else if loaded.seal != nil && !isAfter(loaded.green.StartedAt, loaded.seal.SealedAt) {
-		blockers = append(blockers, "green evidence predates the current seal; re-run `anvil-guard verify`")
+		blockers = append(blockers, "green evidence predates the current seal; re-run `tdd-guard verify`")
 	}
 	stale, err := diffReviewStale(loaded)
 	if err != nil {
 		return nil, err
 	}
 	if stale {
-		blockers = append(blockers, "diff review is missing or stale; run `anvil-guard diff-review record --findings <file>`")
+		blockers = append(blockers, "diff review is missing or stale; run `tdd-guard diff-review record --findings <file>`")
 	}
 	return blockers, nil
 }

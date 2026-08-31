@@ -55,7 +55,7 @@ func Run(options Options, args []string) int {
 	}
 	code, err := dispatch(options, args)
 	if err != nil {
-		fmt.Fprintln(options.Stderr, "anvil-guard:", err)
+		fmt.Fprintln(options.Stderr, "tdd-guard:", err)
 		return 1
 	}
 	return code
@@ -115,7 +115,7 @@ func dispatch(options Options, args []string) (int, error) {
 		return 0, reseal(loaded, flags.values["--reason"])
 	case "diff-review":
 		if len(rest) == 0 || rest[0] != "record" {
-			return 1, fmt.Errorf("usage: anvil-guard diff-review record --findings <file>")
+			return 1, fmt.Errorf("usage: tdd-guard diff-review record --findings <file>")
 		}
 		flags, err := parseFlags(rest[1:], map[string]bool{"--findings": true})
 		if err != nil {

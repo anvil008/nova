@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// GuardSnapshotAPIVersion identifies the `anvil-guard status --json` contract.
+// GuardSnapshotAPIVersion identifies the `tdd-guard status --json` contract.
 const GuardSnapshotAPIVersion = "anvil.guard-snapshot/v1"
 
-// The kinds of run anvil-guard performs and records itself.
+// The kinds of run tdd-guard performs and records itself.
 const (
 	GuardRecordSealRed      = "seal-red"
 	GuardRecordSealBaseline = "seal-baseline"
@@ -18,7 +18,7 @@ const (
 	GuardRecordArchReview   = "arch-review"
 )
 
-// GuardRecord is one command anvil-guard ran and wrote to its state directory.
+// GuardRecord is one command tdd-guard ran and wrote to its state directory.
 // It is the only kind of commandId a handoff, seal, or diff review may cite:
 // everything else in a result is text the reporting agent authored, so a
 // self-consistent fabrication costs nothing to produce.
@@ -29,7 +29,7 @@ type GuardRecord struct {
 }
 
 // GuardSnapshot is the record set for one repository, as printed by
-// `anvil-guard status --json` and as read directly off disk by the run-plane
+// `tdd-guard status --json` and as read directly off disk by the run-plane
 // supervisor after a foreign child exits.
 //
 // This is resolution, not a trust boundary. Anything running as the same OS
@@ -57,7 +57,7 @@ func (snapshot *GuardSnapshot) Record(commandID string) (GuardRecord, bool) {
 	return GuardRecord{}, false
 }
 
-// RequireGuardRecord rejects a commandId anvil-guard never produced, one whose
+// RequireGuardRecord rejects a commandId tdd-guard never produced, one whose
 // recorded kind is not the kind of run the claim is about, or one whose
 // recorded exit code contradicts the pass/fail claim.
 //
@@ -98,12 +98,12 @@ func RequireGuardEvidence(snapshot *GuardSnapshot, label string, claimed Command
 		{"stdoutDigest", claimed.StdoutDigest, record.Evidence.StdoutDigest},
 	} {
 		if field.guard != "" && field.claimed != field.guard {
-			return GuardRecord{}, fmt.Errorf("%w: %s reports %s %q for command %q but anvil-guard recorded %q",
+			return GuardRecord{}, fmt.Errorf("%w: %s reports %s %q for command %q but tdd-guard recorded %q",
 				ErrInvalidContract, label, field.name, field.claimed, claimed.CommandID, field.guard)
 		}
 	}
 	if claimed.ExitCode != record.Evidence.ExitCode {
-		return GuardRecord{}, fmt.Errorf("%w: %s reports exit %d for command %q but anvil-guard recorded exit %d",
+		return GuardRecord{}, fmt.Errorf("%w: %s reports exit %d for command %q but tdd-guard recorded exit %d",
 			ErrInvalidContract, label, claimed.ExitCode, claimed.CommandID, record.Evidence.ExitCode)
 	}
 	return record, nil
@@ -115,10 +115,10 @@ func resolveGuardRecord(snapshot *GuardSnapshot, label, commandID string, passed
 	}
 	record, known := snapshot.Record(commandID)
 	if !known {
-		return GuardRecord{}, fmt.Errorf("%w: %s cites command %q that anvil-guard did not produce", ErrInvalidContract, label, commandID)
+		return GuardRecord{}, fmt.Errorf("%w: %s cites command %q that tdd-guard did not produce", ErrInvalidContract, label, commandID)
 	}
 	if !slices.Contains(allowedKinds, record.Kind) {
-		return GuardRecord{}, fmt.Errorf("%w: %s cites command %q, which anvil-guard recorded as a %q run, not %s",
+		return GuardRecord{}, fmt.Errorf("%w: %s cites command %q, which tdd-guard recorded as a %q run, not %s",
 			ErrInvalidContract, label, commandID, record.Kind, strings.Join(allowedKinds, " or "))
 	}
 	if passed != (record.Evidence.ExitCode == 0) {

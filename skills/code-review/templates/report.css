@@ -27,7 +27,7 @@
   --sev-nit-bg: oklch(0.280 0.014 250);
   --ok: oklch(0.780 0.130 155);
   --ok-bg: oklch(0.275 0.055 155);
-  --mut: var(--txt-3); /* alias consumed by injected Mermaid themeCSS */
+  --mut: var(--txt-3); /* alias the generated diagrams paint neutral nodes with */
   --gap: 46px;
   color-scheme: dark;
 }
@@ -332,12 +332,13 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
   overflow-x: auto; border: 1px solid var(--line); border-radius: 10px;
   padding: 16px; background: var(--bg-2);
 }
-.mermaid { margin: 0; min-width: 520px; color: var(--txt); white-space: pre; }
-.diagram-fallback { margin-top: 10px; color: var(--txt-3); font-size: 12px; }
-.diagram-fallback pre { overflow-x: auto; white-space: pre; max-width: 100%; }
-.diagram-shell:not(.diagram-failed) > .diagram-fallback { display: none; }
-.diagram-shell.diagram-failed > .diagram-fallback { display: block; }
-.diagram-error { color: var(--sev-critical); font-weight: 700; }
+/* Generated at build time at its natural size; the shell scrolls rather than
+   shrinking the labels, and print falls back to fitting the page. */
+.diagram-shell > svg.diagram { display: block; margin: 0 auto; }
+.diagram-text { margin-top: 10px; color: var(--txt-3); font-size: 12px; }
+.diagram-text summary { cursor: pointer; }
+.diagram-text ul { margin: 8px 0 0; padding-left: 20px; }
+.diagram-text li { margin: 3px 0; overflow-wrap: anywhere; }
 
 /* ── Disclosure rows ───────────────────────────────────────────── */
 
@@ -421,5 +422,6 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
   .row > summary { cursor: default; }
   .row-detail { display: block !important; border-top: 1px solid #ddd; }
   .diagram-shell, .table-shell { overflow: visible; }
+  .diagram-shell > svg.diagram { max-width: 100%; height: auto; }
   a { color: inherit; text-decoration: none; }
 }
