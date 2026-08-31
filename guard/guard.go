@@ -172,7 +172,7 @@ type ArchReview struct {
 }
 
 // Handoff records that the agent which sealed the tests finished its part and
-// owes the implementation to a different agent. It exists because a test-author
+// owes the implementation to a different agent. It exists because an oracle
 // legitimately stops with a seal and no GREEN: without this marker the Stop gate
 // -- which is written for an implementer -- would deadlock it.
 //
@@ -184,7 +184,7 @@ type Handoff struct {
 	// Base pins the working tree as it was handed over. The Stop relaxation
 	// covers *that* state and nothing after it: once the next agent changes a
 	// byte, it owes GREEN like any implementer, so a builder cannot coast to a
-	// clean stop on the test-author's handoff.
+	// clean stop on the oracle's handoff.
 	Base Base `json:"base"`
 }
 

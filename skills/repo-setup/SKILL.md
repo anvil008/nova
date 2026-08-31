@@ -9,11 +9,11 @@ Get a repository into the shape where agents can work in it safely: instruction 
 
 You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-This orchestrator interviews the human and assigns documentation to `docs` and code-like configuration to `builder`.
+This orchestrator interviews the human and assigns documentation to `scribe` and code-like configuration to `builder`.
 
 ## Read before you ask
 
-Dispatch a `research` agent to report what is already there: language and manifests, existing build/test/lint commands, CI workflows, version control (git, or `.jj/`), any current `AGENTS.md` / `CLAUDE.md` / `GEMINI.md`, and the test layout. `scripts/bootstrap-project.sh <dir>` reports the detected stack and tool readiness without installing anything, and is the fastest way to get that picture.
+Dispatch a `researcher` agent to report what is already there: language and manifests, existing build/test/lint commands, CI workflows, version control (git, or `.jj/`), any current `AGENTS.md` / `CLAUDE.md` / `GEMINI.md`, and the test layout. `scripts/bootstrap-project.sh <dir>` reports the detected stack and tool readiness without installing anything, and is the fastest way to get that picture.
 
 Then ask the human what the survey cannot tell you. State what you found so the questions are corrections rather than an interrogation:
 
@@ -28,10 +28,16 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
 
 ## Procedure
 
-1. **Survey** with a `research` agent plus `scripts/bootstrap-project.sh <dir>`.
+1. **Survey** with a `researcher` agent plus `scripts/bootstrap-project.sh <dir>`.
 2. **Interview** as above, with your recommendations attached.
 3. **Version control**, if adopting jj: `jj git init --colocate` at the repo root. Colocation keeps `.git/` working, so existing tooling, CI, and `gh` are unaffected.
-4. **Instruction files.** Dispatch the `docs` agent to write `AGENTS.md` (and `CLAUDE.md` / `GEMINI.md` where the harness wants its own) covering purpose, layout, the exact verification commands, and the conventions from the interview. Keep them inside the line budget the [`docs`](../docs/SKILL.md) gate enforces — a long instruction file is one nobody reads and every agent pays for. State facts, not aspirations: a documented command that does not run is worse than none.
+4. **Instruction files — one source of truth.** Dispatch the `scribe` agent to write **`AGENTS.md`** as the single real instruction file, covering purpose, layout, the exact verification commands, and the conventions from the interview. Every other harness's instruction file is a symbolic link to it, never a second copy:
+
+   ```bash
+   ln -sf AGENTS.md CLAUDE.md      # and GEMINI.md where a harness wants its own name
+   ```
+
+   Where the repository already has a divergent `CLAUDE.md` and `AGENTS.md`, merge both into `AGENTS.md` first and show the human that diff; only then replace `CLAUDE.md` with the link. Keep the file inside the line budget the [`docs`](../docs/SKILL.md) gate enforces — a long instruction file is one nobody reads and every agent pays for. State facts, not aspirations: a documented command that does not run is worse than none.
 5. **Tooling and gates.** Install the per-stack formatters and linters and wire the advisory hooks:
 
    ```bash

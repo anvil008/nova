@@ -17,7 +17,7 @@ func (h *harness) stop() (int, string, string) {
 	return h.runStdin(h.stopPayload(), "hook", "--harness", "claude", "--event", "Stop")
 }
 
-// The Stop gate is written for an implementer. A test-author legitimately stops
+// The Stop gate is written for an implementer. An oracle legitimately stops
 // with a seal and no GREEN, so without a handoff it would deadlock: nothing it
 // is allowed to do could ever satisfy the gate.
 func TestHandoffLetsTheSealingAgentStopWithoutGreen(t *testing.T) {
@@ -115,7 +115,7 @@ func TestHandoffDoesNotExcuseLaterTestDrift(t *testing.T) {
 }
 
 // The relaxation must not leak past the agent that recorded it. Without this the
-// test-author's handoff would sit in the state and let the *builder* stop having
+// oracle's handoff would sit in the state and let the *builder* stop having
 // implemented nothing, disabling the Stop gate for the whole issue.
 func TestHandoffDoesNotCoverTheNextAgentsWork(t *testing.T) {
 	h := newHarness(t)

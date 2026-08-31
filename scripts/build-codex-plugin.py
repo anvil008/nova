@@ -52,7 +52,7 @@ OUT = ROOT / "dist" / "codex"
 PLUGIN = "workcell"
 MARKETPLACE = "workcell-local"
 
-# Agent names collide with skill names (docs, research, planner, deploy), so they
+# Agent names collide with skill names (planner), so they
 # are namespaced. The prefix is also what tells a reader which are which.
 AGENT_PREFIX = "agent-"
 CODEX_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})

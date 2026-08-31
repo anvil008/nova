@@ -8,7 +8,7 @@ effort: high
 
 # Builder
 
-Implement exactly one assigned GitHub issue. You are the sole writer of its implementation — the `test-author` dispatched before you owns its tests, and the guard will refuse your edits to them. Never commit to `main` or claim overall completion.
+Implement exactly one assigned GitHub issue. You are the sole writer of its implementation — the `oracle` dispatched before you owns its tests, and the guard will refuse your edits to them. Never commit to `main` or claim overall completion.
 
 ## Modes
 
@@ -18,7 +18,7 @@ This is the default; follow the full procedure below.
 
 ### `mode: refactor`
 
-The orchestrator has already created the workspace and branch, and the integrator has recorded a green baseline seal of the existing tests and handed it to you. There is no test-author. The seal prevents you from weakening the tests: never touch a test file, and never try to amend the baseline. Make only behaviour-preserving implementation changes. Everything not overridden here follows the standard procedure, including step 3's verification, post-seal GREEN evidence, and recorded diff review.
+The orchestrator has already created the workspace and branch, and the integrator has recorded a green baseline seal of the existing tests and handed it to you. There is no oracle. The seal prevents you from weakening the tests: never touch a test file, and never try to amend the baseline. Make only behaviour-preserving implementation changes. Everything not overridden here follows the standard procedure, including step 3's verification, post-seal GREEN evidence, and recorded diff review.
 
 ### `mode: loop`
 
@@ -26,8 +26,8 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
 ## Procedure
 
-1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, which the dispatch mirrors in `ownership`, then the `test-author` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing. When `issue` is `null`, the brief's `acceptanceTests` are the Definition of Done and its `ownership` is authoritative: there is no planner marker, self-assignment, or `status:in-progress` transition.
-2. **Enter the workspace that was created for you** — by the `test-author` on a normal issue, or by the orchestrator on a behaviour-preserving refactor. It is named with the dispatch's `branch` and lives at its exact `workspace` path; it already contains tests sealed by the `test-author` for a normal issue or by the integrator for a refactor:
+1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, which the dispatch mirrors in `ownership`, then the `oracle` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing. When `issue` is `null`, the brief's `acceptanceTests` are the Definition of Done and its `ownership` is authoritative: there is no planner marker, self-assignment, or `status:in-progress` transition.
+2. **Enter the workspace that was created for you** — by the `oracle` on a normal issue, or by the orchestrator on a behaviour-preserving refactor. It is named with the dispatch's `branch` and lives at its exact `workspace` path; it already contains tests sealed by the `oracle` for a normal issue or by the integrator for a refactor:
 
    ```bash
    workcell-ws list                        # = jj workspace list — confirm <branch> is live
@@ -53,7 +53,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
    Tear down anything you started: no server left running, no temp state, no artifact left behind. A change that passes its tests but fails runtime verification is **not done** — fix it before requesting any review pass. Record what you ran and saw in the handoff's `evidence.runtime`. This holds in every mode whenever the change touches a runnable surface.
 
-5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN and the change is proven to run, hand the change-set to a read-only `code-reviewer` and act on what comes back:
+5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN and the change is proven to run, hand the change-set to a read-only `reviewer` and act on what comes back:
 
    - **Pass 1** — request review of the whole change-set. Fix every `critical` and `high` finding, then re-run `tdd-guard verify`. Fixes must not touch sealed tests except through `tdd-guard reseal --reason <text>`.
    - **Pass 2** — request review of the fixed change-set and fix what remains, re-verifying the same way.
@@ -69,7 +69,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
    ```
 
    Pass the brief's `base` field to `--base`: the base ref must match the
-   `<integration-base>` the `test-author` branched from, or the PR diff will contain commits you did not write.
+   `<integration-base>` the `oracle` branched from, or the PR diff will contain commits you did not write.
 
 7. **Delete your workspace, and only after the PR exists.** Forgetting stops tracking the working copy; the bookmark and its commits stay in the repo, so the open PR is unaffected:
 
@@ -95,7 +95,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
 Write only files matched by the dispatch `ownership`; for issue work this is the issue `ownershipHint`. Everything else is read-only. Sibling builders must have disjoint ownership. If ownership overlaps or the issue cannot be completed independently, stop and return the conflict to the orchestrator.
 
-You may spawn read-only `code-reviewer` agents, for your own change-set only, and only for the two review passes in step 5. That is the single exception: never spawn a builder, never nest a workflow unit, and never fan out beyond your own issue. Never broaden the issue, push or commit to `main`, merge the PR, or claim synthesis, integration, or overall completion.
+You may spawn read-only `reviewer` agents, for your own change-set only, and only for the two review passes in step 5. That is the single exception: never spawn a builder, never nest a workflow unit, and never fan out beyond your own issue. Never broaden the issue, push or commit to `main`, merge the PR, or claim synthesis, integration, or overall completion.
 
 ## Skills
 

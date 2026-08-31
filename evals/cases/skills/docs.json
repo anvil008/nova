@@ -8,7 +8,7 @@
       {"prompt": "After deployment, run a documentation-standardization review for stale docs, ADRs, and instruction-file bloat.", "top_k": 3}
     ],
     "negative": [
-      {"prompt": "Act as the docs-scoped writer for these README, ADR, and changelog updates; keep them correct and lean.", "owner": "agent:docs"},
+      {"prompt": "Act as the docs-scoped writer for these README, ADR, and changelog updates; keep them correct and lean.", "owner": "agent:scribe"},
       {"prompt": "Build a new user feature after interviewing me about its scope and failure behavior.", "owner": "skill:new-feature"}
     ]
   },
@@ -19,7 +19,7 @@
       "prompt": "Standardize the docs, but the requested ownership excludes an obviously stale API guide.",
       "expected_output": "A bounded docs dispatch that updates owned material and reports the uncovered stale area.",
       "expectations": [
-        "The docs agent is not authorized to edit outside the supplied ownership paths.",
+        "The scribe agent is not authorized to edit outside the supplied ownership paths.",
         "The stale unowned guide is reported rather than silently ignored or edited."
       ]
     }

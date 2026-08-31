@@ -307,7 +307,7 @@ class BuildSkillTests(unittest.TestCase):
             "diff-review record", "Closes #", "anvil.agent-handoff/v1", "ownershipHint",
         ):
             self.assertIn(phrase, agent)
-        # Authorship moved to the test-author: a builder that can seal can define its own
+        # Authorship moved to the oracle: a builder that can seal can define its own
         # Definition of Done, which is the loophole the split exists to close.
         self.assertNotIn("tdd-guard seal", agent)
 
@@ -349,10 +349,10 @@ class BuildSkillTests(unittest.TestCase):
                 self.assertIn("only after the PR exists", agent)
                 self.assertIn("never `jj abandon` the bookmark", agent)
                 # The single spawn exception, and its limit.
-                self.assertIn("read-only `code-reviewer` agents", agent)
+                self.assertIn("read-only `reviewer` agents", agent)
                 self.assertIn("never spawn a builder", agent)
 
-    def test_claude_builder_can_actually_reach_the_code_reviewer(self):
+    def test_claude_builder_can_actually_reach_the_reviewer(self):
         """The review passes are unreachable unless the harness grants a spawn tool."""
         agent = (ROOT.parents[1] / "agents" / "claude" / "builder.md").read_text(encoding="utf-8")
         tools = next(
@@ -487,13 +487,13 @@ class BuildSkillTests(unittest.TestCase):
             waves.derive(sidecar, waves.validate_snapshot(snapshot, sidecar))
         self.assertEqual(stderr.getvalue(), "")
 
-    def test_every_harness_ships_a_test_author_that_owns_the_seal(self):
-        """The test-author creates the workspace, proves honest RED, and seals. If any of
+    def test_every_harness_ships_an_oracle_that_owns_the_seal(self):
+        """The oracle creates the workspace, proves honest RED, and seals. If any of
         that drifts back into the builder, the agent judged by the tests wrote them."""
         authors = [
-            ROOT.parents[1] / "agents" / "claude" / "test-author.md",
-            ROOT.parents[1] / "agents" / "codex" / "test-author.md",
-            ROOT.parents[1] / "agents" / "agy" / "test-author" / "agent.md",
+            ROOT.parents[1] / "agents" / "claude" / "oracle.md",
+            ROOT.parents[1] / "agents" / "codex" / "oracle.md",
+            ROOT.parents[1] / "agents" / "agy" / "oracle" / "agent.md",
         ]
         ordered = [
             "jj git init --colocate",
@@ -519,7 +519,7 @@ class BuildSkillTests(unittest.TestCase):
 
     def test_skill_dispatches_the_two_phases_in_order(self):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        for phrase in ("`test-author`", "Phase 1", "Phase 2", "integrator"):
+        for phrase in ("`oracle`", "Phase 1", "Phase 2", "integrator"):
             self.assertIn(phrase, skill)
         self.assertLess(skill.index("Phase 1"), skill.index("Phase 2"))
         self.assertIn("never dispatch a builder for an issue with no seal", skill)

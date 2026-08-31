@@ -6,8 +6,8 @@ This contract defines the one brief an orchestrator sends to a Workcell agent an
 
 - `issue`: the GitHub issue number, or `null` when the work has no issue.
 - `brief`: an object whose `goal` is the goal in prose. For a no-issue dispatch, it also carries `acceptanceTests[]`, each with `name`, `kind`, and `oracle`.
-- `workspace`: the assigned workspace path. A standard test-author creates it; agents dispatched after that creation and non-standard modes receive an existing path. Whoever creates a jj workspace names it with the dispatch's `branch`.
-- `branch`: the branch or bookmark assigned to the work and, when a jj workspace is created for it, that workspace's name. A standard test-author creates both; other agents receive them pre-created.
+- `workspace`: the assigned workspace path. A standard oracle creates it; agents dispatched after that creation and non-standard modes receive an existing path. Whoever creates a jj workspace names it with the dispatch's `branch`.
+- `branch`: the branch or bookmark assigned to the work and, when a jj workspace is created for it, that workspace's name. A standard oracle creates both; other agents receive them pre-created.
 - `base`: `trunk()` or the named integration branch from which the work was based.
 - `ownership`: the glob delimiting files the agent may change. For an issue dispatch it is copied from the issue's `ownershipHint`; for a no-issue dispatch it is authoritative on its own.
 - `mode`: `standard` by default; a builder may instead receive `refactor` or `loop`, and an integrator may instead receive `baseline`.
@@ -16,7 +16,7 @@ This contract defines the one brief an orchestrator sends to a Workcell agent an
 - `baselineCommand`: the argv that demonstrated GREEN and is bound by a `kind: baseline` seal for a refactor/baseline dispatch, or `null` when a green baseline seal does not apply.
 - `devServer`: reviewers only; `none`, a non-production URL, or `start: <command>`.
 - `runtime`: builders only; an optional hint object `{launch, url, healthPath}` telling the builder how to run the surface it changed — `launch` is the command that starts it, `url` is where it answers, `healthPath` is a service's health path. It is `null` or absent when the orchestrator has no hint, and the builder then discovers the run command from the repo. A production URL is never a valid hint.
-- `approval`: deploy only; an object naming `who`, `when`, `target`, and `commit`. It is `null` for every other agent.
+- `approval`: deployer only; an object naming `who`, `when`, `target`, and `commit`. It is `null` for every other agent.
 
 ## Dispatch brief example
 

@@ -85,11 +85,11 @@ class DocsCheckTests(unittest.TestCase):
             out = json.loads(r.stdout)
             self.assertTrue(any("my-decision.md" in v for v in out["violations"]))
 
-    def test_docs_agent_and_skill_declare_the_standard(self):
-        agent = (ROOT.parents[1] / "agents" / "claude" / "docs.md").read_text(
+    def test_scribe_agent_and_docs_skill_declare_the_standard(self):
+        agent = (ROOT.parents[1] / "agents" / "claude" / "scribe.md").read_text(
             encoding="utf-8"
         )
-        self.assertTrue(agent.startswith("---\nname: docs\n"))
+        self.assertTrue(agent.startswith("---\nname: scribe\n"))
         for phrase in ("Update, don't duplicate", "lean", "ADR", "docs_check"):
             self.assertIn(phrase, agent)
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -237,13 +237,13 @@ class DocsCheckTests(unittest.TestCase):
             main_agents,
             {
                 "builder",
-                "code-reviewer",
-                "docs",
-                "research",
+                "reviewer",
+                "scribe",
+                "researcher",
                 "planner",
-                "test-author",
+                "oracle",
                 "integrator",
-                "deploy",
+                "deployer",
                 "debugger",
                 "benchmarker",
             },
@@ -284,7 +284,7 @@ class DocsCheckTests(unittest.TestCase):
             ),
             "code-analysis": (
                 "failure scenario",
-                "test-author",
+                "oracle",
                 "refute",
                 "code-refactor",
             ),
@@ -302,7 +302,7 @@ class DocsCheckTests(unittest.TestCase):
                 # Reproduction is the gate: without it a "fix" is a guess that shipped.
                 "No reproduction, no fix",
                 "debugger",
-                "test-author",
+                "oracle",
                 "code-analysis",
             ),
             "perf": (
@@ -336,11 +336,23 @@ class DocsCheckTests(unittest.TestCase):
                 any("GEMINI.md" in v and "budget" in v for v in out["violations"])
             )
 
+    def test_linked_instruction_file_is_counted_once(self):
+        """`repo-setup` keeps one real `AGENTS.md` and links the other harnesses' names
+        at it. A link is the same file, so it is reported once, under the real path."""
+        with tempfile.TemporaryDirectory() as t:
+            Path(t, "AGENTS.md").write_text("# Project\n", encoding="utf-8")
+            Path(t, "CLAUDE.md").symlink_to("AGENTS.md")
+            r = run(t)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            out = json.loads(r.stdout)
+            self.assertEqual([f["path"] for f in out["instructionFiles"]], ["AGENTS.md"])
+            self.assertEqual(out["violations"], [])
+
     def test_readme_contract_parity(self):
         agents = [
-            ROOT.parents[1] / "agents" / "claude" / "docs.md",
-            ROOT.parents[1] / "agents" / "codex" / "docs.md",
-            ROOT.parents[1] / "agents" / "agy" / "docs" / "agent.md",
+            ROOT.parents[1] / "agents" / "claude" / "scribe.md",
+            ROOT.parents[1] / "agents" / "codex" / "scribe.md",
+            ROOT.parents[1] / "agents" / "agy" / "scribe" / "agent.md",
         ]
         required = (
             "what the repository does",
@@ -363,7 +375,7 @@ class DocsCheckTests(unittest.TestCase):
         self.assertTrue(all(contract == contracts[0] for contract in contracts[1:]))
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertNotIn("## README contract", skill)
-        self.assertIn("agents/bodies/docs.md", skill)
+        self.assertIn("agents/bodies/scribe.md", skill)
 
     def test_visual_readme_has_textual_equivalent(self):
         content = VISUAL_README.read_text(encoding="utf-8")

@@ -1,12 +1,12 @@
 # Mechanical gates
 
-The build wave is bound by `tdd-guard`, which turns TDD from a promise into a state machine — and, because the `test-author` seals and the `builder` implements, into a state machine two different agents pass through. The
+The build wave is bound by `tdd-guard`, which turns TDD from a promise into a state machine — and, because the `oracle` seals and the `builder` implements, into a state machine two different agents pass through. The
 guard is a real binary (`cmd/tdd-guard/`, `guard/`), installed by `bootstrap-tools.sh`; the
 `scripts/hooks/build-*` commands are what wire it into a harness's tool events.
 
 ```mermaid
 flowchart TB
-    Red["<b>test-author</b>: write the<br/>acceptance tests · run RED"]
+    Red["<b>oracle</b>: write the<br/>acceptance tests · run RED"]
     Seal["<b>seal</b><br/><i>--tests · --red-command</i>"]
     Impl["<b>builder</b>: implement"]
     Verify["<b>verify</b><br/><i>--green-command</i>"]
@@ -21,7 +21,7 @@ flowchart TB
     Denied -.-> Impl
 ```
 
-In words: a `test-author` proves RED and seals the tests; a `builder` implements against
+In words: an `oracle` proves RED and seals the tests; a `builder` implements against
 them, denied any edit to a sealed path; `verify` accepts only a GREEN run that postdates
 the seal; a `diff-review` record binds findings to the current diff; and the Stop hook
 lets a PR through only when all of that evidence is fresh. An out-of-band edit to a sealed
@@ -31,13 +31,13 @@ In detail, and in the order the wave hits them:
 
 1. **`tdd-guard seal --tests <globs> --red-command <argv...>`** records the exact failing command and
    a digest of every sealed test file. RED has to be real and non-zero before the seal is taken — and
-   _honest_: a test failing with `ImportError` proves nothing about behaviour, so the `test-author`
+   _honest_: a test failing with `ImportError` proves nothing about behaviour, so the `oracle`
    writes signature-only stubs where needed to make the failure land on the assertion.
    For behavior-preserving `code-refactor` and `perf` work, the orchestrator creates the workspace
    and an `integrator` in `mode: baseline` instead runs
    **`tdd-guard seal --tests <globs> --green-baseline <argv...>`** after that command passes. This
    produces a green `kind: baseline` seal; the `builder` receives it in `mode: refactor`, with no
-   `test-author` and untouched tests. The red requirement is replaced by a green one, while sealed
+   `oracle` and untouched tests. The red requirement is replaced by a green one, while sealed
    paths, post-seal verification, diff review, handoff, status, and Stop use the same state machine.
 2. **While implementing, sealed tests are read-only** — and they are not the builder's tests. A `PreToolUse` edit of a sealed path is
    _denied_, not warned about; changing one out-of-band is flagged the moment the guard sees it. The
@@ -48,7 +48,7 @@ In detail, and in the order the wave hits them:
    add a coverage floor; `tdd-guard arch-check --assertions <file>` asserts structural invariants.
 4. **`tdd-guard diff-review record --findings <file>`** binds review findings to the current diff. Change
    the diff afterwards and the record goes stale.
-5. **`tdd-guard handoff --to builder`** ends the `test-author`'s turn. The Stop gate is written for an
+5. **`tdd-guard handoff --to builder`** ends the `oracle`'s turn. The Stop gate is written for an
    implementer, so without this a sealing agent would deadlock on GREEN evidence it is not allowed to
    produce. It relaxes the Stop gate only — `ready` stays false until the implementation exists.
 6. **The Stop hook refuses to let a builder finish** while any of that is missing: sealed tests changed

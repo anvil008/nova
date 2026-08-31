@@ -1,14 +1,14 @@
 {
   "vars": {
     "reviewerDispatch": {
-      "claude": "a read-only `code-reviewer`",
-      "codex": "a read-only `code-reviewer` with Codex's `spawn_agent` tool \u2014 the `code-reviewer` agent the workcell plugin ships \u2014 one lens per spawn,",
-      "agy": "read-only `code-reviewer` agents via `invoke_subagent` (the `code-reviewer` custom subagent, one lens per invocation, workspace `inherit`)"
+      "claude": "a read-only `reviewer`",
+      "codex": "a read-only `reviewer` with Codex's `spawn_agent` tool \u2014 the `reviewer` agent the workcell plugin ships \u2014 one lens per spawn,",
+      "agy": "read-only `reviewer` agents via `invoke_subagent` (the `reviewer` custom subagent, one lens per invocation, workspace `inherit`)"
     },
     "reviewerSpawn": {
-      "claude": "read-only `code-reviewer` agents",
-      "codex": "read-only `code-reviewer` agents with `spawn_agent`",
-      "agy": "read-only `code-reviewer` subagents with `invoke_subagent`"
+      "claude": "read-only `reviewer` agents",
+      "codex": "read-only `reviewer` agents with `spawn_agent`",
+      "agy": "read-only `reviewer` subagents with `invoke_subagent`"
     },
     "instructionFiles": {
       "claude": "the `CLAUDE.md` / `AGENTS.md` instruction files",
@@ -37,8 +37,7 @@
       "claude": {
         "tools": "Read, Grep, Glob, Bash, Skill"
       },
-      "codex": {
-      },
+      "codex": {},
       "agy": {
         "tools": [
           "view_file",
@@ -72,25 +71,6 @@
         "commandExecutionPolicy": "sandbox"
       }
     },
-    "code-reviewer": {
-      "description": "Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.",
-      "claude": {
-        "tools": "Read, Grep, Glob, Bash, Skill, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_press_key, mcp__playwright__browser_click, mcp__playwright__browser_console_messages, mcp__playwright__browser_close",
-        "disallowedTools": "Edit, Write, NotebookEdit, Task",
-        "maxTurns": 30
-      },
-      "codex": {},
-      "agy": {
-        "tools": [
-          "view_file",
-          "grep_search",
-          "find_by_name",
-          "list_dir",
-          "run_command"
-        ],
-        "commandExecutionPolicy": "sandbox"
-      }
-    },
     "debugger": {
       "description": "Use when reproducing one reported symptom, narrowing it to a root cause by experiment, and returning the diagnosis without fixing it.",
       "claude": {
@@ -112,7 +92,7 @@
         "commandExecutionPolicy": "sandbox"
       }
     },
-    "deploy": {
+    "deployer": {
       "description": "Use when executing one already-approved release against one named target, with verification and rollback.",
       "claude": {
         "tools": "Read, Grep, Glob, Bash, Skill"
@@ -124,25 +104,6 @@
           "grep_search",
           "find_by_name",
           "list_dir",
-          "run_command"
-        ],
-        "commandExecutionPolicy": "sandbox"
-      }
-    },
-    "docs": {
-      "description": "Use when creating, updating, standardizing, or reviewing documentation \u2014 READMEs, ADRs, changelogs, and {{instructionFilesPlain}}. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.",
-      "claude": {
-        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
-      },
-      "codex": {},
-      "agy": {
-        "tools": [
-          "view_file",
-          "grep_search",
-          "find_by_name",
-          "list_dir",
-          "replace_file_content",
-          "write_to_file",
           "run_command"
         ],
         "commandExecutionPolicy": "sandbox"
@@ -167,6 +128,27 @@
         "commandExecutionPolicy": "sandbox"
       }
     },
+    "oracle": {
+      "description": "Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
+      },
+      "codex": {
+        "gates": "codex-oracle"
+      },
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "replace_file_content",
+          "write_to_file",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
     "planner": {
       "description": "Use when investigating one planning goal read-only and producing the plan folio, sidecar, and per-issue acceptance tests for human approval.",
       "claude": {
@@ -186,7 +168,7 @@
         "commandExecutionPolicy": "sandbox"
       }
     },
-    "research": {
+    "researcher": {
       "description": "Use when investigating exactly one assigned research area and returning a structured, evidence-backed findings envelope.",
       "claude": {
         "tools": "Read, Grep, Glob, Bash, Skill",
@@ -205,14 +187,31 @@
         "commandExecutionPolicy": "sandbox"
       }
     },
-    "test-author": {
-      "description": "Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.",
+    "reviewer": {
+      "description": "Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Bash, Skill, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_press_key, mcp__playwright__browser_click, mcp__playwright__browser_console_messages, mcp__playwright__browser_close",
+        "disallowedTools": "Edit, Write, NotebookEdit, Task",
+        "maxTurns": 30
+      },
+      "codex": {},
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "scribe": {
+      "description": "Use when creating, updating, standardizing, or reviewing documentation \u2014 READMEs, ADRs, changelogs, and {{instructionFilesPlain}}. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.",
       "claude": {
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
       },
-      "codex": {
-        "gates": "codex-test-author"
-      },
+      "codex": {},
       "agy": {
         "tools": [
           "view_file",
