@@ -233,3 +233,38 @@ func TestHookEventTargetRepositorySealedFromOutsideCwd(t *testing.T) {
 		t.Fatalf("reason = %q, want prefix 'anvil-guard hook misconfigured: --event'", reason)
 	}
 }
+
+func TestHookEventStopUnsealedSourceNotificationNonBlocking(t *testing.T) {
+	for _, harness := range []string{"claude", "codex", "agy"} {
+		t.Run(harness, func(t *testing.T) {
+			h := newHarness(t)
+			// Unsealed repo with modified source:
+			h.write("pkg/thing.go", "package pkg\n\nfunc Changed() {}\n")
+
+			payload := `{"hook_event_name":"Stop","cwd":"` + h.repository + `","session_id":"s-unsealed"}`
+			code, stdout, stderr := h.runStdin(payload, "hook", "--harness", harness, "--event", "Stop")
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0", code)
+			}
+
+			switch harness {
+			case "claude", "codex":
+				var decoded map[string]any
+				if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
+					t.Fatalf("decode stdout %q: %v", stdout, err)
+				}
+				msg, ok := decoded["systemMessage"].(string)
+				if !ok || !strings.Contains(msg, "source changed without a TDD seal") {
+					t.Fatalf("systemMessage = %q, want containing 'source changed without a TDD seal'", msg)
+				}
+			case "agy":
+				if strings.Contains(stdout, `"decision":"continue"`) {
+					t.Fatalf("agy Stop notify must not block termination with decision:continue (stdout=%q)", stdout)
+				}
+				if !strings.Contains(stderr, "source changed without a TDD seal") {
+					t.Fatalf("agy Stop notify must write advisory message to stderr (stderr=%q)", stderr)
+				}
+			}
+		})
+	}
+}
