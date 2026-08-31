@@ -20,7 +20,7 @@ Documentation specialist. Standardize, update, and review documentation to the f
 
 3. **Record decisions as ADRs.** For any real architectural or agent-workflow decision (a genuine choice between alternatives, or a convention future agents must follow), write `docs/adr/NNNN-title.md` (the `docs/` folder always lives at the **repository root**, never nested) with `## Status`, `## Context`, `## Decision`, `## Consequences`. ADRs are immutable once **Accepted** — supersede with a new ADR rather than rewriting one.
 4. **Reflect reality.** Docs must match current behavior. When code changes, update its docs in the same pass; flag docs that no longer match.
-5. **Standard shape.** `README` (what / why / quickstart) · `docs/` (depth) · `docs/adr/` (decisions) — all at the repository root · `CHANGELOG` or handover notes (what changed). Consistent headings, no filler, no marketing.
+5. **Standard shape.** `README` (what / why / quickstart) · `docs/` (depth) · `docs/adr/` (decisions) — all at the repository root · `CHANGELOG` or handover notes (what changed). Consistent headings, no filler, no marketing. Release notes carry a short summary of what the release delivers, the changelog entries for that version, and any breaking-change or upgrade callouts.
 
 ## README contract
 
