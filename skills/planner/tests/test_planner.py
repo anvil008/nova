@@ -860,5 +860,115 @@ class PlannerSkillTests(unittest.TestCase):
                 self.assertTrue(full_path.exists(), f"Script path {match!r} in {skill_file.relative_to(repo_root)} does not exist on disk")
 
 
+    # --- ownershipHint granularity contract (issue #99) ---------------------------------------
+
+    def test_prose_ownership_hint_is_rejected(self):
+        prose = "templates/** and scripts/render_plan.py"
+        plan = sample_plan()
+        plan["issues"][0]["ownershipHint"] = prose
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "plan.html"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+            self.assertNotEqual(
+                result.returncode, 0,
+                "a prose ownershipHint naming two paths must be rejected, not rendered",
+            )
+            self.assertFalse(output.exists(), "a rejected sidecar must not leave a folio behind")
+        stderr = result.stderr.lower()
+        self.assertIn("issues[0].ownershiphint", stderr, "the error must name the offending issue index and field")
+        self.assertIn(prose.lower(), stderr, "the error must quote the offending value")
+        self.assertIn("one path or glob", stderr, "the error must say the field takes one path or glob")
+
+    def test_comma_or_space_separated_hints_are_rejected(self):
+        for hint in ("a/**, b/**", "a/** b/**"):
+            with self.subTest(hint=hint), tempfile.TemporaryDirectory() as tmp:
+                plan = sample_plan()
+                plan["issues"][1]["ownershipHint"] = hint
+                sidecar = Path(tmp) / "plan.sidecar.json"
+                output = Path(tmp) / "plan.html"
+                sidecar.write_text(json.dumps(plan), encoding="utf-8")
+                result = self.run_script(RENDER, sidecar, output)
+                stderr = result.stderr.lower()
+                self.assertNotEqual(result.returncode, 0, f"{hint!r} is two globs, not one")
+                self.assertIn("issues[1].ownershiphint", stderr)
+                self.assertIn(hint.lower(), stderr)
+                self.assertIn(
+                    "one path or glob", stderr,
+                    "comma- and space-separated hints must fail through the same validation path",
+                )
+
+        padded = "  skills/build/scripts/**  "
+        plan = sample_plan()
+        plan["issues"][1]["ownershipHint"] = padded
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "plan.html"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+            rendered = output.read_text(encoding="utf-8") if output.exists() else ""
+        if result.returncode == 0:
+            self.assertFalse(
+                padded in rendered,
+                f"the padded hint {padded!r} must be stripped before it reaches the folio",
+            )
+            ownership_cells = re.findall(r'<td class="mono">([^<]*)</td></tr>', rendered)
+            self.assertIn(padded.strip(), ownership_cells)
+            for cell in ownership_cells:
+                self.assertEqual(cell, cell.strip(), "the folio must not carry a padded ownership hint")
+        else:
+            self.assertIn("issues[1].ownershiphint", result.stderr.lower())
+
+    def test_single_glob_hints_still_render(self):
+        hints = ("skills/build/scripts/**", "docs/adr/**")
+        plan = sample_plan()
+        plan["issues"][0]["ownershipHint"] = hints[0]
+        plan["issues"][1]["ownershipHint"] = hints[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "plan.html"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = output.read_text(encoding="utf-8")
+        ownership_cells = re.findall(r'<td class="mono">([^<]*)</td></tr>', rendered)
+        for hint in hints:
+            self.assertIn(hint, ownership_cells, "a single-glob hint must appear in the folio issue table")
+
+    def test_shipped_sample_sidecar_passes_the_rule(self):
+        sample = ROOT / "examples" / "sample.sidecar.json"
+        plan = json.loads(sample.read_text(encoding="utf-8"))
+        for index, issue in enumerate(plan["issues"]):
+            hint = issue["ownershipHint"]
+            where = f"issues[{index}].ownershipHint"
+            self.assertNotIn(",", hint, f"{where} is a comma list, not one path or glob: {hint!r}")
+            self.assertEqual(
+                hint.split(), [hint],
+                f"{where} contains whitespace, so it is not one path or glob: {hint!r}",
+            )
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "sample.html"
+            result = self.run_script(RENDER, sample, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(output.exists(), "the shipped sample sidecar must render")
+
+    def test_contract_states_the_granularity_rule(self):
+        contract = (ROOT / "references" / "sidecar-contract.md").read_text(encoding="utf-8")
+        lowered = contract.lower()
+        for phrase, rule in (
+            ("exactly one path or glob", "the hint is exactly one path or glob, never prose or a list"),
+            ("narrowest glob", "the hint is the narrowest glob covering every file the issue changes"),
+            ("the tests the specifier will write", "the hint also covers the tests the specifier will write"),
+            ("disjoint", "hints are disjoint within a wave"),
+            ("split the issue", "an issue spanning unrelated subtrees is split rather than widened"),
+        ):
+            self.assertIn(phrase, lowered, f"sidecar-contract.md must state that {rule}")
+        for token in ("skills/build/scripts/**", "skills/**", "*.md"):
+            self.assertIn(
+                token, contract,
+                "sidecar-contract.md must give the worked narrow-versus-coarse ownershipHint contrasts",
+            )
+
 if __name__ == "__main__":
     unittest.main()
