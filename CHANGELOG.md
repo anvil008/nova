@@ -25,6 +25,22 @@ All notable changes to Workcell will be documented in this file.
   and the two standing boundaries: runtime agents are never given the wiki, and a project pattern
   never amends Workcell's shared `skills/`. The artifact contract is
   `skills/wiki/references/wiki-layout.md`.
+- **The `review-fix-loop` consolidates on its way out.** Every ending — `converged`, `stalled`,
+  and `exhausted` alike — records each pass's merged review and the loop state as one write-once
+  bundle, then dispatches a single `documenter` to consolidate what the passes learned into the
+  namespace, gated on `wiki.py check`. The exit step neither changes nor stands in for the loop's
+  report, and a project with no namespace ends the loop exactly as it ends today.
+- **A `build` hook records each accepted wave as a raw trace.** Once a wave is accepted on its
+  evidence, `build` writes the integrator's handoff record and the gate output it accepted on into
+  a scratch directory outside the repository and records them as a `build-wave` bundle under
+  `raw/`. It records that raw evidence only and never consolidates it. A record that fails or is
+  skipped never blocks, gates, or delays the merge, which stays gated on exactly what it was
+  before.
+- **[ADR-0019](docs/adr/0019-the-wiki-lives-outside-every-repository.md)** records the decision:
+  the store outside every repository, the project-key rules, the three durability layers, opt-in
+  by a namespace's existence, and why keeping the store outside the repository makes the eval
+  ablation structural instead of a guard rule. `README.md` gains the layer, and
+  `docs/eval-runs.md` states the eval-mode boundary.
 
 ## [Branch and workspace names carry a type prefix] - 2026-08-31
 

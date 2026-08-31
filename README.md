@@ -83,6 +83,16 @@ earlier install are covered in **[docs/install.md](docs/install.md)**.
 | Support  | [`jj`](skills/jj/SKILL.md)                                             | Jujutsu version control for repositories that use it                                                        |
 | Support  | [`use-other-harness`](skills/use-other-harness/SKILL.md)               | Explicit, user-triggered escape hatch to run a subagent in a different harness                              |
 
+**The wiki layer** is what one project remembers about itself: write-once evidence from finished
+runs, append-only pages about the failure modes and strategies that recur, and a catalog over
+them. It lives outside every repository — at `$WORKCELL_WIKI_HOME`, default `~/.workcell/wiki/`,
+one namespace per project — so it outlives every branch, worktree, and clone, and no working
+copy, pull request, or scored eval patch can carry it. It is deliberately not a memory the
+runtime agents read, not a shared brain across projects, and not a back door into Workcell's own
+shared workflows, which keep changing only through evidence-backed pull requests. A project opts
+in when a human creates its namespace; without one, nothing is recorded and nothing changes.
+The decision is [ADR 0019](docs/adr/0019-the-wiki-lives-outside-every-repository.md).
+
 ## Who does what
 
 | Agent                              | Writes                                    | Owns                                                      | Never                                                            |
