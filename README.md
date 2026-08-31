@@ -112,18 +112,25 @@ believing an agent's summary. See [ADR 0007](docs/adr/0007-primary-agent-is-a-pu
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-work-moves-dark.svg">
-  <img alt="A goal becomes a plan, the plan waits for human approval, and the resulting GitHub issues move through a specifier, a builder, and reviewers before a pull request opens, then an integrator and a gate the orchestrator reads before merging, then the documenter and the deployer." src="docs/diagrams/how-work-moves-light.svg" width="100%">
+  <img alt="A goal becomes a plan, the plan waits for human approval, and the resulting GitHub issues move through a specifier, a builder, and reviewers before a pull request opens; the pull request then goes to an integrator and, alongside it, to the documenter, and the one gate output covering both is what the orchestrator reads before merging, after which the deployer runs." src="docs/diagrams/how-work-moves-light.svg" width="100%">
 </picture>
 
 In words: a goal becomes a plan; the plan waits for your approval; only then does it become a GitHub
-milestone and its issues. Each issue is dispatched into a wave — a `specifier` seals its tests, a
-`builder` implements against tests it cannot edit, and `reviewer`s take one lens each over the
-change-set _before any pull request exists_, at most two passes. Only a change-set with no
-`critical` or `high` finding left standing becomes a pull request; an `integrator` then retests the
-combined wave. The orchestrator merges only when the gate output is green, then hands the result to
-`documenter` and, after a fresh approval, to `deployer`. An agent's own claim of success is never the input
-to a merge decision — only a gate a machine ran is. Work that fails a gate returns to the builder;
-a finding that still stands after two passes returns as `blocked`, with no PR opened at all.
+milestone and its issues. Each issue is dispatched as soon as its own `dependsOn` have landed,
+whatever wave it was planned into
+([ADR 0017](docs/adr/0017-the-build-wave-overlaps-where-the-seal-allows.md)) — a `specifier` seals
+its tests, a `builder` implements against tests it cannot edit, and `reviewer`s take one lens each
+over the change-set _before any pull request exists_, at most two passes. Only a change-set with no
+`critical` or `high` finding left standing becomes a pull request. An `integrator` then retests the
+combined wave, and the `documenter` is dispatched alongside the `integrator` rather than after it,
+so the two work at the same time and one gate output covers the code and its documentation
+together. The orchestrator merges only on that gate — the one covering both — and only when it is
+green; `deployer` runs later, on a fresh approval. The documenter overlap is wired in the
+`new-feature` workflow today; `build`'s own loop stops at the merge, and a milestone driven
+straight from it takes its documentation from a separately invoked `docs` pass. An agent's own claim of success is never the
+input to a merge decision — only a gate a machine ran is. Work that fails a gate returns to the
+builder; a finding that still stands after two passes returns as `blocked`, with no PR opened at
+all.
 
 **Authorship is separated and enforced by `tdd-guard`.** A `specifier` proves RED and seals the
 tests; the `builder` implements against them and is mechanically denied any edit to a sealed path.
