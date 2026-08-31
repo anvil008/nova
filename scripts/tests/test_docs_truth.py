@@ -25,6 +25,9 @@ ADR_FILENAME = re.compile(r"^\d{4}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 ALONGSIDE = r"alongside|beside|next to|at the same time|in parallel|concurrent|simultaneous"
 
 HEADING = re.compile(r"(?m)^(#{1,6})[ \t]*(.+?)[ \t]*$")
+# The changelog entry this milestone records, found by its heading rather than by
+# position: later releases are added above it, so the top entry is not a stable anchor.
+OVERLAP_ENTRY = re.compile(r"(?i)build wave loop overlaps")
 # A list item starts a new unit only when it is not nested under the current one,
 # so a bullet keeps its sub-bullets.
 TOP_BULLET = re.compile(r"^ {0,3}(?:[-*+]|\d+[.)])\s+")
@@ -61,6 +64,19 @@ def statements(text: str) -> list[str]:
         if current:
             units.append(" ".join(current))
     return [unit for unit in (re.sub(r"\s+", " ", u).strip() for u in units) if unit]
+
+
+def changelog_entry(pattern: re.Pattern) -> str | None:
+    """The body of the `## ` CHANGELOG.md entry whose heading matches `pattern`,
+    down to the next entry — entries are found by title, not by position."""
+    text = CHANGELOG.read_text(encoding="utf-8")
+    starts = [m.start() for m in re.finditer(r"(?m)^## ", text)]
+    for index, start in enumerate(starts):
+        stop = starts[index + 1] if index + 1 < len(starts) else len(text)
+        entry = text[start:stop]
+        if pattern.search(entry.splitlines()[0]):
+            return entry
+    return None
 
 
 class DocumentationTruthTests(unittest.TestCase):
@@ -273,10 +289,9 @@ class OverlapPolicyDocumentationTests(unittest.TestCase):
         )
 
     def test_changelog_entry_names_the_four_changes(self):
-        entries = re.split(r"(?m)^## ", CHANGELOG.read_text(encoding="utf-8"))
-        self.assertGreater(len(entries), 1, "CHANGELOG.md has no entries")
-        top = entries[1]
-        where = "the top CHANGELOG.md entry"
+        top = changelog_entry(OVERLAP_ENTRY)
+        where = "the CHANGELOG.md wave-overlap entry"
+        self.assertIsNotNone(top, f"CHANGELOG.md has no entry whose heading matches {OVERLAP_ENTRY.pattern!r}")
         self.assert_claim(top, where, r"dependency[- ]gated|gated on (its )?dependenc", r"wave|dependsOn|schedul")
         self.assert_claim(top, where, r"documenter", r"integrator", ALONGSIDE)
         self.assert_claim(top, where, r"speculative", r"specifier")
