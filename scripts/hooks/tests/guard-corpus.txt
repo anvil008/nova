@@ -3,9 +3,13 @@
 # test_hooks.sh runs every probe through build-guard for each default payload shape and
 # asserts the verdict. An expectation may name one shape instead, as `expected@shape`:
 # `claude` / `codex` for a harness's own top-level session, `claude-agent` / `codex-agent`
-# for a payload naming the subagent that made the call, `agy` for Antigravity's. Keep the
-# deny set to unambiguous policy violations and the allow set to the false positives we
-# have actually hit.
+# for a payload naming the subagent that made the call, `agy` for Antigravity's. The three
+# `-eval` shapes (`claude-eval`, `claude-agent-eval`, `agy-eval`) send the same payloads from a
+# separate repository carrying .workcell/eval-mode.json at its root; `claude-nested` sends them
+# from an ordinary repository whose parent carries one and `claude-stray` from a plain directory
+# that does. Every unscoped probe runs outside all of them, which is what proves eval mode changes
+# nothing anywhere else. Keep the deny set to unambiguous policy violations and the allow set to
+# the false positives we have actually hit.
 
 # --- deny: pushing to / rewriting main and master -----------------------------------
 deny|git push
@@ -83,6 +87,82 @@ deny|gh pr merge 42 --squash --auto
 deny|gh pr merge --auto
 deny@codex|gh pr merge 12 --merge --admin
 deny@codex|gh pr merge 12 --auto
+
+# --- eval mode: the task repo carries .workcell/eval-mode.json (ADR 0013) ------------
+# Relaxed: the work of an unattended eval lands on the task repo's default branch.
+allow@claude-eval|git push origin main
+allow@claude-eval|git push origin master
+allow@claude-eval|git push
+allow@claude-eval|git push --force origin main
+allow@claude-eval|git commit -m x
+allow@claude-eval|git merge feat
+allow@claude-eval|git rebase feat
+allow@claude-eval|git cherry-pick abc123
+allow@claude-eval|git checkout main && git commit -m x
+allow@claude-eval|jj git push
+allow@claude-eval|jj git push --bookmark main
+allow@claude-eval|jj bookmark set main -r @ && jj git push
+allow@claude-agent-eval|git push origin main
+allow@claude-agent-eval|git commit -m x
+allow@agy-eval|git push origin main
+# Tightened: GitHub is out of scope for an eval, top-level session included.
+deny@claude-eval|gh pr merge 12 --merge
+deny@claude-eval|gh api repos/o/r/pulls/42
+deny@claude-eval|gh pr create --base main --title x
+deny@claude-eval|gh issue list
+deny@claude-eval|gh pr view 42
+deny@claude-agent-eval|gh pr merge 12 --merge
+deny@agy-eval|gh pr view 42
+# Unchanged: eval mode removes the human pauses, not the other rules.
+deny@claude-eval|git branch -f main HEAD~3
+deny@claude-eval|git update-ref refs/heads/main HEAD
+deny@claude-eval|CARGO_TARGET_DIR=/tmp cargo build
+deny@claude-eval|cargo build --target-dir /dev/shm/t
+deny@claude-eval|echo push origin main | xargs git
+deny@claude-eval|git -c alias.yolo='push --force' yolo origin main
+# ...and an inline alias whose body the guard CAN read expands to a push the task repo now allows.
+allow@claude-eval|git -c alias.p=push p origin main
+
+# --- eval mode belongs to the toplevel alone: no upward walk, no unresolvable directory
+# `claude-nested` runs in an ordinary repository whose PARENT carries a marker; `claude-stray` in
+# a plain directory that carries one. Neither is a task repository, so neither is relaxed — and
+# `gh` staying allowed there is what proves the guard did not read eval mode into it.
+deny@claude-nested|git push origin main
+deny@claude-nested|git commit -m x
+deny@claude-nested|git merge feat
+deny@claude-nested|jj git push
+allow@claude-nested|gh pr merge 12 --merge
+allow@claude-nested|gh api repos/o/r/issues
+deny@claude-stray|git push origin main
+deny@claude-stray|jj git push --all
+allow@claude-stray|gh pr merge 12 --merge
+
+# --- deny: writing the eval-mode marker, in eval mode or out of it -------------------
+# Entering eval mode is a human running bootstrap-eval.sh. Denied everywhere, so a marked
+# repository cannot be used to mark another one either.
+deny|echo {} > /task/.workcell/eval-mode.json
+deny|echo {} >/task/.workcell/eval-mode.json
+deny|printf '{}' >> .workcell/eval-mode.json
+deny|mkdir -p .workcell && echo {} > .workcell/eval-mode.json
+deny|cat seed.json | tee /task/.workcell/eval-mode.json
+deny|cp /seed.json /task/.workcell/eval-mode.json
+deny|mv /seed.json .workcell/eval-mode.json
+deny|install -m 644 /seed.json /task/.workcell/eval-mode.json
+deny|ln -s /seed.json /task/.workcell/eval-mode.json
+deny|dd if=seed.json of=.workcell/eval-mode.json
+deny|dd if=seed.json of=/task/.workcell/eval-mode.json
+deny|bash -c "echo {} > /task/.workcell/eval-mode.json"
+deny@claude-eval|echo {} > /other/.workcell/eval-mode.json
+deny@agy-eval|cp /seed.json /other/.workcell/eval-mode.json
+
+# --- allow: reading the marker, and paths that only resemble it ----------------------
+allow|cat .workcell/eval-mode.json
+allow|ls -la /task/.workcell
+allow|jq . /task/.workcell/eval-mode.json
+allow|echo {} > /task/.workcell/eval-mode.json.bak
+allow|echo {} > /task/.workcell/other.json
+allow|dd if=seed.json of=.workcell/other.json
+allow|echo {} > /task/workcell/eval-mode.json
 
 # --- deny: cargo build artifacts on the RAM-backed tmpfs ----------------------------
 deny|CARGO_TARGET_DIR=/tmp cargo build
