@@ -30,15 +30,14 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
    Colocation keeps `.git/` working, so git tooling, CI, and `gh` are unaffected. Run this only at the repo root, never inside a workspace, and never hand-edit `.jj/`.
 
-3. **Take the workspace the builder will inherit.** Create the exact `workspace` and `branch` named in the dispatch brief; the builder works there and tears it down. These fields replace any issue-key derivation, including when `issue` is `null`:
+3. **Take the workspace the builder will inherit.** One helper creates the standard isolated workspace on every harness, and the builder tears the same one down with it. The dispatch's `workspace` and `branch` replace any issue-key derivation, including when `issue` is `null`:
 
    ```bash
-   jj workspace add --name <branch> <workspace> -r <base>
-   cd <workspace>
-   jj bookmark create <branch> -r @
+   workcell-ws add <branch> --base <base>   # = jj workspace add --name <branch> <workspace> -r <base>
+   cd <workspace>                           #   then, inside it: jj bookmark create <branch> -r @
    ```
 
-   `base` is `trunk()` unless the orchestrator explicitly supplied an integration branch. Work only inside `workspace` for the rest of the task, and never push `main`.
+   The commented commands are exactly what the helper runs, so nothing is blocked where it is unavailable. It prints the path it made — the sibling directory the brief names in `workspace` — and refuses a key that is not `[a-z0-9][a-z0-9-]*` or a target that already exists. `base` is `trunk()` unless the orchestrator explicitly supplied an integration branch. Work only inside `workspace` for the rest of the task, and never push `main`. The standard is `docs/workspaces.md`.
 
 4. **Author every `acceptanceTests` entry as a real test against the real codebase.** Each entry's `oracle` is the observable pass condition; assert that condition, not a proxy for it. A test that would pass against an empty implementation is not a Definition of Done.
 5. **Prove genuine RED.** A test that fails with `ImportError`, `ModuleNotFoundError`, a syntax error, or a missing fixture is *broken*, not red — it proves nothing about behaviour, and sealing it hands the builder a Definition of Done that is satisfied by making an import resolve. Import the real symbols. Where the implementation does not exist yet, create the smallest signature-only stub — the function, class, or endpoint with the right name and arity, returning nothing useful — so the test reaches its assertion and fails *on the assertion*. Capture the non-zero run.

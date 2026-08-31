@@ -155,9 +155,10 @@ workcell/
 │   ├── claude/          .claude-plugin/plugin.json, hooks/hooks.json
 │   ├── codex/           .codex-plugin/plugin.json, hooks.json — staged into dist/codex/, not symlinked
 │   └── agy/             plugin.json, rules/, hooks.json — symlinked, since Antigravity's install paths aren't a stable contract
-├── scripts/            the three bootstrap commands + the hook scripts they install
+├── scripts/            the three bootstrap commands, the hook scripts they install, workcell-ws
 ├── cmd/tdd-guard/      the gate binary binding RED, GREEN, and review evidence to one diff
 ├── docs/adr/           architecture decisions and their consequences
+├── docs/workspaces.md  the one isolation standard: workcell-ws, sibling paths, the sweep
 ├── docs/diagrams/      the README's visuals: JSON sources in src/, generated light and dark SVG
 └── evals/              structural, routing, and behavioral checks on skills and agents
 ```
@@ -217,9 +218,10 @@ go test -count=1 -race ./...
 bash scripts/hooks/tests/test_hooks.sh
 bash scripts/hooks/tests/test_plugin_hooks.sh
 bash scripts/tests/test_install.sh
+bash scripts/tests/test_workcell_ws.sh
 python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 ruff check skills/ evals/ scripts/render-diagrams.py
-shellcheck -S warning scripts/*.sh scripts/hooks/build-*
+shellcheck -S warning scripts/*.sh scripts/hooks/build-* scripts/workcell-ws
 for d in skills/*/tests; do python3 -m unittest discover -s "$d" -p 'test_*.py'; done
 python3 evals/run_evals.py --structural
 python3 evals/run_evals.py --min-rank1 77

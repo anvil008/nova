@@ -1,0 +1,281 @@
+#!/usr/bin/env bash
+# workcell-ws — the one isolated-workspace helper, identical on every harness.
+#
+#   workcell-ws add <key> [--base <rev>] [--repo <dir>]   create ../<repo>-<key>, bookmark <key>
+#   workcell-ws forget <key> [--repo <dir>]               drop the working copy, keep the bookmark
+#   workcell-ws list [--repo <dir>]                       every workspace, with its state
+#   workcell-ws sweep [--apply] [--repo <dir>]            report — or remove — what leaked
+#
+# Design notes:
+#  * One naming convention: the workspace for <key> is always the sibling directory
+#    ../<repo-basename>-<key> and its bookmark/branch is always <key>. A jj repo (a .jj/ at or
+#    above the working directory) gets a jj workspace, a git-only repo a git worktree; the
+#    subcommands, the naming, and the table are identical either way, so an agent on any
+#    harness needs one command and one rule — work only inside the directory it printed.
+#  * Nothing here rewrites history. `forget` drops a working copy and never the bookmark or its
+#    commits, `sweep` deletes only a ref already contained in the default branch, and no
+#    subcommand touches a remote.
+#  * Every subcommand works from the repo, from one of its workspaces, or with --repo.
+set -uo pipefail
+
+die(){ printf 'workcell-ws: %s\n' "$*" >&2; exit 1; }
+
+CMD=${1:-}; [[ $# -gt 0 ]] && shift
+KEY=""; BASE=""; REPO=""; APPLY=0
+case $CMD in
+  add|forget)
+    KEY=${1:-}
+    [[ -n $KEY && $KEY != -* ]] || die "usage: workcell-ws $CMD <key> [--repo <dir>]"
+    shift;;
+  list|sweep) ;;
+  -h|--help|"") sed -n '2,7p' "$0"; exit 0;;
+  *) die "unknown subcommand: $CMD (add|forget|list|sweep)";;
+esac
+while (($#)); do case $1 in
+  --base)  [[ $CMD == add ]] || die "--base applies to add only"
+           BASE=${2:?"--base needs a revision"}; shift 2;;
+  --repo)  REPO=${2:?"--repo needs a directory"}; shift 2;;
+  --apply) [[ $CMD == sweep ]] || die "--apply applies to sweep only"
+           APPLY=1; shift;;
+  *) die "unexpected argument: $1";;
+esac; done
+[[ -z $KEY || $KEY =~ ^[a-z0-9][a-z0-9-]*$ ]] \
+  || die "refusing key '$KEY': a key is lower-case letters, digits, and dashes, starting with a letter or digit"
+
+# --- which repository, and which version control ------------------------------------------------
+cd "${REPO:-$PWD}" 2>/dev/null || die "no such directory: ${REPO:-$PWD}"
+
+# find_up NAME -> the nearest directory at or above the working directory containing NAME.
+find_up(){
+  local d=$PWD
+  while :; do
+    [[ -e $d/$1 ]] && { printf '%s\n' "$d"; return 0; }
+    [[ $d == / ]] && return 1
+    d=${d%/*}; d=${d:-/}
+  done
+}
+
+WS=$(find_up .jj) || WS=""
+if [[ -n $WS ]]; then
+  VCS=jj
+  command -v jj >/dev/null 2>&1 || die "$WS is a jj repository but jj is not installed"
+  # In a secondary workspace .jj/repo is a file holding the path of the primary's .jj/repo.
+  if [[ -d $WS/.jj/repo ]]; then TOP=$WS
+  else TOP=$(cd "$WS/.jj/$(dirname "$(cat "$WS/.jj/repo")")/.." 2>/dev/null && pwd) \
+         || die "cannot resolve the primary workspace of $WS"
+  fi
+else
+  VCS=git
+  TOP=$(git worktree list --porcelain 2>/dev/null | sed -n '1s|^worktree ||p')
+  [[ -n $TOP ]] || die "not a jj or git repository: $PWD"
+fi
+PARENT=$(dirname "$TOP")
+PREFIX="$PARENT/$(basename "$TOP")-"
+if [[ $VCS == jj ]]; then UNIT="jj workspace"; REF=bookmark; else UNIT="git worktree"; REF=branch; fi
+
+# The revision every "is this merged?" question is asked against, and the name of the branch that
+# carries it — a local ref by that name is the default branch itself and is never swept, however
+# far behind its remote it has fallen.
+jjq(){ jj -R "$TOP" --ignore-working-copy "$@" 2>/dev/null; }
+if [[ $VCS == jj ]]; then
+  # trunk() is the fleet's base, so it is the default branch whenever a remote lets it resolve;
+  # jj's own preference order is main, master, trunk, and this mirrors it so the name that must
+  # never be swept is the same one trunk() came from.
+  DEFAULT='trunk()'; DEFAULT_NAME=""
+  for b in main master trunk; do
+    [[ -n $(jjq log --no-graph -r "remote_bookmarks(exact:\"$b\")" -T '"x"') ]] \
+      && { DEFAULT_NAME=$b; break; }
+  done
+  if [[ -z $DEFAULT_NAME ]]; then
+    # No remote for trunk() to resolve through — it degrades to root(), so ask the local bookmark.
+    for b in main master trunk; do
+      [[ -n $(jjq log --no-graph -r "bookmarks(exact:\"$b\")" -T '"x"') ]] \
+        && { DEFAULT_NAME=$b; DEFAULT="bookmarks(exact:\"$b\")"; break; }
+    done
+  fi
+else
+  DEFAULT=$(git -C "$TOP" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+  if [[ -z $DEFAULT ]]; then
+    for b in main master trunk; do
+      git -C "$TOP" show-ref --verify --quiet "refs/heads/$b" && { DEFAULT=$b; break; }
+    done
+  fi
+  [[ -n $DEFAULT ]] || DEFAULT=$(git -C "$TOP" symbolic-ref --short HEAD 2>/dev/null)
+  DEFAULT_NAME=${DEFAULT#origin/}
+fi
+
+# --- reading the repository ---------------------------------------------------------------------
+# merged REF -> the bookmark/branch is a *strict* ancestor of the default branch. Strict, because
+# a ref sitting exactly on the default tip is either a workspace an agent created seconds ago
+# (git branches a worktree at the tip) or one that fast-forwarded; sweeping the first is far worse
+# than leaving the second until the tip moves on.
+merged(){
+  [[ -n $1 ]] || return 1
+  case $VCS in
+    jj)  [[ -n $(jjq log --no-graph -r "(bookmarks(exact:\"$1\") & ::$DEFAULT) ~ $DEFAULT" -T '"x"') ]];;
+    git) git -C "$TOP" merge-base --is-ancestor "$1" "$DEFAULT" 2>/dev/null \
+           && [[ $(git -C "$TOP" rev-parse "$1" 2>/dev/null) \
+                 != "$(git -C "$TOP" rev-parse "$DEFAULT" 2>/dev/null)" ]];;
+  esac
+}
+
+# local_refs -> every local bookmark / branch, one per line.
+local_refs(){
+  if [[ $VCS == jj ]]; then jjq bookmark list --all-remotes -T 'if(remote, "", name ++ "\n")'
+  else git -C "$TOP" for-each-ref --format='%(refname:short)' refs/heads
+  fi
+}
+
+# git_worktrees -> path<TAB>branch (branch empty when detached), the primary worktree first.
+git_worktrees(){
+  git -C "$TOP" worktree list --porcelain | awk '
+    /^worktree /{ if (p != "") print p "\t" b; p = substr($0, 10); b = "" }
+    /^branch /{ b = substr($0, 8); sub(/^refs\/heads\//, "", b) }
+    END{ if (p != "") print p "\t" b }'
+}
+
+# state_of REF PATH -> active | merged | stale-reg
+state_of(){
+  [[ -d $2 ]] || { printf 'stale-reg\n'; return 0; }
+  if [[ $1 != "$DEFAULT_NAME" ]] && merged "$1"; then printf 'merged\n'; else printf 'active\n'; fi
+}
+
+# inventory -> name<TAB>path<TAB>revision<TAB>state, one row per workspace.
+#   active     registered and its directory is there
+#   merged     live, but its bookmark/branch is already contained in the default branch
+#   stale-reg  registered, directory gone (an agent removed the directory without forgetting)
+#   stale-dir  directory there, nothing registered it (an agent died mid-creation)
+inventory(){
+  local name path rev ref dir registered=$'\n'
+  if [[ $VCS == jj ]]; then
+    while IFS=$'\t' read -r name path rev; do
+      [[ -n $name ]] || continue
+      # root() stops resolving once the directory is gone; the convention names it anyway.
+      [[ $path == - ]] && path="$PREFIX$name"
+      registered+="$path"$'\n'
+      [[ $name == default ]] && ref="" || ref=$name
+      printf '%s\t%s\t%s\t%s\n' "$name" "$path" "$rev" "$(state_of "$ref" "$path")"
+    done < <(jjq workspace list \
+      -T 'name ++ "\t" ++ if(self.root(), self.root(), "-") ++ "\t" ++ target.change_id().short() ++ "\n"')
+  else
+    while IFS=$'\t' read -r path rev; do
+      [[ -n $path ]] || continue
+      registered+="$path"$'\n'
+      ref=$rev
+      if [[ $path == "$TOP" ]]; then name=default; ref=""
+      else name=${path#"$PREFIX"}; name=${name##*/}
+      fi
+      printf '%s\t%s\t%s\t%s\n' "$name" "$path" "${rev:-detached}" "$(state_of "$ref" "$path")"
+    done < <(git_worktrees)
+  fi
+  for dir in "$PREFIX"*; do
+    [[ -d $dir ]] || continue
+    [[ $registered != *$'\n'"$dir"$'\n'* ]] || continue
+    # Only ever a directory that really was a working copy, never a sibling someone made by hand.
+    [[ -e $dir/.jj || -e $dir/.git ]] || continue
+    printf '%s\t%s\t-\tstale-dir\n' "${dir#"$PREFIX"}" "$dir"
+  done
+}
+
+# --- changing the repository --------------------------------------------------------------------
+# forget_one NAME PATH -> drop the working copy, keeping its bookmark/branch and every commit.
+forget_one(){
+  local name=$1 path=$2 rc=0
+  if [[ $VCS == jj ]]; then
+    if jjq workspace list -T 'name ++ "\n"' | grep -qxF "$name"; then
+      jjq workspace forget "$name" || rc=1
+    fi
+  else
+    if git -C "$TOP" worktree list --porcelain | grep -qxF "worktree $path"; then
+      [[ -d $path ]] && { git -C "$TOP" worktree remove --force "$path" >/dev/null 2>&1 || rc=1; }
+      git -C "$TOP" worktree prune || rc=1
+    fi
+  fi
+  if [[ -d $path ]]; then rm -rf -- "$path" || rc=1; fi
+  return $rc
+}
+
+# delete_ref NAME -> drop a local bookmark / branch. Only ever called on a merged ref.
+delete_ref(){
+  if [[ $VCS == jj ]]; then jjq bookmark delete "$1" >/dev/null
+  else git -C "$TOP" branch -d "$1" >/dev/null 2>&1
+  fi
+}
+
+case $CMD in
+add)
+  TARGET="$PREFIX$KEY"
+  [[ -e $TARGET || -L $TARGET ]] && die "refusing to create $TARGET: it already exists"
+  if [[ $VCS == jj ]]; then
+    BASE=${BASE:-trunk()}
+    jj -R "$TOP" workspace add --name "$KEY" "$TARGET" -r "$BASE" \
+      || die "jj workspace add failed for $KEY at $BASE"
+    if local_refs | grep -qxF "$KEY"; then
+      printf '  bookmark %s already exists — left where it points\n' "$KEY"
+    else
+      (cd "$TARGET" && jj bookmark create "$KEY" -r @) || die "jj bookmark create failed for $KEY"
+    fi
+  else
+    BASE=${BASE:-$DEFAULT}
+    [[ -n $BASE ]] || die "cannot determine the default branch of $TOP — pass --base"
+    git -C "$TOP" worktree add "$TARGET" -b "$KEY" "$BASE" \
+      || die "git worktree add failed for $KEY at $BASE"
+  fi
+  printf 'created %s (%s %s, base %s)\n' "$TARGET" "$UNIT" "$KEY" "$BASE"
+  printf '  work only inside %s: never edit %s, and never push the default branch.\n' "$TARGET" "$TOP"
+  ;;
+
+forget)
+  [[ $KEY == default ]] && die "refusing to forget the primary working copy"
+  found=""
+  while IFS=$'\t' read -r name path rev state; do
+    [[ $name == "$KEY" ]] || continue
+    [[ $path == "$TOP" ]] && die "refusing to forget the primary working copy at $TOP"
+    found=$path
+  done < <(inventory)
+  [[ -n $found ]] || die "no workspace '$KEY' in $TOP"
+  forget_one "$KEY" "$found" || die "could not forget $KEY at $found"
+  printf 'forgot %s (%s) — %s %s and its commits are untouched\n' "$found" "$UNIT" "$REF" "$KEY"
+  ;;
+
+list)
+  printf '%s (%s), workspaces alongside it as %s<key>\n' "$TOP" "$VCS" "$PREFIX"
+  printf '%-16s %-14s %-10s %s\n' NAME REVISION STATE PATH
+  while IFS=$'\t' read -r name path rev state; do
+    printf '%-16s %-14s %-10s %s\n' "$name" "$rev" "$state" "$path"
+  done < <(inventory)
+  ;;
+
+sweep)
+  if ((APPLY)); then printf 'sweep %s (%s) — removing\n' "$TOP" "$VCS"
+  else printf 'sweep %s (%s) — read-only; re-run with --apply to remove\n' "$TOP" "$VCS"
+  fi
+  found=0; failed=0
+  while IFS=$'\t' read -r name path rev state; do
+    case $state in stale-dir|stale-reg|merged) ;; *) continue;; esac
+    [[ $path == "$TOP" ]] && continue   # the primary working copy is never a leak
+    found=$((found + 1))
+    if ((APPLY)); then
+      if forget_one "$name" "$path"; then printf '  removed   %-10s %-16s %s\n' "$state" "$name" "$path"
+      else printf '  FAILED    %-10s %-16s %s\n' "$state" "$name" "$path"; failed=1
+      fi
+    else
+      printf '  %-10s %-16s %s\n' "$state" "$name" "$path"
+    fi
+  done < <(inventory)
+  while IFS= read -r ref; do
+    [[ -n $ref && $ref != "$DEFAULT_NAME" ]] || continue
+    merged "$ref" || continue
+    found=$((found + 1))
+    if ((APPLY)); then
+      if delete_ref "$ref"; then printf '  deleted   %-10s %-16s merged into %s\n' ref "$ref" "$DEFAULT_NAME"
+      else printf '  FAILED    %-10s %-16s merged into %s\n' ref "$ref" "$DEFAULT_NAME"; failed=1
+      fi
+    else
+      printf '  %-10s %-16s merged into %s\n' ref "$ref" "$DEFAULT_NAME"
+    fi
+  done < <(local_refs)
+  ((found)) || printf '  nothing to sweep\n'
+  ((failed == 0)) || exit 1
+  ;;
+esac
