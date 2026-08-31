@@ -725,5 +725,269 @@ class BuildSkillTests(unittest.TestCase):
         self._documented_capture_command()
 
 
+# --- speculative next-round specifiers ---------------------------------------------
+# Anchors for reading `skills/build/SKILL.md` as prose rather than as a bag of words.
+SPECULATION = re.compile(r"specul", re.IGNORECASE)
+# A numbered wave-loop step: a digit at the very start of a line. Continuation
+# paragraphs inside a step are indented, so they never match.
+WAVE_STEP = re.compile(r"^(\d+)\.\s", re.MULTILINE)
+# Sentence boundaries, stepping over the markdown emphasis and code punctuation that
+# trails a full stop (`... a speculative builder.** Phase 2 starts ...`).
+SENTENCE_SPLIT = re.compile(r"(?<=[.!?])[*_`\"')\]]*\s+")
+
+
+class SpeculativeSpecifierTests(unittest.TestCase):
+    """SKILL.md must permit speculative next-round specifiers while the integrator runs,
+    and must state what that permission costs.
+
+    Every oracle reads the statement *in place* — inside the speculation subsection of
+    wave loop step 5, the step that runs the integrator — because an allowance stated
+    anywhere else is not the allowance the issue asks for, and words scattered across
+    sections that mean other things would satisfy a plain file-wide substring search.
+    """
+
+    def skill(self):
+        return (ROOT / "SKILL.md").read_text(encoding="utf-8")
+
+    def wave_loop(self):
+        parts = self.skill().split("\n## Wave loop\n", 1)
+        self.assertEqual(len(parts), 2, "SKILL.md must keep its `## Wave loop` section")
+        return parts[1].split("\n## ", 1)[0]
+
+    def wave_loop_steps(self):
+        """The wave loop's numbered steps, in document order, keyed by their number."""
+        section = self.wave_loop()
+        marks = [(match.group(1), match.start()) for match in WAVE_STEP.finditer(section)]
+        self.assertTrue(marks, "the wave loop must keep its numbered steps")
+        steps = {}
+        for index, (number, start) in enumerate(marks):
+            end = marks[index + 1][1] if index + 1 < len(marks) else len(section)
+            steps[number] = section[start:end]
+        return steps
+
+    def speculation_subsection(self):
+        """The contiguous run of paragraphs inside wave loop step 5 that discusses
+        speculation — first such paragraph through last. Anchoring to step 5 is the point:
+        the allowance exists only to fill the integrator run it overlaps."""
+        step = self.wave_loop_steps().get("5")
+        self.assertIsNotNone(step, "wave loop step 5 — the integrator step — must exist")
+        paragraphs = [para.strip() for para in re.split(r"\n\s*\n", step) if para.strip()]
+        hits = [index for index, para in enumerate(paragraphs) if SPECULATION.search(para)]
+        self.assertTrue(
+            hits,
+            "wave loop step 5 must carry a speculative-specifier subsection: while the "
+            "integrator runs the combined suite, the orchestrator may dispatch specifiers "
+            "for issues that are not unblocked yet.\nStep 5 currently reads:\n" + step,
+        )
+        return "\n\n".join(paragraphs[hits[0]:hits[-1] + 1])
+
+    @staticmethod
+    def sentences(text):
+        flat = re.sub(r"\s+", " ", text).strip()
+        return [part for part in SENTENCE_SPLIT.split(flat) if part]
+
+    def sentence(self, text, patterns, why):
+        """The first sentence satisfying every pattern — returned so a caller can assert
+        further about that same sentence rather than about the document at large."""
+        matches = [
+            candidate for candidate in self.sentences(text)
+            if all(re.search(pattern, candidate, re.IGNORECASE) for pattern in patterns)
+        ]
+        self.assertTrue(
+            matches,
+            f"{why}\nNo single sentence matched all of {patterns!r}.\nSubsection:\n{text}",
+        )
+        return matches[0]
+
+    def test_speculation_is_optional_not_default(self):
+        """An allowance has to read as an allowance: `may`, next to the integrator run it
+        overlaps, doing the unrelaxed Phase 1 — and, in the same subsection, the statement
+        that a run which never speculates is not thereby a worse run."""
+        subsection = self.speculation_subsection()
+        permission = self.sentence(
+            subsection,
+            [r"\bmay\b", r"dispatch", r"specifier", r"integrator"],
+            "the subsection must say that, while the integrator runs, the orchestrator MAY "
+            "dispatch `specifier` agents for issues that are not unblocked yet",
+        )
+        self.assertNotRegex(
+            permission,
+            r"\b(must|shall|always|should)\b",
+            "speculation is permitted, never required; this sentence reads as an "
+            "instruction:\n" + permission,
+        )
+        self.sentence(
+            subsection,
+            [r"(acceptanceTests|acceptance tests|failing tests)", r"\bseal", r"\bRED\b"],
+            "the subsection must say the speculative specifier runs the standard Phase 1 "
+            "unrelaxed: acceptance tests written as failing tests, honest RED, then seal",
+        )
+        self.assertRegex(
+            subsection,
+            r"(?i)opportunistic",
+            "the subsection must call speculation opportunistic:\n" + subsection,
+        )
+        self.sentence(
+            subsection,
+            [r"\bdefault\b", r"\b(never|not|no)\b"],
+            "the subsection must say speculation is never the default",
+        )
+        self.sentence(
+            subsection,
+            [r"(skips?|skipping|without|forgo\w*|omits?)",
+             r"(deficien\w*|correct|complete|fine|valid)"],
+            "the subsection must say the plain sequence stays correct — a run that skips "
+            "speculation is not deficient",
+        )
+
+    def test_speculation_disqualifier_is_stated(self):
+        """The one case speculation cannot cover: acceptance tests that cannot express
+        their failure until the dependency's code is merged. Sealing one of those buys a
+        RED that proves nothing, so the subsection must name it and route it to `blocked`."""
+        subsection = self.speculation_subsection()
+        self.sentence(
+            subsection,
+            [r"\b(imports?|compiles?)\b",
+             r"(dependenc\w*|merged)",
+             r"(cannot|can't|can not|must not|never|ineligible|not eligible|disqualif\w*)",
+             r"specul"],
+            "the subsection must disqualify from speculation an issue whose acceptance "
+            "tests need the dependency's merged code to import or compile",
+        )
+        self.assertRegex(
+            subsection,
+            r"(?i)(hollow|proves? nothing|meaningless|vacuous|false RED)",
+            "the subsection must say why the disqualifier exists: a test that cannot "
+            "express its failure on the current base produces a hollow RED.\nSubsection:\n"
+            + subsection,
+        )
+        self.sentence(
+            subsection,
+            [r"blocked", r"\bseal", r"(rather than|instead of|\bnot\b)"],
+            "the subsection must say the specifier returns `blocked` rather than sealing a "
+            "test it cannot honestly prove red on the current base",
+        )
+
+    def test_bounce_cost_and_reseal_are_stated(self):
+        """Speculation is cheap only while the wave lands. The subsection has to price the
+        bounce, name the command that amends the seal, and say plainly that no mechanism
+        will catch a stale speculative seal for you."""
+        subsection = self.speculation_subsection()
+        self.assertIn(
+            "tdd-guard reseal --reason",
+            subsection,
+            "the subsection must name the exact command that amends a stale speculative "
+            "seal: `tdd-guard reseal --reason <text>`.\nSubsection:\n" + subsection,
+        )
+        self.sentence(
+            subsection,
+            [r"(bounces?|offending PR|sent back|goes back|rejects?)",
+             r"(re-?prov\w*|re-?seal\w*|redo\w*|redone|again)"],
+            "the subsection must name the rework a bounced wave costs a speculative seal",
+        )
+        self.sentence(
+            subsection,
+            [r"re-?prov\w*", r"merged base"],
+            "the subsection must say the speculative seal has to be re-proved on the "
+            "merged base",
+        )
+        self.sentence(
+            subsection,
+            [r"re-?scope\w*", r"(throws?|thrown|discard\w*|wastes?|wasted|lost|away)"],
+            "the subsection must say a re-scoped issue throws that specifier's work away "
+            "entirely",
+        )
+        self.sentence(
+            subsection,
+            [r"\b(nothing|no|not)\b",
+             r"(mechanical\w*|automatic\w*|automated)",
+             r"(stale\w*)"],
+            "the subsection must say nothing mechanical catches a stale speculative seal — "
+            "the guard binds a seal to the sealed tests and the red command, not to the "
+            "base it was proved on — so the discipline is textual",
+        )
+
+    def test_no_speculative_builder(self):
+        """Speculation stops at the seal. A builder dispatched before its dependencies
+        merge implements against a base that does not yet exist, so Phase 2 waits, and the
+        builder re-proves the inherited seal on the merged base before writing anything."""
+        subsection = self.speculation_subsection()
+        self.sentence(
+            subsection,
+            [r"builder", r"\b(never|no|not)\b", r"specul"],
+            "the subsection must rule out a speculative builder outright",
+        )
+        self.sentence(
+            subsection,
+            [r"(phase 2|builder)", r"(only after|not until|once)", r"(dependenc\w*|deps)",
+             r"merged"],
+            "the subsection must say Phase 2 for a speculated issue starts only after its "
+            "dependencies are merged, in a workspace on the merged base",
+        )
+        self.sentence(
+            subsection,
+            [r"builder", r"re-?prov\w*", r"sealed tests", r"\bfail"],
+            "the subsection must say the builder re-proves the sealed tests still fail on "
+            "the merged base, for the right reason, before implementing",
+        )
+        self.sentence(
+            subsection,
+            [r"(passes?|no longer fails?|fails? differently)", r"specifier", r"re-?seal"],
+            "the subsection must say a sealed test that now passes, or fails differently, "
+            "goes back to a `specifier` to reseal",
+        )
+
+    def test_build_skill_invariants_survive(self):
+        """The subsection is an addition, not a rewrite. With it in place, the wave loop
+        still runs 1..6 unrenumbered, the two phases keep their order, the ADR-0007
+        boundary keeps its position, one capture command survives, and no sentence about
+        the seal, the phases, or merging on combined GREEN has been softened to make room."""
+        self.speculation_subsection()  # the edit landed; now check nothing else moved
+        skill = self.skill()
+
+        self.assertEqual(
+            list(self.wave_loop_steps()),
+            ["1", "2", "3", "4", "5", "6"],
+            "the wave loop keeps six numbered steps, in order and unrenumbered",
+        )
+        self.assertLess(
+            skill.index("Phase 1"), skill.index("Phase 2"),
+            "Phase 1 must still precede Phase 2",
+        )
+        for phrase in (
+            "combined GREEN",
+            "sole completion authority",
+            "never dispatch a builder for an issue with no seal",
+            "Never run the two phases concurrently",
+            "Treat every PR as tested on its old base",
+            "Merge only after combined green",
+            "It cannot edit the sealed tests: the guard denies those edits outright.",
+        ):
+            # `assertIn` would dump the whole SKILL.md into the failure report.
+            self.assertTrue(phrase in skill, f"pinned prose lost to the edit: {phrase!r}")
+
+        # ADR 0007's boundary is still the second paragraph after the title.
+        after_title = skill.split("\n# ", 1)[1].split("\n\n", 1)[1]
+        boundary = after_title.split("\n\n")[1]
+        self.assertTrue(
+            boundary.startswith("You are the orchestrator ([ADR 0007]"),
+            "the canonical ADR-0007 paragraph must stay the second paragraph after the "
+            f"title; found instead:\n{boundary}",
+        )
+        self.assertIn("You never read or edit the target project's code", boundary)
+
+        # Exactly one `gh ... | jq` capture block, as
+        # test_documented_capture_command_produces_a_valid_snapshot requires.
+        blocks = [
+            block for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
+            if "gh " in block and "jq" in block
+        ]
+        self.assertEqual(
+            len(blocks), 1,
+            "SKILL.md must keep exactly one copy-pasteable `gh ... | jq ...` capture command",
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
