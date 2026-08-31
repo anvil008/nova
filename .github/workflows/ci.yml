@@ -39,7 +39,7 @@ jobs:
       - name: Ruff
         run: ruff check skills/ evals/ scripts/render-diagrams.py
       - name: ShellCheck
-        run: shellcheck -S warning scripts/*.sh scripts/hooks/build-*
+        run: shellcheck -S warning scripts/*.sh scripts/hooks/build-* scripts/workcell-ws
       - name: Skill unit tests
         run: |
           for d in skills/*/tests; do

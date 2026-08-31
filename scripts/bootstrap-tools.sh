@@ -76,16 +76,20 @@ else
 fi
 
 echo
-echo "== builder hooks (hooks / format / lint / guard) =="
+echo "== builder hooks (hooks / format / lint / guard) + the workspace helper =="
 if ! ((install)); then
-  echo "  would link ~/.local/bin/build-{hooks,format,lint,guard} (run with --install)"
+  echo "  would link ~/.local/bin/build-{hooks,format,lint,guard} and workcell-ws (run with --install)"
 else
   # Symlinked, not copied: editing scripts/hooks/* takes effect immediately.
   mkdir -p "$HOME/.local/bin"
   for h in build-hooks build-format build-lint build-guard; do
     link_owned "$ROOT/scripts/hooks/$h" "$HOME/.local/bin/$h" || die "could not link $h into ~/.local/bin"
   done
-  echo "  linked ~/.local/bin/build-{hooks,format,lint,guard} -> scripts/hooks/"
+  # Agents call the workspace helper by name from whatever project they are working in, so it has
+  # to be on PATH the same way the hooks are.
+  link_owned "$ROOT/scripts/workcell-ws" "$HOME/.local/bin/workcell-ws" \
+    || die "could not link workcell-ws into ~/.local/bin"
+  echo "  linked ~/.local/bin/build-{hooks,format,lint,guard} -> scripts/hooks/, workcell-ws -> scripts/"
 fi
 
 echo

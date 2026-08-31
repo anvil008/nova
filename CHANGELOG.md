@@ -2,6 +2,26 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [One workspace helper across harnesses] - 2026-08-30
+
+### Added
+
+- **`scripts/workcell-ws`:** One shell helper owning agent isolation on all three harnesses —
+  `add` / `forget` / `list` / `sweep`. A jj repository gets a jj workspace, a git-only repository a
+  git worktree, both at the sibling path `../<repo>-<key>` with the bookmark or branch `<key>`.
+  `sweep` names every stranded workspace and every merged local ref and is read-only until
+  `--apply` (ADR-0014). `bootstrap-tools.sh --install` links it onto `PATH` beside the `build-*`
+  hooks; `scripts/tests/test_workcell_ws.sh` covers both version-control systems.
+- **`docs/workspaces.md`:** The isolation standard — naming, base, teardown after the PR exists,
+  and the sweep as the leak check.
+
+### Changed
+
+- **`test-author` / `builder` bodies, `build`, `code-refactor`, `repo-setup`.** They now name
+  `workcell-ws` where they used to spell out `jj workspace add` / `forget`, keeping the raw jj
+  commands as the shown equivalent. Git-only repositories gain isolation parity, so jj adoption is
+  an optimisation for parallel waves rather than a prerequisite.
+
 ## [README diagrams are generated SVG] - 2026-08-30
 
 ### Added
