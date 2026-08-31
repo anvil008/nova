@@ -49,7 +49,28 @@ Git-only repositories gain parity: they can run isolated waves without adopting 
 Adopting jj is still the recommendation, because one operation log and `jj undo` are what make
 many concurrent working copies recoverable.
 
-The sweep is the new leak check, and it is only as good as the convention: a workspace created
-outside `../<repo>-<key>` is still visible while it is registered, but once its registration is
-gone the sweep cannot recognise the directory as one of ours, and by design it will not delete a
-sibling directory that was never a working copy.
+Because the helper now deletes directories on the fleet's behalf, it is deliberately reluctant.
+Ownership is decided by a pointer, not by a name: a sibling is ours only when its `.git` file
+resolves under this repository's `worktrees/` directory or its `.jj/repo` file resolves to this
+repository's store. A full `.git/` or `.jj/repo/` directory is an independent repository that
+merely collides on the naming convention, is listed `foreign`, and is never removed — the sweep
+reports it as a note and `--force` does not change that.
+
+Uncommitted work is likewise never destroyed silently, and the two version-control systems earn
+different treatment because they genuinely differ. A jj working copy *is* a commit, so `forget`
+snapshots it into the repository first and the content stays recoverable from the bookmark after
+the directory is gone. A git working tree is not, so a dirty one is refused by name until it is
+committed or `--force` is passed, and only then is `--force` passed on to `git worktree remove`.
+A `stale-dir` is refused in both, because once the registration is gone neither system can say
+what is uncommitted in it — `jj st` there answers "No working copy" and exits zero, which is not a
+snapshot. A workspace the calling shell is standing in is refused with no override at all, since
+removing it strands that shell.
+
+The cost is that the routine reclaim is now two commands in the worst case: `sweep --apply` clears
+merged and stale registrations, and `sweep --apply --force` is needed for a stale directory. That
+is the intended trade — every refusal prints its reason and its override on the line, so nothing
+is hidden, and the sweep still exits zero so a resume step can run it unattended.
+
+The sweep is only as good as the convention: a workspace created outside `../<repo>-<key>` is
+still visible while it is registered, but once its registration is gone the sweep cannot recognise
+the directory as one of ours.

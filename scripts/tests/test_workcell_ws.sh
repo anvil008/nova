@@ -51,6 +51,16 @@ merge_in(){
   fi
 }
 
+mkjj_noremote(){ seed "$1"; jj git init --colocate "$1" >/dev/null 2>&1; }
+# orphan VCS REPO KEY -> take the registration away but leave the directory: the shape a crashed
+# agent leaves, and the only honest way to build a stale-dir (a bare .jj/.git directory is a
+# different repository, not a workspace of ours).
+orphan(){
+  local vcs=$1 repo=$2 key=$3
+  if [[ $vcs == jj ]]; then jj -R "$repo" --ignore-working-copy workspace forget "$key" >/dev/null 2>&1
+  else rm -rf "$repo/.git/worktrees/$(basename "$repo")-$key"; git -C "$repo" worktree prune
+  fi
+}
 siblings(){ find "$(dirname "$1")" -mindepth 1 -maxdepth 1 -name "$(basename "$1")*" | sort; }
 state_of(){ "$WS" list --repo "$1" | awk -v k="$2" '$1 == k { print $3 }'; }
 is_state(){ [[ $(state_of "$1" "$2") == "$3" ]]; }
@@ -80,7 +90,7 @@ check bash -c '"$1" --help | grep -qE "add .*<key>" && "$1" --help | grep -q "sw
 
 # --- one suite, run against both version-control systems ------------------------------------------
 suite(){
-  local vcs=$1 repo=$2 tag="$1:" before after log_before log_after key leak rc
+  local vcs=$1 repo=$2 tag="$1:" before after log_before log_after key leak rc out
 
   name="$tag add creates the sibling workspace, populated"
   "$WS" add feat-one --repo "$repo" > "$TMP/$vcs-add.out" 2>&1
@@ -127,13 +137,22 @@ suite(){
     fi
   done
   merge_in "$vcs" "$repo" gone-one
+  "$WS" add ghost-one --repo "$repo" >/dev/null 2>&1   # a real workspace whose registration is lost
+  printf 'leftover\n' > "$repo-ghost-one/leftover.txt"
+  orphan "$vcs" "$repo" ghost-one
+  # After the orphan step, because git's prune deregisters every worktree whose directory is gone.
   rm -rf "$repo-stale-one"                             # the directory an agent removed by hand
-  mkdir -p "$repo-ghost-one/.$vcs"                     # a working copy nothing ever registered
+  # An INDEPENDENT repository that merely collides with the naming convention. Nothing here may
+  # touch it, however much it looks like one of ours from the outside.
+  seed "$repo-other-one"
+  [[ $vcs == jj ]] && jj git init --colocate "$repo-other-one" >/dev/null 2>&1
 
   name="$tag list detects stale-reg (registered, directory gone)"
   check is_state "$repo" stale-one stale-reg
   name="$tag list detects stale-dir (directory there, nothing registered it)"
   check is_state "$repo" ghost-one stale-dir
+  name="$tag list calls an independent repo that collides on the name foreign"
+  check is_state "$repo" other-one foreign
   name="$tag list reports a merged workspace as merged"
   check is_state "$repo" gone-one merged
   name="$tag list reports an unmerged workspace as active"
@@ -149,6 +168,8 @@ suite(){
   done
   name="$tag sweep without --apply never names an unmerged workspace"
   check nope saw "$vcs-sweep.out" live-one
+  name="$tag sweep reports a colliding foreign repo as a note, never as a leak"
+  check saw "$vcs-sweep.out" 'note +foreign +other-one.*never swept'
   name="$tag sweep without --apply says how to act on it"
   check saw "$vcs-sweep.out" 're-run with --apply'
   name="$tag sweep without --apply leaves every directory in place"
@@ -160,9 +181,20 @@ suite(){
   "$WS" sweep --apply --repo "$repo" > "$TMP/$vcs-apply.out" 2>&1; rc=$?
   name="$tag sweep --apply exits zero";                      check test "$rc" -eq 0
   name="$tag sweep --apply removes the merged workspace";    check nope test -d "$repo-gone-one"
-  name="$tag sweep --apply removes the stale directory";     check nope test -d "$repo-ghost-one"
   name="$tag sweep --apply deregisters the stale registration"
   check nope listed "$repo" stale-one
+  # DEFECT 1/2: an unvouchable directory and a foreign repository both survive a plain --apply.
+  name="$tag sweep --apply keeps a stale directory nothing can vouch for"
+  check test -e "$repo-ghost-one/leftover.txt"
+  name="$tag sweep --apply says why it kept it, and how to override"
+  check saw "$vcs-apply.out" 'kept +stale-dir +ghost-one.*--force overrides'
+  name="$tag sweep --apply never deletes a colliding foreign repository"
+  check test -e "$repo-other-one/seed.txt"
+  name="$tag sweep --apply --force does reclaim the stale directory"
+  "$WS" sweep --apply --force --repo "$repo" >/dev/null 2>&1
+  check nope test -d "$repo-ghost-one"
+  name="$tag sweep --apply --force still never deletes a foreign repository"
+  check test -e "$repo-other-one/seed.txt"
   name="$tag sweep --apply keeps the unmerged workspace";    check test -d "$repo-live-one"
   name="$tag sweep --apply deletes the merged bookmark/branch"
   check nope has_ref "$repo" gone-one
@@ -173,6 +205,39 @@ suite(){
   check test -e "$repo/seed.txt"
   name="$tag a second sweep has nothing left to do"
   check bash -c '"$1" sweep --repo "$2" | grep -q "nothing to sweep"' _ "$WS" "$repo"
+
+  # --- DEFECT 1: uncommitted work is never destroyed ----------------------------------------------
+  "$WS" add dirty-one --repo "$repo" >/dev/null 2>&1
+  printf 'PRECIOUS\n' > "$repo-dirty-one/precious.txt"   # untracked, never committed anywhere
+  "$WS" forget dirty-one --repo "$repo" > "$TMP/$vcs-dirty.out" 2>&1; rc=$?
+  if [[ $vcs == jj ]]; then
+    # jj's working copy IS a commit: forgetting snapshots it first, so the directory can go.
+    name="$tag forget succeeds on a dirty jj workspace"; check test "$rc" -eq 0
+    name="$tag ... having snapshotted the untracked file into the bookmark, losing nothing"
+    check bash -c 'jj -R "$1" --ignore-working-copy file show -r dirty-one "$1/precious.txt" \
+                     2>/dev/null | grep -q PRECIOUS' _ "$repo"
+  else
+    # git's is not, so the only safe answer is to refuse and say what would have been lost.
+    name="$tag forget refuses a dirty git worktree"; check test "$rc" -ne 0
+    name="$tag ... naming the uncommitted path"; check saw "$vcs-dirty.out" 'precious.txt'
+    name="$tag ... and the file is still on disk"; check test -e "$repo-dirty-one/precious.txt"
+    name="$tag forget --force removes it once the caller says so"
+    "$WS" forget dirty-one --force --repo "$repo" >/dev/null 2>&1
+    check nope test -d "$repo-dirty-one"
+  fi
+
+  # --- DEFECT 4: a forget that would strand the caller's shell ------------------------------------
+  "$WS" add cwd-one --repo "$repo" >/dev/null 2>&1
+  out=$(cd "$repo-cwd-one" && "$WS" forget cwd-one 2>&1); rc=$?
+  name="$tag forget refuses while the caller's shell is inside the workspace"
+  check test "$rc" -ne 0
+  name="$tag ... telling the caller to cd out first"
+  check bash -c 'printf "%s" "$1" | grep -q "cd out of the workspace first"' _ "$out"
+  name="$tag ... and the workspace survives"; check test -d "$repo-cwd-one"
+  name="$tag ... and not even --force will strand a live shell"
+  check bash -c 'cd "$2-cwd-one" && ! "$1" forget cwd-one --force >/dev/null 2>&1' _ "$WS" "$repo"
+  name="$tag forget works again from outside the workspace"
+  check bash -c '"$1" forget cwd-one --repo "$2" >/dev/null' _ "$WS" "$repo"
 }
 
 mkdir -p "$TMP/remotes"
@@ -181,6 +246,22 @@ if [[ -d $TMP/jjproj/.jj ]]; then
   suite jj "$TMP/jjproj"
 else
   printf 'skip jj cases (no jj CLI)\n'
+fi
+
+# --- DEFECT 3: a jj repo with no remote for trunk() to resolve through -----------------------------
+if command -v jj >/dev/null 2>&1; then
+  mkjj_noremote "$TMP/jjsolo"
+  name="jj-solo: trunk() really does degrade to the root commit here"
+  check bash -c '[ -z "$(jj -R "$1" --ignore-working-copy log --no-graph \
+                          -r "trunk() ~ root()" -T "\"x\"" 2>/dev/null)" ]' _ "$TMP/jjsolo"
+  "$WS" add feat --repo "$TMP/jjsolo" > "$TMP/solo-add.out" 2>&1
+  name="jj-solo: add falls back to the local default bookmark instead of root()"
+  check saw solo-add.out 'base bookmarks\(exact:"main"\)'
+  name="jj-solo: the workspace is populated, not an empty tree"
+  check test -e "$TMP/jjsolo-feat/seed.txt"
+  jj -R "$TMP/jjsolo" --ignore-working-copy bookmark delete main >/dev/null 2>&1
+  name="jj-solo: with no default bookmark at all, add refuses plainly rather than guessing"
+  check nope "$WS" add feat-two --repo "$TMP/jjsolo"
 fi
 
 seed "$TMP/gitproj"

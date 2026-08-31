@@ -10,7 +10,10 @@ All notable changes to Workcell will be documented in this file.
   `add` / `forget` / `list` / `sweep`. A jj repository gets a jj workspace, a git-only repository a
   git worktree, both at the sibling path `../<repo>-<key>` with the bookmark or branch `<key>`.
   `sweep` names every stranded workspace and every merged local ref and is read-only until
-  `--apply` (ADR-0014). `bootstrap-tools.sh --install` links it onto `PATH` beside the `build-*`
+  `--apply` (ADR-0014). It refuses rather than guessing: an independent repository that collides on
+  the naming convention is `foreign` and never removed, a dirty git worktree is refused by name
+  until it is committed or `--force` is passed, a jj workspace is snapshotted into its commit
+  before its directory goes, and a workspace the calling shell is standing in is refused outright. `bootstrap-tools.sh --install` links it onto `PATH` beside the `build-*`
   hooks; `scripts/tests/test_workcell_ws.sh` covers both version-control systems.
 - **`docs/workspaces.md`:** The isolation standard — naming, base, teardown after the PR exists,
   and the sweep as the leak check.
