@@ -85,11 +85,11 @@ class DocsCheckTests(unittest.TestCase):
             out = json.loads(r.stdout)
             self.assertTrue(any("my-decision.md" in v for v in out["violations"]))
 
-    def test_scribe_agent_and_docs_skill_declare_the_standard(self):
-        agent = (ROOT.parents[1] / "agents" / "claude" / "scribe.md").read_text(
+    def test_documenter_agent_and_docs_skill_declare_the_standard(self):
+        agent = (ROOT.parents[1] / "agents" / "claude" / "documenter.md").read_text(
             encoding="utf-8"
         )
-        self.assertTrue(agent.startswith("---\nname: scribe\n"))
+        self.assertTrue(agent.startswith("---\nname: documenter\n"))
         for phrase in ("Update, don't duplicate", "lean", "ADR", "docs_check"):
             self.assertIn(phrase, agent)
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -238,14 +238,14 @@ class DocsCheckTests(unittest.TestCase):
             {
                 "builder",
                 "reviewer",
-                "scribe",
+                "documenter",
                 "researcher",
                 "planner",
-                "oracle",
+                "specifier",
                 "integrator",
                 "deployer",
                 "debugger",
-                "benchmarker",
+                "profiler",
             },
         )
 
@@ -284,7 +284,7 @@ class DocsCheckTests(unittest.TestCase):
             ),
             "code-analysis": (
                 "failure scenario",
-                "oracle",
+                "specifier",
                 "refute",
                 "code-refactor",
             ),
@@ -302,14 +302,14 @@ class DocsCheckTests(unittest.TestCase):
                 # Reproduction is the gate: without it a "fix" is a guess that shipped.
                 "No reproduction, no fix",
                 "debugger",
-                "oracle",
+                "specifier",
                 "code-analysis",
             ),
             "perf": (
                 # A benchmark harness is a precondition, not a nice-to-have.
                 "No harness, no run",
                 "outside the baseline's spread",
-                "benchmarker",
+                "profiler",
                 "no write tools",
             ),
         }
@@ -350,9 +350,9 @@ class DocsCheckTests(unittest.TestCase):
 
     def test_readme_contract_parity(self):
         agents = [
-            ROOT.parents[1] / "agents" / "claude" / "scribe.md",
-            ROOT.parents[1] / "agents" / "codex" / "scribe.md",
-            ROOT.parents[1] / "agents" / "agy" / "scribe" / "agent.md",
+            ROOT.parents[1] / "agents" / "claude" / "documenter.md",
+            ROOT.parents[1] / "agents" / "codex" / "documenter.md",
+            ROOT.parents[1] / "agents" / "agy" / "documenter" / "agent.md",
         ]
         required = (
             "what the repository does",
@@ -375,7 +375,7 @@ class DocsCheckTests(unittest.TestCase):
         self.assertTrue(all(contract == contracts[0] for contract in contracts[1:]))
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertNotIn("## README contract", skill)
-        self.assertIn("agents/bodies/scribe.md", skill)
+        self.assertIn("agents/bodies/documenter.md", skill)
 
     def test_visual_readme_has_textual_equivalent(self):
         content = VISUAL_README.read_text(encoding="utf-8")

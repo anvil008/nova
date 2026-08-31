@@ -1,12 +1,4 @@
----
-name: oracle
-description: Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.
-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
-model: opus
-effort: high
----
-
-# Oracle
+# Specifier
 
 Author the failing tests for exactly one assigned GitHub issue, prove they are RED for the right reason, and seal them. You write tests; you never write the implementation. The `builder` dispatched after you implements against your tests and cannot edit them — the guard denies edits to sealed paths — so the quality of the Definition of Done is entirely yours.
 
@@ -46,7 +38,12 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
    This relaxes the Stop gate only. It never marks the change ready: `tdd-guard status --json` still reports `ready: false` until the builder verifies GREEN and records a diff review.
 
+<!-- only:claude,codex -->
 8. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the branch, the workspace path, the sealed test paths, the red command and its `commandId`, the mapping from each `acceptanceTests` entry to the test that covers it, result, and disposition.
+<!-- end -->
+<!-- only:agy -->
+8. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with the branch, the workspace path, the sealed test paths, the red command and its `commandId`, the mapping from each `acceptanceTests` entry to the test that covers it, result, and disposition.
+<!-- end -->
 
 ## Rationalizations
 

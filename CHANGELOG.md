@@ -2,6 +2,27 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [Agent names settle on plain CS terms] - 2026-08-30
+
+### Changed
+
+- **Three more agents renamed** (ADR-0016, superseding ADR-0015 for these three):
+  `oracle` → `specifier`, `benchmarker` → `profiler`, `scribe` → `documenter`. `builder`,
+  `debugger`, `deployer`, `integrator`, `planner`, `researcher`, and `reviewer` are unchanged, and
+  the **skills** keep their names — `docs` dispatches the `documenter`, `perf` the `profiler`, and
+  `build` Phase 1 the `specifier`. Bodies, `agents.json`, `models.json`, the Codex gate snippet
+  (`codex-oracle` → `codex-specifier`), every generated per-harness definition, the agent-owned
+  `agy` skill symlinks, the skills, eval cases and routing owners, the tests that pin those names,
+  the guard's comments, the README, `docs/gates.md`, and the README diagram sources all move
+  together. Accepted ADRs 0001–0015, `docs/plans/`, `docs/research/`, `plan.sidecar.json`, and
+  earlier entries in this file keep the old names as historical record.
+- **The acceptance-test `oracle` field keeps its name.** It is the observable pass condition a
+  planner writes and a `specifier` turns into an assertion, and it is unchanged in
+  `plan.sidecar.json`, the sidecar contract, `agents/handoff.md`, and the rendered issue checklist.
+  Naming the agent after that field is what forced ADR 0015's "the `oracle` agent" phrasing; with
+  the collision gone, those sentences read plainly again. Routing rank-1 holds at 79.0% against the
+  77% floor.
+
 ## [Agents are named for the worker] - 2026-08-30
 
 ### Changed

@@ -6,8 +6,8 @@ This contract defines the one brief an orchestrator sends to a Workcell agent an
 
 - `issue`: the GitHub issue number, or `null` when the work has no issue.
 - `brief`: an object whose `goal` is the goal in prose. For a no-issue dispatch, it also carries `acceptanceTests[]`, each with `name`, `kind`, and `oracle`.
-- `workspace`: the assigned workspace path. A standard oracle creates it; agents dispatched after that creation and non-standard modes receive an existing path. Whoever creates a jj workspace names it with the dispatch's `branch`.
-- `branch`: the branch or bookmark assigned to the work and, when a jj workspace is created for it, that workspace's name. A standard oracle creates both; other agents receive them pre-created.
+- `workspace`: the assigned workspace path. A standard specifier creates it; agents dispatched after that creation and non-standard modes receive an existing path. Whoever creates a jj workspace names it with the dispatch's `branch`.
+- `branch`: the branch or bookmark assigned to the work and, when a jj workspace is created for it, that workspace's name. A standard specifier creates both; other agents receive them pre-created.
 - `base`: `trunk()` or the named integration branch from which the work was based.
 - `ownership`: the glob delimiting files the agent may change. For an issue dispatch it is copied from the issue's `ownershipHint`; for a no-issue dispatch it is authoritative on its own.
 - `mode`: `standard` by default; a builder may instead receive `refactor` or `loop`, and an integrator may instead receive `baseline`.

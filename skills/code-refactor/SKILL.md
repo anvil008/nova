@@ -23,14 +23,14 @@ This orchestrator holds the behaviour-preservation invariant and rejects any cha
 
 Ordinary feature work records a `kind: red` seal after its command fails. A refactor records a `kind: baseline` seal after its command passes. Both kinds digest and protect the same test paths, bind the same command argv, and require post-seal GREEN plus a real diff review.
 
-The gate is the same `tdd-guard` state machine with the RED requirement replaced by a GREEN one, so the Stop hook and `status --json` work unchanged. Do not dispatch an `oracle`, and do not let a builder invent a failing test.
+The gate is the same `tdd-guard` state machine with the RED requirement replaced by a GREEN one, so the Stop hook and `status --json` work unchanged. Do not dispatch a `specifier`, and do not let a builder invent a failing test.
 
 ## Procedure
 
 1. **Baseline.** Dispatch an `integrator` with a brief conforming to [`agents/handoff.md`](../../agents/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. If it is not green before you start, stop: you cannot tell a refactor regression from a pre-existing failure, and you will spend the whole run guessing.
 2. **Survey.** Dispatch `researcher` agents, one per area, to map the simplification candidates: duplicated logic, modules that only forward, abstractions with a single caller, dead exports, cyclic dependencies, and interfaces wider than their use. They return evidence with `file:line`, never edits.
 3. **Plan.** Dispatch the `planner` with the survey and this skill's invariant. Each issue is one independently landable simplification with a disjoint `ownershipHint`. `acceptanceTests` for a refactor issue name the **existing** tests that must keep passing — the observable behaviour being preserved — not new ones to write. Human approval as usual before any GitHub write.
-4. **Execute.** Run [`build`](../build/SKILL.md) in **single-PR mode**, with the oracle phase omitted. For each issue, the orchestrator creates its jj workspace and branch on the integration base:
+4. **Execute.** Run [`build`](../build/SKILL.md) in **single-PR mode**, with the specifier phase omitted. For each issue, the orchestrator creates its jj workspace and branch on the integration base:
 
    ```bash
    workcell-ws add <issue-key> --base <integration-base>

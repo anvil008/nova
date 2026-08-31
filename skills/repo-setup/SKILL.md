@@ -9,7 +9,7 @@ Get a repository into the shape where agents can work in it safely: instruction 
 
 You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-This orchestrator interviews the human and assigns documentation to `scribe` and code-like configuration to `builder`.
+This orchestrator interviews the human and assigns documentation to `documenter` and code-like configuration to `builder`.
 
 ## Read before you ask
 
@@ -31,7 +31,7 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
 1. **Survey** with a `researcher` agent plus `scripts/bootstrap-project.sh <dir>`.
 2. **Interview** as above, with your recommendations attached.
 3. **Version control**, if adopting jj: `jj git init --colocate` at the repo root. Colocation keeps `.git/` working, so existing tooling, CI, and `gh` are unaffected.
-4. **Instruction files — one source of truth.** Dispatch the `scribe` agent to write **`AGENTS.md`** as the single real instruction file, covering purpose, layout, the exact verification commands, and the conventions from the interview. Every other harness's instruction file is a symbolic link to it, never a second copy:
+4. **Instruction files — one source of truth.** Dispatch the `documenter` agent to write **`AGENTS.md`** as the single real instruction file, covering purpose, layout, the exact verification commands, and the conventions from the interview. Every other harness's instruction file is a symbolic link to it, never a second copy:
 
    ```bash
    ln -sf AGENTS.md CLAUDE.md      # and GEMINI.md where a harness wants its own name

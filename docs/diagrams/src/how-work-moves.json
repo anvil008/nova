@@ -31,7 +31,7 @@
     {
       "id": "testauthor",
       "kind": "agent",
-      "label": "oracle",
+      "label": "specifier",
       "sub": "proves RED is real, then seals the tests"
     },
     {
@@ -73,7 +73,7 @@
     {
       "id": "docs",
       "kind": "agent",
-      "label": "scribe",
+      "label": "documenter",
       "sub": "READMEs, ADRs, and the changelog match reality"
     },
     {
