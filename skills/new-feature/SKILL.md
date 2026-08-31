@@ -34,7 +34,13 @@ Batch the questions in one pass rather than interrogating one at a time, mark wh
 2. **Plan.** Dispatch the `planner` with the goal *and the answers*. It investigates read-only and returns the folio, sidecar, and per-issue `acceptanceTests`. If it returns `needs-decision`, that is a question the interview missed: put it to the human and re-dispatch rather than answering on their behalf.
 3. **Approve.** Present the folio and stop for explicit human approval, then write the milestone and issues yourself.
 4. **Execute** [`build`](../build/SKILL.md) in **single-PR mode**, both phases per issue: a `specifier` writes the acceptance tests, proves honest RED, and seals; the `builder` implements against tests it cannot edit; `reviewer` agents fan out by lens before any intermediate PR exists.
-5. **Integrate.** Dispatch an `integrator` over each wave, merge the intermediate PRs to the integration branch on the evidence, and dispatch the `documenter` agent for whatever the feature changed about how the project is used.
+5. **Integrate and document at the same time.** For each wave, dispatch an `integrator` over it **and** a `documenter` for whatever the feature changed about how the project is used, on the same base, each in its own workspace (`workcell-ws add <name>`). Doc authoring needs nothing but the changed-file and PR list, and that exists the moment the builders finish, so it does not wait behind the merge.
+
+   The documenter's brief carries that changed-file and PR list and a docs-only `ownership` glob ([`agents/handoff.md`](../../agents/handoff.md)). Reading a file list or diffstat to choose a dispatch is orchestration under [ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md); reading a file's contents to judge it is not. That `ownership` must be disjoint from every code issue's `ownershipHint`, so the docs branch can never collide with a builder's.
+
+   Documentation never lands on its own authority: the docs branch merges only inside a combined GREEN that includes it. If the documenter returns before the integrator's serial merge begins, its branch joins that round and one combined run covers everything; if it returns later, dispatch one more `integrator` round over the docs branch on the merged base, and that round is also the docs gate: the `documenter` reports `skills/docs/scripts/docs_check.py` — plus `scripts/render-diagrams.py --check` where the README's visuals are generated — and the `integrator` reports the combined suite.
+
+   Nothing else moves: the wave's intermediate code PRs still merge to the integration branch on the integrator's evidence.
 6. **Open the final PR to `main`** from the integration branch. Its body describes the feature, the questions that shaped it, and the acceptance tests that define it as done, and repeats every per-issue `Closes #<n>` line.
 
 ## Boundaries
