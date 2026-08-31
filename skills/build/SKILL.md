@@ -56,6 +56,12 @@ This orchestrator schedules waves, creates integration branches when requested, 
 
    Accept the wave on the **evidence**, not on the summary: a combined GREEN run whose `commandId`s you can see, `tdd-guard status --json` fresh for every issue, and `gh pr checks` passing. A prose claim of success from any agent is worth nothing. If the integrator names an offending PR, send that issue back to its builder and re-integrate; do not merge a wave around it.
 
+   **Speculative specifiers.** While the integrator runs the combined suite, you may dispatch `specifier` agents for issues that are not unblocked yet — the ones that become ready once the in-flight set merges. Each runs the standard Phase 1 unrelaxed: it writes the issue's `acceptanceTests` as real failing tests on the current base, proves honest RED, and seals them. Speculation is opportunistic and never the default; the plain sequence stays correct, and a run that skips speculation is not deficient.
+
+   - **Disqualifier.** An issue whose acceptance tests need the dependency's merged code to import or compile is disqualified from speculation. A test that cannot express its failure on the current base produces a hollow RED, so the `specifier` returns `blocked` rather than sealing one.
+   - **Bounce cost.** When a wave bounces — the integrator names an offending PR, a builder redoes work, or the merged base changes what the tests assume — the speculative seal has to be re-proved on the merged base and amended with `tdd-guard reseal --reason <text>`, and a re-scoped issue throws that specifier's work away entirely. The guard binds a seal to the sealed test files and the red command, not to the base it was proved on, so nothing mechanical catches a stale speculative seal: the discipline is textual and lives here.
+   - **Never a speculative builder.** Phase 2 for a speculated issue starts only after its dependencies are merged, in a workspace on the merged base, where the builder re-proves that the sealed tests still fail for the right reason before implementing. If they now pass, or fail differently, send the issue back to a `specifier` to reseal.
+
 6. Merge only after combined green, then refresh GitHub state, advance, and repeat until no planned issue remains. In default mode, merge the wave PRs to `main`; in single-PR mode, merge them into the integration branch.
 
 You are the sole completion authority. Never force-push `main`, never merge before combined GREEN, and never infer completion from an agent's report — read the gates.
