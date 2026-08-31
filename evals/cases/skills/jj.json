@@ -16,7 +16,7 @@
     {
       "id": 1,
       "kind": "execution",
-      "prompt": "A Workcell oracle needs an isolated workspace, but this fixture is a plain Git repository. Prepare it using the required VCS adoption command; do not create a second clone.",
+      "prompt": "A Workcell specifier needs an isolated workspace, but this fixture is a plain Git repository. Prepare it using the required VCS adoption command; do not create a second clone.",
       "expected_output": "The repository is adopted as a colocated Jujutsu repository before workspace operations.",
       "files": ["split-cents"],
       "expectations": [

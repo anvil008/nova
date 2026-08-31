@@ -32,23 +32,6 @@
     }
   },
   "agents": {
-    "benchmarker": {
-      "description": "Use when measuring performance against a project benchmark harness and reporting distributions rather than a single number.",
-      "claude": {
-        "tools": "Read, Grep, Glob, Bash, Skill"
-      },
-      "codex": {},
-      "agy": {
-        "tools": [
-          "view_file",
-          "grep_search",
-          "find_by_name",
-          "list_dir",
-          "run_command"
-        ],
-        "commandExecutionPolicy": "sandbox"
-      }
-    },
     "builder": {
       "description": "Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.",
       "claude": {
@@ -109,6 +92,25 @@
         "commandExecutionPolicy": "sandbox"
       }
     },
+    "documenter": {
+      "description": "Use when creating, updating, standardizing, or reviewing documentation \u2014 READMEs, ADRs, changelogs, and {{instructionFilesPlain}}. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
+      },
+      "codex": {},
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
+          "replace_file_content",
+          "write_to_file",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
     "integrator": {
       "description": "Use when verifying one wave of pull requests as a combined change-set and returning command-linked evidence.",
       "claude": {
@@ -128,27 +130,6 @@
         "commandExecutionPolicy": "sandbox"
       }
     },
-    "oracle": {
-      "description": "Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.",
-      "claude": {
-        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
-      },
-      "codex": {
-        "gates": "codex-oracle"
-      },
-      "agy": {
-        "tools": [
-          "view_file",
-          "grep_search",
-          "find_by_name",
-          "list_dir",
-          "replace_file_content",
-          "write_to_file",
-          "run_command"
-        ],
-        "commandExecutionPolicy": "sandbox"
-      }
-    },
     "planner": {
       "description": "Use when investigating one planning goal read-only and producing the plan folio, sidecar, and per-issue acceptance tests for human approval.",
       "claude": {
@@ -163,6 +144,23 @@
           "list_dir",
           "replace_file_content",
           "write_to_file",
+          "run_command"
+        ],
+        "commandExecutionPolicy": "sandbox"
+      }
+    },
+    "profiler": {
+      "description": "Use when measuring performance against a project benchmark harness and reporting distributions rather than a single number.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Bash, Skill"
+      },
+      "codex": {},
+      "agy": {
+        "tools": [
+          "view_file",
+          "grep_search",
+          "find_by_name",
+          "list_dir",
           "run_command"
         ],
         "commandExecutionPolicy": "sandbox"
@@ -206,12 +204,14 @@
         "commandExecutionPolicy": "sandbox"
       }
     },
-    "scribe": {
-      "description": "Use when creating, updating, standardizing, or reviewing documentation \u2014 READMEs, ADRs, changelogs, and {{instructionFilesPlain}}. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.",
+    "specifier": {
+      "description": "Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.",
       "claude": {
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
       },
-      "codex": {},
+      "codex": {
+        "gates": "codex-specifier"
+      },
       "agy": {
         "tools": [
           "view_file",

@@ -33,7 +33,7 @@ class AgentCapabilityTests(unittest.TestCase):
 
     def test_write_capable_agents_keep_edit_and_write_available(self):
         manifest = json.loads((AGENTS / "agents.json").read_text(encoding="utf-8"))
-        for name in ("builder", "oracle", "deployer", "scribe"):
+        for name in ("builder", "specifier", "deployer", "documenter"):
             with self.subTest(agent=name):
                 config = manifest["agents"][name]["claude"]
                 denied = config.get("disallowedTools", "")

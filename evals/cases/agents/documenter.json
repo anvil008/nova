@@ -1,5 +1,5 @@
 {
-  "name": "scribe",
+  "name": "documenter",
   "kind": "agent",
   "trigger": {
     "positive": [

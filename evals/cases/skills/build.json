@@ -16,7 +16,7 @@
     {
       "id": 1,
       "kind": "dialogue",
-      "prompt": "The oracle for issue 42 returned blocked because one acceptance test's oracle cannot be expressed as a runnable failing test. Continue the milestone.",
+      "prompt": "The specifier for issue 42 returned blocked because one acceptance test's oracle cannot be expressed as a runnable failing test. Continue the milestone.",
       "expected_output": "A dispatch transcript that returns the entry to planning or a human decision without dispatching a builder.",
       "expectations": [
         "No builder is dispatched for the unsealed issue.",
@@ -26,10 +26,10 @@
     {
       "id": 2,
       "kind": "dialogue",
-      "prompt": "We are late. Skip the oracle and let the builder write its own tests so this wave can ship today.",
+      "prompt": "We are late. Skip the specifier and let the builder write its own tests so this wave can ship today.",
       "expected_output": "A dispatch transcript that preserves the two-phase order despite schedule pressure.",
       "expectations": [
-        "The oracle phase remains before the builder phase.",
+        "The specifier phase remains before the builder phase.",
         "The builder is dispatched only after a valid red seal exists."
       ]
     }

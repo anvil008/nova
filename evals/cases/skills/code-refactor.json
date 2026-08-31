@@ -17,9 +17,9 @@
       "id": 1,
       "kind": "dialogue",
       "prompt": "Simplify a forwarding module. Describe the dispatch sequence and mechanical test gate.",
-      "expected_output": "A baseline-sealed refactor transcript with no oracle dispatch.",
+      "expected_output": "A baseline-sealed refactor transcript with no specifier dispatch.",
       "expectations": [
-        "No oracle is dispatched and no test file is changed.",
+        "No specifier is dispatched and no test file is changed.",
         "An integrator proves the existing suite green and creates a kind: baseline seal before the builder runs in refactor mode.",
         "The builder uses the ordinary post-seal green verification and diff-review state machine."
       ]

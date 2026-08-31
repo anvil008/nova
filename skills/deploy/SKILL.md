@@ -19,11 +19,11 @@ Deployment is outward-facing and hard to reverse. **Never deploy without explici
 
 Every step below is a dispatch. You sequence the agents, read their evidence, and hold the gate; you run none of it yourself.
 
-1. **Version + changelog.** Dispatch the `scribe` agent to bump semver, update the `CHANGELOG`, and write the release notes. Tag the release yourself — tagging is a git operation, not authorship.
+1. **Version + changelog.** Dispatch the `documenter` agent to bump semver, update the `CHANGELOG`, and write the release notes. Tag the release yourself — tagging is a git operation, not authorship.
 2. **CI/CD.** If the pipeline needs creating or adjusting, dispatch a `builder` for it: workflow and config code is code, and goes through the same test-first path where it is testable.
 3. **Pre-flight and deploy.** After explicit human approval naming *this* target and *this* commit, dispatch the `deployer` agent with the target, the commit, the verification window, and the approval. It runs pre-flight, confirms the rollback command, deploys, verifies, and rolls back on any failed check.
 4. **Read the evidence, not the summary.** The agent returns exact commands with `commandId`s, what it observed in the verification window, and whether it rolled back. A claim that the deploy "looks good" is not verification. A rollback is a successful outcome of the procedure, not a failure of it.
-5. **Record.** Dispatch the `scribe` agent for an ADR on any non-trivial release decision and for the handover entry.
+5. **Record.** Dispatch the `documenter` agent for an ADR on any non-trivial release decision and for the handover entry.
 
 ## Boundaries
 
