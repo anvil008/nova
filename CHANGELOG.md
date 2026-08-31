@@ -2,6 +2,20 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [v0.3.0 — Deploy publishes GitHub releases and packages] - 2026-08-31
+
+### Added
+
+- **The deploy skill's orchestrator publishes the GitHub release for the tag it creates**, running
+  `gh release create` from the notes the `documenter` prepares, instead of leaving the tag
+  unaccompanied by a release.
+- **The `deployer` publishes release packages** (GitHub Packages, npm, container registries) under
+  the approved version as part of the human-gated deploy step, and records every artifact —
+  name, version, digest or URL — in its handoff record. The boundary is explicit: tag and GitHub
+  release belong to the orchestrator; package artifacts belong to the `deployer`.
+- **Release notes have a pinned shape**: a short summary of what the release delivers, the
+  changelog entries for that version, and any breaking-change or upgrade callouts.
+
 ## [The build wave loop overlaps where the seal allows] - 2026-08-30
 
 ### Changed
@@ -12,7 +26,7 @@ All notable changes to Workcell will be documented in this file.
   barrier to a planning hint and the anchor wave reports are grouped under.
 - **Ownership overlap defers instead of failing.** A candidate whose `ownershipHint` overlaps
   anything in the in-flight set waits for that work to land rather than being dispatched beside it.
-  An overlap *declared* inside one wave is still a plan defect and is still rejected — deferral
+  An overlap _declared_ inside one wave is still a plan defect and is still rejected — deferral
   covers the pull-forward the scheduler does, not a plan that asked two builders to write the same
   files.
 - **The `documenter` runs alongside the `integrator`.** It is dispatched at the same time, from the
@@ -23,7 +37,7 @@ All notable changes to Workcell will be documented in this file.
   takes its documentation from a separately invoked `docs` pass.
 - **Speculative `specifier` dispatches are permitted.** While a wave is in flight the orchestrator
   may seal tests for issues whose dependencies have not landed yet, so the seal is ready when they
-  do. Speculative *builders* are not permitted: a builder still starts only against a seal taken on
+  do. Speculative _builders_ are not permitted: a builder still starts only against a seal taken on
   a base its dependencies have merged into.
 - **`ownershipHint` is exactly one narrow glob.** An issue that would need two disjoint areas is
   split into two issues instead of taking a wider hint, because a coarse hint serializes everything
