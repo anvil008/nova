@@ -1,3 +1,9 @@
+---
+name: planner
+description: Use when investigating one planning goal read-only and producing the plan folio, sidecar, and per-issue acceptance tests for human approval.
+model: inherit
+---
+
 # Planner
 
 Investigate one assigned planning goal and produce the plan artifacts. You are read-only on the target project: read its code, tests, docs, architecture, and current state, and change none of it. The only files you write are the sidecar and the folio rendered from it.
@@ -24,12 +30,7 @@ The artifact contract — sidecar fields, folio naming, the renderer, and the re
    python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json
    ```
 
-<!-- only:claude,codex,grok -->
 7. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the folio path, the sidecar path, the issue keys and their waves, the reconciliation preview summary, any `openQuestions`, result, and disposition.
-<!-- end -->
-<!-- only:agy -->
-7. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with the folio path, the sidecar path, the issue keys and their waves, the reconciliation preview summary, any `openQuestions`, result, and disposition.
-<!-- end -->
 
 ## Rationalizations
 

@@ -1,8 +1,8 @@
 # Workcell
 
-**A multi-agent coding system for Claude Code, Codex, and Antigravity — one agent writes each task's tests, a different one makes them pass, and mechanical gates decide, not promises.**
+**A multi-agent coding system for Claude Code, Codex, Antigravity, and Grok Build — one agent writes each task's tests, a different one makes them pass, and mechanical gates decide, not promises.**
 
-Like an industrial workcell, it organizes specialized operators and mechanical gates around one bounded unit of work. It turns a goal into a reviewable plan, then runs coding agents in parallel without losing human approval, test evidence, ownership boundaries, or a resumable GitHub record. One repository, three harnesses, the same agents and skills in each.
+Like an industrial workcell, it organizes specialized operators and mechanical gates around one bounded unit of work. It turns a goal into a reviewable plan, then runs coding agents in parallel without losing human approval, test evidence, ownership boundaries, or a resumable GitHub record. One repository, four harnesses, the same agents and skills in each.
 
 ## Lifecycle
 
@@ -42,20 +42,27 @@ Plan → Approve → Tests → Build → Review → Integrate → Merge → Docs
 
 ## Quick Start
 
-Two commands. The first installs the external tools, the second installs the plugin.
+One command. It installs [apm](https://github.com/microsoft/apm) when absent, then the external
+tools, then the plugin and its MCP servers — everything at user (global) level.
 
 ```sh
 git clone https://github.com/anvil008/workcell
 cd workcell
 
+scripts/bootstrap.sh
+```
+
+It is a thin orchestrator over two scripts you can also run (and re-run) individually:
+
+```sh
 scripts/bootstrap-tools.sh --install     # 1. external dependencies + the tdd-guard gate
-scripts/bootstrap-plugins.sh             # 2. the workcell plugin, into every harness found
+scripts/bootstrap-plugins.sh             # 2. MCP servers + the workcell plugin, into every harness found
 ```
 
 Run either script with no flags to see what it _would_ do first. Useful flags for the second:
 
 ```sh
-scripts/bootstrap-plugins.sh --harness claude   # one harness only (claude | codex | agy)
+scripts/bootstrap-plugins.sh --harness claude   # one harness only (claude | codex | agy | grok)
 scripts/bootstrap-plugins.sh --uninstall        # remove everything it installed
 ```
 
@@ -172,8 +179,9 @@ workcell/
 ├── plugins/            one thin wrapper per harness — no content of its own
 │   ├── claude/          .claude-plugin/plugin.json, hooks/hooks.json
 │   ├── codex/           .codex-plugin/plugin.json, hooks.json — staged into dist/codex/, not symlinked
-│   └── agy/             plugin.json, rules/, hooks.json — symlinked, since Antigravity's install paths aren't a stable contract
-├── scripts/            the three bootstrap commands, the hook scripts they install, workcell-ws
+│   ├── agy/             plugin.json, rules/, hooks.json — symlinked, since Antigravity's install paths aren't a stable contract
+│   └── grok/            .grok-plugin/plugin.json — staged into dist/grok/, not symlinked; no hooks
+├── scripts/            scripts/bootstrap.sh (one command) over bootstrap-tools.sh / bootstrap-plugins.sh / bootstrap-project.sh, the hook scripts they install, workcell-ws
 ├── cmd/tdd-guard/      the gate binary binding RED, GREEN, and review evidence to one diff
 ├── docs/adr/           architecture decisions and their consequences
 ├── docs/workspaces.md  the one isolation standard: workcell-ws, sibling paths, the sweep
@@ -181,15 +189,20 @@ workcell/
 └── evals/              structural, routing, and behavioral checks on skills and agents
 ```
 
-`plugins/claude/`, `plugins/codex/`, and `plugins/agy/` are one thin wrapper per harness — a
-manifest, hooks, and symlinks back to `agents/` and `skills/`, with no content of their own. Claude
+`plugins/claude/`, `plugins/codex/`, `plugins/agy/`, and `plugins/grok/` are one thin wrapper per
+harness — a manifest, hooks, and symlinks back to `agents/` and `skills/`, with no content of their
+own (Grok ships no hooks of its own — see [docs/gates.md](docs/gates.md)). Claude
 and Codex link `skills/` whole; the Antigravity wrapper's per-skill links regenerate on every
-install from `skills/` minus the skills owned by one of its agents. Codex copies a plugin into its
-cache and drops any symlink pointing outside the plugin root, so `scripts/build-codex-plugin.py`
-stages a real tree instead of relying on links; [the Codex installation details](docs/install.md#choosing-models-and-thinking-levels)
+install from `skills/` minus the skills owned by one of its agents. Codex and Grok both copy a
+plugin into their own cache and drop any symlink pointing outside the plugin root, so
+`scripts/build-codex-plugin.py` and `scripts/build-grok-plugin.py` each stage a real tree instead of
+relying on links; [the Codex installation details](docs/install.md#choosing-models-and-thinking-levels)
 explain how its agents and shared skills are packaged and named. Antigravity provides an
 `agy plugin` CLI, but its install paths (`~/.gemini/antigravity-cli/plugins/`) are not a stable
-documented contract, so Workcell symlinks the `plugins/agy/` wrapper there instead.
+documented contract, so Workcell symlinks the `plugins/agy/` wrapper there instead. Grok reads
+`.claude-plugin/`-style manifests directly and aliases `CLAUDE_PLUGIN_ROOT` for hooks
+([ADR 0020](docs/adr/0020-apm-is-a-peer-tool-not-the-distribution-layer.md)), so adding it cost one
+staging script and a bootstrap section, not a new plugin format.
 
 ## Evals
 

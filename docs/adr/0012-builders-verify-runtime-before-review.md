@@ -19,8 +19,7 @@ the builder had declared itself finished, and only as a review finding rather th
 
 Runtime verification is a step in the builder's procedure, between GREEN and the review passes. The
 builder identifies the runnable surface the issue changed and exercises it: a real browser for UI
-(driven with the `mcp__playwright__browser_*` tools on Claude, headless Chromium from the shell
-elsewhere), `curl` against a started service for an HTTP API, the real command on realistic input
+(driven with the token-lean `agent-browser` CLI on every harness), `curl` against a started service for an HTTP API, the real command on realistic input
 for a CLI. Any console error fails the step, everything started is torn down, and a change with no
 runnable surface states that explicitly rather than inventing a ceremony.
 
@@ -28,8 +27,10 @@ The dispatch brief may carry a `runtime` hint (`{launch, url, healthPath}`); abs
 discovers the run command from the repository, and a production URL is never a valid target. The
 handoff record carries the proof in `evidence.runtime`, and a record whose diff touches a runnable
 surface while claiming `surface: "none"` is malformed, exactly as a command without a `commandId`
-is. The Claude builder is granted the same nine Playwright browser tools the `code-reviewer` has;
-other harnesses use the Bash fallback.
+is. The builder carries no browser tool definitions on any harness: the `agent-browser` CLI runs
+through the shell, so UI verification costs no per-session tool tokens. The deep diagnostic surface
+(network waterfall, script evaluation) belongs to the `debugger`, which alone carries the
+`chrome-devtools` MCP tools on Claude.
 
 ## Consequences
 

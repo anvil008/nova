@@ -74,7 +74,9 @@ belong to the main conversation: Claude Code and Codex stamp the calling subagen
 `agent_type` into the hook payload and omit both for their own top-level session, so the payload —
 not the environment, which is identical either way — is the discriminator, and the rule is uniform
 across those two harnesses. Antigravity registers hooks session-wide and names no caller at all, so
-merges there stay denied whoever asked. `--admin` and `--auto` are denied for everyone, the main
+merges there stay denied whoever asked. Grok wires no hooks at all, so this discrimination does not
+apply there either — nothing mechanical gates a Grok merge, and the same procedural-only caveat
+above holds. `--admin` and `--auto` are denied for everyone, the main
 conversation included: an orchestrator's merge is an ordinary merge of a reviewed, green pull
 request, never an override of a red check nor one armed to fire on checks no human has read. ADR
 0011 records the decision and its residual risk.
@@ -90,4 +92,8 @@ its gates. [Eval runs](eval-runs.md) has the recipe and ADR 0013 the decision.
 
 Claude Code, Antigravity, and Codex wire these to native tool events. Codex plugin hooks remain
 inactive until the user trusts them with `/hooks`, so its agent definitions also document explicit
-`build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions.
+`build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions. Grok
+Build ships no hooks at all — its hook payload is a different dialect the gate scripts would
+misparse — so none of the mechanical gates above are wired there; the seal → implement → verify →
+review → handoff ceremony still applies on Grok, but only as procedure written into the agent
+bodies, with no `PreToolUse`/`PostToolUse`/`Stop` hook enforcing it.

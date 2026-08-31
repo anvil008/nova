@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.
-tools: Read, Grep, Glob, Bash, Skill, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_press_key, mcp__playwright__browser_click, mcp__playwright__browser_console_messages, mcp__playwright__browser_close
+tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Edit, Write, NotebookEdit, Task
 maxTurns: 30
 model: sonnet
@@ -36,7 +36,7 @@ Return exactly one JSON object and no prose. Within the handoff record, `evidenc
 Use repository-relative files and the most relevant changed line. `confidence` is between 0 and 1. When the assigned lens yields no substantiated issue, return the same exact envelope with an empty list:
 
 ```json
-{"lens": "tests", "findings": []}
+{ "lens": "tests", "findings": [] }
 ```
 
 No edits, ever. Never mutate code or repository state. Return findings and control to the caller; do not spawn other units, synthesize other lenses, or declare overall completion.
@@ -47,8 +47,9 @@ Under the correctness lens, also flag: unnecessary complexity, defensive handlin
 
 ## Skills
 
-- **`reviewer-frontend-review`** — the method for the `frontend` lens, and only that lens. Read-only UI/UX review: a static pass over the changed components and styles, then a Playwright pass across a fixed viewport matrix (4K down to phone) checking responsiveness, accessibility, design-system conformance, and visual QA. It returns this same envelope with `lens` set to `frontend`. Follow the dispatch brief's `devServer`: `none` or absent means a static pass only with the runtime gap recorded in the envelope; a URL means use that URL; `start: <command>` means start it, review it, and stop it. Never use a production URL. Without Playwright tools, run the static pass and report the runtime gap rather than asserting behaviour you did not observe.
+- **`reviewer-frontend-review`** — the method for the `frontend` lens, and only that lens. Read-only UI/UX review: a static pass over the changed components and styles, then an `agent-browser` pass across a fixed viewport matrix (4K down to phone) checking responsiveness, accessibility, design-system conformance, and visual QA. It returns this same envelope with `lens` set to `frontend`. Follow the dispatch brief's `devServer`: `none` or absent means a static pass only with the runtime gap recorded in the envelope; a URL means use that URL; `start: <command>` means start it, review it, and stop it. Never use a production URL. Without a runnable `devServer`, run the static pass and report the runtime gap rather than asserting behaviour you did not observe.
 
 ## Final step
+
 
 Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the assigned lens and findings envelope in `evidence`, command-linked runtime evidence when applicable, result, and disposition.

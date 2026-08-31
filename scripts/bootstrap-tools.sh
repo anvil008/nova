@@ -51,6 +51,8 @@ need jq      "$(pick brew:jq apt:jq)"                                    "JSON p
 need ast-grep "$(pick npm:@ast-grep/cli cargo:ast-grep brew:ast-grep)"  "structural search + tdd-guard arch-check"
 need jj      "$(pick brew:jj cargo:jj-cli)"                              "Jujutsu VCS — the builder's jj skill"
 need gh      "$(pick brew:gh apt:gh)"                                    "GitHub CLI — planner/build create issues + milestones"
+need apm     "curl -sSL https://aka.ms/apm-unix | sh"                    "Agent Package Manager — third-party global agent packages (apm install -g)"
+need agent-browser "$(pick npm:agent-browser)"                           "token-lean browser CLI — the builder's runtime check on codex/agy"
 
 echo
 echo "== build the tdd-guard gate =="

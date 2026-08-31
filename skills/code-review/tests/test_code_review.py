@@ -397,7 +397,7 @@ class CodeReviewSkillTests(unittest.TestCase):
         ):
             self.assertIn(viewport, skill, f"viewport matrix is missing {viewport}")
         for phrase in (
-            "browser_resize", "browser_take_screenshot", "scrollWidth",
+            "agent-browser viewport", "screenshot", "scrollWidth",
             '"lens": "frontend"', "never point at production", "no code changes",
         ):
             self.assertIn(phrase, skill)
@@ -405,7 +405,7 @@ class CodeReviewSkillTests(unittest.TestCase):
         review = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for phrase in (
             "frontend applies when the change touches user-facing UI",
-            "reviewer-frontend-review", "Playwright",
+            "reviewer-frontend-review", "agent-browser",
             "is not a frontend change",
         ):
             self.assertIn(phrase, review)

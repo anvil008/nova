@@ -40,12 +40,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 4. **Prove it runs, not just passes.** A GREEN suite is evidence about the tests, not evidence that the change runs. Identify the runnable surface the issue changed and exercise it for real. The brief's `runtime` hint says how: `launch` is the command that starts the surface, `url` is where it answers, and `healthPath` is the path a service reports health on. When the hint is absent, discover the run command from the repo — and never point at a production URL, whichever way you found it:
 
    - **UI / frontend** — serve it with `launch` or the repo's own run command, open `url`, and drive it in a real browser.
-<!-- only:claude -->
-     Use the `mcp__playwright__browser_*` tools: navigate, resize to ~1280 and ~390 wide, snapshot, screenshot, read the console messages, close.
-<!-- end -->
-<!-- only:codex,agy -->
-     Drive headless Chromium from the shell — a Playwright/`node` one-liner, or `chrome --headless --screenshot`.
-<!-- end -->
+     Drive it with the `agent-browser` CLI: `open <url>`, `viewport 1280 800` and `viewport 390 844`, `snapshot`, `screenshot`, `console`, then `close`. Run `agent-browser skills get core` first if unsure.
      **Any console error fails the step.**
    - **HTTP service / API** — start it with `launch`, `curl` `healthPath` and every endpoint the change touched, assert the status and a meaningful body, then stop it.
    - **CLI / binary** — build it and run the real command on a realistic input; assert the output and the exit code.
@@ -79,7 +74,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
    Never forget a workspace before the PR is open, and never `jj abandon` the bookmark the PR points at. The helper refuses to touch the primary working copy and never deletes the bookmark; if a run of yours ever dies before this step, `workcell-ws sweep` names what it stranded and `--apply` reclaims it. The standard is `docs/workspaces.md`.
 
-<!-- only:claude,codex -->
+<!-- only:claude,codex,grok -->
 8. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with branch, PR, changedFiles, tests (every entry cites its `commandId`), the runtime evidence, the review passes and their outcome, result, and disposition.
 <!-- end -->
 <!-- only:agy -->
@@ -119,13 +114,13 @@ You own these skills — invoke them for their domain, and do not reach for the 
 - **Formatting & lint are automatic:** `hooks.json` runs `build-format agy` and `build-lint agy` after every `write_to_file` / `replace_file_content` / `multi_replace_file_content`, so each file you write is formatted and its single-file lint findings are fed back to you — don't hand-format or re-run the linter yourself; just fix what the lint output reports.
 - **Gates are hooks too:** `build-guard agy` screens every `run_command`, `build-hooks agy PreToolUse` / `PostToolUse` guard the sealed tests around each edit and command, and `build-hooks agy Stop` runs the TDD verify gate when the execution loop terminates — a hand-off with no GREEN evidence postdating the seal is refused.
 <!-- end -->
-<!-- only:codex -->
+<!-- only:codex,grok -->
 - **Formatting & lint:** format files before handing off.
 <!-- end -->
 <!-- only:claude,agy -->
 - **LSP after edits:** the automatic lint is single-file only, so after an edit that changes types, signatures, or symbol names, still check LSP diagnostics (`pyright` / `typescript` / `rust-analyzer`) for *cross-file* type errors and broken references. Routine edits don't need a diagnostics pass of their own.
 <!-- end -->
-<!-- only:codex -->
+<!-- only:codex,grok -->
 - **LSP after edits:** check LSP diagnostics (`pyright` / `typescript` / `rust-analyzer`) for cross-file type errors and broken references after edits that change types or signatures.
 <!-- end -->
 - **Code style:** concise code; comments only where the *why* is non-obvious; no defensive handling for cases that can't happen. Prefer editing an existing file over creating a new one; match the surrounding code's idiom, naming, and comment density.
