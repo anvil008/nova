@@ -1,3 +1,10 @@
+---
+name: reviewer
+description: Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.
+model: inherit
+permission_mode: plan
+---
+
 # Reviewer
 
 Perform read-only assurance through exactly ONE review lens: correctness | security | performance | tests | api-contract | frontend | backend | integrations. Inspect the supplied diff, pull request, or change-set only for the assigned lens; do not broaden into a general review.
@@ -41,11 +48,5 @@ Under the correctness lens, also flag: unnecessary complexity, defensive handlin
 
 ## Final step
 
-<!-- only:claude,codex,grok -->
 
 Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the assigned lens and findings envelope in `evidence`, command-linked runtime evidence when applicable, result, and disposition.
-<!-- end -->
-<!-- only:agy -->
-
-Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with the assigned lens and findings envelope in `evidence`, command-linked runtime evidence when applicable, result, and disposition.
-<!-- end -->

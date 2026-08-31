@@ -27,6 +27,10 @@
     "            session-wide, via the `/effort` command or the `--effort` launch flag \u2014",
     "            there is no frontmatter key for it, so an effort set here would be a lie.",
     "",
+    "  grok   -> model: inherit | <grok model id>        (single available model today;",
+    "            `inherit` follows the session. No per-agent effort surface verified,",
+    "            and no per-agent tool list \u2014 read-only roles use permission_mode).",
+    "",
     "An agent inherits `defaults` for any field it does not override."
   ],
   "defaults": {
@@ -40,6 +44,9 @@
     },
     "agy": {
       "model": "flash"
+    },
+    "grok": {
+      "model": "inherit"
     }
   },
   "agents": {

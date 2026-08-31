@@ -326,6 +326,23 @@ for harness in claude codex; do
     || no "$harness cache refresh order (remove=${del_at:-none} add=${add_at:-none})"
 done
 
+# --- grok-staged-install -------------------------------------------------------------------------
+fresh_home grok_install
+mkdir -p "$HOME/.grok"
+stubs="$TMP/stubs-grok"; log="$TMP/grok-calls.log"
+stub_cli grok "$stubs" "$log"
+out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness grok 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "grok-only install exits zero" || no "grok-only install failed (rc=$rc): $out"
+[[ -f $ROOT/dist/grok/.grok-plugin/marketplace.json ]] && ok "grok marketplace staged" || no "grok staged marketplace missing"
+[[ -f $ROOT/dist/grok/plugins/workcell/agents/builder.md && -f $ROOT/dist/grok/plugins/workcell/skills/planner/SKILL.md ]] \
+  && ok "grok staged agents and skills are real files" || no "grok staged content missing"
+find "$ROOT/dist/grok" -type l | grep -q . && no "grok staged tree contains symlinks" || ok "grok staged tree is symlink-free"
+del_at=$(call_line "$log" "plugin uninstall workcell")
+add_at=$(call_line "$log" "plugin install workcell --trust")
+[[ -n $add_at && -n $del_at && $del_at -lt $add_at ]] \
+  && ok "grok removes its cached plugin before adding it" \
+  || no "grok cache refresh order (remove=${del_at:-none} add=${add_at:-none})"
+
 # A project-local reinstall also retires marketplace registrations from before
 # the Workcell rename, so the old and new plugin identities cannot coexist.
 fresh_home project_rename

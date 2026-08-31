@@ -2,8 +2,8 @@
 
 Every unit of agent work happens in its own working copy, and there is exactly one way to make
 one, name one, and get rid of one — `scripts/workcell-ws`, linked to `~/.local/bin/workcell-ws`
-by `bootstrap-tools.sh --install`. All three harnesses call it through the shell, so the standard
-is identical on Claude, Codex, and Antigravity.
+by `bootstrap-tools.sh --install`. All four harnesses call it through the shell, so the standard
+is identical on Claude, Codex, Antigravity, and Grok Build.
 
 ## The standard
 
@@ -12,27 +12,28 @@ is identical on Claude, Codex, and Antigravity.
   The helper picks by looking for `.jj/` at or above the working directory.
 - **One naming convention.** A key is `<type>/<slug>` — the type says what kind of work it is,
   the slug is the issue key from the dispatch brief — and each part matches `[a-z0-9][a-z0-9-]*`.
-  The key *is* the bookmark or branch, verbatim. A directory and a jj workspace name cannot carry
+  The key _is_ the bookmark or branch, verbatim. A directory and a jj workspace name cannot carry
   the slash, so both write it as a dash: key `feature/xyz` is bookmark `feature/xyz`, jj workspace
   `feature-xyz`, and sibling directory `../<repo-basename>-feature-xyz`. A bare slug with no type
   is still a key, and its three spellings are identical. Nothing derives a path any other way,
   which is what makes a leak nameable later.
 
-  | Type | Minted by |
-  | --- | --- |
-  | `feature/` | `build` issues by default, `new-feature` |
-  | `bug/` | `debug`, and a `build` issue the planner labelled a defect |
-  | `doc/` | `docs` |
-  | `refactor/` | `code-refactor` |
-  | `perf/` | `perf` |
-  | `test/` | work that only authors tests |
-  | `release/` | `deploy` release branches |
-  | `chore/` | maintenance no other type covers |
-  | `review/` | a review-fix pass on a branch of its own |
-  | `integration/` | a wave's integration branch |
+  | Type           | Minted by                                                  |
+  | -------------- | ---------------------------------------------------------- |
+  | `feature/`     | `build` issues by default, `new-feature`                   |
+  | `bug/`         | `debug`, and a `build` issue the planner labelled a defect |
+  | `doc/`         | `docs`                                                     |
+  | `refactor/`    | `code-refactor`                                            |
+  | `perf/`        | `perf`                                                     |
+  | `test/`        | work that only authors tests                               |
+  | `release/`     | `deploy` release branches                                  |
+  | `chore/`       | maintenance no other type covers                           |
+  | `review/`      | a review-fix pass on a branch of its own                   |
+  | `integration/` | a wave's integration branch                                |
 
   Two names predate the table and stay as they are: `review-fix-loop` works on `loop-branch`, and
   `build`'s single-PR mode integrates on `<planId>-integration`.
+
 - **One base.** Every issue in a wave is created on the same base; moving it afterwards
   invalidates whatever was sealed against it. `--base` defaults to `trunk()` on jj — but only once
   `trunk()` is known to resolve to a real commit. In a repository with no remote for it to resolve
@@ -58,13 +59,13 @@ Agents die. When one does, it leaves a workspace nobody will tear down, and the 
 collected orphaned workspaces and stale bookmarks that way. `workcell-ws list` gives each entry a
 state:
 
-| State | Meaning |
-| --- | --- |
-| `active` | registered, and its directory is there |
-| `merged` | live, but its bookmark/branch is already contained in the default branch |
-| `stale-reg` | registered, directory gone — someone removed the directory without forgetting |
-| `stale-dir` | ours by its pointer, but nothing registered it — an agent died mid-creation |
-| `foreign` | matches the naming convention but is an independent repository — never a sweep target |
+| State       | Meaning                                                                               |
+| ----------- | ------------------------------------------------------------------------------------- |
+| `active`    | registered, and its directory is there                                                |
+| `merged`    | live, but its bookmark/branch is already contained in the default branch              |
+| `stale-reg` | registered, directory gone — someone removed the directory without forgetting         |
+| `stale-dir` | ours by its pointer, but nothing registered it — an agent died mid-creation           |
+| `foreign`   | matches the naming convention but is an independent repository — never a sweep target |
 
 `workcell-ws sweep` reports every `stale-dir`, `stale-reg`, and `merged` entry plus every local
 bookmark or branch already merged into the default branch. Without `--apply` it is strictly
@@ -72,7 +73,7 @@ read-only; with `--apply` it removes exactly what it reported and nothing it ref
 touches a remote, never deletes an unmerged ref, and never touches the primary working copy. Run
 it in `build`'s resume step before dispatching the next wave, and after any run that crashed.
 
-"Merged" means *strictly* behind the default branch. A ref sitting exactly on the default tip is
+"Merged" means _strictly_ behind the default branch. A ref sitting exactly on the default tip is
 either a workspace an agent created seconds ago — `git worktree add` branches at the tip — or one
 that fast-forwarded, and the two are indistinguishable, so the sweep leaves it until the default
 branch moves on.
@@ -83,7 +84,7 @@ A working copy is deleted irreversibly, so the helper refuses rather than guessi
 names the reason and, where one exists, the override.
 
 - **A sibling that is not ours.** A directory is a workspace of this repository only when it
-  carries a *pointer* back to it: a `.git` file holding `gitdir: <common-dir>/worktrees/<name>`, or
+  carries a _pointer_ back to it: a `.git` file holding `gitdir: <common-dir>/worktrees/<name>`, or
   a `.jj/repo` file resolving to `<repo>/.jj/repo`. A full `.git/` or `.jj/repo/` directory is
   somebody else's repository that merely collides on the naming convention. It is listed `foreign`,
   reported by `sweep` as a note, and never removed — `--force` does not change that.

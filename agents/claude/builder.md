@@ -1,7 +1,7 @@
 ---
 name: builder
 description: Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.
-tools: Read, Grep, Glob, Edit, Write, Bash, Skill, Agent, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_press_key, mcp__playwright__browser_click, mcp__playwright__browser_console_messages, mcp__playwright__browser_close
+tools: Read, Grep, Glob, Edit, Write, Bash, Skill, Agent
 model: opus
 effort: high
 ---
@@ -45,7 +45,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 4. **Prove it runs, not just passes.** A GREEN suite is evidence about the tests, not evidence that the change runs. Identify the runnable surface the issue changed and exercise it for real. The brief's `runtime` hint says how: `launch` is the command that starts the surface, `url` is where it answers, and `healthPath` is the path a service reports health on. When the hint is absent, discover the run command from the repo — and never point at a production URL, whichever way you found it:
 
    - **UI / frontend** — serve it with `launch` or the repo's own run command, open `url`, and drive it in a real browser.
-     Use the `mcp__playwright__browser_*` tools: navigate, resize to ~1280 and ~390 wide, snapshot, screenshot, read the console messages, close.
+     Drive it with the `agent-browser` CLI: `open <url>`, `viewport 1280 800` and `viewport 390 844`, `snapshot`, `screenshot`, `console`, then `close`. Run `agent-browser skills get core` first if unsure.
      **Any console error fails the step.**
    - **HTTP service / API** — start it with `launch`, `curl` `healthPath` and every endpoint the change touched, assert the status and a meaningful body, then stop it.
    - **CLI / binary** — build it and run the real command on a realistic input; assert the output and the exit code.
