@@ -19,7 +19,7 @@
       "prompt": "A production report says only 'sometimes wrong' and provides no input, log, rate, or reproduction. Continue the fix workflow.",
       "expected_output": "A stopped workflow that requests the concrete missing reproduction evidence.",
       "expectations": [
-        "No builder or test-author is dispatched for an unreproduced symptom.",
+        "No builder or oracle is dispatched for an unreproduced symptom.",
         "The response identifies the missing evidence needed to reproduce the report."
       ]
     }

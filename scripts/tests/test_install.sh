@@ -128,9 +128,9 @@ is_link_to "$HOME/.gemini/antigravity-cli/plugins/workcell" "$ROOT/plugins/agy" 
 fresh_home fm
 BROKEN="$TMP/broken-root"; mkdir -p "$BROKEN/scripts" "$BROKEN/skills"
 cp -R "$ROOT/agents" "$BROKEN/agents"; cp -R "$ROOT/skills/jj" "$BROKEN/skills/jj"; cp "$ROOT"/scripts/*.sh "$BROKEN/scripts/"
-printf 'no frontmatter here\n' > "$BROKEN/agents/codex/docs.md"
+printf 'no frontmatter here\n' > "$BROKEN/agents/codex/scribe.md"
 out=$("$BROKEN/scripts/bootstrap-plugins.sh" --install 2>&1); rc=$?
-[[ $rc -ne 0 ]] && grep -q "agents/codex/docs.md" <<<"$out" && ok "invalid frontmatter fails and is named" || no "invalid frontmatter fails and is named (rc=$rc): $out"
+[[ $rc -ne 0 ]] && grep -q "agents/codex/scribe.md" <<<"$out" && ok "invalid frontmatter fails and is named" || no "invalid frontmatter fails and is named (rc=$rc): $out"
 [[ -z $(find "$HOME/.claude" "$HOME/.codex" "$HOME/.gemini" -type l) ]] && ok "invalid frontmatter: no harness touched" || no "invalid frontmatter: no harness touched"
 
 # --- manifest-schema-validity --------------------------------------------------------------------
@@ -246,7 +246,7 @@ fresh_home codex_profiles
 grep -q 'model_reasoning_effort = "high"' "$HOME/.codex/workcell-builder.config.toml" 2>/dev/null \
   && ok "codex profile carries the manifest effort" \
   || no "codex profile carries the manifest effort"
-grep -q 'model_reasoning_effort = "low"' "$HOME/.codex/workcell-research.config.toml" 2>/dev/null \
+grep -q 'model_reasoning_effort = "low"' "$HOME/.codex/workcell-researcher.config.toml" 2>/dev/null \
   && ok "codex profile is per-agent, not one blanket value" \
   || no "codex profile is per-agent, not one blanket value"
 
@@ -263,7 +263,7 @@ grep -q 'model = "mine"' "$HOME/.codex/workcell-builder.config.toml" \
 "$INSTALL" --uninstall >/dev/null 2>&1 || true
 [[ -f "$HOME/.codex/workcell-builder.config.toml" ]] \
   && ok "uninstall leaves a foreign codex profile" || no "uninstall leaves a foreign codex profile"
-[[ ! -f "$HOME/.codex/workcell-research.config.toml" ]] \
+[[ ! -f "$HOME/.codex/workcell-researcher.config.toml" ]] \
   && ok "uninstall removes our codex profiles" || no "uninstall removes our codex profiles"
 
 # --- codex-staged-tree ---------------------------------------------------------------------------

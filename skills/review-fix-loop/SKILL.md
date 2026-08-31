@@ -60,7 +60,7 @@ Do this once, then never again for the life of the loop.
 
 1. **Review.** Run the [`code-review`](../code-review/SKILL.md) skill over the diff between
    `loop-branch` and its base: select lenses from the change, fan out one read-only
-   `code-reviewer` per lens, then run the independent adversarial verification. Merge to a single
+   `reviewer` per lens, then run the independent adversarial verification. Merge to a single
    review JSON with `merge_findings.py --verification`. Do not skip verification to save a pass —
    an unverified finding sends the builder chasing something that is not there.
 

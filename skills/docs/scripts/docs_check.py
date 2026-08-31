@@ -30,14 +30,26 @@ SECTION_SKILL = re.compile(r"^[ \t]*-\s+(.*?)(?:\s+—|$)", re.MULTILINE)  # a b
 
 
 def _iter_instruction_files(root: Path):
+    """Every instruction file, counting linked copies once.
+
+    A repository may keep one real instruction file and point the other harnesses'
+    names at it (`ln -sf AGENTS.md CLAUDE.md`). That is one file, so it is reported
+    once, under the real path rather than the link."""
+    found = [
+        path
+        for name in INSTRUCTION_FILES
+        for path in sorted(root.rglob(name))
+        if not any(part in SKIP_DIRS for part in path.relative_to(root).parts)
+        and path.is_file()
+    ]
+    real = {path.resolve() for path in found if not path.is_symlink()}
     seen = set()
-    for name in INSTRUCTION_FILES:
-        for path in sorted(root.rglob(name)):
-            if any(part in SKIP_DIRS for part in path.relative_to(root).parts):
-                continue
-            if path.is_file() and path not in seen:
-                seen.add(path)
-                yield path
+    for path in found:
+        target = path.resolve()
+        if target in seen or (path.is_symlink() and target in real):
+            continue
+        seen.add(target)
+        yield path
 
 
 def _skill_refs(text: str) -> list[str]:

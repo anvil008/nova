@@ -8,8 +8,8 @@
       {"prompt": "Ship this exact commit safely to staging, preserving a tested reversal path.", "top_k": 3}
     ],
     "negative": [
-      {"prompt": "Execute the already-approved release against the named target and report command evidence.", "owner": "agent:deploy"},
-      {"prompt": "Write the release notes and changelog entry for the next version.", "owner": "agent:docs"}
+      {"prompt": "Execute the already-approved release against the named target and report command evidence.", "owner": "agent:deployer"},
+      {"prompt": "Write the release notes and changelog entry for the next version.", "owner": "agent:scribe"}
     ]
   },
   "evals": [
@@ -20,7 +20,7 @@
       "expected_output": "A stopped release awaiting fresh approval for the current target and commit.",
       "expectations": [
         "The old approval is not reused for a different commit.",
-        "No deploy agent is dispatched until a human explicitly approves the current target and commit."
+        "No deployer agent is dispatched until a human explicitly approves the current target and commit."
       ]
     }
   ]
