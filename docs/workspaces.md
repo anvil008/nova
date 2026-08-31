@@ -10,10 +10,29 @@ is identical on Claude, Codex, and Antigravity.
 - **One repository, many working copies.** Never a second clone. A jj repo gets a jj workspace
   (one operation log, so `jj undo` still reaches everything); a git-only repo gets a git worktree.
   The helper picks by looking for `.jj/` at or above the working directory.
-- **One naming convention.** The workspace for `<key>` is the sibling directory
-  `../<repo-basename>-<key>`, and its bookmark or branch is `<key>`. `<key>` is the issue key from
-  the dispatch brief, matching `[a-z0-9][a-z0-9-]*`. Nothing derives a path any other way, which
-  is what makes a leak nameable later.
+- **One naming convention.** A key is `<type>/<slug>` — the type says what kind of work it is,
+  the slug is the issue key from the dispatch brief — and each part matches `[a-z0-9][a-z0-9-]*`.
+  The key *is* the bookmark or branch, verbatim. A directory and a jj workspace name cannot carry
+  the slash, so both write it as a dash: key `feature/xyz` is bookmark `feature/xyz`, jj workspace
+  `feature-xyz`, and sibling directory `../<repo-basename>-feature-xyz`. A bare slug with no type
+  is still a key, and its three spellings are identical. Nothing derives a path any other way,
+  which is what makes a leak nameable later.
+
+  | Type | Minted by |
+  | --- | --- |
+  | `feature/` | `build` issues by default, `new-feature` |
+  | `bug/` | `debug`, and a `build` issue the planner labelled a defect |
+  | `doc/` | `docs` |
+  | `refactor/` | `code-refactor` |
+  | `perf/` | `perf` |
+  | `test/` | work that only authors tests |
+  | `release/` | `deploy` release branches |
+  | `chore/` | maintenance no other type covers |
+  | `review/` | a review-fix pass on a branch of its own |
+  | `integration/` | a wave's integration branch |
+
+  Two names predate the table and stay as they are: `review-fix-loop` works on `loop-branch`, and
+  `build`'s single-PR mode integrates on `<planId>-integration`.
 - **One base.** Every issue in a wave is created on the same base; moving it afterwards
   invalidates whatever was sealed against it. `--base` defaults to `trunk()` on jj — but only once
   `trunk()` is known to resolve to a real commit. In a repository with no remote for it to resolve

@@ -26,6 +26,8 @@ The planner agent follows the [artifact and sidecar contract](references/sidecar
 
    Reviewing the folio, treat a coarse `ownershipHint` as a reason to send the plan back: each issue owns [exactly one narrow path or glob](references/sidecar-contract.md), disjoint from its wave-mates, or the wave's parallelism is lost.
 
+   The plan also assigns each issue its **branch type**, carried as a `type:feature` or `type:bug` label in the sidecar: new behaviour is `type:feature`, a defect being repaired is `type:bug`, and [`build`](../build/SKILL.md) branches the issue as `<type>/<issue-key>` from it ([`docs/workspaces.md`](../../docs/workspaces.md)). An issue with no such label is built as `feature/`.
+
 2. **Resolve open questions with the human before writing the plan.** Carry them yourself — the agent cannot. An agent that returns disposition `needs-decision` found something material undecided — scope boundaries, a choice between two approaches, an unowned dependency, an ambiguous requirement. Put the question to the human, wait for the answer, and re-dispatch the agent with it. Never answer on the human's behalf, and never let an unanswered question through: a plan carrying one is not ready for approval, and the sidecar has nowhere to put it by design.
 3. Present the HTML folio for review. You **must stop** here for explicit human approval. Approval to plan is not approval to write GitHub resources.
 4. Before approval, a read-only reconciliation preview is allowed — the agent runs one, and you may run another against a captured snapshot:

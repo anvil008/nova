@@ -33,12 +33,12 @@ The gate is the same `tdd-guard` state machine with the RED requirement replaced
 4. **Execute.** Run [`build`](../build/SKILL.md) in **single-PR mode**, with the specifier phase omitted. For each issue, the orchestrator creates its jj workspace and branch on the integration base:
 
    ```bash
-   workcell-ws add <issue-key> --base <integration-base>
-   # = jj workspace add --name <issue-key> ../<repo>-<issue-key> -r <integration-base>
-   #   + jj bookmark create <issue-key> -r @   (git worktree add -b <issue-key> in a git-only repo)
+   workcell-ws add refactor/<issue-key> --base <integration-base>
+   # = jj workspace add --name refactor-<issue-key> ../<repo>-refactor-<issue-key> -r <integration-base>
+   #   + jj bookmark create refactor/<issue-key> -r @   (git worktree add -b <branch> in a git-only repo)
    ```
 
-   Creating a workspace is a branch operation, so it stays inside the orchestrator's boundary. Next dispatch an `integrator` with a brief conforming to [`agents/handoff.md`](../../agents/handoff.md) and carrying `mode: baseline`, that `workspace`, the issue's existing tests as `sealedTests`, and the exact suite argv as `baselineCommand`. It runs the green command in the workspace, records a `kind: baseline` seal, runs `tdd-guard handoff --to builder`, and returns the green evidence and seal state.
+   Every branch here takes the `refactor/` type, and the directory beneath it writes that slash as a dash ([`docs/workspaces.md`](../../docs/workspaces.md)). Creating a workspace is a branch operation, so it stays inside the orchestrator's boundary. Next dispatch an `integrator` with a brief conforming to [`agents/handoff.md`](../../agents/handoff.md) and carrying `mode: baseline`, that `workspace`, the issue's existing tests as `sealedTests`, and the exact suite argv as `baselineCommand`. It runs the green command in the workspace, records a `kind: baseline` seal, runs `tdd-guard handoff --to builder`, and returns the green evidence and seal state.
 
    Only after that handoff dispatch the `builder` in the same workspace with `mode: refactor`. It never touches a test file; it runs the bound command through `tdd-guard verify --green-command`, retains GREEN evidence postdating the baseline seal, and records `tdd-guard diff-review record`. Reject any change-set whose diff touches a test file, and send it back.
 5. **Review.** The usual lens fan-out, weighted to this work: `correctness` (behaviour preserved), `api-contract` (no public surface moved without cause), plus `backend`, `frontend`, or `integrations` where the change lands. A reviewer that finds a *behaviour* difference is reporting a failed refactor, not a nit.
