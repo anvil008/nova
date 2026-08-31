@@ -7,11 +7,13 @@
 #   workcell-ws sweep [--apply] [--force] [--repo <dir>]    report — or remove — what leaked
 #
 # Design notes:
-#  * One naming convention: the workspace for <key> is always the sibling directory
-#    ../<repo-basename>-<key> and its bookmark/branch is always <key>. A jj repo (a .jj/ at or
-#    above the working directory) gets a jj workspace, a git-only repo a git worktree; the
-#    subcommands, the naming, and the table are identical either way, so an agent on any
-#    harness needs one command and one rule — work only inside the directory it printed.
+#  * One naming convention: a key is <type>/<slug> — feature, bug, doc, refactor, perf, test,
+#    release, chore, review, integration — or a bare slug, and it is the bookmark/branch verbatim.
+#    Directories and jj workspace names cannot carry the slash, so both write it as a dash: key
+#    feature/xyz is bookmark feature/xyz, jj workspace feature-xyz, directory ../<repo>-feature-xyz.
+#    A jj repo (a .jj/ at or above the working directory) gets a jj workspace, a git-only repo a git
+#    worktree; the subcommands, the naming, and the table are identical either way, so an agent on
+#    any harness needs one command and one rule — work only inside the directory it printed.
 #  * Nothing here rewrites history. `forget` drops a working copy and never the bookmark or its
 #    commits, `sweep` deletes only a ref already contained in the default branch, and no
 #    subcommand touches a remote.
@@ -48,8 +50,11 @@ while (($#)); do case $1 in
            FORCE=1; shift;;
   *) die "unexpected argument: $1";;
 esac; done
-[[ -z $KEY || $KEY =~ ^[a-z0-9][a-z0-9-]*$ ]] \
-  || die "refusing key '$KEY': a key is lower-case letters, digits, and dashes, starting with a letter or digit"
+[[ -z $KEY || $KEY =~ ^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)?$ ]] \
+  || die "refusing key '$KEY': a key is <type>/<slug> or a bare slug, each part lower-case letters, digits, and dashes, starting with a letter or digit"
+# The directory and the jj workspace name cannot carry the slash a bookmark carries, so they take
+# the dashed form of the key. Without a slash the two are the same string, as they always were.
+DIRKEY=${KEY//\//-}
 
 # --- which repository, and which version control ------------------------------------------------
 cd "${REPO:-$PWD}" 2>/dev/null || die "no such directory: ${REPO:-$PWD}"
@@ -160,6 +165,20 @@ local_refs(){
   fi
 }
 
+# key_for DIRKEY -> the key a directory (or jj workspace) of that name was created from. Dashing the
+# slash out is lossy on its own, so the answer comes from the refs: the key is the one local
+# bookmark/branch whose dashed form is DIRKEY. An exact ref wins over a dashed one, which keeps a
+# legacy dash-only key answering itself even where a slashed namesake also exists, and a directory
+# no ref explains is its own key. Reads $REFS, which inventory fills once per run.
+key_for(){
+  local r
+  [[ $REFS == *$'\n'"$1"$'\n'* ]] && { printf '%s\n' "$1"; return 0; }
+  while IFS= read -r r; do
+    [[ -n $r && ${r//\//-} == "$1" ]] && { printf '%s\n' "$r"; return 0; }
+  done <<<"$REFS"
+  printf '%s\n' "$1"
+}
+
 # git_worktrees -> path<TAB>branch (branch empty when detached), the primary worktree first.
 git_worktrees(){
   git -C "$TOP" worktree list --porcelain | awk '
@@ -174,7 +193,9 @@ state_of(){
   if [[ $1 != "$DEFAULT_NAME" ]] && merged "$1"; then printf 'merged\n'; else printf 'active\n'; fi
 }
 
-# inventory -> name<TAB>path<TAB>revision<TAB>state, one row per workspace.
+# inventory -> key<TAB>path<TAB>revision<TAB>state, one row per workspace. The key is what `add` was
+# given and what `forget` takes back, so it is reported in its slashed form however the directory
+# and the jj workspace beneath it spell it.
 #   active     registered and its directory is there
 #   merged     live, but its bookmark/branch is already contained in the default branch
 #   stale-reg  registered, directory gone (an agent removed the directory without forgetting)
@@ -182,13 +203,16 @@ state_of(){
 #   foreign    matches the naming convention but is an independent repository, never a sweep target
 inventory(){
   local name path rev ref dir registered=$'\n'
+  REFS=$'\n'$(local_refs)$'\n'
   if [[ $VCS == jj ]]; then
     while IFS=$'\t' read -r name path rev; do
       [[ -n $name ]] || continue
       # root() stops resolving once the directory is gone; the convention names it anyway.
       [[ $path == - ]] && path="$PREFIX$name"
       registered+="$path"$'\n'
-      [[ $name == default ]] && ref="" || ref=$name
+      if [[ $name == default ]]; then ref=""
+      else name=$(key_for "$name"); ref=$name
+      fi
       printf '%s\t%s\t%s\t%s\n' "$name" "$path" "$rev" "$(state_of "$ref" "$path")"
     done < <(jjq workspace list \
       -T 'name ++ "\t" ++ if(self.root(), self.root(), "-") ++ "\t" ++ target.change_id().short() ++ "\n"')
@@ -198,7 +222,11 @@ inventory(){
       registered+="$path"$'\n'
       ref=$rev
       if [[ $path == "$TOP" ]]; then name=default; ref=""
-      else name=${path#"$PREFIX"}; name=${name##*/}
+      else
+        name=${path#"$PREFIX"}; name=${name##*/}
+        # git hands us the branch outright, so the directory needs no lookup: a branch that dashes
+        # to this directory's name is the key it was created from.
+        [[ -n $ref && ${ref//\//-} == "$name" ]] && name=$ref
       fi
       printf '%s\t%s\t%s\t%s\n' "$name" "$path" "${rev:-detached}" "$(state_of "$ref" "$path")"
     done < <(git_worktrees)
@@ -207,8 +235,9 @@ inventory(){
     [[ -d $dir ]] || continue
     [[ $registered != *$'\n'"$dir"$'\n'* ]] || continue
     [[ -e $dir/.jj || -e $dir/.git ]] || continue
-    if owned "$dir"; then printf '%s\t%s\t-\tstale-dir\n' "${dir#"$PREFIX"}" "$dir"
-    else printf '%s\t%s\t-\tforeign\n' "${dir#"$PREFIX"}" "$dir"
+    name=$(key_for "${dir#"$PREFIX"}")
+    if owned "$dir"; then printf '%s\t%s\t-\tstale-dir\n' "$name" "$dir"
+    else printf '%s\t%s\t-\tforeign\n' "$name" "$dir"
     fi
   done
 }
@@ -261,6 +290,7 @@ removable(){
 forget_one(){
   local name=$1 path=$2 rc=0
   if [[ $VCS == jj ]]; then
+    name=${name//\//-}   # the workspace jj registered, whose name never carries the bookmark's slash
     if jjq workspace list -T 'name ++ "\n"' | grep -qxF "$name"; then
       # Snapshot before forgetting: the working copy is a commit, and this is what preserves it.
       [[ -d $path ]] && jj -R "$path" st >/dev/null 2>&1
@@ -291,12 +321,12 @@ delete_ref(){
 
 case $CMD in
 add)
-  TARGET="$PREFIX$KEY"
+  TARGET="$PREFIX$DIRKEY"
   [[ -e $TARGET || -L $TARGET ]] && die "refusing to create $TARGET: it already exists"
   BASE=${BASE:-$DEFAULT}
   [[ -n $BASE ]] || die "cannot determine a base for $TOP: nothing for trunk() to resolve through and no local main/master/trunk — pass --base <rev>"
   if [[ $VCS == jj ]]; then
-    jj -R "$TOP" workspace add --name "$KEY" "$TARGET" -r "$BASE" \
+    jj -R "$TOP" workspace add --name "$DIRKEY" "$TARGET" -r "$BASE" \
       || die "jj workspace add failed for $KEY at $BASE"
     if local_refs | grep -qxF "$KEY"; then
       printf '  bookmark %s already exists — left where it points\n' "$KEY"
@@ -307,28 +337,30 @@ add)
     git -C "$TOP" worktree add "$TARGET" -b "$KEY" "$BASE" \
       || die "git worktree add failed for $KEY at $BASE"
   fi
-  printf 'created %s (%s %s, base %s)\n' "$TARGET" "$UNIT" "$KEY" "$BASE"
+  printf 'created %s (%s %s, %s %s, base %s)\n' "$TARGET" "$UNIT" "$DIRKEY" "$REF" "$KEY" "$BASE"
   printf '  work only inside %s: never edit %s, and never push the default branch.\n' "$TARGET" "$TOP"
   ;;
 
 forget)
   [[ $KEY == default ]] && die "refusing to forget the primary working copy"
-  found=""; found_state=""
+  found=""; found_state=""; found_key=""
   while IFS=$'\t' read -r name path rev state; do
-    [[ $name == "$KEY" ]] || continue
+    # The dashed form is the identity a directory can hold, so it is what a key is matched on: a
+    # workspace answers to the key it was made with, and to that key's directory spelling.
+    [[ ${name//\//-} == "$DIRKEY" ]] || continue
     [[ $path == "$TOP" ]] && die "refusing to forget the primary working copy at $TOP"
-    found=$path; found_state=$state
+    found=$path; found_state=$state; found_key=$name
   done < <(inventory)
   [[ -n $found ]] || die "no workspace '$KEY' in $TOP"
   [[ $found_state == foreign ]] \
     && die "refusing to forget $found: it is an independent repository, not a workspace of $TOP"
-  why=$(removable "$KEY" "$found" "$found_state") || die "refusing to forget $found: $why"
-  forget_one "$KEY" "$found" || die "could not forget $KEY at $found"
-  printf 'forgot %s (%s) — %s %s and its commits are untouched\n' "$found" "$UNIT" "$REF" "$KEY"
+  why=$(removable "$found_key" "$found" "$found_state") || die "refusing to forget $found: $why"
+  forget_one "$found_key" "$found" || die "could not forget $found_key at $found"
+  printf 'forgot %s (%s) — %s %s and its commits are untouched\n' "$found" "$UNIT" "$REF" "$found_key"
   ;;
 
 list)
-  printf '%s (%s), workspaces alongside it as %s<key>\n' "$TOP" "$VCS" "$PREFIX"
+  printf '%s (%s), workspaces alongside it as %s<key>, with / written as -\n' "$TOP" "$VCS" "$PREFIX"
   printf '%-16s %-14s %-10s %s\n' NAME REVISION STATE PATH
   while IFS=$'\t' read -r name path rev state; do
     printf '%-16s %-14s %-10s %s\n' "$name" "$rev" "$state" "$path"
