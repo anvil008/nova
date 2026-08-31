@@ -2,6 +2,36 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [The build wave loop overlaps where the seal allows] - 2026-08-30
+
+### Changed
+
+- **Dispatch is dependency-gated, not wave-gated** (ADR-0017). A not-done issue whose `dependsOn`
+  are all done is dispatchable the moment they land, whatever wave it was planned into, so a long
+  wave no longer holds back work that is already unblocked. `wave` demotes from a scheduling
+  barrier to a planning hint and the anchor wave reports are grouped under.
+- **Ownership overlap defers instead of failing.** A candidate whose `ownershipHint` overlaps
+  anything in the in-flight set waits for that work to land rather than being dispatched beside it.
+  An overlap *declared* inside one wave is still a plan defect and is still rejected — deferral
+  covers the pull-forward the scheduler does, not a plan that asked two builders to write the same
+  files.
+- **The `documenter` runs alongside the `integrator`.** It is dispatched at the same time, from the
+  wave's pull requests, instead of after the merge, and its output is retested inside the same
+  combined GREEN; documentation now merges with the code it describes rather than trailing it.
+  This landed in `skills/new-feature/SKILL.md`; `skills/build/SKILL.md` dispatches no `documenter`
+  and has no documentation step of its own yet, so a milestone driven straight from `build` still
+  takes its documentation from a separately invoked `docs` pass.
+- **Speculative `specifier` dispatches are permitted.** While a wave is in flight the orchestrator
+  may seal tests for issues whose dependencies have not landed yet, so the seal is ready when they
+  do. Speculative *builders* are not permitted: a builder still starts only against a seal taken on
+  a base its dependencies have merged into.
+- **`ownershipHint` is exactly one narrow glob.** An issue that would need two disjoint areas is
+  split into two issues instead of taking a wider hint, because a coarse hint serializes everything
+  it touches under the deferral rule.
+- **`README.md` and the how-work-moves diagram** were regenerated to match: the pull request fans
+  out to the `integrator` and the `documenter`, and the single gate covering both is what the
+  orchestrator merges on.
+
 ## [Agent names settle on plain CS terms] - 2026-08-30
 
 ### Changed
