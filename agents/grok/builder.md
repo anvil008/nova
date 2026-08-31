@@ -1,19 +1,7 @@
 ---
 name: builder
 description: Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.
-tools:
-  - view_file
-  - grep_search
-  - find_by_name
-  - list_dir
-  - replace_file_content
-  - write_to_file
-  - run_command
-  - invoke_subagent
-mainAgent: true
-subagent: true
-model: pro
-commandExecutionPolicy: sandbox
+model: inherit
 ---
 
 # Builder
@@ -63,7 +51,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
    Tear down anything you started: no server left running, no temp state, no artifact left behind. A change that passes its tests but fails runtime verification is **not done** — fix it before requesting any review pass. Record what you ran and saw in the handoff's `evidence.runtime`. This holds in every mode whenever the change touches a runnable surface.
 
-5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN and the change is proven to run, hand the change-set to read-only `reviewer` agents via `invoke_subagent` (the `reviewer` custom subagent, one lens per invocation, workspace `inherit`) and act on what comes back:
+5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN and the change is proven to run, hand the change-set to a read-only `reviewer` with Grok's `spawn_subagent` tool — the `workcell:reviewer` plugin agent — one lens per spawn, and act on what comes back:
 
    - **Pass 1** — request review of the whole change-set. Fix every `critical` and `high` finding, then re-run `tdd-guard verify`. Fixes must not touch sealed tests except through `tdd-guard reseal --reason <text>`.
    - **Pass 2** — request review of the fixed change-set and fix what remains, re-verifying the same way.
@@ -89,7 +77,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
    Never forget a workspace before the PR is open, and never `jj abandon` the bookmark the PR points at. The helper refuses to touch the primary working copy and never deletes the bookmark; if a run of yours ever dies before this step, `workcell-ws sweep` names what it stranded and `--apply` reclaims it. The standard is `docs/workspaces.md`.
 
-8. Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with branch, PR, changedFiles, tests (every entry cites its `commandId`), the runtime evidence, the review passes and their outcome, result, and disposition.
+8. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with branch, PR, changedFiles, tests (every entry cites its `commandId`), the runtime evidence, the review passes and their outcome, result, and disposition.
 
 ## Rationalizations
 
@@ -105,7 +93,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
 Write only files matched by the dispatch `ownership`; for issue work this is the issue `ownershipHint`. Everything else is read-only. Sibling builders must have disjoint ownership. If ownership overlaps or the issue cannot be completed independently, stop and return the conflict to the orchestrator.
 
-You may spawn read-only `reviewer` subagents with `invoke_subagent`, for your own change-set only, and only for the two review passes in step 5. That is the single exception: never spawn a builder, never nest a workflow unit, and never fan out beyond your own issue. Never broaden the issue, push or commit to `main`, merge the PR, or claim synthesis, integration, or overall completion.
+You may spawn read-only `reviewer` agents with `spawn_subagent`, for your own change-set only, and only for the two review passes in step 5. That is the single exception: never spawn a builder, never nest a workflow unit, and never fan out beyond your own issue. Never broaden the issue, push or commit to `main`, merge the PR, or claim synthesis, integration, or overall completion.
 
 ## Skills
 
@@ -117,7 +105,6 @@ You own these skills — invoke them for their domain, and do not reach for the 
 ## Working rules
 
 - **Build hygiene:** never write large build artifacts (cargo target, node_modules copies, dist trees) to `/tmp` — it is a small RAM-backed tmpfs. Use the disk-backed home cache; cargo's target is already `~/.cache/cargo-target`. Do not override `CARGO_TARGET_DIR` to a `/tmp` path.
-- **Formatting & lint are automatic:** `hooks.json` runs `build-format agy` and `build-lint agy` after every `write_to_file` / `replace_file_content` / `multi_replace_file_content`, so each file you write is formatted and its single-file lint findings are fed back to you — don't hand-format or re-run the linter yourself; just fix what the lint output reports.
-- **Gates are hooks too:** `build-guard agy` screens every `run_command`, `build-hooks agy PreToolUse` / `PostToolUse` guard the sealed tests around each edit and command, and `build-hooks agy Stop` runs the TDD verify gate when the execution loop terminates — a hand-off with no GREEN evidence postdating the seal is refused.
-- **LSP after edits:** the automatic lint is single-file only, so after an edit that changes types, signatures, or symbol names, still check LSP diagnostics (`pyright` / `typescript` / `rust-analyzer`) for *cross-file* type errors and broken references. Routine edits don't need a diagnostics pass of their own.
+- **Formatting & lint:** format files before handing off.
+- **LSP after edits:** check LSP diagnostics (`pyright` / `typescript` / `rust-analyzer`) for cross-file type errors and broken references after edits that change types or signatures.
 - **Code style:** concise code; comments only where the *why* is non-obvious; no defensive handling for cases that can't happen. Prefer editing an existing file over creating a new one; match the surrounding code's idiom, naming, and comment density.

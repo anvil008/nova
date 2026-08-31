@@ -1,0 +1,17 @@
+{
+  "name": "workcell-local",
+  "owner": {
+    "name": "Foundry Zero"
+  },
+  "metadata": {
+    "description": "Local marketplace for the Workcell Grok Build plugin."
+  },
+  "plugins": [
+    {
+      "name": "workcell",
+      "source": "./plugins/grok",
+      "description": "Workcell: multi-agent planning, building, review, and docs for Grok Build.",
+      "category": "Developer Tools"
+    }
+  ]
+}

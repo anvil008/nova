@@ -3,43 +3,50 @@
     "reviewerDispatch": {
       "claude": "a read-only `reviewer`",
       "codex": "a read-only `reviewer` with Codex's `spawn_agent` tool \u2014 the `reviewer` agent the workcell plugin ships \u2014 one lens per spawn,",
-      "agy": "read-only `reviewer` agents via `invoke_subagent` (the `reviewer` custom subagent, one lens per invocation, workspace `inherit`)"
+      "agy": "read-only `reviewer` agents via `invoke_subagent` (the `reviewer` custom subagent, one lens per invocation, workspace `inherit`)",
+      "grok": "a read-only `reviewer` with Grok's `spawn_subagent` tool \u2014 the `workcell:reviewer` plugin agent \u2014 one lens per spawn,"
     },
     "reviewerSpawn": {
       "claude": "read-only `reviewer` agents",
       "codex": "read-only `reviewer` agents with `spawn_agent`",
-      "agy": "read-only `reviewer` subagents with `invoke_subagent`"
+      "agy": "read-only `reviewer` subagents with `invoke_subagent`",
+      "grok": "read-only `reviewer` agents with `spawn_subagent`"
     },
     "instructionFiles": {
       "claude": "the `CLAUDE.md` / `AGENTS.md` instruction files",
       "codex": "instruction files",
-      "agy": "the instruction files"
+      "agy": "the instruction files",
+      "grok": "instruction files"
     },
     "instructionFilesPlain": {
       "claude": "the CLAUDE.md / AGENTS.md instruction files",
       "codex": "instruction files",
-      "agy": "the instruction files"
+      "agy": "the instruction files",
+      "grok": "instruction files"
     },
     "readTools": {
       "claude": " (Read / Grep / Glob)",
       "codex": "",
-      "agy": " (`view_file`, `grep_search`, `find_by_name`)"
+      "agy": " (`view_file`, `grep_search`, `find_by_name`)",
+      "grok": ""
     },
     "neverBloat": {
       "claude": " never bloat `CLAUDE.md` / `AGENTS.md`;",
       "codex": "",
-      "agy": ""
+      "agy": "",
+      "grok": ""
     }
   },
   "agents": {
     "builder": {
       "description": "Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.",
       "claude": {
-        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill, Agent, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_press_key, mcp__playwright__browser_click, mcp__playwright__browser_console_messages, mcp__playwright__browser_close"
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill, Agent"
       },
       "codex": {
         "gates": "codex-builder"
       },
+      "grok": {},
       "agy": {
         "tools": [
           "view_file",
@@ -57,11 +64,12 @@
     "debugger": {
       "description": "Use when reproducing one reported symptom, narrowing it to a root cause by experiment, and returning the diagnosis without fixing it.",
       "claude": {
-        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill, mcp__chrome-devtools__new_page, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__press_key, mcp__chrome-devtools__click, mcp__chrome-devtools__list_console_messages, mcp__chrome-devtools__list_network_requests, mcp__chrome-devtools__get_network_request, mcp__chrome-devtools__close_page"
       },
       "codex": {
         "gates": "codex-debugger"
       },
+      "grok": {},
       "agy": {
         "tools": [
           "view_file",
@@ -81,6 +89,9 @@
         "tools": "Read, Grep, Glob, Bash, Skill"
       },
       "codex": {},
+      "grok": {
+        "permission_mode": "plan"
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -98,6 +109,7 @@
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
       },
       "codex": {},
+      "grok": {},
       "agy": {
         "tools": [
           "view_file",
@@ -119,6 +131,9 @@
       "codex": {
         "gates": "codex-integrator"
       },
+      "grok": {
+        "permission_mode": "plan"
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -136,6 +151,7 @@
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
       },
       "codex": {},
+      "grok": {},
       "agy": {
         "tools": [
           "view_file",
@@ -155,6 +171,9 @@
         "tools": "Read, Grep, Glob, Bash, Skill"
       },
       "codex": {},
+      "grok": {
+        "permission_mode": "plan"
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -174,6 +193,9 @@
         "maxTurns": 30
       },
       "codex": {},
+      "grok": {
+        "permission_mode": "plan"
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -188,11 +210,14 @@
     "reviewer": {
       "description": "Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.",
       "claude": {
-        "tools": "Read, Grep, Glob, Bash, Skill, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_press_key, mcp__playwright__browser_click, mcp__playwright__browser_console_messages, mcp__playwright__browser_close",
+        "tools": "Read, Grep, Glob, Bash, Skill",
         "disallowedTools": "Edit, Write, NotebookEdit, Task",
         "maxTurns": 30
       },
       "codex": {},
+      "grok": {
+        "permission_mode": "plan"
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -212,6 +237,7 @@
       "codex": {
         "gates": "codex-specifier"
       },
+      "grok": {},
       "agy": {
         "tools": [
           "view_file",

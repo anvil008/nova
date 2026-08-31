@@ -23,7 +23,7 @@ MANIFEST = ROOT / "agents" / "models.json"
 CLAUDE_EFFORT = ("low", "medium", "high", "xhigh")
 CODEX_EFFORT = ("low", "medium", "high", "xhigh", "max")
 AGY_MODELS = ("pro", "flash", "inherit")
-HARNESSES = frozenset({"claude", "codex", "agy"})
+HARNESSES = frozenset({"claude", "codex", "agy", "grok"})
 
 # Codex has no per-agent model surface in its plugin manifest. The staged plugin
 # therefore generates an explicit spawn_agent routing contract from this manifest;
@@ -39,6 +39,7 @@ HARNESS_KEYS = {
     "claude": {"model": "model", "effort": "effort"},
     "codex": {"model": "model", "effort": "model_reasoning_effort"},
     "agy": {"model": "model"},
+    "grok": {"model": "model"},
 }
 
 # Where a missing key is inserted, most specific anchor first. The frontmatter
@@ -47,6 +48,7 @@ ANCHORS = {
     "claude": ("tools", "description", "name"),
     "codex": ("description", "name"),
     "agy": ("commandExecutionPolicy", "subagent", "mainAgent", "description", "name"),
+    "grok": ("description", "name"),
 }
 
 
@@ -69,13 +71,17 @@ def render_codex_profile(agent: str, values: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_codex_profiles(codex_home: Path, defaults: dict, agents: dict, check: bool) -> list[str]:
+def write_codex_profiles(
+    codex_home: Path, defaults: dict, agents: dict, check: bool
+) -> list[str]:
     """Emit one profile per agent. Never clobbers a file we did not write."""
     drift: list[str] = []
     if not codex_home.is_dir():
         return drift
     if not check:
-        for path in sorted(codex_home.glob(f"{LEGACY_CODEX_PROFILE_PREFIX}*.config.toml")):
+        for path in sorted(
+            codex_home.glob(f"{LEGACY_CODEX_PROFILE_PREFIX}*.config.toml")
+        ):
             if LEGACY_CODEX_PROFILE_MARKER in path.read_text(encoding="utf-8"):
                 path.unlink()
                 print(f"removed legacy profile {path}")
@@ -141,18 +147,26 @@ def load_manifest() -> tuple[dict, dict]:
 def resolve(defaults: dict, spec: dict, harness: str) -> dict:
     """Merge an agent's per-harness overrides onto the harness defaults."""
     merged = dict(defaults.get(harness, {}))
-    merged.update({k: v for k, v in spec.get(harness, {}).items() if not k.startswith("_")})
+    merged.update(
+        {k: v for k, v in spec.get(harness, {}).items() if not k.startswith("_")}
+    )
     return {key: merged[key] for key in ("model", "effort") if key in merged}
 
 
 def validate(agent: str, harness: str, values: dict) -> None:
     model, effort = values.get("model"), values.get("effort")
     if harness == "agy" and model not in AGY_MODELS:
-        raise SyncError(f"{agent}/{harness}: model {model!r} must be one of {AGY_MODELS}")
+        raise SyncError(
+            f"{agent}/{harness}: model {model!r} must be one of {AGY_MODELS}"
+        )
     if harness == "claude" and effort is not None and effort not in CLAUDE_EFFORT:
-        raise SyncError(f"{agent}/{harness}: effort {effort!r} must be one of {CLAUDE_EFFORT}")
+        raise SyncError(
+            f"{agent}/{harness}: effort {effort!r} must be one of {CLAUDE_EFFORT}"
+        )
     if harness == "codex" and effort is not None and effort not in CODEX_EFFORT:
-        raise SyncError(f"{agent}/{harness}: effort {effort!r} must be one of {CODEX_EFFORT}")
+        raise SyncError(
+            f"{agent}/{harness}: effort {effort!r} must be one of {CODEX_EFFORT}"
+        )
     if not model:
         raise SyncError(f"{agent}/{harness}: no model resolved")
 
@@ -206,7 +220,8 @@ def apply(lines: list[str], harness: str, values: dict) -> list[str]:
                 # Skip the anchor's continuation lines (a YAML block or list).
                 end = position + 1
                 while end < len(result) and (
-                    result[end].startswith((" ", "\t", "-")) or result[end].strip() == ""
+                    result[end].startswith((" ", "\t", "-"))
+                    or result[end].strip() == ""
                 ):
                     end += 1
                 index = end
@@ -222,17 +237,22 @@ def apply(lines: list[str], harness: str, values: dict) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="report drift, write nothing")
     parser.add_argument(
-        "--codex-profiles", action="store_true",
+        "--check", action="store_true", help="report drift, write nothing"
+    )
+    parser.add_argument(
+        "--codex-profiles",
+        action="store_true",
         help="also emit $CODEX_HOME/workcell-<agent>.config.toml for manually launching a role",
     )
     parser.add_argument(
-        "--remove-codex-profiles", action="store_true",
+        "--remove-codex-profiles",
+        action="store_true",
         help="remove the profiles this script wrote, and nothing else",
     )
     parser.add_argument(
-        "--codex-home", default=None,
+        "--codex-home",
+        default=None,
         help="override $CODEX_HOME (default: $CODEX_HOME or ~/.codex)",
     )
     args = parser.parse_args()
@@ -243,7 +263,11 @@ def main() -> int:
 
     if args.remove_codex_profiles:
         removed = remove_codex_profiles(codex_home)
-        print(f"{removed} codex profile(s) removed" if removed else "no codex profiles to remove")
+        print(
+            f"{removed} codex profile(s) removed"
+            if removed
+            else "no codex profiles to remove"
+        )
         return 0
 
     defaults, agents = load_manifest()
@@ -260,7 +284,9 @@ def main() -> int:
 
             original = path.read_text(encoding="utf-8")
             lines, body = split_frontmatter(original, path)
-            updated = "---\n" + "\n".join(apply(lines, harness, values)) + "\n---\n" + body
+            updated = (
+                "---\n" + "\n".join(apply(lines, harness, values)) + "\n---\n" + body
+            )
             if updated == original:
                 continue
             relative = path.relative_to(ROOT)

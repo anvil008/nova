@@ -35,7 +35,7 @@ MODELS = AGENTS / "models.json"
 BODIES = AGENTS / "bodies"
 GATES = AGENTS / "gates"
 
-HARNESSES = ("claude", "codex", "agy")
+HARNESSES = ("claude", "codex", "agy", "grok")
 
 # A body is shared, but harnesses genuinely differ: Codex spawns with
 # `spawn_agent`, Antigravity with `invoke_subagent`, and only Claude wires
@@ -104,11 +104,15 @@ def resolve_models(models: dict, agent: str, harness: str) -> dict:
     scripts agree by construction instead of overwriting each other."""
     merged = dict(models.get("defaults", {}).get(harness, {}))
     spec = models.get("agents", {}).get(agent, {})
-    merged.update({k: v for k, v in spec.get(harness, {}).items() if not k.startswith("_")})
+    merged.update(
+        {k: v for k, v in spec.get(harness, {}).items() if not k.startswith("_")}
+    )
     return merged
 
 
-def frontmatter(agent: str, harness: str, entry: dict, models: dict, variables: dict) -> list[str]:
+def frontmatter(
+    agent: str, harness: str, entry: dict, models: dict, variables: dict
+) -> list[str]:
     """Key order is fixed per harness so a regeneration is byte-stable."""
     tuned = resolve_models(models, agent, harness)
     description = apply_vars(
@@ -134,7 +138,21 @@ def frontmatter(agent: str, harness: str, entry: dict, models: dict, variables: 
         if "effort" in tuned:
             lines.append(f"model_reasoning_effort: {tuned['effort']}")
         if entry["codex"].get("gates"):
-            lines.append('# Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.')
+            lines.append(
+                '# Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.'
+            )
+        return lines
+
+    if harness == "grok":
+        # Grok Build consumes the Claude plugin agent format. The model comes from
+        # agents/models.json (`inherit`: grok exposes one model), and read-only
+        # agents are held to it via permission_mode rather than a tool list —
+        # grok's per-agent tool vocabulary is not yet verified, a tool list we
+        # cannot verify would be a lie, and permission_mode: plan is documented.
+        if "model" in tuned:
+            lines.append(f"model: {tuned['model']}")
+        if entry["grok"].get("permission_mode"):
+            lines.append(f"permission_mode: {entry['grok']['permission_mode']}")
         return lines
 
     lines.append("tools:")
@@ -159,7 +177,9 @@ def body_for(agent: str, harness: str, entry: dict, variables: dict) -> str:
     if harness == "codex" and gates:
         snippet = GATES / f"{gates}.md"
         if not snippet.is_file():
-            raise SyncError(f"{agent}: missing gates snippet {snippet.relative_to(ROOT)}")
+            raise SyncError(
+                f"{agent}: missing gates snippet {snippet.relative_to(ROOT)}"
+            )
         block = snippet.read_text(encoding="utf-8").rstrip("\n") + "\n"
         marker = "## Skills\n"
         if marker in body:
@@ -180,13 +200,19 @@ def render(agent: str, harness: str, entry: dict, models: dict, variables: dict)
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="report drift, write nothing")
-    parser.add_argument("--diff", action="store_true", help="with --check, show the differences")
+    parser.add_argument(
+        "--check", action="store_true", help="report drift, write nothing"
+    )
+    parser.add_argument(
+        "--diff", action="store_true", help="with --check, show the differences"
+    )
     args = parser.parse_args()
 
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     models = json.loads(MODELS.read_text(encoding="utf-8"))
-    agents = {k: v for k, v in manifest.get("agents", {}).items() if not k.startswith("_")}
+    agents = {
+        k: v for k, v in manifest.get("agents", {}).items() if not k.startswith("_")
+    }
     if not agents:
         raise SyncError("agents.json declares no agents")
 
@@ -195,7 +221,9 @@ def main() -> int:
     for agent, entry in sorted(agents.items()):
         for harness in HARNESSES:
             path = agent_path(agent, harness)
-            desired = render(agent, harness, entry, models, variables_for(manifest, entry))
+            desired = render(
+                agent, harness, entry, models, variables_for(manifest, entry)
+            )
             current = path.read_text(encoding="utf-8") if path.exists() else None
             if current == desired:
                 continue
@@ -203,11 +231,16 @@ def main() -> int:
             if args.check:
                 drifted.append(str(relative))
                 if args.diff:
-                    print("".join(difflib.unified_diff(
-                        (current or "").splitlines(keepends=True),
-                        desired.splitlines(keepends=True),
-                        fromfile=f"{relative} (on disk)", tofile=f"{relative} (generated)",
-                    )))
+                    print(
+                        "".join(
+                            difflib.unified_diff(
+                                (current or "").splitlines(keepends=True),
+                                desired.splitlines(keepends=True),
+                                fromfile=f"{relative} (on disk)",
+                                tofile=f"{relative} (generated)",
+                            )
+                        )
+                    )
             else:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(desired, encoding="utf-8")
@@ -234,7 +267,9 @@ def main() -> int:
             print("agent definitions have drifted from their bodies and agents.json:")
             for entry in drifted:
                 print(f"- {entry}")
-            print("run scripts/sync-agents.py to regenerate (edit agents/bodies/, not the output)")
+            print(
+                "run scripts/sync-agents.py to regenerate (edit agents/bodies/, not the output)"
+            )
             return 1
         print(f"{len(agents)} agents in sync across {len(HARNESSES)} harnesses")
         return 0

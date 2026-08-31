@@ -2,6 +2,46 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [v0.4.0 — Grok Build joins as a fourth harness; browsers move off Playwright] - 2026-08-31
+
+### Added
+
+- **Grok Build is a fourth harness** alongside Claude Code, Codex, and Antigravity: generated
+  `agents/grok/*.md`, `plugins/grok/`, `.grok-plugin/marketplace.json`, and
+  `scripts/build-grok-plugin.py`, which stages a real tree into `dist/grok/` because Grok — like
+  Codex — drops any symlink pointing outside the plugin root. `bootstrap-plugins.sh` gained a
+  `grok_plugin` install path and `--harness grok`. Grok ships no hooks — its hook payload is a
+  different dialect the gate scripts would misparse — so the TDD seal/verify/review ceremony
+  applies there only as agent-body procedure, never as a mechanically enforced gate; read-only
+  Grok agents are scoped with `permission_mode: plan` instead of a narrowed tool list.
+  `agents/models.json` gained a `grok` column (`model: inherit`, no verified per-agent effort or
+  tool surface).
+- **`scripts/bootstrap.sh`: one command for the whole install.** It installs the
+  [`apm`](https://github.com/microsoft/apm) CLI when absent, ensures the
+  `vercel-labs/agent-browser` package in apm's single global scope, then runs
+  `bootstrap-tools.sh --install` and `bootstrap-plugins.sh`. `bootstrap-tools.sh` now also
+  checks/installs `apm` and the `agent-browser` CLI. `bootstrap-plugins.sh` gained `register_mcp`,
+  which registers the `chrome-devtools` MCP server (`npx -y chrome-devtools-mcp@latest`) at user
+  scope in whichever of Claude, Codex, Antigravity, and Grok are installed, through each harness's
+  own CLI — apm's MCP entries are project-scoped only. It retires any `playwright` MCP entry it
+  previously registered under that exact command and never touches an entry it did not write.
+- **ADR 0020** records why APM stays a peer tool rather than Workcell's distribution layer: it
+  projects format, not the per-harness content differences Workcell actually has, and its
+  marketplace-first format detection would silently decompose this repository if given an
+  `apm.yml` at the root.
+
+### Changed
+
+- **Browsers move off Playwright, split by role.** The `builder` and `reviewer` now drive browsers
+  through the `agent-browser` CLI via Bash on every harness — zero per-session MCP tool cost. The
+  `debugger` alone carries the 11-tool `mcp__chrome-devtools__*` set on Claude (network waterfall,
+  `evaluate_script`, console), for the deep diagnostic surface neither of the other roles needs.
+  ADR 0012 was amended accordingly, and `skills/reviewer-frontend-review/SKILL.md` was rewritten
+  from `browser_*` Playwright tool calls to `agent-browser` commands. Remaining Playwright mentions
+  in `agents/bodies/reviewer.md`, `skills/code-review/SKILL.md`, and one missed heading in
+  `skills/reviewer-frontend-review/SKILL.md` are corrected in this pass; the four generated
+  `reviewer` copies were regenerated with `scripts/sync-agents.py`.
+
 ## [The wiki layer — persistent per-project knowledge] - 2026-08-31
 
 ### Added
@@ -41,6 +81,7 @@ All notable changes to Workcell will be documented in this file.
   by a namespace's existence, and why keeping the store outside the repository makes the eval
   ablation structural instead of a guard rule. `README.md` gains the layer, and
   `docs/eval-runs.md` states the eval-mode boundary.
+
 
 ## [Branch and workspace names carry a type prefix] - 2026-08-31
 
