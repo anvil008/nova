@@ -1,0 +1,42 @@
+{
+  "name": "wiki",
+  "kind": "skill",
+  "trigger": {
+    "positive": [
+      {
+        "prompt": "Consolidate what this project's finished runs taught into its persistent wiki namespace outside the repository.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Record the raw traces of this run write-once, then append what recurred to the project's pattern pages and catalog.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Has this project opted in to a per-project knowledge namespace, and what did its runs accumulate there?",
+        "top_k": 3
+      }
+    ],
+    "negative": [
+      {
+        "prompt": "Enforce the documentation standard across this repository, refresh the stale pages, and record an ADR.",
+        "owner": "skill:docs"
+      },
+      {
+        "prompt": "Investigate this question across several areas with parallel read-only agents and merge their findings into one deduplicated evidence packet.",
+        "owner": "skill:research"
+      }
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Consolidate this build's evidence into the project wiki. `wiki.py status --repo .` reports `present: false`, and the user insists the lessons are worth keeping.",
+      "expected_output": "No dispatch and no namespace: the project never opted in, and opting it in is the human's act.",
+      "expectations": [
+        "No documenter is dispatched and nothing is written, because the project has no namespace.",
+        "`wiki.py init` is named as the human's opt-in step rather than run to work around the absent namespace."
+      ]
+    }
+  ]
+}
