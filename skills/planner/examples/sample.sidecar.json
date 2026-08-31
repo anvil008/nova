@@ -34,14 +34,14 @@
         "planning"
       ],
       "dependsOn": [],
-      "ownershipHint": "templates/** and scripts/render_plan.py",
+      "ownershipHint": "renderer/**",
       "wave": 1,
       "acceptanceTests": [
         {
           "name": "four_mermaid_blocks",
           "kind": "unit",
           "oracle": "rendered HTML contains exactly four mermaid blocks",
-          "testPath": "tests/test_planner.py"
+          "testPath": "renderer/tests/test_folio.py"
         }
       ]
     },
@@ -56,14 +56,14 @@
       "dependsOn": [
         "render-folio"
       ],
-      "ownershipHint": "scripts/reconcile_github.py",
+      "ownershipHint": "reconciler/**",
       "wave": 2,
       "acceptanceTests": [
         {
           "name": "idempotent_rerun",
           "kind": "integration",
           "oracle": "second reconcile against applied state yields zero actions",
-          "testPath": "tests/test_planner.py"
+          "testPath": "reconciler/tests/test_reconcile.py"
         }
       ]
     }

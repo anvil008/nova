@@ -111,7 +111,14 @@ def validate_plan(plan: object) -> dict:
         issue["key"] = key
         nonempty_string(issue["title"], f"issues[{index}].title")
         nonempty_string(issue["body"], f"issues[{index}].body")
-        nonempty_string(issue["ownershipHint"], f"issues[{index}].ownershipHint")
+        # One token only: every consumer (waves.py's overlap check, the ownership an
+        # agent is handed) treats the value as a single literal path or glob.
+        hint = nonempty_string(issue["ownershipHint"], f"issues[{index}].ownershipHint")
+        if "," in hint or hint.split() != [hint]:
+            raise PlanError(
+                f"issues[{index}].ownershipHint takes one path or glob, not {hint!r}"
+            )
+        issue["ownershipHint"] = hint
         if not isinstance(issue["labels"], list) or any(not isinstance(label, str) or not label for label in issue["labels"]):
             raise PlanError(f"issues[{index}].labels must be an array of non-empty strings")
         if len(set(issue["labels"])) != len(issue["labels"]):
