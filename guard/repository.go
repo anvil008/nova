@@ -218,7 +218,58 @@ func commandID(evidence controlplane.CommandEvidence) string {
 	return "cmd-" + hex.EncodeToString(sum[:8])
 }
 
+// jjWorkspaceRoot returns the nearest directory at or above workingDirectory
+// holding a `.jj` directory. It mirrors the `find_up .jj` that
+// scripts/workcell-ws uses to decide which unit of work a path belongs to: a
+// secondary workspace (`jj workspace add`, which is what `workcell-ws add`
+// creates) carries a `.jj` and no `.git` whatsoever, so git cannot discover it
+// from anywhere and `git rev-parse --show-toplevel` walks out to the filesystem
+// boundary and fails.
+//
+// The workspace root is the right answer rather than the primary repository it
+// points at through `.jj/repo`: every path judgement the guard makes -- sealed
+// test paths, working-tree-relative rules -- is relative to the working copy in
+// hand, and the per-repository state directory is keyed on this path, so each
+// workspace gets its own seal. That is what the guard already does for a linked
+// git worktree, where `--show-toplevel` likewise names the worktree and not the
+// main checkout, and it is what keeps two agents sealing two branches in two
+// workspaces from overwriting each other's state. Nothing the guard stores
+// needs an identity shared across workspaces, so `.jj/repo` is never followed.
+func jjWorkspaceRoot(workingDirectory string) (string, bool) {
+	directory, err := filepath.Abs(workingDirectory)
+	if err != nil {
+		return "", false
+	}
+	for {
+		if info, statErr := os.Stat(filepath.Join(directory, ".jj")); statErr == nil && info.IsDir() {
+			return directory, true
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			return "", false
+		}
+		directory = parent
+	}
+}
+
+// usesJJ reports whether an already-resolved repository root has to be driven
+// through jj because it has no git view of its own. A colocated primary holds
+// both a `.jj` and a `.git` and keeps taking the git path exactly as before, so
+// this only ever diverts the case where git could not have answered at all.
+func usesJJ(repository string) bool {
+	if info, err := os.Stat(filepath.Join(repository, ".jj")); err != nil || !info.IsDir() {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(repository, ".git"))
+	return err != nil
+}
+
 func repositoryRoot(workingDirectory string) (string, error) {
+	if root, ok := jjWorkspaceRoot(workingDirectory); ok {
+		// A symlinked root keeps the state directory hash stable, exactly as on
+		// the git path below.
+		return filepath.EvalSymlinks(root)
+	}
 	output, err := captureArgv(workingDirectory, "git", "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", fmt.Errorf("resolve git repository from %s: %w", workingDirectory, err)
@@ -236,8 +287,24 @@ func repositoryRoot(workingDirectory string) (string, error) {
 	return resolved, nil
 }
 
+// diffArgv is the command a diff review is recorded over, per VCS. It is shared
+// with recordDiffReview so the evidence and the digest describe the same bytes.
+func diffArgv(repository string) []string {
+	if usesJJ(repository) {
+		return []string{"jj", "diff", "--from", "@-", "--git"}
+	}
+	return []string{"git", "diff", "HEAD"}
+}
+
 func headCommit(repository string) (string, error) {
-	output, err := captureArgv(repository, "git", "rev-parse", "HEAD")
+	argv := []string{"git", "rev-parse", "HEAD"}
+	if usesJJ(repository) {
+		// jj's working copy is itself a commit, so the base a change is measured
+		// against is its parent -- which in a colocated repository is the very
+		// commit git calls HEAD, and `commit_id` prints it in git's own hex.
+		argv = []string{"jj", "log", "--no-graph", "-r", "@-", "-T", "commit_id"}
+	}
+	output, err := captureArgv(repository, argv...)
 	if err != nil {
 		return "", err
 	}
@@ -248,7 +315,15 @@ func headCommit(repository string) (string, error) {
 // tracked diff against HEAD plus the name and content digest of every untracked
 // file. Names alone would leave the Stop gate blind to a rewrite of a new file,
 // which is precisely the code a change is most likely to be adding.
+// On jj the untracked half collapses entirely: jj snapshots the working copy
+// into the `@` commit before it answers, so a file that git would call
+// untracked is already an addition in the diff against `@-`, content and all.
+// There is no second category to fold in, and none of the blindness the git
+// path adds it to avoid.
 func workingDiff(repository string) ([]byte, error) {
+	if usesJJ(repository) {
+		return captureArgv(repository, diffArgv(repository)...)
+	}
 	tracked, err := captureArgv(repository, "git", "diff", "HEAD")
 	if err != nil {
 		return nil, err
@@ -280,6 +355,48 @@ func workingDiff(repository string) ([]byte, error) {
 		combined = append(combined, 0)
 	}
 	return combined, nil
+}
+
+// changedWorkingPaths lists the repository-relative paths the working copy has
+// touched, through whichever VCS owns the repository. The git side reads
+// porcelain status; the jj side asks the same question of the diff against `@-`,
+// which already includes what git would have reported as untracked.
+func changedWorkingPaths(repository string) ([]string, error) {
+	if usesJJ(repository) {
+		output, err := captureArgv(repository, "jj", "diff", "--from", "@-", "--name-only")
+		if err != nil {
+			return nil, err
+		}
+		paths := make([]string, 0)
+		for _, line := range strings.Split(string(output), "\n") {
+			if trimmed := strings.TrimSpace(line); trimmed != "" {
+				paths = append(paths, filepath.ToSlash(trimmed))
+			}
+		}
+		return paths, nil
+	}
+	output, err := captureArgv(repository, "git", "-C", repository, "status", "--porcelain")
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0)
+	for _, line := range strings.Split(string(output), "\n") {
+		if len(line) < 4 {
+			continue
+		}
+		rawPath := strings.TrimSpace(line[3:])
+		if index := strings.Index(rawPath, " -> "); index != -1 {
+			rawPath = rawPath[index+4:]
+		}
+		rawPath = strings.TrimSpace(rawPath)
+		if strings.HasPrefix(rawPath, "\"") {
+			if unquoted, unquoteErr := strconv.Unquote(rawPath); unquoteErr == nil {
+				rawPath = unquoted
+			}
+		}
+		paths = append(paths, filepath.ToSlash(rawPath))
+	}
+	return paths, nil
 }
 
 func currentBase(repository string) (Base, string, error) {

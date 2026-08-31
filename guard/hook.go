@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -393,7 +392,7 @@ func stopGate(decoded payload, workingDirectory string) response {
 }
 
 func unsealedSourceChanges(repository string) ([]string, error) {
-	output, err := captureArgv(repository, "git", "-C", repository, "status", "--porcelain")
+	changed, err := changedWorkingPaths(repository)
 	if err != nil {
 		return nil, err
 	}
@@ -401,24 +400,9 @@ func unsealedSourceChanges(repository string) ([]string, error) {
 	if err != nil {
 		testPatterns = DefaultTestPatterns
 	}
-	lines := strings.Split(string(output), "\n")
 	seen := make(map[string]struct{})
 	sourcePaths := make([]string, 0)
-	for _, line := range lines {
-		if len(line) < 4 {
-			continue
-		}
-		rawPath := strings.TrimSpace(line[3:])
-		if idx := strings.Index(rawPath, " -> "); idx != -1 {
-			rawPath = rawPath[idx+4:]
-		}
-		rawPath = strings.TrimSpace(rawPath)
-		if strings.HasPrefix(rawPath, "\"") {
-			if unquoted, unquoteErr := strconv.Unquote(rawPath); unquoteErr == nil {
-				rawPath = unquoted
-			}
-		}
-		relPath := filepath.ToSlash(rawPath)
+	for _, relPath := range changed {
 		if isSourcePath(relPath, testPatterns) {
 			if _, exists := seen[relPath]; !exists {
 				seen[relPath] = struct{}{}
