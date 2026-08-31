@@ -24,7 +24,7 @@ def frontmatter(path: Path) -> dict[str, str]:
 
 class AgentCapabilityTests(unittest.TestCase):
     def test_read_only_agents_declare_disallowed_tools(self):
-        for name in ("code-reviewer", "research"):
+        for name in ("reviewer", "researcher"):
             with self.subTest(agent=name):
                 values = frontmatter(AGENTS / "claude" / f"{name}.md")
                 denied = {item.strip() for item in values["disallowedTools"].split(",")}
@@ -33,7 +33,7 @@ class AgentCapabilityTests(unittest.TestCase):
 
     def test_write_capable_agents_keep_edit_and_write_available(self):
         manifest = json.loads((AGENTS / "agents.json").read_text(encoding="utf-8"))
-        for name in ("builder", "test-author", "deploy", "docs"):
+        for name in ("builder", "oracle", "deployer", "scribe"):
             with self.subTest(agent=name):
                 config = manifest["agents"][name]["claude"]
                 denied = config.get("disallowedTools", "")
@@ -42,12 +42,12 @@ class AgentCapabilityTests(unittest.TestCase):
                 values = frontmatter(AGENTS / "claude" / f"{name}.md")
                 self.assertNotIn("disallowedTools", values)
 
-    def test_research_body_and_generated_agents_teach_stance(self):
+    def test_researcher_body_and_generated_agents_teach_stance(self):
         paths = [
-            AGENTS / "bodies" / "research.md",
-            AGENTS / "claude" / "research.md",
-            AGENTS / "codex" / "research.md",
-            AGENTS / "agy" / "research" / "agent.md",
+            AGENTS / "bodies" / "researcher.md",
+            AGENTS / "claude" / "researcher.md",
+            AGENTS / "codex" / "researcher.md",
+            AGENTS / "agy" / "researcher" / "agent.md",
         ]
         for path in paths:
             with self.subTest(path=path.relative_to(ROOT)):

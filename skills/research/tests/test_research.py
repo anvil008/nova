@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "merge_research.py"
 RENDER = ROOT / "scripts" / "render_research.py"
 EXAMPLES = ROOT / "examples"
-AGENT = ROOT.parents[1] / "agents" / "claude" / "research.md"
+AGENT = ROOT.parents[1] / "agents" / "claude" / "researcher.md"
 
 
 def run_helper(*reports):
@@ -129,7 +129,7 @@ class ResearchSkillTests(unittest.TestCase):
             set(keys) - {"name", "description", "tools"},
             {"model", "effort", "disallowedTools", "maxTurns"},
         )
-        self.assertEqual(frontmatter[0], "name: research")
+        self.assertEqual(frontmatter[0], "name: researcher")
         self.assertEqual(frontmatter[2], "tools: Read, Grep, Glob, Bash, Skill")
         for phrase in (
             "exactly one assigned research area", "blind", "read-only", "Never edit",
@@ -145,7 +145,7 @@ class ResearchSkillTests(unittest.TestCase):
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertTrue(skill.startswith("---\nname: research\n"))
         for phrase in (
-            "real research areas", "never a fixed N", "one read-only `research` agent per area",
+            "real research areas", "never a fixed N", "one read-only `researcher` agent per area",
             "in parallel", "blind", "(area, source, finding)", "without dropping",
             "coverage", "gaps", "open questions", "orchestrator", "owns synthesis",
         ):

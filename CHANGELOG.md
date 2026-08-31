@@ -2,6 +2,33 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [Agents are named for the worker] - 2026-08-30
+
+### Changed
+
+- **Five agents renamed** (ADR-0015): `test-author` → `oracle`, `code-reviewer` → `reviewer`,
+  `research` → `researcher`, `docs` → `scribe`, `deploy` → `deployer`. `planner`, `builder`,
+  `debugger`, `benchmarker`, and `integrator` are unchanged. The **skills** `research`, `docs`,
+  `deploy`, and `code-review` keep their names — a skill is a workflow, an agent is the worker it
+  dispatches — and each now dispatches the renamed agent by its new id. The skill
+  `code-reviewer-frontend-review` becomes `reviewer-frontend-review`, after the agent that owns it.
+  Bodies, `agents.json`, `models.json`, the Codex gate snippet, every generated per-harness
+  definition, the skills, eval cases and routing owners, the tests that pin those names, the README,
+  `docs/gates.md`, and the README diagram sources all move together. Accepted ADRs 0001–0014,
+  `docs/plans/`, `docs/research/`, and `plan.sidecar.json` keep the old names as historical record.
+- **`build` and `research` skill descriptions** were reworded around the new agent names, holding
+  the routing rank-1 rate at 79.0% against the 77% floor.
+- **`repo-setup` and the `scribe` body: one instruction file.** `AGENTS.md` is the single real
+  instruction file and `CLAUDE.md` / `GEMINI.md` are symlinks to it (`ln -sf AGENTS.md CLAUDE.md`),
+  so there is one source of truth instead of copies that drift. A repository with a divergent
+  `CLAUDE.md` has both merged into `AGENTS.md`, shown to the human, before the link replaces it.
+  `docs_check.py` now counts a linked instruction file once, under the real path.
+
+### Removed
+
+- **README "How it compares".** The addyosmani/agent-skills comparison table is gone; the README
+  describes this repository rather than ranking it against another.
+
 ## [One workspace helper across harnesses] - 2026-08-30
 
 ### Added

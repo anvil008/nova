@@ -1,0 +1,27 @@
+{
+  "name": "researcher",
+  "kind": "agent",
+  "trigger": {
+    "positive": [
+      {"prompt": "Investigate exactly the storage area and return structured findings with source locations.", "top_k": 3},
+      {"prompt": "Do a read-only evidence pass over the one assigned subsystem and report its gaps.", "top_k": 3},
+      {"prompt": "Gather facts for this bounded research area in the required findings envelope, without drawing the overall conclusion.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Split this question across code, docs, and runtime agents and merge every area's evidence.", "owner": "skill:research"},
+      {"prompt": "Investigate a coding task and author its implementation folio and issue sidecar.", "owner": "agent:planner"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "dialogue",
+      "prompt": "Research the caching subsystem and hand the evidence back to the orchestrator.",
+      "expected_output": "One anvil.agent-handoff/v1 record whose evidence contains a structured findings envelope.",
+      "expectations": [
+        "The result is a JSON findings envelope with source-backed evidence for the assigned area.",
+        "No report artifact is written and no cross-area synthesis or final conclusion is claimed."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "oracle",
+  "kind": "agent",
+  "trigger": {
+    "positive": [
+      {"prompt": "Write this issue's failing acceptance tests and seal them before implementation starts.", "top_k": 3},
+      {"prompt": "Create the isolated workspace, prove honest RED on the assertion, and hand the test seal to the implementer.", "top_k": 3},
+      {"prompt": "Turn these acceptance oracles into runnable tests that fail for the intended behavior.", "top_k": 3}
+    ],
+    "negative": [
+      {"prompt": "Implement one assigned GitHub issue end-to-end in an isolated branch and pull request.", "owner": "agent:builder"},
+      {"prompt": "Verify one combined wave and return command-linked evidence from its existing correctness suite.", "owner": "agent:integrator"}
+    ]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "kind": "execution",
+      "prompt": "Author an acceptance test for a new split_cents(total, people, strategy) behavior. The current module lacks that signature. Produce honest RED and the seal; do not implement the behavior.",
+      "expected_output": "A sealed test whose failure is an assertion rather than ImportError or missing-symbol setup failure.",
+      "files": ["split-cents"],
+      "expectations": [
+        "A signature-only stub is introduced when necessary so the acceptance test imports and runs.",
+        "The demonstrated red command fails on the behavioral assertion, not ImportError, SyntaxError, or collection failure.",
+        "No implementation beyond the signature-only stub is added before sealing."
+      ]
+    }
+  ]
+}
