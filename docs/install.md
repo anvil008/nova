@@ -20,11 +20,11 @@ the installer applies it before installing anything.
 
 Each harness gets only the knobs it actually honours, which differ more than they look:
 
-| Harness     | Model                                   | Thinking level     | Where it takes effect                                        |
-| ----------- | --------------------------------------- | ------------------ | ------------------------------------------------------------ |
-| Claude      | `opus` / `sonnet` / `haiku` / `inherit` | `low` – `xhigh`    | agent frontmatter — fully per-agent                          |
+| Harness     | Model                                   | Thinking level     | Where it takes effect                                         |
+| ----------- | --------------------------------------- | ------------------ | ------------------------------------------------------------- |
+| Claude      | `opus` / `sonnet` / `haiku` / `inherit` | `low` – `xhigh`    | agent frontmatter — fully per-agent                           |
 | Codex       | any model id                            | `low` – `max`      | generated `spawn_agent` routing; profiles for manual launches |
-| Antigravity | `pro` / `flash` / `inherit`             | _(none per-agent)_ | agent frontmatter                                            |
+| Antigravity | `pro` / `flash` / `inherit`             | _(none per-agent)_ | agent frontmatter                                             |
 
 The Codex plugin manifest has no per-agent model surface, and `agents/openai.yaml` is UI metadata.
 Workcell therefore generates an explicit routing contract into every staged Codex skill: each
@@ -36,8 +36,8 @@ one role with `codex --profile workcell-<agent>`. It never touches a profile it 
 `--uninstall` removes only its own.
 
 Because Codex has no plugin-level agents, each of Workcell's 10 agents ships as a Codex skill named
-`agent-<name>` with an `agents/openai.yaml`. Those agent skills and the 17 shared workflow skills
-arrive as 27 entries, all namespaced `workcell:<name>`. Every staged skill carries the generated
+`agent-<name>` with an `agents/openai.yaml`. Those agent skills and the 18 shared workflow skills
+arrive as 28 entries, all namespaced `workcell:<name>`. Every staged skill carries the generated
 model-and-effort routing table used for subagent dispatch.
 
 Antigravity does have reasoning effort, but session-wide via `/effort` or `--effort` — there is no
