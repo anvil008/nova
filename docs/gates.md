@@ -56,6 +56,14 @@ In detail, and in the order the wave hits them:
    missing/stale diff review. `tdd-guard status --json` reports the same state for a human or the
    orchestrator, and it is the gate that decides a merge — a handoff never satisfies it.
 
+Runtime verification is a contract-level gate, not a mechanical one. Between GREEN and its review
+passes the `builder` must run the surface it changed — a browser for UI, `curl` against a started
+service, the real command for a CLI — and record what it ran in the handoff's `evidence.runtime`
+([contract](../agents/handoff.md)); a change with no runnable surface says so instead. The Stop hook
+still gates only on `tdd-guard` state and knows nothing about this, so it is the builder's definition
+of done and the orchestrator's evidence to read, not something a hook can prove. A suite that passes
+proves the tests pass; only running the thing proves it runs.
+
 Alongside the TDD state machine, `build-guard` inspects each shell command _before_ it runs and fails
 closed on malformed tool payloads, protected-branch mutations, unsafe Git/jj/GitHub operations, and
 RAM-tmpfs build targets. `build-format` and `build-lint` auto-format written files and feed

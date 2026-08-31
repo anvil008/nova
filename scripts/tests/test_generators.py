@@ -160,6 +160,16 @@ class GeneratorTests(unittest.TestCase):
         self.assertIn("## Dispatch brief example", contract)
         self.assertIn("## Handoff record example", contract)
 
+    def test_handoff_contract_carries_runtime_in_brief_and_record(self):
+        contract = (ROOT / "agents/handoff.md").read_text(encoding="utf-8")
+        brief, record = contract.split("## Handoff record", 1)
+        self.assertIn("`runtime`", brief)
+        self.assertIn("{launch, url, healthPath}", brief)
+        self.assertIn("`evidence.runtime`", record)
+        for field in ("surface", "commands", "observations", "consoleErrors", "screenshots"):
+            self.assertIn(field, record)
+        self.assertIn('surface: "none"', record)
+
     def test_every_body_links_the_contract(self):
         bodies = sorted((ROOT / "agents/bodies").glob("*.md"))
         self.assertEqual(len(bodies), 10)
@@ -212,6 +222,19 @@ class GeneratorTests(unittest.TestCase):
                     self.assertGreaterEqual(len(rows), 6)
                     self.assertEqual(rows[0], "| Rationalization | Reality |")
 
+    def test_every_builder_variant_verifies_runtime_between_green_and_review(self):
+        """GREEN proves the tests pass; the review passes judge a change nobody has run
+        unless runtime verification sits between them."""
+        for harness, builder in self.agent_variants("builder"):
+            with self.subTest(harness=harness):
+                ordered = ["tdd-guard verify", "Prove it runs, not just passes", "at most two passes"]
+                positions = []
+                for phrase in ordered:
+                    self.assertIn(phrase, builder, f"{harness}: missing {phrase!r}")
+                    positions.append(builder.index(phrase))
+                self.assertEqual(positions, sorted(positions), f"{harness}: runtime step out of order")
+                self.assertIn("`evidence.runtime`", builder)
+
     def test_claude_builder_tool_is_agent(self):
         builder = (ROOT / "agents/claude/builder.md").read_text(encoding="utf-8")
         frontmatter = builder.split("---", 2)[1]
@@ -221,6 +244,8 @@ class GeneratorTests(unittest.TestCase):
         tool_names = [tool.strip() for tool in tools.split(",")]
         self.assertIn("Agent", tool_names)
         self.assertNotIn("Task", tool_names)
+        # Runtime verification of a UI is unreachable without the browser tools.
+        self.assertIn("mcp__playwright__browser_console_messages", tool_names)
 
     def test_build_codex_plugin_rejects_malformed_sources_without_partial_output(self):
         for case in ("missing skill", "no frontmatter", "missing name"):

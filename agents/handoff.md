@@ -15,6 +15,7 @@ This contract defines the one brief an orchestrator sends to a Workcell agent an
 - `redCommand`: the argv that demonstrated RED for a `kind: red` seal, or `null` when RED does not apply.
 - `baselineCommand`: the argv that demonstrated GREEN and is bound by a `kind: baseline` seal for a refactor/baseline dispatch, or `null` when a green baseline seal does not apply.
 - `devServer`: reviewers only; `none`, a non-production URL, or `start: <command>`.
+- `runtime`: builders only; an optional hint object `{launch, url, healthPath}` telling the builder how to run the surface it changed — `launch` is the command that starts it, `url` is where it answers, `healthPath` is a service's health path. It is `null` or absent when the orchestrator has no hint, and the builder then discovers the run command from the repo. A production URL is never a valid hint.
 - `approval`: deploy only; an object naming `who`, `when`, `target`, and `commit`. It is `null` for every other agent.
 
 ## Dispatch brief example
@@ -41,6 +42,7 @@ This contract defines the one brief an orchestrator sends to a Workcell agent an
   "redCommand": ["python3", "-m", "unittest", "tests.test_auth"],
   "baselineCommand": null,
   "devServer": "none",
+  "runtime": null,
   "approval": null
 }
 ```
@@ -60,9 +62,12 @@ Every agent returns one `anvil.agent-handoff/v1` JSON object with these fields:
 - `changedFiles[]`: repository-relative paths changed by the agent.
 - `commands[]`: command evidence entries, each containing `argv`, `commandId`, `exitCode`, and `summary`.
 - `evidence`: an agent-specific object, such as an acceptance-test map, findings envelope, benchmark distributions, or demonstrated root cause.
+- `evidence.runtime`: required whenever the change touches a runnable surface — `{surface: "ui|service|cli|none", commands: [{argv, commandId, exitCode}], observations: "...", consoleErrors: 0, screenshots: [paths]}`. It is the proof the change was exercised rather than only tested. `surface: "none"` claims the change has no runnable surface, and must carry a one-line justification for that claim in `observations`.
 - `openQuestions[]`: unresolved questions for the orchestrator; use an empty array when there are none.
 
 A record with a `disposition` outside that enum, or a command entry without a `commandId`, is malformed and the orchestrator treats it as `blocked`.
+
+Runtime evidence is judged apart from that: its absence makes a record **incomplete**, not malformed, and the orchestrator re-dispatches the builder with a `runtime` hint rather than blocking. A record is incomplete when `evidence.runtime` is missing, when `surface: "none"` carries no justification in `observations`, or when `surface: "none"` is claimed while `changedFiles` contains a file under the brief's `ownership` that is an entrypoint, route, page, component, or CLI command.
 
 ## Handoff record example
 
@@ -83,6 +88,12 @@ A record with a `disposition` outside that enum, or a command entry without a `c
       "commandId": "verify-acceptance-1",
       "exitCode": 0,
       "summary": "The sealed token test and neighboring authentication tests passed."
+    },
+    {
+      "argv": ["python3", "-m", "example", "--token", ""],
+      "commandId": "runtime-cli-1",
+      "exitCode": 2,
+      "summary": "The real CLI rejected an empty token before opening a connection."
     }
   ],
   "evidence": {
@@ -93,6 +104,19 @@ A record with a `disposition` outside that enum, or a command entry without a `c
         "commandId": "verify-acceptance-1"
       }
     ],
+    "runtime": {
+      "surface": "cli",
+      "commands": [
+        {
+          "argv": ["python3", "-m", "example", "--token", ""],
+          "commandId": "runtime-cli-1",
+          "exitCode": 2
+        }
+      ],
+      "observations": "The CLI exited 2 and printed `empty API token` before opening a connection.",
+      "consoleErrors": 0,
+      "screenshots": []
+    },
     "reviewPasses": [
       {
         "pass": 1,
