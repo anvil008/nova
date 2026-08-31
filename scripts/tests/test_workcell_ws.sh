@@ -238,6 +238,34 @@ suite(){
   check bash -c 'cd "$2-cwd-one" && ! "$1" forget cwd-one --force >/dev/null 2>&1' _ "$WS" "$repo"
   name="$tag forget works again from outside the workspace"
   check bash -c '"$1" forget cwd-one --repo "$2" >/dev/null' _ "$WS" "$repo"
+
+  # --- REGRESSION: a merged ref whose workspace was kept is not the sweep's to delete -------------
+  "$WS" add keptref-one --repo "$repo" >/dev/null 2>&1
+  printf 'work\n' > "$repo-keptref-one/work.txt"
+  if [[ $vcs == jj ]]; then (cd "$repo-keptref-one" && jj describe -m 'keptref work' >/dev/null 2>&1)
+  else git -C "$repo-keptref-one" add -A
+       git -C "$repo-keptref-one" -c commit.gpgsign=false commit -qm 'keptref work'
+  fi
+  merge_in "$vcs" "$repo" keptref-one
+  # Make it unremovable without --force. git: leave the tree dirty. jj: orphan it, since a jj
+  # workspace that can still be snapshotted is never kept, so stale-dir is the shape that gets here.
+  if [[ $vcs == jj ]]; then orphan "$vcs" "$repo" keptref-one
+  else printf 'UNCOMMITTED\n' > "$repo-keptref-one/dirty.txt"
+  fi
+  "$WS" sweep --apply --repo "$repo" > "$TMP/$vcs-keptref.out" 2>&1; rc=$?
+  name="$tag sweep --apply exits zero when it keeps a workspace whose ref is merged"
+  check test "$rc" -eq 0
+  name="$tag ... noting the ref it skipped rather than failing on it"
+  check saw "$vcs-keptref.out" 'kept +ref +keptref-one +workspace kept, remove it first'
+  name="$tag ... with no FAILED line anywhere"
+  check nope saw "$vcs-keptref.out" FAILED
+  name="$tag ... the merged ref survives";     check has_ref "$repo" keptref-one
+  name="$tag ... and so does its workspace";   check test -d "$repo-keptref-one"
+
+  "$WS" sweep --apply --force --repo "$repo" > "$TMP/$vcs-keptref2.out" 2>&1; rc=$?
+  name="$tag sweep --apply --force exits zero and clears both"; check test "$rc" -eq 0
+  name="$tag ... the workspace is gone";       check nope test -d "$repo-keptref-one"
+  name="$tag ... and the merged ref with it";  check nope has_ref "$repo" keptref-one
 }
 
 mkdir -p "$TMP/remotes"

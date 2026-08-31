@@ -77,5 +77,10 @@ names the reason and, where one exists, the override.
   it — `jj st` there answers "No working copy" and exits zero, which is not a snapshot — so
   reclaiming it needs `sweep --apply --force` or `forget <key> --force`. A plain `--apply` keeps
   it and prints why.
+- **A merged ref whose workspace the sweep just kept.** Deleting it would fail anyway on git,
+  where the surviving worktree still holds the branch, and would silently drop the bookmark of a
+  working copy the sweep deliberately kept on jj. It is reported as
+  `kept ref <key> — workspace kept, remove it first` and the sweep still exits zero, so an
+  unattended resume step is never tripped by it.
 - **A workspace the calling shell is standing in.** Removing it leaves that shell with a dead
   working directory. No flag overrides this one; `cd` out first.
