@@ -33,8 +33,8 @@ Batch the questions in one pass rather than interrogating one at a time, mark wh
 1. **Interview** as above. Write the answers down; they are the planner's brief.
 2. **Plan.** Dispatch the `planner` with the goal *and the answers*. It investigates read-only and returns the folio, sidecar, and per-issue `acceptanceTests`. If it returns `needs-decision`, that is a question the interview missed: put it to the human and re-dispatch rather than answering on their behalf.
 3. **Approve.** Present the folio and stop for explicit human approval, then write the milestone and issues yourself.
-4. **Execute** [`build`](../build/SKILL.md) in **single-PR mode**, both phases per issue: an `oracle` writes the acceptance tests, proves honest RED, and seals; the `builder` implements against tests it cannot edit; `reviewer` agents fan out by lens before any intermediate PR exists.
-5. **Integrate.** Dispatch an `integrator` over each wave, merge the intermediate PRs to the integration branch on the evidence, and dispatch the `scribe` agent for whatever the feature changed about how the project is used.
+4. **Execute** [`build`](../build/SKILL.md) in **single-PR mode**, both phases per issue: a `specifier` writes the acceptance tests, proves honest RED, and seals; the `builder` implements against tests it cannot edit; `reviewer` agents fan out by lens before any intermediate PR exists.
+5. **Integrate.** Dispatch an `integrator` over each wave, merge the intermediate PRs to the integration branch on the evidence, and dispatch the `documenter` agent for whatever the feature changed about how the project is used.
 6. **Open the final PR to `main`** from the integration branch. Its body describes the feature, the questions that shaped it, and the acceptance tests that define it as done, and repeats every per-issue `Closes #<n>` line.
 
 ## Boundaries

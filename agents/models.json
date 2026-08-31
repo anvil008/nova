@@ -56,7 +56,7 @@
         "model": "pro"
       }
     },
-    "oracle": {
+    "specifier": {
       "_why": "Writes the Definition of Done nobody downstream can weaken. A lazy acceptance test here is invisible and permanent.",
       "claude": {
         "model": "opus",
@@ -121,7 +121,7 @@
         "model": "flash"
       }
     },
-    "scribe": {
+    "documenter": {
       "_why": "Prose against a fixed standard, over code someone else already settled.",
       "claude": {
         "model": "sonnet",
@@ -160,7 +160,7 @@
         "model": "pro"
       }
     },
-    "benchmarker": {
+    "profiler": {
       "_why": "Disciplined measurement, not deep reasoning. The rigour is in the method, which this file cannot buy with a bigger model.",
       "claude": {
         "model": "sonnet",

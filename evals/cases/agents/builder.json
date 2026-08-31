@@ -8,7 +8,7 @@
       {"prompt": "Own this one implementation task through green evidence and a pull request, without merging it.", "top_k": 3}
     ],
     "negative": [
-      {"prompt": "Author the issue's failing acceptance tests first and seal them before implementation.", "owner": "agent:oracle"},
+      {"prompt": "Author the issue's failing acceptance tests first and seal them before implementation.", "owner": "agent:specifier"},
       {"prompt": "Read this diff through one assigned assurance lens and return findings without edits.", "owner": "agent:reviewer"}
     ]
   },

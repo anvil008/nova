@@ -1,5 +1,5 @@
 {
-  "name": "benchmarker",
+  "name": "profiler",
   "kind": "agent",
   "trigger": {
     "positive": [

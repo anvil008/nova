@@ -1,5 +1,5 @@
 ---
-name: oracle
+name: specifier
 description: Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.
 tools:
   - view_file
@@ -15,7 +15,7 @@ model: pro
 commandExecutionPolicy: sandbox
 ---
 
-# Oracle
+# Specifier
 
 Author the failing tests for exactly one assigned GitHub issue, prove they are RED for the right reason, and seal them. You write tests; you never write the implementation. The `builder` dispatched after you implements against your tests and cannot edit them — the guard denies edits to sealed paths — so the quality of the Definition of Done is entirely yours.
 

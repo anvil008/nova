@@ -9,7 +9,7 @@
     ],
     "negative": [
       {"prompt": "Coordinate versioning, release notes, CI/CD, approval, deployment, and rollback planning.", "owner": "skill:deploy"},
-      {"prompt": "Write the changelog and release-note artifacts for this version.", "owner": "agent:scribe"}
+      {"prompt": "Write the changelog and release-note artifacts for this version.", "owner": "agent:documenter"}
     ]
   },
   "evals": [

@@ -14,12 +14,12 @@ Plan → Approve → Tests → Build → Review → Integrate → Merge → Docs
 | --------- | ------------ | ------------------------------------------------------------------------ |
 | Plan      | `planner`    | Offline plan + `plan.sidecar.json`, every issue carries acceptance tests |
 | Approve   | you (human)  | Explicit approval — silence is never consent                             |
-| Tests     | `oracle`     | RED is real and honest, then sealed                                      |
+| Tests     | `specifier`  | RED is real and honest, then sealed                                      |
 | Build     | `builder`    | Implements against tests it cannot edit                                  |
 | Review    | `reviewer`   | No `critical`/`high` finding left standing                               |
 | Integrate | `integrator` | Combined wave retested, evidence returned                                |
 | Merge     | orchestrator | Reads gate output, never a claim                                         |
-| Docs      | `scribe`     | READMEs and ADRs match reality                                           |
+| Docs      | `documenter` | READMEs and ADRs match reality                                           |
 | Deploy    | `deployer`   | Fresh, explicit approval; verified; reversible                           |
 
 ## Start here
@@ -88,14 +88,14 @@ earlier install are covered in **[docs/install.md](docs/install.md)**.
 | ---------------------------------- | ----------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
 | orchestrator (you, in the harness) | nothing                                   | dispatch, gates, wave scheduling, merges, verdicts        | reads or edits project code, runs test suites, authors artifacts |
 | `planner`                          | plan artifacts                            | investigation, folio, sidecar, acceptance tests           | touches the target project; writes GitHub; answers for the human |
-| `oracle`                           | tests                                     | the Definition of Done: real RED, then the seal           | writes an implementation, makes its own test pass                |
+| `specifier`                        | tests                                     | the Definition of Done: real RED, then the seal           | writes an implementation, makes its own test pass                |
 | `builder`                          | implementation                            | one issue, one workspace, one PR                          | edits sealed tests, pushes `main`, merges its own PR             |
 | `reviewer`                         | nothing                                   | one assurance lens over one change-set                    | edits anything it reviews                                        |
 | `debugger`                         | temporary instrumentation only            | reproducing a symptom and finding its cause by experiment | ships the fix, leaves instrumentation behind                     |
-| `benchmarker`                      | nothing                                   | measurement: distributions, run counts, conditions        | edits anything it measures, reports a single run                 |
+| `profiler`                         | nothing                                   | measurement: distributions, run counts, conditions        | edits anything it measures, reports a single run                 |
 | `integrator`                       | nothing                                   | the combined-wave run and its evidence                    | merges to `main`, fixes what it finds, decides                   |
 | `researcher`                       | findings envelope (returned, not written) | one assigned area, evidence-backed                        | writes report artifacts; draws the conclusion                    |
-| `scribe`                           | docs                                      | READMEs, ADRs, changelogs, the docs gate                  | product code                                                     |
+| `documenter`                       | docs                                      | READMEs, ADRs, changelogs, the docs gate                  | product code                                                     |
 | `deployer`                         | release artifacts                         | one approved release, verify, rollback                    | deploys without a fresh, explicit approval                       |
 
 The boundary is written down in [ADR 0007](docs/adr/0007-primary-agent-is-a-pure-orchestrator.md);
@@ -112,32 +112,32 @@ believing an agent's summary. See [ADR 0007](docs/adr/0007-primary-agent-is-a-pu
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-work-moves-dark.svg">
-  <img alt="A goal becomes a plan, the plan waits for human approval, and the resulting GitHub issues move through an oracle, a builder, and reviewers before a pull request opens, then an integrator and a gate the orchestrator reads before merging, then the scribe and the deployer." src="docs/diagrams/how-work-moves-light.svg" width="100%">
+  <img alt="A goal becomes a plan, the plan waits for human approval, and the resulting GitHub issues move through a specifier, a builder, and reviewers before a pull request opens, then an integrator and a gate the orchestrator reads before merging, then the documenter and the deployer." src="docs/diagrams/how-work-moves-light.svg" width="100%">
 </picture>
 
 In words: a goal becomes a plan; the plan waits for your approval; only then does it become a GitHub
-milestone and its issues. Each issue is dispatched into a wave — an `oracle` seals its tests, a
+milestone and its issues. Each issue is dispatched into a wave — a `specifier` seals its tests, a
 `builder` implements against tests it cannot edit, and `reviewer`s take one lens each over the
 change-set _before any pull request exists_, at most two passes. Only a change-set with no
 `critical` or `high` finding left standing becomes a pull request; an `integrator` then retests the
 combined wave. The orchestrator merges only when the gate output is green, then hands the result to
-`scribe` and, after a fresh approval, to `deployer`. An agent's own claim of success is never the input
+`documenter` and, after a fresh approval, to `deployer`. An agent's own claim of success is never the input
 to a merge decision — only a gate a machine ran is. Work that fails a gate returns to the builder;
 a finding that still stands after two passes returns as `blocked`, with no PR opened at all.
 
-**Authorship is separated and enforced by `tdd-guard`.** An `oracle` proves RED and seals the
+**Authorship is separated and enforced by `tdd-guard`.** A `specifier` proves RED and seals the
 tests; the `builder` implements against them and is mechanically denied any edit to a sealed path.
 For behaviour-preserving `code-refactor`/`perf` work, an `integrator` instead proves the baseline
-GREEN and takes a **baseline seal** — no `oracle`, no touched tests. Either way the Stop hook
+GREEN and takes a **baseline seal** — no `specifier`, no touched tests. Either way the Stop hook
 refuses to let the builder finish without fresh GREEN evidence that postdates the seal.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/mechanical-gates-dark.svg">
-  <img alt="An oracle's red seal, or an integrator's green baseline seal, gates the builder, whose work must pass verify and a diff-review record before the Stop hook allows a pull request; an edit of a sealed path is denied instead." src="docs/diagrams/mechanical-gates-light.svg" width="100%">
+  <img alt="A specifier's red seal, or an integrator's green baseline seal, gates the builder, whose work must pass verify and a diff-review record before the Stop hook allows a pull request; an edit of a sealed path is denied instead." src="docs/diagrams/mechanical-gates-light.svg" width="100%">
 </picture>
 
 In words: the agent judged by the tests is never the agent who wrote them, and the guard — not a
-convention — is what makes that true. An `oracle` proves RED and seals, or for
+convention — is what makes that true. A `specifier` proves RED and seals, or for
 behaviour-preserving work an `integrator` seals a green baseline; the `builder` then implements, and
 an edit of a sealed path is denied rather than warned about, amendable only through
 `reseal --reason`. `verify` accepts only a GREEN run that postdates the seal, `diff-review record`

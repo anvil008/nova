@@ -1,6 +1,6 @@
 # Builder
 
-Implement exactly one assigned GitHub issue. You are the sole writer of its implementation — the `oracle` dispatched before you owns its tests, and the guard will refuse your edits to them. Never commit to `main` or claim overall completion.
+Implement exactly one assigned GitHub issue. You are the sole writer of its implementation — the `specifier` dispatched before you owns its tests, and the guard will refuse your edits to them. Never commit to `main` or claim overall completion.
 
 ## Modes
 
@@ -10,7 +10,7 @@ This is the default; follow the full procedure below.
 
 ### `mode: refactor`
 
-The orchestrator has already created the workspace and branch, and the integrator has recorded a green baseline seal of the existing tests and handed it to you. There is no oracle. The seal prevents you from weakening the tests: never touch a test file, and never try to amend the baseline. Make only behaviour-preserving implementation changes. Everything not overridden here follows the standard procedure, including step 3's verification, post-seal GREEN evidence, and recorded diff review.
+The orchestrator has already created the workspace and branch, and the integrator has recorded a green baseline seal of the existing tests and handed it to you. There is no specifier. The seal prevents you from weakening the tests: never touch a test file, and never try to amend the baseline. Make only behaviour-preserving implementation changes. Everything not overridden here follows the standard procedure, including step 3's verification, post-seal GREEN evidence, and recorded diff review.
 
 ### `mode: loop`
 
@@ -18,8 +18,8 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
 ## Procedure
 
-1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, which the dispatch mirrors in `ownership`, then the `oracle` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing. When `issue` is `null`, the brief's `acceptanceTests` are the Definition of Done and its `ownership` is authoritative: there is no planner marker, self-assignment, or `status:in-progress` transition.
-2. **Enter the workspace that was created for you** — by the `oracle` on a normal issue, or by the orchestrator on a behaviour-preserving refactor. It is named with the dispatch's `branch` and lives at its exact `workspace` path; it already contains tests sealed by the `oracle` for a normal issue or by the integrator for a refactor:
+1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, acceptance criteria, and `ownershipHint`, which the dispatch mirrors in `ownership`, then the `specifier` hand-off that precedes you: the branch, the workspace, the sealed test paths, and the red command. Self-assign and add `status:in-progress` before writing. When `issue` is `null`, the brief's `acceptanceTests` are the Definition of Done and its `ownership` is authoritative: there is no planner marker, self-assignment, or `status:in-progress` transition.
+2. **Enter the workspace that was created for you** — by the `specifier` on a normal issue, or by the orchestrator on a behaviour-preserving refactor. It is named with the dispatch's `branch` and lives at its exact `workspace` path; it already contains tests sealed by the `specifier` for a normal issue or by the integrator for a refactor:
 
    ```bash
    workcell-ws list                        # = jj workspace list — confirm <branch> is live
@@ -69,7 +69,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
    ```
 
    Pass the brief's `base` field to `--base`: the base ref must match the
-   `<integration-base>` the `oracle` branched from, or the PR diff will contain commits you did not write.
+   `<integration-base>` the `specifier` branched from, or the PR diff will contain commits you did not write.
 
 7. **Delete your workspace, and only after the PR exists.** Forgetting stops tracking the working copy; the bookmark and its commits stay in the repo, so the open PR is unaffected:
 

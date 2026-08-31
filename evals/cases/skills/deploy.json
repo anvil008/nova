@@ -9,7 +9,7 @@
     ],
     "negative": [
       {"prompt": "Execute the already-approved release against the named target and report command evidence.", "owner": "agent:deployer"},
-      {"prompt": "Write the release notes and changelog entry for the next version.", "owner": "agent:scribe"}
+      {"prompt": "Write the release notes and changelog entry for the next version.", "owner": "agent:documenter"}
     ]
   },
   "evals": [
