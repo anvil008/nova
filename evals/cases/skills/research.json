@@ -8,7 +8,7 @@
       {"prompt": "Gather read-only evidence from several subsystems and synthesize coverage without losing dissenting findings.", "top_k": 3}
     ],
     "negative": [
-      {"prompt": "Investigate exactly the storage subsystem and return its structured source-backed findings.", "owner": "agent:research"},
+      {"prompt": "Investigate exactly the storage subsystem and return its structured source-backed findings.", "owner": "agent:researcher"},
       {"prompt": "Turn this repository change into an approved implementation folio and issue sidecar.", "owner": "skill:planner"}
     ]
   },

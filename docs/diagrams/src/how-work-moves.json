@@ -31,7 +31,7 @@
     {
       "id": "testauthor",
       "kind": "agent",
-      "label": "test-author",
+      "label": "oracle",
       "sub": "proves RED is real, then seals the tests"
     },
     {
@@ -43,7 +43,7 @@
     {
       "id": "reviewer",
       "kind": "agent",
-      "label": "code-reviewer",
+      "label": "reviewer",
       "sub": "read-only, one lens each · at most two passes"
     },
     {
@@ -73,13 +73,13 @@
     {
       "id": "docs",
       "kind": "agent",
-      "label": "docs",
+      "label": "scribe",
       "sub": "READMEs, ADRs, and the changelog match reality"
     },
     {
       "id": "deploy",
       "kind": "agent",
-      "label": "deploy",
+      "label": "deployer",
       "sub": "a fresh explicit approval · verified · reversible"
     }
   ],

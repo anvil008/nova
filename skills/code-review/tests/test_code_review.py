@@ -12,7 +12,7 @@ SCRIPT = ROOT / "scripts" / "merge_findings.py"
 RENDER = ROOT / "scripts" / "render_review.py"
 RECONCILE = ROOT / "scripts" / "reconcile_findings.py"
 EXAMPLES = ROOT / "examples"
-AGENT = ROOT.parents[1] / "agents" / "claude" / "code-reviewer.md"
+AGENT = ROOT.parents[1] / "agents" / "claude" / "reviewer.md"
 
 
 def run_script(script, *args):
@@ -389,7 +389,7 @@ class CodeReviewSkillTests(unittest.TestCase):
         self.assertIn("Table overflows the viewport below 1280px", html)
 
     def test_frontend_lens_publishes_its_viewport_matrix_and_envelope(self):
-        skill = (ROOT.parents[1] / "skills" / "code-reviewer-frontend-review" / "SKILL.md").read_text(encoding="utf-8")
+        skill = (ROOT.parents[1] / "skills" / "reviewer-frontend-review" / "SKILL.md").read_text(encoding="utf-8")
         for viewport in (
             "3840 × 2160", "1920 × 2160", "2560 × 1440", "1920 × 1080",
             "1728 × 1117", "1512 × 982", "1440 × 900", "1280 × 800",
@@ -405,7 +405,7 @@ class CodeReviewSkillTests(unittest.TestCase):
         review = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for phrase in (
             "frontend applies when the change touches user-facing UI",
-            "code-reviewer-frontend-review", "Playwright",
+            "reviewer-frontend-review", "Playwright",
             "is not a frontend change",
         ):
             self.assertIn(phrase, review)
@@ -687,7 +687,7 @@ class CodeReviewSkillTests(unittest.TestCase):
             set(keys) - {"name", "description", "tools"},
             {"model", "effort", "disallowedTools", "maxTurns"},
         )
-        self.assertEqual(frontmatter[0], "name: code-reviewer")
+        self.assertEqual(frontmatter[0], "name: reviewer")
         tools = [t.strip() for t in frontmatter[2].split(":", 1)[1].split(",")]
         self.assertEqual(tools[:5], ["Read", "Grep", "Glob", "Bash", "Skill"])
         for phrase in (

@@ -71,7 +71,7 @@ class SkillContractTests(unittest.TestCase):
         for phrase in (
             "`mode: refactor`",
             "`mode: baseline`",
-            "no `test-author`",
+            "no `oracle`",
             "benchmarker baseline",
             "`baselineCommand`",
             "`sealedTests`",
@@ -106,7 +106,7 @@ class SkillContractTests(unittest.TestCase):
                     self.assertIn(phrase, text)
 
     def test_reviewer_dev_server_is_a_brief_field(self):
-        for name in ("code-review", "code-reviewer-frontend-review"):
+        for name in ("code-review", "reviewer-frontend-review"):
             with self.subTest(skill=name):
                 text = skill(name)
                 self.assertIn("`devServer`", text)

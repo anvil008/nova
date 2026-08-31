@@ -20,7 +20,7 @@
       "expected_output": "A grounded interview with at least five material clarifying questions before planner dispatch.",
       "expectations": [
         "At least five questions cover users, observable completion, scope edges, existing seams, failures, or constraints.",
-        "No planner, test-author, or builder is dispatched before the blocking answers arrive."
+        "No planner, oracle, or builder is dispatched before the blocking answers arrive."
       ]
     }
   ]

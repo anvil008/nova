@@ -23,13 +23,13 @@ Use the change-set's **file list** and diffstat to select lenses from its actual
 - integrations applies when the change crosses a boundary this repository does not own — a third-party API, message broker, webhook, auth provider, or another internal service — where the failure modes are timeouts, retries, partial writes, and contract drift rather than logic errors;
 - frontend applies when the change touches user-facing UI — see below.
 
-The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-only `code-reviewer` per selected lens in parallel. Give each reviewer the same change-set and exactly one lens. Reviewers return structured findings and never edit.
+The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-only `reviewer` per selected lens in parallel. Give each reviewer the same change-set and exactly one lens. Reviewers return structured findings and never edit.
 
 ### The frontend lens
 
 Select `frontend` when the change-set touches rendered UI: `.tsx` / `.jsx` / `.vue` / `.svelte` / `.astro` components, templates (`.html`, `.hbs`, `.ejs`), stylesheets (`.css` / `.scss` / `.less`), Tailwind or design-token config, or static assets those import. A change confined to server code, build config, or tests is not a frontend change — do not select the lens to be thorough, because a lens with nothing to look at produces noise, not coverage.
 
-That reviewer runs the [`code-reviewer-frontend-review`](../code-reviewer-frontend-review/SKILL.md) skill, which is the frontend lens's method rather than a separate review: a static pass over the changed components and styles, then a Playwright pass that resizes through a fixed viewport matrix — 4K (3840×2160), half-tiled 4K (1920×2160), QHD, 1080p, MacBook 16"/15"/13", a small laptop, tablet, and phone — capturing structure, screenshots, and an objective horizontal-overflow check at each. It returns the same envelope as every other lens, with `lens` set to `frontend`, so its findings dedupe, verify, and rank alongside the rest with no special-casing downstream.
+That reviewer runs the [`reviewer-frontend-review`](../reviewer-frontend-review/SKILL.md) skill, which is the frontend lens's method rather than a separate review: a static pass over the changed components and styles, then a Playwright pass that resizes through a fixed viewport matrix — 4K (3840×2160), half-tiled 4K (1920×2160), QHD, 1080p, MacBook 16"/15"/13", a small laptop, tablet, and phone — capturing structure, screenshots, and an objective horizontal-overflow check at each. It returns the same envelope as every other lens, with `lens` set to `frontend`, so its findings dedupe, verify, and rank alongside the rest with no special-casing downstream.
 
 The orchestrator sets `devServer` in the dispatch brief to `none`, a URL, or `start: <command>`; production URLs are never passed. The reviewer never asks. An absent field or `none` means the static pass only, and the reviewer records the runtime gap rather than asserting behaviour it never observed. A runtime pass also requires Playwright browser tools.
 

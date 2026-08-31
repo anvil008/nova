@@ -7,7 +7,7 @@
     {
       "id": "testauthor",
       "kind": "agent",
-      "label": "test-author",
+      "label": "oracle",
       "sub": "writes the acceptance tests, then runs RED"
     },
     {

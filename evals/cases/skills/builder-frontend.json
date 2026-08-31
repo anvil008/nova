@@ -8,7 +8,7 @@
       {"prompt": "Create an accessible navigation component that reflows cleanly from phone to desktop.", "top_k": 3}
     ],
     "negative": [
-      {"prompt": "Inspect the running UI at every breakpoint and report accessibility and overflow findings.", "owner": "skill:code-reviewer-frontend-review"},
+      {"prompt": "Inspect the running UI at every breakpoint and report accessibility and overflow findings.", "owner": "skill:reviewer-frontend-review"},
       {"prompt": "Bring the README and architecture decisions up to the repository documentation standard.", "owner": "skill:docs"}
     ]
   },
