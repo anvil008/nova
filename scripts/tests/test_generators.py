@@ -41,9 +41,12 @@ class GeneratorTests(unittest.TestCase):
             "body": ROOT / f"agents/bodies/{name}.md",
             "claude": ROOT / f"agents/claude/{name}.md",
             "codex": ROOT / f"agents/codex/{name}.md",
+            "grok": ROOT / f"agents/grok/{name}.md",
             "agy": ROOT / f"agents/agy/{name}/agent.md",
         }
-        return [(label, path.read_text(encoding="utf-8")) for label, path in paths.items()]
+        return [
+            (label, path.read_text(encoding="utf-8")) for label, path in paths.items()
+        ]
 
     def assert_mode_section(self, text: str, mode: str) -> None:
         lines = text.splitlines()
@@ -55,10 +58,18 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(len(headings), 1, f"expected one section heading for {mode!r}")
         start = headings[0] + 1
         end = next(
-            (index for index in range(start, len(lines)) if lines[index].startswith("## ")),
+            (
+                index
+                for index in range(start, len(lines))
+                if lines[index].startswith("## ")
+            ),
             len(lines),
         )
-        rules = [line for line in lines[start:end] if line.strip() and not line.startswith("#")]
+        rules = [
+            line
+            for line in lines[start:end]
+            if line.strip() and not line.startswith("#")
+        ]
         self.assertTrue(rules, f"section {mode!r} has no rule line")
 
     def test_sync_agents_check_detects_real_drift(self):
@@ -78,13 +89,18 @@ class GeneratorTests(unittest.TestCase):
 
     def test_sync_agents_rejects_malformed_inputs(self):
         mutations = {
-            "nested only block": lambda root: (root / "agents/bodies/documenter.md").write_text(
+            "nested only block": lambda root: (
+                root / "agents/bodies/documenter.md"
+            ).write_text(
                 (root / "agents/bodies/documenter.md").read_text(encoding="utf-8")
                 + "\n<!-- only:codex -->\n<!-- only:codex -->\n<!-- end -->\n<!-- end -->\n",
                 encoding="utf-8",
             ),
-            "unknown token": lambda root: (root / "agents/bodies/documenter.md").write_text(
-                (root / "agents/bodies/documenter.md").read_text(encoding="utf-8") + "\n{{undefinedToken}}\n",
+            "unknown token": lambda root: (
+                root / "agents/bodies/documenter.md"
+            ).write_text(
+                (root / "agents/bodies/documenter.md").read_text(encoding="utf-8")
+                + "\n{{undefinedToken}}\n",
                 encoding="utf-8",
             ),
             "missing gate": self._set_missing_gate,
@@ -96,7 +112,9 @@ class GeneratorTests(unittest.TestCase):
                 with temporary:
                     mutate(root)
                     result = run(root, "scripts/sync-agents.py", "--check")
-                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertEqual(
+                        result.returncode, 2, result.stdout + result.stderr
+                    )
                     self.assertRegex(result.stderr, r"documenter|agents\.json")
 
     @staticmethod
@@ -121,14 +139,18 @@ class GeneratorTests(unittest.TestCase):
         }
         for label, (agent, harness, field, value) in mutations.items():
             with self.subTest(case=label):
-                temporary, root = self.copy_root("agents", "scripts/sync-agent-models.py")
+                temporary, root = self.copy_root(
+                    "agents", "scripts/sync-agent-models.py"
+                )
                 with temporary:
                     path = root / "agents/models.json"
                     manifest = json.loads(path.read_text(encoding="utf-8"))
                     manifest["agents"][agent].setdefault(harness, {})[field] = value
                     path.write_text(json.dumps(manifest), encoding="utf-8")
                     result = run(root, "scripts/sync-agent-models.py", "--check")
-                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertNotEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
                     self.assertIn(f"{agent}/{harness}", result.stderr)
 
         temporary, root = self.copy_root("agents", "scripts/sync-agent-models.py")
@@ -166,7 +188,13 @@ class GeneratorTests(unittest.TestCase):
         self.assertIn("`runtime`", brief)
         self.assertIn("{launch, url, healthPath}", brief)
         self.assertIn("`evidence.runtime`", record)
-        for field in ("surface", "commands", "observations", "consoleErrors", "screenshots"):
+        for field in (
+            "surface",
+            "commands",
+            "observations",
+            "consoleErrors",
+            "screenshots",
+        ):
             self.assertIn(field, record)
         self.assertIn('surface: "none"', record)
 
@@ -179,8 +207,10 @@ class GeneratorTests(unittest.TestCase):
                 self.assertIn("anvil.agent-handoff/v1", text)
                 self.assertIn("(../handoff.md)", text)
                 name = body.stem
-                for harness in ("claude", "codex"):
-                    generated = (ROOT / f"agents/{harness}/{name}.md").read_text(encoding="utf-8")
+                for harness in ("claude", "codex", "grok"):
+                    generated = (ROOT / f"agents/{harness}/{name}.md").read_text(
+                        encoding="utf-8"
+                    )
                     self.assertIn("(../handoff.md)", generated)
                 agy = (ROOT / f"agents/agy/{name}/agent.md").read_text(encoding="utf-8")
                 self.assertIn("(../../handoff.md)", agy)
@@ -227,31 +257,60 @@ class GeneratorTests(unittest.TestCase):
         unless runtime verification sits between them."""
         for harness, builder in self.agent_variants("builder"):
             with self.subTest(harness=harness):
-                ordered = ["tdd-guard verify", "Prove it runs, not just passes", "at most two passes"]
+                ordered = [
+                    "tdd-guard verify",
+                    "Prove it runs, not just passes",
+                    "at most two passes",
+                ]
                 positions = []
                 for phrase in ordered:
                     self.assertIn(phrase, builder, f"{harness}: missing {phrase!r}")
                     positions.append(builder.index(phrase))
-                self.assertEqual(positions, sorted(positions), f"{harness}: runtime step out of order")
+                self.assertEqual(
+                    positions,
+                    sorted(positions),
+                    f"{harness}: runtime step out of order",
+                )
                 self.assertIn("`evidence.runtime`", builder)
 
     def test_claude_builder_tool_is_agent(self):
         builder = (ROOT / "agents/claude/builder.md").read_text(encoding="utf-8")
         frontmatter = builder.split("---", 2)[1]
         tools = next(
-            line.split(":", 1)[1] for line in frontmatter.splitlines() if line.startswith("tools:")
+            line.split(":", 1)[1]
+            for line in frontmatter.splitlines()
+            if line.startswith("tools:")
         )
         tool_names = [tool.strip() for tool in tools.split(",")]
         self.assertIn("Agent", tool_names)
         self.assertNotIn("Task", tool_names)
-        # Runtime verification of a UI is unreachable without the browser tools.
-        self.assertIn("mcp__playwright__browser_console_messages", tool_names)
+        # UI runtime verification runs through the agent-browser CLI (Bash), so no
+        # MCP browser tool definitions may ride along and cost tokens per dispatch.
+        self.assertIn("Bash", tool_names)
+        self.assertNotIn("mcp__chrome-devtools__list_console_messages", tool_names)
+
+    def test_claude_debugger_carries_chrome_devtools(self):
+        # The debugger alone owns the deep diagnostic surface (ADR 0012): the
+        # network waterfall and script evaluation are beyond the agent-browser CLI.
+        debugger = (ROOT / "agents/claude/debugger.md").read_text(encoding="utf-8")
+        frontmatter = debugger.split("---", 2)[1]
+        tools = next(
+            line.split(":", 1)[1]
+            for line in frontmatter.splitlines()
+            if line.startswith("tools:")
+        )
+        tool_names = [tool.strip() for tool in tools.split(",")]
+        self.assertIn("mcp__chrome-devtools__list_network_requests", tool_names)
+        self.assertIn("mcp__chrome-devtools__list_console_messages", tool_names)
 
     def test_build_codex_plugin_rejects_malformed_sources_without_partial_output(self):
         for case in ("missing skill", "no frontmatter", "missing name"):
             with self.subTest(case=case):
                 temporary, root = self.copy_root(
-                    "agents/codex", "plugins/codex", "skills", "scripts/build-codex-plugin.py"
+                    "agents/codex",
+                    "plugins/codex",
+                    "skills",
+                    "scripts/build-codex-plugin.py",
                 )
                 with temporary:
                     if case == "missing skill":
@@ -261,13 +320,19 @@ class GeneratorTests(unittest.TestCase):
                         path = root / "agents/codex/builder.md"
                         text = path.read_text(encoding="utf-8")
                         if case == "no frontmatter":
-                            path.write_text(text.split("---\n", 2)[-1], encoding="utf-8")
+                            path.write_text(
+                                text.split("---\n", 2)[-1], encoding="utf-8"
+                            )
                             expected = "agents/codex/builder.md"
                         else:
-                            path.write_text(text.replace("name: builder\n", "", 1), encoding="utf-8")
+                            path.write_text(
+                                text.replace("name: builder\n", "", 1), encoding="utf-8"
+                            )
                             expected = "agents/codex/builder.md"
                     result = run(root, "scripts/build-codex-plugin.py")
-                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertNotEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
                     self.assertIn(expected, result.stderr)
                     self.assertFalse((root / "dist/codex/plugins").exists())
 

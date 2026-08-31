@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# bootstrap-plugins.sh — install the Workcell plugin into every coding harness on
-# this machine. Idempotent and reversible. Run scripts/bootstrap-tools.sh first: the
+# bootstrap-plugins.sh — install the Workcell plugin, and the MCP servers its agents
+# require, into every coding harness on this machine. Idempotent and reversible (MCP
+# entries excepted; see register_mcp). Run scripts/bootstrap-tools.sh first: the
 # plugin's hooks call ~/.local/bin/tdd-guard and build-*, which that script provides.
 #
 #   scripts/bootstrap-plugins.sh                    # install into every harness present
-#   scripts/bootstrap-plugins.sh --harness claude   # just one (claude|codex|agy)
+#   scripts/bootstrap-plugins.sh --harness claude   # just one (claude|codex|agy|grok)
 #   scripts/bootstrap-plugins.sh --force            # also replace foreign *symlinks* (never files/dirs)
 #   scripts/bootstrap-plugins.sh --uninstall        # remove everything this script installs
 #
@@ -21,11 +22,19 @@
 #                            bypass hook trust for one invocation with --dangerously-bypass-hook-trust.
 #   Agy      plugins/agy     symlinked into ~/.gemini/config/plugins/workcell and
 #                            ~/.gemini/antigravity-cli/plugins/workcell
+#   Grok     plugins/grok    staged into dist/grok/ first (Grok, like Codex, copies a
+#                            plugin on install and DROPS symlinks that leave the plugin
+#                            root), then installed via the grok CLI from the staged
+#                            marketplace at dist/grok/.grok-plugin/marketplace.json.
+#                            No hooks ship: grok's hook payload is its own dialect and
+#                            the gates would misparse it; the tdd-guard ceremony in the
+#                            agent bodies is harness-neutral and still applies.
 #
-# Both marketplaces are rooted at this repository so the wrappers' agents/ and skills/
-# symlinks resolve inside the marketplace: an install drops any symlink escaping the root.
-# Claude and Codex install a copy, so edits here reach them on the next run of this
-# script; the Antigravity links are live and need no re-install.
+# The Claude marketplace is rooted at this repository so the wrapper's agents/ and
+# skills/ symlinks resolve inside the marketplace: an install drops any symlink escaping
+# the root. Codex and Grok install from their staged trees under dist/. All three
+# install a copy, so edits here reach them on the next run of this script; the
+# Antigravity links are live and need no re-install.
 #
 # A target that already exists and is not one of our links (a real file or directory, or
 # a symlink elsewhere) is never replaced: it is refused by name and the run exits
@@ -36,14 +45,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/scripts/lib.sh"
 HARNESS=all; MODE=install; FORCE=""
 while (($#)); do case "$1" in
-  --harness) HARNESS=${2:?"--harness needs claude|codex|agy"}; shift 2;;
+  --harness) HARNESS=${2:?"--harness needs claude|codex|agy|grok"}; shift 2;;
   --install) MODE=install; shift;;
   --uninstall) MODE=uninstall; shift;;
   --force) FORCE=--force; shift;;
   -h|--help) sed -n '2,30p' "$0"; exit 0;;
   *) echo "unknown arg: $1" >&2; exit 2;;
 esac; done
-case "$HARNESS" in all|claude|codex|agy) ;; *) die "unknown harness: $HARNESS (claude|codex|agy)";; esac
+case "$HARNESS" in all|claude|codex|agy|grok) ;; *) die "unknown harness: $HARNESS (claude|codex|agy|grok)";; esac
 
 want(){ [[ $HARNESS == all || $HARNESS == "$1" ]]; }
 BIN="$HOME/.local/bin"
@@ -53,7 +62,7 @@ BIN="$HOME/.local/bin"
 # listed, so the only structural checks are that both sets are non-empty and that each
 # agent carries usable frontmatter.
 compgen -G "$ROOT/skills/*/" >/dev/null || die "no skills found under $ROOT/skills"
-agent_files(){ ls "$ROOT"/agents/claude/*.md "$ROOT"/agents/codex/*.md "$ROOT"/agents/agy/*/agent.md 2>/dev/null; }
+agent_files(){ ls "$ROOT"/agents/claude/*.md "$ROOT"/agents/codex/*.md "$ROOT"/agents/grok/*.md "$ROOT"/agents/agy/*/agent.md 2>/dev/null; }
 [[ -n $(agent_files) ]] || die "no agent definitions found under $ROOT/agents"
 while read -r f; do
   check_frontmatter "$f" || die "invalid agent frontmatter in $f"
@@ -68,7 +77,7 @@ done < <(agent_files)
 if command -v python3 >/dev/null; then
   if [[ $MODE == install ]]; then
     # agents/bodies/ + agents/agents.json are the source for every agent definition;
-    # this regenerates all three harness variants before anything is installed.
+    # this regenerates every harness variant before anything is installed.
     python3 "$ROOT/scripts/sync-agents.py" || die "agent definitions could not be generated"
     # --codex-profiles also writes $CODEX_HOME/workcell-<agent>.config.toml. Codex has no
     # per-agent model surface in a plugin, so a profile (`codex --profile workcell-builder`)
@@ -221,7 +230,82 @@ for spec in "${MARKET_HARNESSES[@]}"; do
   fi
 done
 
+# ---- Grok Build ----
+# Grok consumes the Claude plugin layout (manifest, agents/*.md, skills/) but, like
+# Codex, copies a plugin on install and drops symlinks that leave the plugin root, so
+# it too installs from a staged real tree. The marketplace add is guarded by a list
+# check because a repeated add is an error rather than a no-op.
+grok_plugin(){
+  want grok || return 0
+  [[ -d $HOME/.grok ]] || return 0
+  if ! command -v grok >/dev/null; then
+    [[ $MODE == install ]] && echo "grok: skipped — $HOME/.grok exists but the grok CLI is not on PATH"
+    return 0
+  fi
+  if [[ $MODE == install ]]; then
+    command -v python3 >/dev/null || die "grok: python3 is required to stage the plugin"
+    python3 "$ROOT/scripts/build-grok-plugin.py" >/dev/null || die "grok: staging failed"
+    # Retire a pre-staging registration that pointed at the repository root.
+    grok plugin marketplace remove "$ROOT" >/dev/null 2>&1 || true
+    grok plugin marketplace list 2>/dev/null | grep -qF "$ROOT/dist/grok" \
+      || grok plugin marketplace add "$ROOT/dist/grok" >/dev/null
+    # Force a refresh: grok keeps the installed copy when content changes without
+    # a version bump, and the remove/add pair is tolerated when nothing is there.
+    grok plugin uninstall workcell >/dev/null 2>&1 || true
+    grok plugin install workcell --trust >/dev/null
+    echo "grok: workcell plugin installed from the staged marketplace"
+  else
+    grok plugin uninstall workcell >/dev/null 2>&1 || true
+    grok plugin marketplace remove "$ROOT/dist/grok" >/dev/null 2>&1 || true
+    grok plugin marketplace remove "$ROOT" >/dev/null 2>&1 || true
+  fi
+}
+grok_plugin
+
+# ---- MCP servers the agents require, at user scope ----
+# The debugger drives deep browser diagnostics through the chrome-devtools MCP
+# server (ADR 0012; builder and reviewer use the agent-browser CLI instead), but
+# nothing installed that server until now. apm cannot help: its MCP entries
+# are project-scoped by design ("--global is not supported for MCP entries"), so each
+# harness CLI records the server in its own user-level config. An entry that already
+# exists under this name — whatever its command — is the user's configuration and is
+# left alone, on install and on uninstall alike; that is also why --uninstall does
+# not remove these (ownership cannot be told apart afterwards).
+register_mcp(){
+  local name=chrome-devtools; local -a cmd=(npx -y chrome-devtools-mcp@latest)
+  # Retire the playwright server this script registered before the chrome-devtools
+  # switch — only while the entry still runs exactly the command we wrote, so a
+  # customized entry stays. Drop this block once no playwright-era install is left.
+  if want claude && command -v claude >/dev/null \
+     && claude mcp get playwright 2>/dev/null | grep -q -- '-y @playwright/mcp@latest'; then
+    claude mcp remove playwright -s user >/dev/null 2>&1 && echo "claude: playwright MCP server retired"
+  fi
+  if want codex && command -v codex >/dev/null \
+     && codex mcp get playwright 2>/dev/null | grep -q '@playwright/mcp@latest'; then
+    codex mcp remove playwright >/dev/null 2>&1 && echo "codex: playwright MCP server retired"
+  fi
+  if want agy && command -v agy >/dev/null \
+     && agy mcp list 2>/dev/null | grep '^playwright[[:space:]]' | grep -q '@playwright/mcp@latest'; then
+    agy mcp remove playwright >/dev/null 2>&1 && echo "agy: playwright MCP server retired"
+  fi
+
+  if want claude && command -v claude >/dev/null && ! claude mcp get "$name" >/dev/null 2>&1; then
+    claude mcp add -s user "$name" -- "${cmd[@]}" >/dev/null && echo "claude: $name MCP server registered (user scope)"
+  fi
+  if want codex && command -v codex >/dev/null && ! codex mcp get "$name" >/dev/null 2>&1; then
+    codex mcp add "$name" -- "${cmd[@]}" >/dev/null && echo "codex: $name MCP server registered"
+  fi
+  if want agy && command -v agy >/dev/null && ! agy mcp list 2>/dev/null | grep -q "^${name}[[:space:]]"; then
+    agy mcp add "$name" "${cmd[@]}" >/dev/null && echo "agy: $name MCP server registered"
+  fi
+  # grok mcp add takes the command, then the command's own flags after --.
+  if want grok && command -v grok >/dev/null && ! grok mcp list 2>/dev/null | grep -q "$name"; then
+    grok mcp add "$name" "${cmd[0]}" -- "${cmd[@]:1}" >/dev/null && echo "grok: $name MCP server registered"
+  fi
+}
+
 if [[ $MODE == install ]]; then
+  register_mcp
   ((bad == 0)) || die "$bad target(s) refused (see above); the rest were installed"
   command -v tdd-guard >/dev/null || echo "note: tdd-guard/build-hooks not found — run scripts/bootstrap-tools.sh --install"
   echo "done."

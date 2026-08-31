@@ -29,9 +29,9 @@ The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-
 
 Select `frontend` when the change-set touches rendered UI: `.tsx` / `.jsx` / `.vue` / `.svelte` / `.astro` components, templates (`.html`, `.hbs`, `.ejs`), stylesheets (`.css` / `.scss` / `.less`), Tailwind or design-token config, or static assets those import. A change confined to server code, build config, or tests is not a frontend change — do not select the lens to be thorough, because a lens with nothing to look at produces noise, not coverage.
 
-That reviewer runs the [`reviewer-frontend-review`](../reviewer-frontend-review/SKILL.md) skill, which is the frontend lens's method rather than a separate review: a static pass over the changed components and styles, then a Playwright pass that resizes through a fixed viewport matrix — 4K (3840×2160), half-tiled 4K (1920×2160), QHD, 1080p, MacBook 16"/15"/13", a small laptop, tablet, and phone — capturing structure, screenshots, and an objective horizontal-overflow check at each. It returns the same envelope as every other lens, with `lens` set to `frontend`, so its findings dedupe, verify, and rank alongside the rest with no special-casing downstream.
+That reviewer runs the [`reviewer-frontend-review`](../reviewer-frontend-review/SKILL.md) skill, which is the frontend lens's method rather than a separate review: a static pass over the changed components and styles, then an `agent-browser` pass that resizes through a fixed viewport matrix — 4K (3840×2160), half-tiled 4K (1920×2160), QHD, 1080p, MacBook 16"/15"/13", a small laptop, tablet, and phone — capturing structure, screenshots, and an objective horizontal-overflow check at each. It returns the same envelope as every other lens, with `lens` set to `frontend`, so its findings dedupe, verify, and rank alongside the rest with no special-casing downstream.
 
-The orchestrator sets `devServer` in the dispatch brief to `none`, a URL, or `start: <command>`; production URLs are never passed. The reviewer never asks. An absent field or `none` means the static pass only, and the reviewer records the runtime gap rather than asserting behaviour it never observed. A runtime pass also requires Playwright browser tools.
+The orchestrator sets `devServer` in the dispatch brief to `none`, a URL, or `start: <command>`; production URLs are never passed. The reviewer never asks. An absent field or `none` means the static pass only, and the reviewer records the runtime gap rather than asserting behaviour it never observed.
 
 ## Merge and adversarial verification
 
@@ -100,13 +100,13 @@ after any unrelated edit and strand the original as never-fixed. The line lives 
 
 Reconciliation therefore converges rather than accumulates:
 
-| Situation | Action |
-|---|---|
-| Finding has no issue | `create_issue` |
-| Issue exists, content changed | `update_issue` |
-| Finding no longer reported — fixed, or refuted on re-run | `close_resolved_issue` |
-| Two issues carry the same marker | `close_duplicate_issue` |
-| Nothing changed | no actions at all |
+| Situation                                                | Action                  |
+| -------------------------------------------------------- | ----------------------- |
+| Finding has no issue                                     | `create_issue`          |
+| Issue exists, content changed                            | `update_issue`          |
+| Finding no longer reported — fixed, or refuted on re-run | `close_resolved_issue`  |
+| Two issues carry the same marker                         | `close_duplicate_issue` |
+| Nothing changed                                          | no actions at all       |
 
 `--min-severity` (default `medium`) sets the filing threshold; `low` and `nit` stay in the report
 rather than becoming tracker noise. An open issue is only closed as resolved when its recorded severity
