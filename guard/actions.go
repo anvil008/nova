@@ -249,7 +249,7 @@ func recordDiffReview(loaded *state, findingsPath string) error {
 	if len(findings) == 0 {
 		return fmt.Errorf("findings file %s is empty; record what the diff review actually established", findingsPath)
 	}
-	evidence, err := runArgv(loaded.repository, []string{"git", "diff", "HEAD"})
+	evidence, err := runArgv(loaded.repository, diffArgv(loaded.repository))
 	if err != nil {
 		return err
 	}
