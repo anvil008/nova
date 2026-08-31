@@ -2,6 +2,25 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [Branch and workspace names carry a type prefix] - 2026-08-31
+
+### Added
+
+- **A type-prefixed naming standard for every branch, worktree, and jj workspace** (ADR-0018). A
+  key is `<type>/<slug>` — `feature`, `bug`, `doc`, `refactor`, `perf`, `test`, `release`, `chore`,
+  `review`, or `integration` — and the key is the bookmark or branch verbatim. Each skill mints one
+  type at the point it names a branch, and the planner assigns each issue `type:feature` or
+  `type:bug` so `build` can branch it. `docs/workspaces.md` carries the table.
+
+### Changed
+
+- **`workcell-ws` accepts one slash in a key.** The bookmark and git branch keep it; the sibling
+  directory and the jj workspace name write it as a dash, so `feature/xyz` is bookmark
+  `feature/xyz`, jj workspace `feature-xyz`, and directory `../<repo>-feature-xyz`. `list`,
+  `forget`, and `sweep` recover the key from the local refs, so a slashed key round-trips and is
+  classified — `merged`, `stale-dir`, `stale-reg` — under the key it was created with. A key with
+  no slash behaves exactly as it did before, spelling included.
+
 ## [v0.3.0 — Deploy publishes GitHub releases and packages] - 2026-08-31
 
 ### Added
