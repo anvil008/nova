@@ -1,237 +1,289 @@
 {
-  "planId": "skill-review-20260830",
-  "planName": "Skill instruction review — contracts, disclosure, evals",
+  "planId": "wave-loop-overlap",
+  "planName": "Overlap the build wave loop",
   "repo": "anvil008/workcell",
-  "generatedAt": "2026-08-30T08:40:00Z",
-  "summary": "A review of the skill and agent instructions (not the code) found twelve seams: five entry skills promise a PR shape the build pipeline does not produce, perf seals tests that cannot be red, agent modes live in skills the agents are told not to read, the handoff record every agent returns is defined nowhere, subagents are told to ask a human they cannot reach, and maintainer-only renderer detail is loaded into every orchestrator run. This milestone fixes the seams in the skills and bodies as two disjoint parallel issues, then adds a skill-eval harness (structural, routing, behavioral) so the next drift is caught by CI rather than by a reader. Assumption: single-PR mode (integration branch → one PR to main) is the resolution for the PR-shape contradiction, because the five entry skills already promise it and build already supports a non-main base.",
+  "generatedAt": "2026-08-30T22:10:00Z",
+  "summary": "A Workcell build round is currently gated twice over: `skills/build/scripts/waves.py` selects only issues in the earliest unfinished declared wave, so one straggler holds back later issues whose own `dependsOn` are already merged, and everything after the builders — integration, then documentation — runs strictly serially. This milestone lands the four approved parallelization changes against the workcell repository itself: (1) dependency-gated selection in `waves.py`, with the ownership-overlap check moved from the declared wave to the whole candidate in-flight set and overlapping candidates deferred rather than dispatched concurrently; (2) `skills/new-feature/SKILL.md` step 5 dispatching the `documenter` alongside the `integrator` instead of after the merge; (3) an explicit, opportunistic allowance in `skills/build/SKILL.md` for speculative next-wave `specifier` dispatches while the integrator runs; (4) a granularity rule for `ownershipHint` in the planner's sidecar contract, with a mechanical check so a hint is one path or glob rather than prose. What stays serial is stated and untouched: `specifier` -> `builder` per issue, the integrator's serial merge, nothing merging before combined GREEN, and the two-phase seal. Assumptions taken rather than asked: (a) `ownershipHint` keeps its string type — 'finer-grained' means a narrower glob and, where files span unrelated subtrees, more issues, not a list of globs; (b) a wave-0 overlap now defers the second issue instead of only warning and leaving it to hand-serialization, because the deferral machinery this milestone adds is exactly what wave 0 was missing; (c) the shipped offline dry-run keeps its outcome — the demo fixture still selects `API` and `UI` — and gains only the new `pulledForward` and `deferred` fields; (d) plan-time ownership-overlap detection inside `render_plan.py` is deliberately out of scope, because the glob matcher lives in `waves.py` and sharing it would couple two skills' scripts in a refactor nobody asked for.",
   "architecture": {
-    "changeSummary": "Today a SKILL.md is read by the orchestrator and, for the planner, by the agent too; agent modes, the dispatch brief, and the handoff record are implied rather than written; nothing tests the instructions. After: each SKILL.md is an orchestrator contract that links maintainer detail from references/; agents/handoff.md defines the brief the orchestrator sends and the record every agent returns; skills say which mode the brief carries and bodies implement each mode; evals/ tests descriptions for routing and transcripts for behaviour.",
+    "changeSummary": "This is a change to how one build round is scheduled, not to what a round proves. Today the orchestrator asks `waves.py` for the earliest unfinished declared wave, dispatches a specifier and builder pair per issue in it, waits for the integrator's combined run, merges, and only then dispatches the documenter — three serial stages after the builders, and a straggler in the current wave freezes issues that are already unblocked. After this milestone the selector answers a different question — which not-done issues have all their dependencies done — and resolves ownership collisions across the whole in-flight set by deferring a candidate to a later round instead of rejecting the plan or dispatching an overlapping pair. Documentation authoring moves beside the integrator rather than behind the merge, and the orchestrator may spend the integrator's idle time sealing next-round tests. The gates are untouched: overlapping work is never dispatched concurrently, a builder never starts without a seal, and nothing merges before combined GREEN.",
     "components": [
       {
-        "name": "skills/*/SKILL.md",
-        "purpose": "Orchestrator dispatch-and-gate contracts, one canonical boundary paragraph, single-PR mode"
+        "name": "skills/build/scripts/waves.py",
+        "purpose": "Deterministic offline selector over the sidecar and a GitHub issue snapshot; becomes dependency-gated and gains ownership deferral."
       },
       {
-        "name": "skills/*/references/",
-        "purpose": "Artifact contracts and renderer detail loaded only when reached"
+        "name": "skills/build/SKILL.md",
+        "purpose": "The build orchestrator's contract: wave loop, ownership check before dispatch, integration and merge, and the new speculative-specifier allowance."
       },
       {
-        "name": "agents/handoff.md",
-        "purpose": "Dispatch brief fields, modes, and the anvil.agent-handoff/v1 record"
+        "name": "skills/build/examples/",
+        "purpose": "The offline dry-run fixtures that make the contract demonstrable without touching GitHub."
       },
       {
-        "name": "agents/bodies/",
-        "purpose": "Per-agent procedure including refactor / loop / baseline modes and rationalization tables"
+        "name": "skills/new-feature/SKILL.md",
+        "purpose": "Entry workflow in single-PR mode whose step 5 decides when the documenter is dispatched."
       },
       {
-        "name": "evals/",
-        "purpose": "Structural, routing, and behavioral evals over skills and agents; CI runs the free tiers"
+        "name": "skills/planner/references/sidecar-contract.md",
+        "purpose": "The artifact contract the planner agent follows; canonical home of the ownershipHint granularity rule."
+      },
+      {
+        "name": "skills/planner/scripts/render_plan.py",
+        "purpose": "Strict sidecar validator and folio renderer; gains the single-path-or-glob hint check."
+      },
+      {
+        "name": "docs/adr, docs/diagrams, README.md, CHANGELOG.md",
+        "purpose": "ADR 0017, the generated how-work-moves diagram and its source, and the prose that has to match them."
       }
     ],
     "diagramsMermaid": {
-      "currentArchitecture": "flowchart LR\n  O[Orchestrator] -->|reads| S[SKILL.md]\n  P[planner agent] -->|also reads| S\n  S -. implied modes .-> B[agent bodies]\n  B -->|returns undefined record| O\n  T[script tests] --> S",
-      "targetArchitecture": "flowchart LR\n  O[Orchestrator] -->|reads| S[SKILL.md]\n  S -->|links| R[references/]\n  P[planner agent] -->|reads| R\n  O -->|brief + mode| B[agent bodies]\n  B -->|handoff.md record| O\n  H[agents/handoff.md] --- B\n  E[evals/] -->|routing + behaviour| S\n  E --> B\n  T[script tests] --> S"
+      "currentArchitecture": "flowchart LR\n  W[\"waves.py: earliest unfinished declared wave\"] --> S[\"specifier per issue\"]\n  S --> B[\"builder per issue\"]\n  B --> I[\"integrator: combined suite\"]\n  I --> M[\"orchestrator merges on combined GREEN\"]\n  M --> D[\"documenter\"]\n  D --> N[\"next declared wave\"]\n  X[\"ready issue in a later wave\"] -. held by the straggler .-> W",
+      "targetArchitecture": "flowchart LR\n  W[\"waves.py: every not-done issue whose dependsOn are done\"] --> Q[\"disjoint in-flight set; overlaps deferred\"]\n  Q --> S[\"specifier per issue\"]\n  S --> B[\"builder per issue\"]\n  B --> I[\"integrator: combined suite\"]\n  B --> D[\"documenter alongside the integrator\"]\n  I --> SP[\"speculative next-round specifiers: MAY\"]\n  I --> M[\"orchestrator merges on combined GREEN incl. docs\"]\n  D --> M\n  M --> W"
     }
   },
   "issues": [
     {
-      "key": "workflow-skills",
-      "title": "Skills: canonical boundary, single-PR mode, perf gate, brief-carried modes, contract/reference split",
-      "body": "## Goal\n\nFix the seams found in the skill-instruction review so every orchestration skill is a complete dispatch-and-gate contract: the same boundary sentence everywhere, one PR shape, a gate that can actually fire, and no instruction that only a reader who is forbidden to read it would see.\n\nYou own `skills/**` only. The agent bodies (`agents/**`) are being changed in parallel by #agent-contracts; where you depend on them, the path and field names below are fixed — use them verbatim and do not edit `agents/`.\n\n## Changes\n\n### 1. One canonical orchestrator boundary (finding 9)\n\nReplace the per-skill paraphrases (\"never the code\", \"file list … not the contents\", \"read the file list and the manifests\", \"nothing here has you read the target project\") with this paragraph, verbatim, as the second paragraph of every orchestration skill (`build`, `planner`, `code-review`, `research`, `docs`, `deploy`, `new-feature`, `code-analysis`, `code-refactor`, `debug`, `perf`, `repo-setup`, `review-fix-loop`):\n\n> \"You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.\"\n\nEach skill may follow it with one sentence naming what *this* skill's orchestrator specifically does (e.g. runs the interview, selects lenses, creates the integration branch). `new-feature` currently tells the orchestrator to read manifests — change that to dispatching a `research` agent for the repository picture (as `repo-setup` already does).\n\n### 2. One PR shape — single-PR mode (finding 1)\n\n`new-feature`, `code-analysis`, `code-refactor`, `debug`, and `perf` promise \"one PR to `main`\", while `build` has every builder open its own PR and the orchestrator merge them. Make the promise true by defining **single-PR mode** in `skills/build/SKILL.md`:\n\n- The orchestrator creates an integration branch off `trunk()` named `<planId>-integration` (`jj bookmark create <planId>-integration -r trunk()`), and passes it as `base` in every dispatch brief (`agents/handoff.md`, field `base`).\n- Builders open their PRs against that branch (their body already honours a non-`main` `--base`). The `integrator` verifies each wave on the integration branch; the orchestrator merges the wave's PRs into it on combined GREEN.\n- When no planned issue remains, the orchestrator opens **one** PR from the integration branch to `main`. `Closes #<n>` lines in the per-issue PR bodies are repeated in that final PR body so the issues close on merge (GitHub only auto-closes on merge to the default branch).\n- The default (multi-PR) mode is unchanged; entry skills state which mode they use.\n\nThen make each of the five entry skills say, in its final step, that it runs `build` in single-PR mode and what the final PR body must contain. Remove every remaining sentence that implies the orchestrator hand-merges branches into one PR itself.\n\n### 3. `perf` cannot seal a green test (finding 2)\n\n`skills/perf/SKILL.md` step 3 tells the planner to write `acceptanceTests` covering behaviour that must not change, and step 4 runs `build` with a `test-author`. `tdd-guard seal` needs a non-zero red command; those tests are green from the start, the `test-author` returns `blocked`, and `build` treats that as a plan defect. Do what `code-refactor` does: state plainly why the seal does not apply, gate on the `benchmarker` baseline plus the `integrator`'s green baseline plus a diff that touches no test file, dispatch builders with `mode: refactor` in the brief, and reserve the `test-author` phase for the rare optimization that changes observable behaviour (which goes through the planner as an ordinary issue).\n\n### 4. `debug` without a plan has no issue (finding 5)\n\n`skills/debug/SKILL.md` step 3 skips the folio for a single defect, but the `test-author` and `builder` bodies begin with \"read the issue, its planner marker, `acceptanceTests`, `ownershipHint`\" and the builder's PR must say `Closes #<n>`. Specify the single-defect path: the orchestrator sends a dispatch brief (`agents/handoff.md`) whose `issue` is `null`, whose `brief` carries the debugger's reproduction command and minimal case as the single acceptance test (`name`, `kind`, `oracle`), and whose `ownership` is the debugger's proposed fix location. State that the PR body then names the symptom and the reproduction instead of `Closes #<n>`.\n\n### 5. Agent modes are carried by the brief, not by skills the agent never reads (finding 3)\n\n`code-refactor` step 4 and `review-fix-loop` step 3 describe a reduced builder; `code-analysis` step 1, `code-refactor` step 1, and `repo-setup` step 6 dispatch the `integrator` as a baseline runner. The bodies say \"do not reach for the orchestration skills\", so none of that reaches the agent. In each of those dispatch steps, say exactly what the brief carries: `mode: refactor` (builder: workspace pre-created by the orchestrator, no seal, tests untouched, diff-review still recorded), `mode: loop` (builder: existing working copy on `loop-branch`, no PR, no self-review passes), `mode: baseline` (integrator: run the documented verification on the untouched tree at `base`, return command-linked evidence, no merge). The mode names and their meanings are fixed by `agents/handoff.md`; do not invent others.\n\n### 6. Reviewer dev server is a dispatch parameter (finding 7)\n\n`code-review` and `code-reviewer-frontend-review` tell a subagent to \"ask before starting a dev server\". A subagent has no human channel. Replace with: the orchestrator sets `devServer` in the brief — `none`, a URL, or `start: <command>` — and the reviewer never asks; absent or `none` means the static pass only, and the reviewer must record the runtime gap. Production URLs are never passed. Keep the viewport matrix and method unchanged.\n\n### 7. `build` step 1 contradicts itself (finding 8)\n\n\"An issue is done when it is **closed** and … carries `status:done`; the label lets you mark an issue done … *without closing it yet*\" and \"An open issue is never done, however it is labelled\" cannot both hold. Rewrite to the single reading `waves.py` implements — closed **and** (`status:done` label **or** `state_reason == completed`) — and explain what the label is for (a closed-as-`not_planned` issue that was in fact finished, or marking done before the auto-close from a merged PR).\n\n### 8. Planner SKILL.md has two readers (finding 6)\n\n`skills/planner/SKILL.md` opens \"You are the orchestrator… nothing here has you read the target project\", yet the planner *agent* is told to follow the same file \"exactly\". Split it: the SKILL.md keeps the orchestrator procedure (dispatch, questions, approval gate, `--apply`), and the artifact contract — sidecar fields, naming, the renderer, the reconciler command shapes, the folio section order — moves verbatim into **`skills/planner/references/sidecar-contract.md`**. That path is fixed: the planner body (edited in #agent-contracts) will link to it. Link it from the SKILL.md with one line.\n\n### 9. Maintainer detail out of operator context (finding 12 — progressive disclosure)\n\nMove renderer/template detail that only a template maintainer needs — `report.css` byte-identity, `plan.css` / `review.css` / `research.css` roles, fixed section orders, Mermaid fallback mechanics, the two non-interactive visuals, print behaviour — out of `skills/planner/SKILL.md`, `skills/code-review/SKILL.md`, and `skills/research/SKILL.md` into `skills/<skill>/references/report-rendering.md`, linked with one sentence from the SKILL.md. Keep the renderer *commands* in the SKILL.md (the orchestrator runs them). Keep every existing test green — `test_planner.py` / `test_code_review.py` pin phrases; if a pinned phrase moves, move the assertion to the reference file rather than deleting it. Apply the same rule to any other SKILL.md section a maintainer, not an operator, needs.\n\n### 10. `docs` skill \"Pass\" has no subject (finding 10)\n\nRewrite `skills/docs/SKILL.md` \"Pass\" as dispatch steps (who dispatches, what the brief carries, what the gate is). Drop the duplicated README contract from the skill and link to the one in the docs agent body instead — the docs standard's own rule 1 is \"update, don't duplicate\".\n\n### 11. `jj` skill refuses its own owners (finding 11)\n\n`skills/jj/SKILL.md`'s description says \"Activate ONLY when a .jj/ directory is present… Do NOT activate for plain git repos\", but the `test-author` must run `jj git init --colocate` in a plain git repo and both writers are told jj is their VCS \"always\". Rewrite the description (and the `compatibility` / `metadata.requires-path` fields) so the skill triggers for any Workcell VCS work, including adopting a git repo, and keep the \"not for repos where the human chose plain git\" exclusion.\n\n## Verification you must run before handing off\n\n```sh\nruff check skills/\nfor d in skills/*/tests; do python3 -m unittest discover -s \"$d\" -p 'test_*.py'; done\npython3 skills/docs/scripts/docs_check.py .\npython3 scripts/sync-agents.py --check --diff\n```\n\nTests pin prose (`skills/build/tests/test_build.py`, `skills/code-review/tests/test_code_review.py`). Update a pinned phrase only when the phrase itself is what this issue changes, and pin the replacement. Add the new assertions listed under Definition of Done to a new `skills/build/tests/test_skill_contracts.py`.\n\nRecord the decision (contract vs. procedure split, single-PR mode, modes in the brief) as `docs/adr/0009-skills-are-dispatch-contracts.md`.",
+      "key": "WaveSelection",
+      "title": "Dependency-gated wave selection with ownership deferral in waves.py",
+      "body": "## Goal\n\nStop one straggler from freezing issues whose own dependencies are already merged. `skills/build/scripts/waves.py` currently selects \"every unblocked, not-done issue in the earliest unfinished declared wave\"; it must instead select every not-done issue whose `dependsOn` are all done, regardless of declared wave, and resolve ownership collisions across the whole candidate set by deferring rather than by rejecting the plan or dispatching an overlapping pair.\n\n## Change 1 - `skills/build/scripts/waves.py`\n\nIn `derive()`:\n\n- Build `ready`: every not-done issue whose every `dependsOn` entry is done (`is_done` is unchanged). Order it by declared `wave` ascending, then by sidecar order. Do not filter by `currentWave`.\n- Walk `ready` in that order, keeping a selected list. A candidate whose `ownershipHint` overlaps the hint of an already-selected candidate (`globs_overlap`) is **deferred**, not selected this round.\n- `unblocked[]` entries keep `key`, `number`, `ownershipHint`, `wave` and gain `pulledForward` (`true` when the issue's declared `wave` is greater than `currentWave`).\n- Add top-level `deferred[]`: `{key, number, ownershipHint, wave, overlapsWith}`, in the same order, where `overlapsWith` names the already-selected issue key it collides with.\n- `currentWave` keeps its present meaning and name: the earliest declared wave that still has an unfinished issue. It is reporting, not a filter.\n- A declared same-wave overlap in a grouped wave (>= 1) stays a hard `BuildError`: the planner asserted parallelism the ownership hints cannot deliver, and that is a plan defect.\n- Wave 0, the ungrouped bucket, keeps its single stderr warning naming both keys, and now **defers** the second issue of the pair instead of emitting both as concurrently dispatchable.\n- The ordering matters and should be commented: earlier declared waves are selected first, so a deliberately coarse late hint (a whole-repository documentation pass, for example) defers itself rather than starving the issues it overlaps.\n\n## Change 2 - `skills/build/SKILL.md`\n\n- Wave-loop step 1: replace the \"earliest unfinished declared wave\" sentence with the dependency-gated definition, and say that `currentWave` still names the earliest unfinished declared wave for reporting and resume.\n- Wave-loop step 2: the ownership check runs across the whole candidate in-flight set, not per declared wave; `waves.py` names deferred issues and the orchestrator dispatches them in a later round; overlapping work is never dispatched concurrently; a grouped-wave declared overlap is still rejected outright; the orchestrator may dispatch a subset of `unblocked` when it wants to cap concurrency, and pulled-forward issues are dispatched on the same base as the rest of the round and join the same integration round.\n- Extend \"Offline demonstration\" with the second fixture command. A plain `python3 .../waves.py` block is safe; do **not** add a second `gh ... | jq` block - `test_documented_capture_command_produces_a_valid_snapshot` requires exactly one.\n\n## Change 3 - fixtures (`skills/build/examples/`)\n\n- Update `expected-waves.json` for the new fields. The selection outcome must not move: `unblocked` is still `API` then `UI`, both with `pulledForward: false`, and `deferred` is `[]`.\n- Add `skills/build/examples/pull-forward/{plan.sidecar.json,issue-state.json,expected-waves.json}` covering both new behaviours in one plan: an unfinished wave-1 issue that no longer holds back a later-wave issue whose dependencies are done, and a ready candidate deferred because its hint overlaps a selected one. Its `planId` must differ from `builder-v3-demo`.\n\n## Constraints\n\n`skills/build/tests/test_build.py` and `skills/build/tests/test_skill_contracts.py` pin prose in this SKILL.md. Preserve these, verbatim:\n\n- The canonical ADR-0007 orchestrator paragraph, still the second paragraph after the title.\n- The single done-definition sentence: closed **and** (status:done or state_reason == completed), with its existing backticks and the reference to waves.py.\n- The phrases: \"GitHub is the source of truth\", \"current wave\", \"jj workspace\", \"combined GREEN\", \"sole completion authority\", \"force-push `main`\", \"at most twice\", \"stalled\", \"escalate to the human\", \"never dispatch a builder for an issue with no seal\".\n- The `## Single-PR mode` section, including \"<planId>-integration\", \"agents/handoff.md\", the `base` field, and \"final PR from the integration branch to `main`\".\n- `Phase 1` before `Phase 2`.\n\n## Verification\n\n```sh\nruff check skills/\npython3 -m unittest discover -s skills/build/tests -p 'test_*.py'\nPYTHONDONTWRITEBYTECODE=1 python3 skills/build/scripts/waves.py skills/build/examples/plan.sidecar.json skills/build/examples/issue-state.json\nPYTHONDONTWRITEBYTECODE=1 python3 skills/build/scripts/waves.py skills/build/examples/pull-forward/plan.sidecar.json skills/build/examples/pull-forward/issue-state.json\n```\n",
       "labels": [
-        "skills",
-        "orchestration",
-        "planning"
+        "planning",
+        "orchestration"
       ],
       "dependsOn": [],
-      "ownershipHint": "skills/**",
+      "ownershipHint": "skills/build/**",
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "orchestrator_boundary_is_canonical",
+          "name": "pull_forward_selects_a_ready_later_wave_issue",
           "kind": "unit",
-          "oracle": "Every orchestration SKILL.md listed in the issue contains the canonical boundary paragraph verbatim; no SKILL.md contains the retired paraphrases 'never the code', 'read the file list and the manifests', or 'Nothing here has you read the target project'",
-          "testPath": "skills/build/tests/test_skill_contracts.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "Over the new pull-forward fixture (an unfinished wave-1 issue plus a later-wave issue whose dependsOn are all done), the run exits 0, `unblocked` contains both keys, the later-wave entry has `pulledForward: true`, and `currentWave` is still the earliest unfinished declared wave."
         },
         {
-          "name": "build_defines_single_pr_mode",
+          "name": "blocked_issue_is_never_selected",
           "kind": "unit",
-          "oracle": "skills/build/SKILL.md has a 'Single-PR mode' section naming the <planId>-integration branch, the brief `base` field, and the final PR from the integration branch to main; new-feature, code-analysis, code-refactor, debug, and perf each state they run build in single-PR mode",
-          "testPath": "skills/build/tests/test_skill_contracts.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "In that same run, an issue with at least one not-done dependency appears in neither `unblocked` nor `deferred`."
         },
         {
-          "name": "perf_swaps_the_seal_gate",
+          "name": "overlapping_candidate_is_deferred_not_dispatched",
           "kind": "unit",
-          "oracle": "skills/perf/SKILL.md states that behaviour-preserving optimizations run with `mode: refactor` and no test-author, and that the gate is the benchmarker baseline plus a green baseline plus an untouched-tests diff",
-          "testPath": "skills/build/tests/test_skill_contracts.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "A ready candidate whose ownershipHint overlaps an already-selected candidate's exits 0, appears only in `deferred` with `overlapsWith` naming the selected key, and every pair of hints in `unblocked` is disjoint under waves.globs_overlap."
         },
         {
-          "name": "debug_specifies_the_no_issue_brief",
+          "name": "wave_zero_overlap_serializes_instead_of_warning_only",
           "kind": "unit",
-          "oracle": "skills/debug/SKILL.md says the single-defect path dispatches with `issue: null` and carries the reproduction as the acceptance test in the brief, and that the PR body names the symptom instead of Closes #",
-          "testPath": "skills/build/tests/test_skill_contracts.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "Two overlapping wave-0 issues exit 0 with exactly one key in `unblocked`, the other in `deferred`, and exactly one stderr warning naming both keys - never two concurrently dispatchable entries."
         },
         {
-          "name": "modes_named_in_dispatch_steps",
+          "name": "declared_grouped_wave_overlap_still_fails",
           "kind": "unit",
-          "oracle": "code-refactor and review-fix-loop name `mode: refactor` / `mode: loop` for the builder; code-analysis, code-refactor, and repo-setup name `mode: baseline` for the integrator; all cite agents/handoff.md",
-          "testPath": "skills/build/tests/test_skill_contracts.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "Two overlapping issues declared in wave 1 still raise BuildError and exit 1 with a message containing 'overlapping ownershipHint', printing no dispatchable output."
         },
         {
-          "name": "reviewer_dev_server_is_a_brief_field",
-          "kind": "unit",
-          "oracle": "code-review and code-reviewer-frontend-review SKILL.md contain `devServer` and no longer contain 'ask before starting a dev server'",
-          "testPath": "skills/build/tests/test_skill_contracts.py"
-        },
-        {
-          "name": "build_done_definition_single_reading",
-          "kind": "unit",
-          "oracle": "skills/build/SKILL.md no longer contains 'without closing it yet' and states done as closed and (status:done or completed), matching waves.py",
-          "testPath": "skills/build/tests/test_skill_contracts.py"
-        },
-        {
-          "name": "planner_contract_split",
-          "kind": "unit",
-          "oracle": "skills/planner/references/sidecar-contract.md exists and contains the sidecar top-level field list; skills/planner/SKILL.md links it and no longer embeds the JSON schema block",
-          "testPath": "skills/planner/tests/test_planner.py"
-        },
-        {
-          "name": "renderer_detail_in_references",
-          "kind": "unit",
-          "oracle": "skills/{planner,code-review,research}/SKILL.md no longer contain 'byte-identical'; each has references/report-rendering.md that does; the existing report.css byte-identity test still passes",
-          "testPath": "skills/code-review/tests/test_code_review.py"
-        },
-        {
-          "name": "jj_description_triggers_for_owners",
-          "kind": "unit",
-          "oracle": "skills/jj/SKILL.md description no longer contains 'Activate ONLY when' or 'Do NOT activate for plain git repos' and mentions adopting a git repo with jj git init --colocate",
-          "testPath": "skills/build/tests/test_skill_contracts.py"
-        },
-        {
-          "name": "existing_gates_stay_green",
+          "name": "shipped_demo_selection_is_unchanged_and_deterministic",
           "kind": "integration",
-          "oracle": "ruff check skills/, every skills/*/tests suite, docs_check.py ., and sync-agents.py --check all exit 0 on the branch"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "The documented offline command over skills/build/examples/plan.sidecar.json and issue-state.json exits 0, produces byte-identical output across two runs equal to expected-waves.json, still selects ['API','UI'] with `pulledForward: false`, and reports `deferred: []`."
+        },
+        {
+          "name": "skill_text_defines_dependency_gated_selection",
+          "kind": "unit",
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "skills/build/SKILL.md states that selection is by completed dependencies rather than the earliest declared wave and that the ownership check spans the whole in-flight set with deferred issues dispatched in a later round; the pinned phrases 'current wave', 'combined GREEN', and the single done-definition sentence survive; and exactly one `gh ... | jq` capture block remains."
         }
       ]
     },
     {
-      "key": "agent-contracts",
-      "title": "Agents: handoff.md contract, refactor/loop/baseline modes, no-issue briefs, reviewer devServer, rationalization tables",
-      "body": "## Goal\n\nGive the ten agent bodies the pieces the skills assume they have: a written handoff contract, the modes the skills dispatch them in, a brief that works without a GitHub issue, no instruction a subagent cannot follow, and the rationalization tables for the three agents that exercise judgment.\n\nYou own `agents/**` (bodies, `agents.json`, `models.json`, gates, and the generated `claude/`, `codex/`, `agy/` variants) plus the new `agents/handoff.md`. Skills (`skills/**`) are being changed in parallel by #workflow-skills; the paths and field names below are shared with it and fixed. Edit only `agents/bodies/*.md`, `agents/agents.json`, `agents/gates/*.md`, and regenerate — never hand-edit a generated file.\n\n## Changes\n\n### 1. `agents/handoff.md` — the contract every body cites but nothing defines (finding 4)\n\nEvery body ends with \"return one `anvil.agent-handoff/v1` record\" and `skills/build/tests/test_build.py` asserts the string exists, but no schema exists. Write `agents/handoff.md` with two sections:\n\n**Dispatch brief** (what the orchestrator sends): `issue` (GitHub number, or `null`), `brief` (the goal in prose; for a no-issue dispatch it carries the acceptance test(s) as `name`/`kind`/`oracle`), `workspace`, `branch`, `base` (`trunk()` or an integration branch), `ownership` (glob), `mode` — `standard` (default) | `refactor` | `loop` for the builder, `standard` | `baseline` for the integrator — `sealedTests`, `redCommand`, `devServer` (`none` | URL | `start: <command>`, reviewers only), `approval` (deploy only: who, when, target, commit).\n\n**Handoff record** `anvil.agent-handoff/v1` (what every agent returns): `schema` (`anvil.agent-handoff/v1`), `agent`, `issue`, `disposition` — exactly one of `done`, `blocked`, `needs-decision` — `result` (one paragraph), `branch`, `pr`, `workspace`, `changedFiles[]`, `commands[]` of `{argv, commandId, exitCode, summary}`, `evidence` (agent-specific object: test map, findings, distributions, root cause…), `openQuestions[]`. State that a record with a disposition outside the enum, or a command without a `commandId`, is malformed and the orchestrator treats it as `blocked`.\n\nGive one complete example of each. Link the file from every body's final step (\"Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md))\").\n\n### 2. Modes the skills dispatch but the bodies lack (finding 3)\n\n- **builder**: add `mode: refactor` (workspace and branch pre-created by the orchestrator; no seal exists; never touch a test file; run the project's suite and record `tdd-guard diff-review record`; open the PR as usual) and `mode: loop` (work in the existing working copy on the branch named in the brief, no new workspace, no PR, no self-review passes, tests stay green, commit nothing — the loop commits). Everything not overridden is the standard procedure.\n- **integrator**: add `mode: baseline` (no PRs; run the documented build/test/lint on the untouched tree at `base`; return command-linked evidence; the failure list is the map, not a blocker).\n- **test-author** and **builder**: when `issue` is `null`, the brief's acceptance tests are the Definition of Done, there is no planner marker, no self-assign, no `status:in-progress`, and the PR body names the symptom and reproduction instead of `Closes #<n>` (finding 5).\n\n### 3. The reviewer cannot ask (finding 7)\n\n`agents/bodies/code-reviewer.md` says \"ask before starting a dev server\". Replace with the `devServer` brief field: `none`/absent → static pass only and the runtime gap is recorded in the envelope; a URL → use it; `start: <cmd>` → start it, review, stop it. Never a production URL.\n\n### 4. Planner body links the contract, not the orchestrator skill (finding 6)\n\nPoint `agents/bodies/planner.md` at **`skills/planner/references/sidecar-contract.md`** (created by #workflow-skills) instead of `skills/planner/SKILL.md`.\n\n### 5. Rationalization tables\n\nAdd a `## Rationalizations` table (≥4 rows, `| Rationalization | Reality |`) to `test-author` (\"this oracle is close enough\", \"an ImportError is still red\", \"I'll stub a little behaviour so the test reaches further\"), `builder` (\"the reseal is just a wording fix\", \"medium findings can wait for the PR\", \"I'll tidy this nearby code while I'm here\"), and `planner` (\"I'll assume rather than return needs-decision\", \"one big issue is simpler than three\", \"risks: none\"). Keep each row to one line; this is the only prose in the bodies that argues rather than instructs.\n\n### 6. Claude tool name (minor)\n\n`agents/agents.json` grants the builder `Task`; the Claude Code tool is `Agent`. Change it, regenerate, and update `test_claude_builder_can_actually_reach_the_code_reviewer` in `skills/build/tests/test_build.py` to assert `Agent` (that is the only line in that file you may touch — #workflow-skills is editing the rest).\n\n### 7. Docs body\n\nLeave `agents/bodies/docs.md`'s README contract in place; the docs *skill* will link to it. Nothing else changes there.\n\n## Verification you must run before handing off\n\n```sh\npython3 scripts/sync-agents.py            # regenerate all three variants\npython3 scripts/sync-agents.py --check --diff\npython3 scripts/sync-agent-models.py --check\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\nfor d in skills/*/tests; do python3 -m unittest discover -s \"$d\" -p 'test_*.py'; done\npython3 skills/docs/scripts/docs_check.py .\n```\n\n`test_build.py` pins ordered lifecycle phrases in the builder and test-author variants — keep those phrases and their order. Add the new assertions under Definition of Done to `scripts/tests/test_generators.py`.\n\nRecord the contract as `docs/adr/0008-agent-handoff-contract.md`.",
+      "key": "DocumenterOverlap",
+      "title": "Dispatch the documenter alongside the integrator in new-feature",
+      "body": "## Goal\n\n`skills/new-feature/SKILL.md` step 5 dispatches the `documenter` only after the wave has been integrated and merged, although doc authoring needs nothing but the changed-file and PR list, which exists the moment the builders finish. Move the dispatch beside the `integrator` and hold the landing, not the authoring, until combined GREEN.\n\n## Change - `skills/new-feature/SKILL.md` step 5\n\nRewrite the step so it says, in this order:\n\n- Dispatch the `integrator` over the wave **and** the `documenter` for whatever the feature changed about how the project is used, at the same time, on the same base, each in its own workspace (`workcell-ws add <name>`).\n- The documenter's brief carries the changed-file and PR list and the docs-only `ownership` glob ([`agents/handoff.md`](../../agents/handoff.md)). Reading a file list or diffstat to choose a dispatch is orchestration under [ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md); reading a file's contents to judge it is not.\n- The documenter's `ownership` must be disjoint from every code issue's `ownershipHint`, so its branch can never collide with a builder's.\n- Documentation never merges on its own authority. The docs branch merges only inside a combined GREEN that includes it: if the documenter returns before the integrator's serial merge begins, its branch joins that round and one combined run covers everything; if it returns later, dispatch one more `integrator` round over the docs branch on the merged base, and that round is also the docs gate (`skills/docs/scripts/docs_check.py`, plus `scripts/render-diagrams.py --check` where the README's visuals are generated).\n- Nothing else moves: the wave's code PRs still merge on the integrator's evidence, and the final PR to `main` in step 6 is unchanged.\n\n## Change - a home for this skill's contract tests\n\nCreate `skills/new-feature/tests/test_new_feature.py`. CI already discovers `skills/*/tests`, and `ruff check skills/` covers it.\n\n## Constraints\n\n- The canonical ADR-0007 orchestrator paragraph must stay the second paragraph after the title (`skills/build/tests/test_skill_contracts.py::test_orchestrator_boundary_is_canonical`).\n- `single-PR mode` must still appear in this file (`test_build_defines_single_pr_mode`).\n- The interview's \"at least five clarifying questions\" rule and the step numbering are untouched.\n- This issue owns `skills/new-feature/**` only. `skills/build/tests/test_skill_contracts.py` asserts phrases about this file but belongs to another owner; if a change here would break one of those assertions, stop and escalate rather than editing it.\n\n## Verification\n\n```sh\nruff check skills/\npython3 -m unittest discover -s skills/new-feature/tests -p 'test_*.py'\npython3 -m unittest discover -s skills/build/tests -p 'test_*.py'\n```\n",
       "labels": [
-        "agents",
-        "orchestration",
-        "planning"
+        "planning",
+        "skills"
       ],
       "dependsOn": [],
-      "ownershipHint": "agents/**",
+      "ownershipHint": "skills/new-feature/**",
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "handoff_contract_exists",
+          "name": "documenter_is_dispatched_with_the_integrator",
           "kind": "unit",
-          "oracle": "agents/handoff.md defines the dispatch brief fields (issue, brief, workspace, branch, base, ownership, mode, sealedTests, redCommand, devServer, approval) and the anvil.agent-handoff/v1 record with disposition exactly one of done|blocked|needs-decision and commands[] entries carrying commandId",
-          "testPath": "scripts/tests/test_generators.py"
+          "testPath": "skills/new-feature/tests/test_new_feature.py",
+          "oracle": "In skills/new-feature/SKILL.md the `documenter` dispatch appears inside the same numbered step as the `integrator` dispatch, and no step after the merge dispatches it."
         },
         {
-          "name": "every_body_links_the_contract",
+          "name": "docs_land_only_inside_a_combined_green",
           "kind": "unit",
-          "oracle": "each of the ten agents/bodies/*.md contains 'anvil.agent-handoff/v1' and a link to ../handoff.md",
-          "testPath": "scripts/tests/test_generators.py"
+          "testPath": "skills/new-feature/tests/test_new_feature.py",
+          "oracle": "That step states the docs branch merges only inside a combined GREEN that includes it, and names the extra integrator round for a documenter that returns after the wave's run."
         },
         {
-          "name": "builder_and_integrator_have_modes",
+          "name": "docs_ownership_is_disjoint_from_code_ownership",
           "kind": "unit",
-          "oracle": "agents/bodies/builder.md has 'mode: refactor' and 'mode: loop' sections; agents/bodies/integrator.md has 'mode: baseline'; builder and test-author describe the issue: null brief and say the PR names the symptom instead of Closes #",
-          "testPath": "scripts/tests/test_generators.py"
+          "testPath": "skills/new-feature/tests/test_new_feature.py",
+          "oracle": "That step requires the documenter's dispatch `ownership` to be docs-only and disjoint from every code issue's ownershipHint, and cites agents/handoff.md as where the field is defined."
         },
         {
-          "name": "reviewer_never_asks",
+          "name": "pinned_new_feature_contracts_survive",
           "kind": "unit",
-          "oracle": "agents/bodies/code-reviewer.md contains 'devServer' and does not contain 'Ask before starting a dev server'",
-          "testPath": "scripts/tests/test_generators.py"
-        },
-        {
-          "name": "planner_links_reference_contract",
-          "kind": "unit",
-          "oracle": "agents/bodies/planner.md links skills/planner/references/sidecar-contract.md and no longer links skills/planner/SKILL.md as the contract",
-          "testPath": "scripts/tests/test_generators.py"
-        },
-        {
-          "name": "rationalization_tables_present",
-          "kind": "unit",
-          "oracle": "builder, test-author, and planner bodies each contain a '## Rationalizations' section with a two-column table of at least four rows",
-          "testPath": "scripts/tests/test_generators.py"
-        },
-        {
-          "name": "claude_builder_tool_is_agent",
-          "kind": "unit",
-          "oracle": "agents/claude/builder.md frontmatter tools list contains Agent and not Task; test_claude_builder_can_actually_reach_the_code_reviewer asserts Agent",
-          "testPath": "skills/build/tests/test_build.py"
-        },
-        {
-          "name": "generated_variants_in_sync",
-          "kind": "integration",
-          "oracle": "scripts/sync-agents.py --check and scripts/sync-agent-models.py --check exit 0; scripts/tests and every skills/*/tests suite pass"
+          "testPath": "skills/new-feature/tests/test_new_feature.py",
+          "oracle": "The file still contains 'single-PR mode' and 'at least five clarifying questions', and the canonical ADR-0007 orchestrator paragraph is still the second paragraph after the title."
         }
       ]
     },
     {
-      "key": "skill-evals",
-      "title": "Evals: structural, routing, and behavioral tiers over skills and agents, wired into CI; README and CHANGELOG sync",
-      "body": "## Goal\n\nTest the instructions, not just the scripts. Add a three-tier skill-eval harness modelled on addyosmani/agent-skills (`evals/README.md` there) and Anthropic's skill-creator `evals.json`, in Python (stdlib only, `ruff`-clean), wired into CI for the free tiers. Then sync the README and CHANGELOG for everything this milestone changed.\n\nYou own `evals/**`, `.github/workflows/ci.yml`, `README.md`, and `CHANGELOG.md`. Wave 1 is merged before you start, so skill descriptions and agent bodies are final; you may edit a skill's frontmatter `description` or an `agents/agents.json` description **only** when a Tier-2 failure proves it lacks the vocabulary a realistic prompt uses — and then regenerate with `scripts/sync-agents.py`.\n\n## Layout\n\n```\nevals/\n  README.md                 # what the tiers check, how to run, how to add a case\n  run_evals.py              # the runner\n  cases/skills/<skill>.json # one per skill under skills/ (17, jj included)\n  cases/agents/<agent>.json # one per agent in agents/agents.json (10)\n  fixtures/<name>/…         # tiny real projects for execution evals\n  tests/test_evals.py       # unit tests for the runner (no tokens spent)\n  results/                  # gitignored\n```\n\n## Case format\n\n```json\n{\n  \"name\": \"build\", \"kind\": \"skill\",\n  \"trigger\": {\n    \"positive\": [{\"prompt\": \"run the approved milestone in waves\", \"top_k\": 3}],\n    \"negative\": [{\"prompt\": \"review this PR before merge\", \"owner\": \"code-review\"}]\n  },\n  \"evals\": [{\n    \"id\": 1, \"kind\": \"execution\" | \"dialogue\",\n    \"prompt\": \"…\", \"expected_output\": \"…\",\n    \"files\": [\"fixture-dir\"],\n    \"expectations\": [\"verifiable behaviour, not phrasing\"]\n  }]\n}\n```\n\nPositive prompts are paraphrased the way a user talks — never copied from the description. Negatives name the `owner` that must outrank this case. Every skill and agent case needs ≥3 positive, ≥2 negative, ≥1 behavioral eval; the structural tier fails CI otherwise.\n\n## Tiers\n\n1. **Structural** (`run_evals.py --structural`, CI): frontmatter `name` equals the directory; description ≤1024 chars and non-empty; every skill and agent has a case file meeting the counts; `kind` valid; `files[]` present for `execution` and every path exists under `fixtures/`.\n2. **Routing** (`run_evals.py`, CI): build a lowercase, suffix-stemmed TF-IDF index over all skill descriptions + agent descriptions (from `agents/agents.json`); each positive prompt must rank its case within `top_k`; each negative's `owner` must outrank it; report the **rank-1 rate** and enforce `--min-rank1 <pct>`; error at ≥75% pairwise cosine similarity between two descriptions, warn at ≥50%. Print a per-prompt table on failure. Choose the CI floor as the checked-in baseline minus ~6 points, and write the baseline in `evals/README.md`.\n3. **Behavioral** (`run_evals.py --behavioral <case> [--harness claude|codex] [--dry-run]`, on demand): materialize the fixture into a temp git repo and commit it as the baseline; run the executor headless (`claude -p … --output-format stream-json --verbose --permission-mode acceptEdits` or `codex exec --cd … -o …`) with the eval prompt; pipe the trace over stdin to a grader (`claude -p` returning JSON) that checks each expectation and returns `{\"expectations\":[{\"text\",\"pass\",\"evidence\"}],\"pass\":bool}`; validate the JSON; write `evals/results/<case>-<id>.json`. `--dry-run` prints the executor and grader commands and exits 0 without spawning anything — unit-test that path. Executor and grader calls carry timeouts.\n\n## Behavioral cases worth writing (these are the seams the review found)\n\n- `build`: a `test-author` that returns `blocked` is **not** followed by a builder dispatch; the entry is returned to the planner/human.\n- `build` under pressure: prompt says \"we're late, skip the test-author and let the builder write its own tests\" — the two-phase order still holds.\n- `code-review`: no finding reaches the report without an independent refutation attempt; a refuted candidate appears under \"dropped\".\n- `planner`: a plan with an unresolved scope question returns `needs-decision` rather than encoding an assumption.\n- `test-author`: an `ImportError` failure is not sealed; a signature-only stub is created so the test fails on its assertion.\n- `builder`: a `critical` finding after pass 2 yields `blocked` and no PR.\n- `perf` / `code-refactor`: no `test-author` is dispatched; the gate is baseline green + untouched tests.\n- `jj`: a plain-git fixture is adopted with `jj git init --colocate` when a Workcell agent needs a workspace.\n\nOrchestrator skills dispatch subagents, so most of their cases are `kind: dialogue` (the transcript of dispatch decisions is the artifact). Agent cases can be `execution` against a small fixture (`evals/fixtures/split-cents/` in Python is enough for `test-author`, `builder`, `debugger`).\n\n## CI and docs\n\n- Add a `Skill evals` step to `.github/workflows/ci.yml` after `Skill unit tests`: `python3 evals/run_evals.py --structural && python3 evals/run_evals.py --min-rank1 <floor>` and `python3 -m unittest discover -s evals/tests -p 'test_*.py'`.\n- `README.md`: add the eval commands to \"Verify the repository\"; fix the \"Who does what\" row for `research` (it returns a JSON envelope, it does not write report artifacts — the orchestrator renders); mention single-PR mode and `agents/handoff.md` where the pipeline is described. Keep it lean — the docs gate (`docs_check.py`) must stay green.\n- `CHANGELOG.md`: one entry for this milestone naming the three issues.\n\n## Verification you must run before handing off\n\n```sh\nruff check skills/ evals/\npython3 evals/run_evals.py --structural\npython3 evals/run_evals.py --min-rank1 <floor>\npython3 evals/run_evals.py --behavioral build --dry-run\npython3 -m unittest discover -s evals/tests -p 'test_*.py'\npython3 skills/docs/scripts/docs_check.py .\npython3 scripts/sync-agents.py --check --diff\n```",
+      "key": "HintContract",
+      "title": "Ownership hints are one narrow glob: planner contract and a mechanical check",
+      "body": "## Goal\n\nCoarse `ownershipHint` values are what force the build to serialize work that was planned as parallel, and the wave-0 bucket is where they collide most. Make the planner's contract say what a good hint is, and give the rule mechanical teeth for the one failure mode a machine can catch cheaply: a hint that is not a single path or glob at all. The shipped sample sidecar carries `templates/** and scripts/render_plan.py`, which every consumer - `waves.py`'s overlap check and the `ownership` field an agent is handed - treats as one literal path.\n\n## Change 1 - `skills/planner/references/sidecar-contract.md`\n\nState the rule where the planner agent actually reads it:\n\n- `ownershipHint` is exactly one path or glob - a single token, never prose, a comma list, or two paths joined by \"and\".\n- It is the narrowest glob that covers every file the issue changes **and the tests the `specifier` will write for it**, so place an issue's tests inside the subtree it owns.\n- Hints must be disjoint within a wave; a collision is not merely untidy, it costs the parallelism the wave was for. `skills/build/scripts/waves.py` rejects a declared same-wave overlap outright and defers an overlapping candidate that it pulled forward.\n- When an issue's files span unrelated subtrees, split the issue rather than widening the glob to their common parent. A pass that genuinely spans the repository (a documentation pass across `docs/`, the README, and the changelog) declares the common parent and, because a coarse hint overlaps everything, serializes itself.\n- Give two worked contrasts: `skills/build/scripts/**` beats `skills/**`; root-level docs are `*.md`, not `**`.\n\n## Change 2 - `skills/planner/SKILL.md`\n\nOne sentence in the plan workflow pointing at the rule, so the orchestrator reviewing a folio knows a coarse hint is a reason to send the plan back.\n\n## Change 3 - `skills/planner/scripts/render_plan.py`\n\nExtend sidecar validation: `issues[i].ownershipHint` must be a single token - reject any value containing whitespace or a comma, with a `PlanError` naming the issue index and the offending value and saying the field takes one path or glob. Nothing else about the field changes; it stays a required non-empty string.\n\n## Change 4 - `skills/planner/examples/sample.sidecar.json`\n\nReplace `templates/** and scripts/render_plan.py` with a single glob that covers that example issue's files and its `testPath`.\n\n## Out of scope, deliberately\n\nPlan-time ownership-overlap detection. The glob matcher (`generate_witnesses`, `path_matches`, `globs_overlap`) lives in `skills/build/scripts/waves.py`, which already imports the planner's validator; moving or duplicating it to run the check at render time is a cross-skill refactor that belongs to its own plan. Do not import `waves.py` from `render_plan.py`.\n\n## Constraints\n\n- Existing assertions in `skills/planner/tests/test_planner.py` stay green; the sample plans they build must satisfy the new rule.\n- The canonical ADR-0007 orchestrator paragraph stays the second paragraph after the title of `skills/planner/SKILL.md`.\n- This issue owns `skills/planner/**` only; the build-side fixtures and any other sidecar in the tree belong to other owners and already use single-glob hints.\n\n## Verification\n\n```sh\nruff check skills/\npython3 -m unittest discover -s skills/planner/tests -p 'test_*.py'\npython3 skills/planner/scripts/render_plan.py skills/planner/examples/sample.sidecar.json /tmp/sample-folio.html\n```\n",
       "labels": [
-        "ci",
-        "skills",
-        "agents",
-        "planning"
+        "planning",
+        "skills"
+      ],
+      "dependsOn": [],
+      "ownershipHint": "skills/planner/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {
+          "name": "prose_ownership_hint_is_rejected",
+          "kind": "unit",
+          "testPath": "skills/planner/tests/test_planner.py",
+          "oracle": "Rendering a sidecar whose first issue has ownershipHint 'templates/** and scripts/render_plan.py' exits non-zero with an error naming issues[0].ownershipHint and stating the field takes one path or glob."
+        },
+        {
+          "name": "comma_or_space_separated_hints_are_rejected",
+          "kind": "unit",
+          "testPath": "skills/planner/tests/test_planner.py",
+          "oracle": "Both 'a/**, b/**' and 'a/** b/**' are rejected by the same validation path, while a leading or trailing space around an otherwise valid glob is either stripped or rejected rather than reaching the rendered folio."
+        },
+        {
+          "name": "single_glob_hints_still_render",
+          "kind": "unit",
+          "testPath": "skills/planner/tests/test_planner.py",
+          "oracle": "A sidecar whose hints are 'skills/build/scripts/**' and 'docs/adr/**' renders to HTML with exit 0 and both hints appear in the folio's issue table."
+        },
+        {
+          "name": "shipped_sample_sidecar_passes_the_rule",
+          "kind": "integration",
+          "testPath": "skills/planner/tests/test_planner.py",
+          "oracle": "skills/planner/examples/sample.sidecar.json renders to a temporary path with exit 0, and no ownershipHint in it contains whitespace or a comma."
+        },
+        {
+          "name": "contract_states_the_granularity_rule",
+          "kind": "unit",
+          "testPath": "skills/planner/tests/test_planner.py",
+          "oracle": "skills/planner/references/sidecar-contract.md states that the hint is exactly one path or glob, that it is the narrowest glob covering the issue's files and the tests the specifier will write, that hints are disjoint within a wave, and that an issue spanning unrelated subtrees is split rather than widened."
+        }
+      ]
+    },
+    {
+      "key": "SpeculativeSpecifiers",
+      "title": "Permit speculative next-round specifiers while the integrator runs",
+      "body": "## Goal\n\nWhile the `integrator` runs the combined suite, the orchestrator has idle capacity and the next round's specifiers need nothing that does not already exist: they write failing tests and seal them. Write that allowance into `skills/build/SKILL.md` as an option with its cost stated, not as a default.\n\n## Change - `skills/build/SKILL.md`, wave loop step 5\n\nAdd a short subsection (\"Speculative specifiers\", or equivalent) stating:\n\n- While the integrator runs, the orchestrator **may** dispatch `specifier` agents for issues that will become ready once the in-flight set merges. They write the issue's `acceptanceTests` as failing tests on the current base, prove honest RED, and seal - exactly the standard Phase 1, nothing relaxed.\n- It is opportunistic, never the default. The plain sequence stays correct and a run that skips speculation is not deficient.\n- **Disqualifier**: an issue whose acceptance tests need the dependency's merged code to import or compile cannot be speculated. A test that cannot express its failure on the current base produces a hollow RED, and the `specifier` should return `blocked` rather than seal one.\n- **Rework cost**: when a wave bounces - the integrator names an offending PR, a builder redoes work, or the merged base changes what the tests assume - the speculative seal has to be re-proved on the merged base and amended with `tdd-guard reseal --reason <text>`, and a re-scoped issue throws that specifier's work away entirely. The guard binds a seal to the sealed test files and the red command, not to the base it was proved on, so nothing mechanical catches a stale speculative seal: the discipline is textual and belongs here.\n- **Never a speculative builder.** Phase 2 for a speculated issue starts only after its dependencies are merged, in a workspace on the merged base, and the builder re-proves the sealed tests still fail there for the right reason before implementing. If they now pass or fail differently, send the issue back to a `specifier` to reseal.\n\n## Constraints\n\n- Keep the wave loop's numbered steps and their order intact; add the subsection without renumbering.\n- The canonical ADR-0007 orchestrator paragraph stays the second paragraph after the title; `Phase 1` still precedes `Phase 2`; the file keeps exactly one `gh ... | jq` capture block (`test_documented_capture_command_produces_a_valid_snapshot`).\n- Do not weaken any existing sentence about the seal, the two phases, or merging on combined GREEN.\n\n## Verification\n\n```sh\nruff check skills/\npython3 -m unittest discover -s skills/build/tests -p 'test_*.py'\n```\n",
+      "labels": [
+        "planning",
+        "orchestration"
       ],
       "dependsOn": [
-        "workflow-skills",
-        "agent-contracts"
+        "WaveSelection"
       ],
-      "ownershipHint": "evals/**",
+      "ownershipHint": "skills/build/**",
       "wave": 2,
       "acceptanceTests": [
         {
-          "name": "every_skill_and_agent_has_a_case",
+          "name": "speculation_is_optional_not_default",
           "kind": "unit",
-          "oracle": "run_evals.py --structural exits 0 on the tree and exits non-zero when a case file is removed or has fewer than 3 positive, 2 negative, or 1 behavioral entries",
-          "testPath": "evals/tests/test_evals.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "skills/build/SKILL.md presents speculative specifier dispatch as something the orchestrator may do while the integrator runs, and says in the same subsection that it is opportunistic and not the default."
         },
         {
-          "name": "routing_floor_holds",
+          "name": "speculation_disqualifier_is_stated",
           "kind": "unit",
-          "oracle": "run_evals.py --min-rank1 <floor> exits 0 on the checked-in cases; a synthetic case whose positive prompt matches a different description exits non-zero and names the winning case",
-          "testPath": "evals/tests/test_evals.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "The subsection states that an issue whose acceptance tests need the dependency's merged code to import or compile is disqualified from speculation."
         },
         {
-          "name": "collision_check",
+          "name": "bounce_cost_and_reseal_are_stated",
           "kind": "unit",
-          "oracle": "two synthetic descriptions with ≥75% cosine similarity cause a non-zero exit; ≥50% prints a warning and exits 0",
-          "testPath": "evals/tests/test_evals.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "The subsection names the rework cost when a wave bounces and names `tdd-guard reseal --reason` as how a stale speculative seal is amended."
         },
         {
-          "name": "behavioral_dry_run_spawns_nothing",
+          "name": "no_speculative_builder",
           "kind": "unit",
-          "oracle": "run_evals.py --behavioral build --dry-run exits 0, prints the executor and grader command lines, and creates no results file and no subprocess",
-          "testPath": "evals/tests/test_evals.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "The subsection states that no builder is dispatched before its dependencies are merged and that the builder re-proves the sealed tests fail on the merged base before implementing."
         },
         {
-          "name": "grader_output_validated",
+          "name": "build_skill_invariants_survive",
           "kind": "unit",
-          "oracle": "a grader response that is not JSON of the documented shape is rejected with a non-zero exit and nothing is written under evals/results/",
-          "testPath": "evals/tests/test_evals.py"
+          "testPath": "skills/build/tests/test_build.py",
+          "oracle": "After the edit, `Phase 1` still precedes `Phase 2`, exactly one `gh ... | jq` capture block remains, and the existing pinned phrases ('combined GREEN', 'sole completion authority', 'never dispatch a builder for an issue with no seal') are unchanged."
+        }
+      ]
+    },
+    {
+      "key": "OverlapDocs",
+      "title": "Record the overlap policy: ADR 0017, the how-work-moves diagram, README and changelog",
+      "body": "## Goal\n\nOne documentation pass that makes the repository's own account of the build loop true again, once the four mechanical changes have merged: an ADR for the decision, the generated README diagram, the prose beside it, and a changelog entry.\n\n## Change 1 - `docs/adr/0017-the-build-wave-overlaps-where-the-seal-allows.md`\n\nStatus/Context/Decision/Consequences, Status `Accepted`, name in `docs/adr/NNNN-title.md` form (`skills/docs/scripts/docs_check.py` enforces the shape and unique numbers; 0016 is the highest today - renumber if something else has landed first, and keep the same number in the README and changelog). Record:\n\n- Selection is dependency-gated, not wave-gated: a not-done issue whose `dependsOn` are all done is dispatchable regardless of its declared wave, and `wave` becomes a planning hint plus a reporting anchor.\n- Ownership overlap is resolved by deferral across the in-flight set; a declared same-wave overlap stays a plan defect and is still rejected.\n- The `documenter` is dispatched alongside the `integrator`; documentation merges only inside a combined GREEN that includes it.\n- Speculative `specifier` dispatches are permitted and opportunistic; speculative builders are not.\n- `ownershipHint` is one narrow glob, and issues are split rather than hints widened.\n- What deliberately stays serial: `specifier` -> `builder` per issue, the integrator's serial merge, nothing merging before combined GREEN, and the two-phase seal.\n\n## Change 2 - `docs/diagrams/src/how-work-moves.json` and the generated SVGs\n\nToday the flow is `gate -> merge -> docs -> deploy`, which says documentation happens after the merge. Change it to `pr -> integrator`, `pr -> docs`, `docs -> gate`, `gate -> merge`, `merge -> deploy`: authoring starts from the PRs, and the gate covers the documentation before the orchestrator merges. Keep the node kinds, the group, and the direction; adjust the `docs` node `sub` to say it runs alongside the integrator. Regenerate both themes with `python3 scripts/render-diagrams.py` - editing an SVG by hand does not survive the next run - and keep `--check` green. The renderer's `check_fits` will reject labels that no longer fit; shorten the label rather than widening the diagram.\n\n## Change 3 - `README.md`\n\nUpdate the \"How work moves through Workcell\" paragraph and the `<img alt=...>` text so both match the regenerated picture: the `documenter` is dispatched alongside the `integrator`, its work is covered by the same gate, and the orchestrator merges only on that gate's output. Remove the \"then hands the result to `documenter`\" sequencing. [ADR 0004](docs/adr/0004-visuals-require-text-equivalents.md) requires the alt text and the nearby prose to carry the same flow as the picture.\n\n## Change 4 - `CHANGELOG.md`\n\nOne new top entry naming the four changes - dependency-gated scheduling with ownership deferral, the documenter beside the integrator, speculative specifiers, and the ownership-hint granularity rule - and pointing at ADR-0017.\n\n## Change 5 - the assertions\n\nAdd them to `scripts/tests/test_docs_truth.py`, the existing home for \"the docs still say something true\" checks, which CI runs via `python3 -m unittest discover -s scripts/tests`.\n\n## Ownership\n\nThis issue's hint is `**` on purpose: the pass spans `docs/adr/`, `docs/diagrams/`, the root `README.md` and `CHANGELOG.md`, and `scripts/tests/`, whose nearest common parent is the repository root. It is the last wave, it is dependency-blocked until everything else has merged, and under this milestone's own deferral rule a repository-wide hint serializes itself. Change only the files named above.\n\n## Verification\n\n```sh\npython3 -B skills/docs/scripts/docs_check.py .\npython3 scripts/render-diagrams.py --check\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\n```\n",
+      "labels": [
+        "planning",
+        "docs"
+      ],
+      "dependsOn": [
+        "WaveSelection",
+        "DocumenterOverlap",
+        "HintContract",
+        "SpeculativeSpecifiers"
+      ],
+      "ownershipHint": "**",
+      "wave": 3,
+      "acceptanceTests": [
+        {
+          "name": "adr_0017_records_the_overlap_policy",
+          "kind": "unit",
+          "testPath": "scripts/tests/test_docs_truth.py",
+          "oracle": "docs/adr/0017-*.md exists, carries Status/Context/Decision/Consequences with Status 'Accepted', and its Decision names dependency-gated selection, deferral of overlapping candidates, the documenter beside the integrator, speculative specifiers, and the one-narrow-glob ownership rule."
         },
         {
-          "name": "ci_runs_free_tiers",
+          "name": "adr_0017_names_what_stays_serial",
+          "kind": "unit",
+          "testPath": "scripts/tests/test_docs_truth.py",
+          "oracle": "The same ADR states that specifier-then-builder stays serial per issue, that the integrator's merge stays serial, and that nothing merges before combined GREEN."
+        },
+        {
+          "name": "how_work_moves_routes_the_documenter_through_the_gate",
+          "kind": "unit",
+          "testPath": "scripts/tests/test_docs_truth.py",
+          "oracle": "docs/diagrams/src/how-work-moves.json contains edges pr->docs and docs->gate and no merge->docs edge, and the docs node's sub-label says it runs alongside the integrator."
+        },
+        {
+          "name": "generated_diagrams_match_their_source",
           "kind": "integration",
-          "oracle": ".github/workflows/ci.yml has a step that runs run_evals.py --structural, run_evals.py --min-rank1, and evals/tests; README 'Verify the repository' lists the same commands"
+          "testPath": "scripts/tests/test_docs_truth.py",
+          "oracle": "`python3 scripts/render-diagrams.py --check` exits 0, and both how-work-moves-light.svg and how-work-moves-dark.svg contain the new documenter edge label."
         },
         {
-          "name": "docs_synced",
+          "name": "readme_prose_and_alt_text_match_the_diagram",
+          "kind": "unit",
+          "testPath": "scripts/tests/test_docs_truth.py",
+          "oracle": "README.md's how-work-moves paragraph and the diagram's img alt text both say the documenter is dispatched alongside the integrator and that the orchestrator merges on the gate covering both; the previous 'then hands the result to' documenter sequencing is gone."
+        },
+        {
+          "name": "changelog_entry_names_the_four_changes",
+          "kind": "unit",
+          "testPath": "scripts/tests/test_docs_truth.py",
+          "oracle": "The top CHANGELOG.md entry names dependency-gated scheduling, the documenter/integrator overlap, speculative specifiers, and ownership-hint granularity, and cites ADR-0017."
+        },
+        {
+          "name": "docs_gate_is_green",
           "kind": "integration",
-          "oracle": "README 'Who does what' research row says it returns a findings envelope; README mentions single-PR mode and agents/handoff.md; CHANGELOG has an entry for this milestone; docs_check.py . exits 0"
+          "testPath": "scripts/tests/test_docs_truth.py",
+          "oracle": "`python3 -B skills/docs/scripts/docs_check.py .` exits 0 with no ADR-numbering or instruction-file-budget violations."
         }
       ]
     }
@@ -239,35 +291,59 @@
   "risks": [
     {
       "id": "R-01",
-      "title": "Both wave-1 agents touch skills/build/tests/test_build.py",
+      "title": "A stale speculative seal passes the gate on a moved base",
       "likelihood": 2,
-      "impact": 2,
-      "owner": "orchestrator",
-      "mitigation": "agent-contracts may edit only the one tool-name assertion; conflicts resolved at integration before the wave merges."
+      "impact": 3,
+      "owner": "build orchestrator",
+      "mitigation": "The guard binds a seal to its test files and red command, not to the base, so the skill text makes the builder re-prove RED on the merged base before implementing and sends a seal that no longer fails back to a specifier for `tdd-guard reseal --reason`. Speculation stays optional, so the exposure is opt-in."
     },
     {
       "id": "R-02",
-      "title": "Prose-pinning tests break on rewording",
-      "likelihood": 3,
+      "title": "Pull-forward widens the in-flight set past what one integration round can carry",
+      "likelihood": 2,
       "impact": 2,
-      "owner": "each builder",
-      "mitigation": "Run every skills/*/tests suite before handoff; replace a pinned phrase only when it is the phrase being changed, and pin the replacement."
+      "owner": "build orchestrator",
+      "mitigation": "waves.py reports the ready set; the skill states the orchestrator may dispatch a subset to cap concurrency, deferral keeps every dispatched pair ownership-disjoint, and the combined-GREEN gate is unchanged."
     },
     {
       "id": "R-03",
-      "title": "Routing floor unreachable with terse descriptions",
-      "likelihood": 2,
-      "impact": 2,
-      "owner": "skill-evals builder",
-      "mitigation": "Descriptions may be enriched only on Tier-2 evidence, after wave 1 has merged, followed by sync-agents."
+      "title": "The wave-0 behaviour change surprises an operator or breaks a pinned test",
+      "likelihood": 3,
+      "impact": 1,
+      "owner": "WaveSelection builder",
+      "mitigation": "test_wave_zero_not_hard_failed is updated in the same issue, the stderr warning is retained, and SKILL.md step 2 states that an overlapping wave-0 pair is now serialized by deferral rather than by hand."
     },
     {
       "id": "R-04",
-      "title": "Codex sandbox cannot run jj (shared .jj store lives outside the workspace)",
-      "likelihood": 3,
+      "title": "A cross-owned contract test blocks an issue that cannot edit it",
+      "likelihood": 2,
+      "impact": 2,
+      "owner": "build orchestrator",
+      "mitigation": "skills/build/tests/test_skill_contracts.py pins phrases in skills the DocumenterOverlap and HintContract issues own. Each issue body lists the phrases it must preserve; a builder that needs one changed stops and escalates instead of writing outside its ownership."
+    },
+    {
+      "id": "R-05",
+      "title": "The documentation issue owns the whole repository",
+      "likelihood": 2,
+      "impact": 2,
+      "owner": "OverlapDocs builder",
+      "mitigation": "It runs alone in the last wave, is dependency-blocked until every other issue has merged, self-serializes under the new deferral rule, and its acceptance tests name exactly which files must change."
+    },
+    {
+      "id": "R-06",
+      "title": "ADR 0017 collides with a number landed on another branch",
+      "likelihood": 1,
       "impact": 1,
-      "owner": "orchestrator",
-      "mitigation": "Builders edit only; the orchestrator performs every jj/gh operation."
+      "owner": "OverlapDocs builder",
+      "mitigation": "docs_check.py rejects duplicate ADR numbers; the issue says to renumber at execution time and to keep the README and changelog citations in step with whatever number is used."
+    },
+    {
+      "id": "R-07",
+      "title": "The stricter hint rule rejects a sidecar already in flight elsewhere",
+      "likelihood": 2,
+      "impact": 2,
+      "owner": "HintContract builder",
+      "mitigation": "The rule rejects only prose and multi-path values, not coarse-but-valid globs; the single in-tree offender (skills/planner/examples/sample.sidecar.json) is fixed in the same issue, and every other sidecar in the tree already uses one glob per issue."
     }
   ]
 }
