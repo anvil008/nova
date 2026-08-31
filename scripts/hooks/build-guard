@@ -10,6 +10,13 @@
 # environment, which is identical either way — decides; Antigravity names no caller and registers
 # hooks session-wide, so merges there fail closed. `--admin`/`--auto` stay denied for everyone.
 #
+# Eval mode: a task repository bootstrapped by scripts/bootstrap-eval.sh carries
+# .workcell/eval-mode.json. Inside one, the run is an unattended benchmark — no human to pause for
+# and, normally, no remote to protect — so commit/merge/rebase/cherry-pick/push on main are allowed
+# there, and every `gh` call is denied instead, the top-level session's merges included: GitHub is
+# out of scope for an eval. The marker is read from the repository the command targets, so it can
+# relax nothing outside that repository, and no other rule changes.
+#
 # This is a hard boundary, so it fails closed: exit 2 with a reason on stderr when jq is
 # missing, the payload is not JSON, or the payload carries no command. Silent (allow) otherwise.
 #
@@ -135,6 +142,26 @@ live_branch(){
   command -v git >/dev/null 2>&1 || return 0
   git --no-pager "$@" symbolic-ref --quiet --short HEAD 2>/dev/null
 }
+# eval_mode [git-prefix-args...] -> true when the repository the command targets is the task
+# repository of an eval run. The repository is resolved the way live_branch resolves the branch —
+# through the -C/--git-dir/--work-tree the command named — and the marker counts only where
+# bootstrap-eval.sh puts it: at that toplevel, exactly. There is deliberately no upward walk, since
+# a marker in a parent directory would otherwise relax every repository nested under it, and a path
+# git cannot resolve to a toplevel is not in eval mode at all. When the eval driver exported
+# WORKCELL_EVAL_TASK_DIR, only that one repository qualifies.
+eval_mode(){
+  local top
+  command -v git >/dev/null 2>&1 || return 1
+  top=$(git --no-pager "$@" rev-parse --show-toplevel 2>/dev/null) || return 1
+  [[ -n $top && -f $top/.workcell/eval-mode.json ]] || return 1
+  [[ -z ${WORKCELL_EVAL_TASK_DIR:-} ]] || [[ $top == "${WORKCELL_EVAL_TASK_DIR%/}" ]]
+}
+# eval_declared -> the eval driver named a task directory in the environment. Independent of the
+# working directory, so cd-ing out of the task repository cannot buy the GitHub surface back.
+eval_declared(){ [[ -n ${WORKCELL_EVAL_TASK_DIR:-} ]]; }
+# is_eval_marker PATH -> PATH names the file that turns eval mode on.
+is_eval_marker(){ local re='(^|/)\.workcell/eval-mode\.json$'; [[ $1 =~ $re ]]; }
+marker_reason="eval mode is entered by a human running bootstrap-eval.sh, never by an agent — .workcell/eval-mode.json is not an agent's file to write"
 xargs_operands(){
   xrest=()
   while (($#)); do
@@ -191,6 +218,7 @@ rule_git(){
   done
   case $sub in
     push)
+      eval_mode "${gpre[@]}" && return 0   # an eval's work lands on the task repo's default branch
       positionals '-o|--push-option|--receive-pack|--exec|--repo' "${rest[@]}"
       ((${#pos[@]} >= 2)) || deny "git push must name the remote and your issue branch explicitly — a bare push targets the current branch, which may be main"
       local ref dest
@@ -217,6 +245,7 @@ rule_git(){
       local i; for ((i = 0; i + 1 < ${#rest[@]}; i++)); do
         [[ ${rest[i]} =~ ^(-b|-B|-c|-C)$ ]] && is_protected "${rest[i+1]}" && on_main=1; done ;;
     merge|commit|cherry-pick|rebase)
+      eval_mode "${gpre[@]}" && return 0
       ((on_main)) && deny "builder must not $sub on main — this line checks out main first"
       local head; head=$(live_branch "${gpre[@]}")
       is_protected "$head" && deny "builder must not $sub while HEAD is on $head — switch to your issue branch first" ;;
@@ -225,8 +254,10 @@ rule_git(){
 }
 # Merging is the main conversation's call, so a named caller is a subagent and is denied. Only
 # Claude Code and Codex name one; on Antigravity every merge is denied because nothing there
-# distinguishes the session's own commands from an agent's.
+# distinguishes the session's own commands from an agent's. In eval mode the question does not
+# arise: nothing GitHub-shaped runs at all, whoever asked.
 rule_gh(){
+  { eval_declared || eval_mode; } && deny "eval mode: GitHub is out of scope — no gh, no issues, no pull requests; land the work as local commits on the task repository"
   local -a pos=(); positionals '-R|--repo|-X|--method|-f|-F|--field|--raw-field|-H|--header' "$@"
   local a why=""
   [[ ${pos[0]:-} == pr && ${pos[1]:-} == merge ]] && why="builder must not merge pull requests — hand the PR back for review"
@@ -257,6 +288,7 @@ rule_jj(){
       esac ;;
     git)
       [[ ${rest[0]:-} == push ]] || return 0
+      eval_mode && return 0
       ((jj_main)) && deny "builder must not push main — this line moves the main bookmark first"
       local named=0 i a
       for ((i = 1; i < ${#rest[@]}; i++)); do
@@ -273,6 +305,29 @@ rule_jj(){
       done
       ((named)) || deny "jj git push must name your issue bookmark (--bookmark/--named) — a bare push may include main" ;;
   esac
+}
+# Entering eval mode is a human's act — scripts/bootstrap-eval.sh, run by whoever set the run up.
+# An agent that could write the marker itself could switch off its own branch protections, so the
+# write vectors the tokenizer can see are denied whatever mode the repository is in: a redirection
+# target (`> f`, `>>f`, `1>f`, and the same glued to the preceding word) and the file operands of
+# the commands that copy one path onto another. A path assembled inside a quoted script body is
+# beyond the tokenizer, and that residual is recorded in ADR 0013.
+rule_marker(){
+  local base=$1 a t next=0; shift
+  case $base in
+    tee|cp|mv|install|ln|dd|truncate)
+      # dd names its operands `of=<path>`/`if=<path>`, so the path is not the whole word.
+      for a in "$@"; do
+        t=$a; [[ $t =~ ^[A-Za-z_]+= ]] && t=${t#*=}
+        is_eval_marker "$t" && deny "$marker_reason"
+      done ;;
+  esac
+  for a in "$@"; do
+    if ((next)); then next=0; is_eval_marker "$a" && deny "$marker_reason"; continue; fi
+    case $a in
+      *'>'*) t=${a##*>}; if [[ -n $t ]]; then is_eval_marker "$t" && deny "$marker_reason"; else next=1; fi ;;
+    esac
+  done
 }
 rule_cargo(){
   while (($#)); do
@@ -300,6 +355,7 @@ analyze_segment(){
   local base=${seg[i]##*/}
   ((via_xargs)) && [[ $base =~ ^(git|gh|jj)$ ]] && deny \
     "builder must not reach $base through xargs — its operands arrive on stdin, where the guard cannot inspect them; run $base directly"
+  rule_marker "$base" "${seg[@]}"   # every segment: a redirection can write the marker from any command
   case $base in
     git)   rule_git   "${seg[@]:i+1}" ;;
     gh)    rule_gh    "${seg[@]:i+1}" ;;
