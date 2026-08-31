@@ -22,4 +22,4 @@ Build UI that is correct, accessible, and responsive — not elaborate. Match th
 - Don't over-art-direct — this is the *basic, solid* skill, not a brand system.
 
 ## Verify
-Confirm it renders and reflows at ~360px and ~1280px, tab through every control, and check for no console errors. Then hand back through the builder's normal TDD gate.
+Runtime proof happens in the builder's *Prove it runs, not just passes* step, not here and not twice: that step serves the UI, drives it in a real browser at ~390px and ~1280px, tabs through every control, and fails on any console error. Build so that step can pass, and hand back through the builder's normal TDD gate.
