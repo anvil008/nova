@@ -13,6 +13,12 @@ refuses to mark the Workcell source tree, refuses any directory that is not its 
 and the guard resolves the marker from the repository each command targets, so a workcell checkout
 on the same machine is never itself in eval mode.
 
+A repository in eval mode neither records to nor consolidates a wiki: every `wiki.py --repo`
+subcommand refuses a repository carrying the marker, reads included, so a benchmark run cannot
+contaminate — or be contaminated by — a project's persistent knowledge. The marker is read from
+the repository the command targets, so a workcell checkout on the same machine keeps its own
+namespace. See [ADR 0019](adr/0019-the-wiki-lives-outside-every-repository.md).
+
 Entering eval mode is the operator's act. An agent that tries to write the marker is denied:
 `build-guard` refuses the shell vectors (redirection, `tee`, `cp`, `mv`, `install`, `ln`) and
 `build-hooks` refuses an `Edit`/`Write` of that path, in or out of eval mode.
