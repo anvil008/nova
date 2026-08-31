@@ -1,5 +1,6 @@
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -190,7 +191,9 @@ class DocsCheckTests(unittest.TestCase):
         """agents/models.json is the single source for model and thinking level.
         Every agent file must agree with it, on every harness."""
         repo = ROOT.parents[1]
-        manifest = json.loads((repo / "agents" / "models.json").read_text(encoding="utf-8"))
+        manifest = json.loads(
+            (repo / "agents" / "models.json").read_text(encoding="utf-8")
+        )
         defaults = manifest["defaults"]
         keys = {
             "claude": {"model": "model", "effort": "effort"},
@@ -211,8 +214,11 @@ class DocsCheckTests(unittest.TestCase):
                     front = path.read_text(encoding="utf-8").split("---")[1]
                     merged = dict(defaults.get(harness, {}))
                     merged.update(
-                        {k: v for k, v in spec.get(harness, {}).items()
-                         if not k.startswith("_")}
+                        {
+                            k: v
+                            for k, v in spec.get(harness, {}).items()
+                            if not k.startswith("_")
+                        }
                     )
                     for knob, key in fields.items():
                         if knob not in merged:
@@ -227,11 +233,21 @@ class DocsCheckTests(unittest.TestCase):
             front = path.read_text(encoding="utf-8").split("---")[1]
             if "mainAgent: true" in front:
                 main_agents.add(path.parent.name)
-        self.assertEqual(main_agents, {
-            "builder", "code-reviewer", "docs", "research",
-            "planner", "test-author", "integrator", "deploy",
-            "debugger", "benchmarker",
-        })
+        self.assertEqual(
+            main_agents,
+            {
+                "builder",
+                "code-reviewer",
+                "docs",
+                "research",
+                "planner",
+                "test-author",
+                "integrator",
+                "deploy",
+                "debugger",
+                "benchmarker",
+            },
+        )
 
     def test_every_skill_declares_itself(self):
         """A skill is discovered by directory, so its frontmatter name must match the
@@ -248,7 +264,9 @@ class DocsCheckTests(unittest.TestCase):
                 front = text[4:end]
                 name = re.search(r"(?m)^name:\s*(\S+)$", front)
                 self.assertIsNotNone(name, f"{path}: no name")
-                self.assertEqual(name.group(1), path.parent.name, f"{path}: name/dir mismatch")
+                self.assertEqual(
+                    name.group(1), path.parent.name, f"{path}: name/dir mismatch"
+                )
                 description = re.search(r"(?m)^description:\s*(\S.*)$", front)
                 self.assertIsNotNone(description, f"{path}: no description")
 
@@ -455,9 +473,7 @@ class DocsCheckTests(unittest.TestCase):
 
         # Check for uncached race-enabled Go tests and glob-discovered shell coverage.
         self.assertIn("go test -count=1 -race ./...", content)
-        self.assertIn(
-            "scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh", content
-        )
+        self.assertIn("scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh", content)
         self.assertIn('bash "$test_script"', content)
         self.assertIn(
             "python3 -m unittest discover -s scripts/tests -p 'test_*.py'", content
@@ -496,14 +512,79 @@ class DocsCheckTests(unittest.TestCase):
         ):
             self.assertIn(phrase, readme)
 
-    def test_readme_diagrams_are_vertical(self):
-        # GitHub renders a README in a narrow column, so every mermaid graph has to run
-        # top-to-bottom. `flowchart LR` fits the page by shrinking the text.
-        readme = (ROOT.parents[1] / "README.md").read_text(encoding="utf-8")
-        fences = [b.lstrip("\n").split("\n", 1)[0].strip() for b in readme.split("```mermaid")[1:]]
-        self.assertTrue(fences, "README has no mermaid diagram")
-        for first_line in fences:
-            self.assertIn("TB", first_line, f"non-vertical mermaid diagram: {first_line!r}")
+    def test_readme_diagrams_are_generated_svg_with_text_equivalents(self):
+        # The README's visuals are rendered files, not Mermaid fences (ADR 0010), and
+        # each one keeps the adjacent text equivalent ADR 0004 requires.
+        repo = ROOT.parents[1]
+        readme = (repo / "README.md").read_text(encoding="utf-8")
+        self.assertNotIn("```mermaid", readme)
+        blocks = re.findall(r"<picture>.*?</picture>", readme, re.DOTALL)
+        self.assertTrue(blocks, "README has no diagram")
+        self.assertEqual(len(blocks), readme.count("<picture>"))
+        for block in blocks:
+            dark = re.search(
+                r'<source media="\(prefers-color-scheme: dark\)" srcset="(\S+)">', block
+            )
+            light = re.search(r'<img alt="([^"]+)" src="(\S+)"', block)
+            self.assertIsNotNone(dark, block)
+            self.assertIsNotNone(light, block)
+            self.assertTrue(dark.group(1).endswith("-dark.svg"), block)
+            self.assertTrue(light.group(2).endswith("-light.svg"), block)
+            self.assertTrue(light.group(1).strip(), "empty alt text")
+            for reference in (dark.group(1), light.group(2)):
+                self.assertTrue((repo / reference).is_file(), reference)
+            following = readme[readme.index(block) + len(block) :].split("\n")[:11]
+            self.assertTrue(
+                any("In words" in line for line in following),
+                f"no text equivalent near {light.group(2)}",
+            )
+
+    def test_every_diagram_svg_is_titled_and_described(self):
+        svgs = sorted((ROOT.parents[1] / "docs" / "diagrams").glob("*.svg"))
+        self.assertTrue(svgs, "no rendered diagrams")
+        for path in svgs:
+            with self.subTest(diagram=path.name):
+                text = path.read_text(encoding="utf-8")
+                self.assertRegex(text, r"<title[^>]*>[^<]+</title>")
+                self.assertRegex(text, r"<desc[^>]*>[^<]+</desc>")
+
+    def test_render_diagrams_check_catches_a_hand_edited_svg(self):
+        # A gate only means something if it fails: copy the renderer and its output,
+        # change one byte, and the --check that passes on the tree must name the file.
+        repo = ROOT.parents[1]
+        script = repo / "scripts" / "render-diagrams.py"
+        clean = subprocess.run(
+            [sys.executable, "-B", str(script), "--check"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "scripts").mkdir()
+            shutil.copy(script, root / "scripts" / "render-diagrams.py")
+            shutil.copytree(repo / "docs" / "diagrams", root / "docs" / "diagrams")
+            edited = root / "docs" / "diagrams" / "how-work-moves-light.svg"
+            edited.write_text(
+                edited.read_text(encoding="utf-8").replace(
+                    "</svg>", "<!-- edit --></svg>"
+                ),
+                encoding="utf-8",
+            )
+            drifted = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(root / "scripts" / "render-diagrams.py"),
+                    "--check",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(drifted.returncode, 1, drifted.stdout + drifted.stderr)
+            self.assertIn("how-work-moves-light.svg", drifted.stderr)
 
 
 if __name__ == "__main__":
