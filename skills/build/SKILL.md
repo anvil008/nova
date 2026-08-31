@@ -13,7 +13,7 @@ This orchestrator schedules waves, creates integration branches when requested, 
 
 ## Wave loop
 
-1. Validate the sidecar and capture GitHub issue state. The one definition implemented by `skills/build/scripts/waves.py` is: an issue is done when it is closed **and** (`status:done` or `state_reason == completed`). The label covers a closed-as-`not_planned` issue that was in fact finished, and it may mark work done before the merged PR auto-closes it; until closure, the issue remains not done. A `not_planned` closure without that label is housekeeping, never finished work (`skills/planner/scripts/reconcile_github.py` closes stale issues that way on purpose). An issue is unblocked only when every dependency issue is done. The current wave is every unblocked, not-done issue in the earliest unfinished declared wave. `waves.py` provides a strict offline dry-run over a captured snapshot.
+1. Validate the sidecar and capture GitHub issue state. The one definition implemented by `skills/build/scripts/waves.py` is: an issue is done when it is closed **and** (`status:done` or `state_reason == completed`). The label covers a closed-as-`not_planned` issue that was in fact finished, and it may mark work done before the merged PR auto-closes it; until closure, the issue remains not done. A `not_planned` closure without that label is housekeeping, never finished work (`skills/planner/scripts/reconcile_github.py` closes stale issues that way on purpose). An issue is unblocked only when every dependency issue is done. Selection is gated on that, not on the declared wave: every not-done issue whose dependencies are all done is a candidate for this round, regardless of declared wave, so one straggler never freezes work whose own dependencies are already merged. A candidate declared later than `currentWave` is reported as pulled forward (`pulledForward: true`). `currentWave` keeps its meaning — the earliest unfinished declared wave — as reporting and resume, never as a filter. `waves.py` provides a strict offline dry-run over a captured snapshot.
 
    Capture that snapshot with `REPO` and `MILESTONE` exported (`REPO=owner/repo`, `MILESTONE` the milestone title). It writes `{repo, milestone, issues:[{number, body, labels, state, state_reason}]}` and drops the pull requests the issues endpoint returns alongside issues. The milestone is filtered by title in `jq`, so `--paginate` is not optional — the `100` cap is over every milestoned issue in the repo, not over this milestone's — and `jq -s` is what flattens the one array per page `--paginate` emits into a single snapshot:
 
@@ -33,9 +33,9 @@ This orchestrator schedules waves, creates integration branches when requested, 
 
    `waves.py` also accepts gh's raw label objects, so a snapshot captured any other way (`gh issue list --json labels`) validates unchanged.
 
-2. Check ownership before dispatch. Run one issue-pair per unblocked issue in parallel, each in its own **jj workspace**, only when `ownershipHint` globs are genuinely independent. Serialize overlapping ownership. `waves.py` rejects a sidecar whose grouped wave (1 and up) has overlapping hints; wave 0 is the ungrouped bucket, so an overlap there is warned about, not rejected, and must be serialized by hand.
+2. Check ownership before dispatch, across the whole candidate in-flight set rather than per declared wave. Run one issue-pair per unblocked issue in parallel, each in its own **jj workspace**, only when `ownershipHint` globs are genuinely independent. `waves.py` does that check itself: a candidate whose hint overlaps an already-selected one is left out of `unblocked` and named in `deferred` with the `overlapsWith` key it collides with, and you dispatch it in a later round. Overlapping work is never dispatched concurrently. Candidates are considered earliest declared wave first, so a deliberately coarse late hint — a whole-repository documentation pass, say — defers itself rather than starving the issues it overlaps. A declared overlap inside a grouped wave (1 and up) is still rejected outright, because the planner asserted a parallelism the hints cannot deliver; wave 0 is the ungrouped bucket, so an overlap there is warned about rather than rejected, and the colliding candidate is held back by the same in-flight check as any other — the warning names a pair, the deferral is decided against the whole selected set, so which key ends up in `deferred` is `waves.py`'s answer, not the warning's.
 
-   Dispatch every issue in a wave on the same base. In default multi-PR mode that base is `trunk()` unless you are deliberately stacking, and builders open their PRs against `main` with an explicit `--base`. In single-PR mode the base is the integration bookmark defined below. Handing a builder a sibling's bookmark or an unmerged PR head puts commits it did not write into its diff.
+   You may dispatch a subset of `unblocked` when you want to cap concurrency; whatever you hold back simply returns as a candidate in a later round. Dispatch every issue in a round on the same base, pulled-forward issues included — they join the same integration round as the rest. In default multi-PR mode that base is `trunk()` unless you are deliberately stacking, and builders open their PRs against `main` with an explicit `--base`. In single-PR mode the base is the integration bookmark defined below. Handing a builder a sibling's bookmark or an unmerged PR head puts commits it did not write into its diff.
 
    Agents share one repo and isolate through one helper, `workcell-ws add <key>`, not through separate clones — one repo, one operation log, many working copies at the sibling path `../<repo>-<key>`. It runs `jj workspace add` where the repo is jj-managed and `git worktree add` where it is not, so the naming and the teardown are the same in either (`docs/workspaces.md`). Ensure the repo is jj-managed before the first wave dispatches; a `specifier` landing in a git-only repo will adopt it with `jj git init --colocate`, and it is cheaper to do that once up front than to race two of them doing it at the same moment.
 
@@ -51,9 +51,11 @@ This orchestrator schedules waves, creates integration branches when requested, 
 4. Collect each branch, PR, changed files, command-linked test evidence, the runtime evidence (`evidence.runtime`: the surface the builder exercised, the commands it ran, and its console-error count), and the outcome of the builder's two review passes. A builder reviews its own change-set before opening a PR and stops after two passes; one that returns `blocked` has unresolved `critical`/`high` findings and **no PR** — decide whether to re-dispatch, re-scope, or escalate. A builder that returns `blocked` may be re-dispatched at most twice per issue; after the second re-dispatch still returns `blocked`, mark the issue **stalled** in the wave summary and escalate to the human instead of dispatching again. A builder completes one issue; it does not merge or declare the milestone done.
 
    Builders tear down their own workspace once their PR is open. If an agent dies mid-issue, its workspace is left behind: `workcell-ws list` shows it and `workcell-ws forget <name>` reclaims it — the same `jj workspace list` and `jj workspace forget <name>` plus removing the directory — and the bookmark and commits survive that. Before resuming a wave, and after any run that crashed, run `workcell-ws sweep`; it names every stranded workspace and every bookmark already merged into the default branch, and `--apply` removes exactly those.
+
 5. **Treat every PR as tested on its old base.** Dispatch an `integrator` to build the combined state — serial merge onto a scratch ref in default mode, or the named integration branch in single-PR mode — and to run the full suite there. It returns command-linked evidence and the mechanical gate output; it does not decide anything.
 
    Accept the wave on the **evidence**, not on the summary: a combined GREEN run whose `commandId`s you can see, `tdd-guard status --json` fresh for every issue, and `gh pr checks` passing. A prose claim of success from any agent is worth nothing. If the integrator names an offending PR, send that issue back to its builder and re-integrate; do not merge a wave around it.
+
 6. Merge only after combined green, then refresh GitHub state, advance, and repeat until no planned issue remains. In default mode, merge the wave PRs to `main`; in single-PR mode, merge them into the integration branch.
 
 You are the sole completion authority. Never force-push `main`, never merge before combined GREEN, and never infer completion from an agent's report — read the gates.
@@ -74,8 +76,14 @@ Entry skills that promise one PR opt into this mode; the default multi-PR mode a
 
 ## Offline demonstration
 
-This command reads fixtures only; it never calls or changes GitHub:
+These commands read fixtures only; they never call or change GitHub. The first is the shipped wave demo — one finished wave, two independent issues dispatchable, nothing deferred:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 skills/build/scripts/waves.py skills/build/examples/plan.sidecar.json skills/build/examples/issue-state.json
+```
+
+The second shows dependency-gated selection at work: a later-wave issue pulled forward past an unfinished straggler, and a ready candidate deferred because its coarse hint collides with one already selected:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 skills/build/scripts/waves.py skills/build/examples/pull-forward/plan.sidecar.json skills/build/examples/pull-forward/issue-state.json
 ```

@@ -9,8 +9,9 @@
   ],
   "currentWave": 2,
   "unblocked": [
-    {"key": "API", "number": 102, "ownershipHint": "src/api/**", "wave": 2},
-    {"key": "UI", "number": 103, "ownershipHint": "src/ui/**", "wave": 2}
+    {"key": "API", "number": 102, "ownershipHint": "src/api/**", "wave": 2, "pulledForward": false},
+    {"key": "UI", "number": 103, "ownershipHint": "src/ui/**", "wave": 2, "pulledForward": false}
   ],
+  "deferred": [],
   "done": ["Foundation"]
 }

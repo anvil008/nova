@@ -1,0 +1,100 @@
+{
+  "planId": "pull-forward-demo",
+  "planName": "Pull-forward wave demo",
+  "repo": "foundry-zero/workcell",
+  "generatedAt": "2026-08-30T12:00:00Z",
+  "summary": "Demonstrate dependency-gated selection: a later-wave issue is pulled forward past an unfinished straggler, and an overlapping candidate is deferred rather than dispatched beside it.",
+  "architecture": {
+    "changeSummary": "Select on completed dependencies rather than on the earliest declared wave, and serialize ownership collisions by deferring the later candidate.",
+    "components": [
+      {
+        "name": "Core",
+        "purpose": "The straggler that no longer freezes the milestone."
+      },
+      {
+        "name": "Docs",
+        "purpose": "A later-wave issue whose dependencies are already done."
+      },
+      {
+        "name": "Sweep",
+        "purpose": "A deliberately coarse hint that defers itself."
+      }
+    ],
+    "diagramsMermaid": {
+      "currentArchitecture": "flowchart LR\n  Foundation --> Core\n  Foundation --> Docs\n  Core --> Followup",
+      "targetArchitecture": "flowchart LR\n  Foundation --> Core\n  Foundation --> Docs\n  Core --> Followup\n  Sweep -. deferred .- Core"
+    }
+  },
+  "issues": [
+    {
+      "key": "Foundation",
+      "title": "Land the shared foundation",
+      "body": "Create the shared primitives.",
+      "labels": ["build"],
+      "dependsOn": [],
+      "ownershipHint": "src/foundation/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {"name": "foundation_primitives_exported", "kind": "unit", "oracle": "shared primitives importable and typed"}
+      ]
+    },
+    {
+      "key": "Core",
+      "title": "Finish the core surface",
+      "body": "The straggler still in flight.",
+      "labels": ["build"],
+      "dependsOn": [],
+      "ownershipHint": "src/core/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {"name": "core_surface_contract", "kind": "unit", "oracle": "core surface keeps its documented contract"}
+      ]
+    },
+    {
+      "key": "Docs",
+      "title": "Document the foundation",
+      "body": "Depends only on the finished foundation.",
+      "labels": ["build"],
+      "dependsOn": ["Foundation"],
+      "ownershipHint": "docs/**",
+      "wave": 2,
+      "acceptanceTests": [
+        {"name": "docs_describe_foundation", "kind": "unit", "oracle": "documentation names every exported primitive"}
+      ]
+    },
+    {
+      "key": "Sweep",
+      "title": "Sweep the whole source tree",
+      "body": "A deliberately coarse late hint.",
+      "labels": ["build"],
+      "dependsOn": [],
+      "ownershipHint": "src/**",
+      "wave": 3,
+      "acceptanceTests": [
+        {"name": "sweep_leaves_no_dead_module", "kind": "unit", "oracle": "no unreferenced module remains under src"}
+      ]
+    },
+    {
+      "key": "Followup",
+      "title": "Follow up on the core surface",
+      "body": "Blocked until Core is done.",
+      "labels": ["build"],
+      "dependsOn": ["Core"],
+      "ownershipHint": "tests/**",
+      "wave": 3,
+      "acceptanceTests": [
+        {"name": "followup_exercises_core", "kind": "integration", "oracle": "the follow-up suite drives the finished core surface"}
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-01",
+      "title": "A coarse late hint starves the issues it overlaps",
+      "likelihood": 2,
+      "impact": 3,
+      "owner": "build orchestrator",
+      "mitigation": "Earlier declared waves are selected first, so the coarse hint defers itself."
+    }
+  ]
+}
