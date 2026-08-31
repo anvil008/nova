@@ -1,0 +1,89 @@
+{
+  "title": "The mechanical gates a build wave passes through",
+  "description": "tdd-guard turns TDD into a state machine two different agents pass through: one seals the tests, the other implements against them, and the Stop hook releases a pull request only on fresh evidence.",
+  "direction": "TB",
+  "width": 880,
+  "nodes": [
+    {
+      "id": "testauthor",
+      "kind": "agent",
+      "label": "test-author",
+      "sub": "writes the acceptance tests, then runs RED"
+    },
+    {
+      "id": "integrator",
+      "kind": "agent",
+      "label": "integrator (baseline)",
+      "sub": "behaviour-preserving work: proves the suite green"
+    },
+    {
+      "id": "seal",
+      "kind": "gate",
+      "label": "tdd-guard seal",
+      "sub": "kind: red, or kind: baseline for refactor work"
+    },
+    {
+      "id": "builder",
+      "kind": "agent",
+      "label": "builder implements",
+      "sub": "a different agent from the one that wrote the tests"
+    },
+    {
+      "id": "verify",
+      "kind": "gate",
+      "label": "tdd-guard verify",
+      "sub": "GREEN must postdate the seal"
+    },
+    {
+      "id": "denied",
+      "kind": "gate",
+      "label": "sealed path denied",
+      "sub": "amend only via reseal --reason"
+    },
+    {
+      "id": "review",
+      "kind": "gate",
+      "label": "tdd-guard diff-review record",
+      "sub": "findings bound to the current diff"
+    },
+    {
+      "id": "stop",
+      "kind": "gate",
+      "label": "Stop hook",
+      "sub": "is every piece of evidence fresh?"
+    },
+    {
+      "id": "pr",
+      "kind": "artifact",
+      "label": "PR allowed",
+      "sub": "the gate decides the merge, never a handoff"
+    }
+  ],
+  "edges": [
+    { "from": "testauthor", "to": "seal", "label": "RED is real and non-zero" },
+    {
+      "from": "integrator",
+      "to": "seal",
+      "label": "the baseline run is green"
+    },
+    { "from": "seal", "to": "builder", "label": "handoff --to builder" },
+    { "from": "builder", "to": "verify" },
+    {
+      "from": "builder",
+      "to": "denied",
+      "label": "edits a sealed test",
+      "dashed": true
+    },
+    { "from": "denied", "to": "builder", "dashed": true, "side": "right" },
+    { "from": "verify", "to": "review" },
+    { "from": "review", "to": "stop" },
+    { "from": "stop", "to": "pr", "label": "yes" },
+    {
+      "from": "stop",
+      "to": "builder",
+      "label": "missing or stale",
+      "dashed": true,
+      "side": "left"
+    }
+  ]
+}

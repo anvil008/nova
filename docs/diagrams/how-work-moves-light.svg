@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 1088" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title diagram-desc">
+  <title id="diagram-title">How work moves through Workcell</title>
+  <desc id="diagram-desc">A goal becomes a reviewed plan, then sealed tests, an implementation, review, and a merge the orchestrator makes on gate output — with blocked work returning to the human and failed gates returning to the builder.</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#4b5563"/></marker><marker id="arrow-muted" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#7b8494"/></marker></defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
+    .label{font-size:14px;font-weight:600;fill:#111827;text-anchor:middle}
+    .sub{font-size:11.5px;font-style:italic;fill:#3d4657;text-anchor:middle}
+    .title{font-size:16px;font-weight:700;fill:#111827}
+    .legend{font-size:11.5px;fill:#3d4657}
+    .edgelabel{font-size:11.5px;fill:#3d4657}
+    .chip{fill:#ffffff;stroke:#d7dce3;stroke-width:1}
+    .plate{fill:#ffffff}
+    .edge{fill:none;stroke:#4b5563;stroke-width:1.6}
+    .edge.dashed{stroke:#7b8494;stroke-dasharray:6 4}
+    .frame{fill:none;stroke:#8a76d6;stroke-width:1.4;stroke-dasharray:1 4;stroke-linecap:round}
+    .frametext{font-size:11.5px;font-weight:600;fill:#4c3a94}
+    .crease{fill:none}
+    .inner{fill:none;stroke-width:1}
+    .k-agent{fill:#e7edfb;stroke:#2b53a8;stroke-width:1.6}
+    .k-gate{fill:#fdf0d5;stroke:#a2701a;stroke-width:1.6}
+    .k-human{fill:#e6f4ea;stroke:#1f7a45;stroke-width:1.6}
+    .k-artifact{fill:#f1f2f5;stroke:#5a6272;stroke-width:1.6}
+    .k-orchestrator{fill:#ece6fb;stroke:#5b3fbf;stroke-width:1.6}
+  </style>
+  <text class="title" x="20" y="32">How work moves through Workcell</text>
+  <rect class="k-agent" x="20" y="41" width="28" height="14" rx="3.92"/><text class="legend" text-anchor="start" x="52" y="52">agent</text><polygon class="k-gate" points="108.25,41 126.17,41 131.21,48 126.17,55 108.25,55 103.21,48"/><text class="legend" text-anchor="start" x="135.21" y="52">mechanical gate</text><rect class="k-human" x="246.22" y="41" width="28" height="14" rx="7"/><text class="legend" text-anchor="start" x="278.22" y="52">human gate</text><path class="k-artifact" d="M 362.44 41 L 385.54 41 L 390.44 45.9 L 390.44 55 L 362.44 55 Z"/><path class="k-artifact crease" d="M 385.54 41 L 385.54 45.9 L 390.44 45.9"/><text class="legend" text-anchor="start" x="394.44" y="52">artifact</text><rect class="k-orchestrator" x="454.96" y="41" width="28" height="14" rx="3.92"/><rect class="k-orchestrator inner" x="457.2" y="43.24" width="23.52" height="9.52" rx="1.68"/><text class="legend" text-anchor="start" x="486.96" y="52">orchestrator</text>
+  <rect class="frame" x="256" y="142" width="368" height="928" rx="14"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 172"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 220 L 440 248"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 296 L 440 324"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 372 L 440 400"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 448 L 440 476"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 524 L 440 552"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 600 L 440 628"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 676 L 440 704"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 752 L 440 780"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 828 L 440 856"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 904 L 440 932"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 980 L 440 1008"/>
+  <path class="edge dashed" marker-end="url(#arrow-muted)" d="M 600 804 L 641 804 Q 650 804 650 795 L 650 509 Q 650 500 641 500 L 608 500"/>
+  <path class="edge dashed" marker-end="url(#arrow-muted)" d="M 272 576 L 239 576 Q 230 576 230 567 L 230 281 Q 230 272 239 272 L 273 272"/>
+  <rect class="plate" x="264" y="148" width="489.48" height="17"/><text class="frametext" x="270" y="161">the orchestrator dispatches, holds the human gates, and merges — it writes nothing</text>
+  <path class="k-artifact" d="M 280 74 L 586 74 L 600 88 L 600 122 L 280 122 Z"/><path class="k-artifact crease" d="M 586 74 L 586 88 L 600 88"/><text class="label" x="440" y="94.5">Goal</text><text class="sub" x="440" y="110">a feature · a bug · a refactor · a reported symptom</text>
+  <rect class="k-agent" x="272" y="172" width="336" height="48" rx="10"/><text class="label" x="440" y="192.5">planner</text><text class="sub" x="440" y="208">investigates read-only · writes the plan and its sidecar</text>
+  <rect class="k-human" x="273" y="248" width="334" height="48" rx="24"/><text class="label" x="440" y="268.5">you approve</text><text class="sub" x="440" y="284">the plan, and every blocked or needs-decision return</text>
+  <path class="k-artifact" d="M 280 324 L 586 324 L 600 338 L 600 372 L 280 372 Z"/><path class="k-artifact crease" d="M 586 324 L 586 338 L 600 338"/><text class="label" x="440" y="344.5">GitHub milestone and issues</text><text class="sub" x="440" y="360">every issue carries its acceptance tests</text>
+  <rect class="k-agent" x="272" y="400" width="336" height="48" rx="10"/><text class="label" x="440" y="420.5">test-author</text><text class="sub" x="440" y="436">proves RED is real, then seals the tests</text>
+  <rect class="k-agent" x="272" y="476" width="336" height="48" rx="10"/><text class="label" x="440" y="496.5">builder</text><text class="sub" x="440" y="512">implements against tests it cannot edit</text>
+  <rect class="k-agent" x="272" y="552" width="336" height="48" rx="10"/><text class="label" x="440" y="572.5">code-reviewer</text><text class="sub" x="440" y="588">read-only, one lens each · at most two passes</text>
+  <path class="k-artifact" d="M 280 628 L 586 628 L 600 642 L 600 676 L 280 676 Z"/><path class="k-artifact crease" d="M 586 628 L 586 642 L 600 642"/><text class="label" x="440" y="648.5">pull request</text><text class="sub" x="440" y="664">one issue · one workspace · one PR</text>
+  <rect class="k-agent" x="272" y="704" width="336" height="48" rx="10"/><text class="label" x="440" y="724.5">integrator</text><text class="sub" x="440" y="740">retests the combined wave, returns the evidence</text>
+  <polygon class="k-gate" points="296,780 584,780 600,804 584,828 296,828 280,804"/><text class="label" x="440" y="800.5">gate output</text><text class="sub" x="440" y="816">tdd-guard status · gh pr checks · CI conclusions</text>
+  <rect class="k-orchestrator" x="294" y="856" width="292" height="48" rx="10"/><rect class="k-orchestrator inner" x="298" y="860" width="284" height="40" rx="6"/><text class="label" x="440" y="876.5">orchestrator merges</text><text class="sub" x="440" y="892">reads the gate output, never an agent's claim</text>
+  <rect class="k-agent" x="272" y="932" width="336" height="48" rx="10"/><text class="label" x="440" y="952.5">docs</text><text class="sub" x="440" y="968">READMEs, ADRs, and the changelog match reality</text>
+  <rect class="k-agent" x="272" y="1008" width="336" height="48" rx="10"/><text class="label" x="440" y="1028.5">deploy</text><text class="sub" x="440" y="1044">a fresh explicit approval · verified · reversible</text>
+  
+  <rect class="chip" x="382.31" y="225" width="115.38" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="238">plan folio + sidecar</text>
+  <rect class="chip" x="409.91" y="301" width="60.18" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="314">approved</text>
+  <rect class="chip" x="344.93" y="377" width="190.14" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="390">dispatched in dependency waves</text>
+  <rect class="chip" x="383.29" y="453" width="113.43" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="466">handoff --to builder</text>
+  <rect class="chip" x="335.27" y="529" width="209.46" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="542">the change-set, before any PR exists</text>
+  <rect class="chip" x="296.69" y="605" width="286.62" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="618">nothing critical or high stands · the builder opens it</text>
+  
+  
+  <rect class="chip" x="419.39" y="833" width="41.21" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="846">green</text>
+  
+  
+  <rect class="chip" x="653" y="643" width="61.22" height="18" rx="5"/><text class="edgelabel" text-anchor="start" x="659" y="656">not green</text>
+  <rect class="chip" x="8.69" y="415" width="218.31" height="18" rx="5"/><text class="edgelabel" text-anchor="end" x="221" y="428">critical or high stands: blocked, no PR</text>
+</svg>
