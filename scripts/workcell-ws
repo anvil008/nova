@@ -339,7 +339,7 @@ sweep)
   if ((APPLY)); then printf 'sweep %s (%s) — removing\n' "$TOP" "$VCS"
   else printf 'sweep %s (%s) — read-only; re-run with --apply to remove\n' "$TOP" "$VCS"
   fi
-  found=0; failed=0
+  found=0; failed=0; kept=$'\n'
   while IFS=$'\t' read -r name path rev state; do
     if [[ $state == foreign ]]; then
       printf '  note      %-10s %-16s %s — another repository, never swept\n' "$state" "$name" "$path"
@@ -349,7 +349,8 @@ sweep)
     [[ $path == "$TOP" ]] && continue   # the primary working copy is never a leak
     found=$((found + 1))
     if ! why=$(removable "$name" "$path" "$state"); then
-      printf '  kept      %-10s %-16s %s — %s\n' "$state" "$name" "$path" "$why"; continue
+      printf '  kept      %-10s %-16s %s — %s\n' "$state" "$name" "$path" "$why"
+      kept+="$name"$'\n'; continue
     fi
     if ((APPLY)); then
       if forget_one "$name" "$path"; then printf '  removed   %-10s %-16s %s\n' "$state" "$name" "$path"
@@ -363,6 +364,13 @@ sweep)
     [[ -n $ref && $ref != "$DEFAULT_NAME" ]] || continue
     merged "$ref" || continue
     found=$((found + 1))
+    # A ref whose workspace we just kept is not ours to delete: git refuses while the worktree still
+    # holds the branch, and jj would silently drop the bookmark of a working copy we chose to keep.
+    # Reporting it is the whole answer — keeping the sweep at exit 0 is what lets a resume step run
+    # it unattended, so this is a note, never a failure.
+    if [[ $kept == *$'\n'"$ref"$'\n'* ]]; then
+      printf '  kept      %-10s %-16s workspace kept, remove it first\n' ref "$ref"; continue
+    fi
     if ((APPLY)); then
       if delete_ref "$ref"; then printf '  deleted   %-10s %-16s merged into %s\n' ref "$ref" "$DEFAULT_NAME"
       else printf '  FAILED    %-10s %-16s merged into %s\n' ref "$ref" "$DEFAULT_NAME"; failed=1

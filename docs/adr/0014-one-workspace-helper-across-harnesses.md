@@ -69,7 +69,10 @@ removing it strands that shell.
 The cost is that the routine reclaim is now two commands in the worst case: `sweep --apply` clears
 merged and stale registrations, and `sweep --apply --force` is needed for a stale directory. That
 is the intended trade — every refusal prints its reason and its override on the line, so nothing
-is hidden, and the sweep still exits zero so a resume step can run it unattended.
+is hidden, and the sweep still exits zero so a resume step can run it unattended. That invariant
+reaches into the ref cleanup too: a merged ref belonging to a workspace the sweep kept is reported
+and skipped rather than deleted, since deleting it would fail on git and would silently drop a kept
+working copy's bookmark on jj. Only an unexpected delete failure is a failure.
 
 The sweep is only as good as the convention: a workspace created outside `../<repo>-<key>` is
 still visible while it is registered, but once its registration is gone the sweep cannot recognise
