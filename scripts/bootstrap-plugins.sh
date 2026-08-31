@@ -152,8 +152,8 @@ else
     done
   done
   rm -f "$ROOT/dist/codex"/*.config.toml
-  for h in build-hooks build-format build-lint build-guard tdd-guard; do unlink_owned "$BIN/$h"; done
-  echo "links into $ROOT removed (agy plugin, legacy agents/skills, ~/.local/bin/build-* and tdd-guard)"
+  for h in build-hooks build-format build-lint build-guard tdd-guard workcell-ws; do unlink_owned "$BIN/$h"; done
+  echo "links into $ROOT removed (agy plugin, legacy agents/skills, ~/.local/bin/build-*, workcell-ws and tdd-guard)"
 fi
 
 # ---- Codex config.toml: strip the pre-ADR-0005 [agents.*] block if it is still there ----

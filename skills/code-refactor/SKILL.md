@@ -33,8 +33,9 @@ The gate is the same `tdd-guard` state machine with the RED requirement replaced
 4. **Execute.** Run [`build`](../build/SKILL.md) in **single-PR mode**, with the test-author phase omitted. For each issue, the orchestrator creates its jj workspace and branch on the integration base:
 
    ```bash
-   jj workspace add --name <issue-key> ../<repo>-<issue-key> -r <integration-base>
-   jj bookmark create <branch> -r @
+   workcell-ws add <issue-key> --base <integration-base>
+   # = jj workspace add --name <issue-key> ../<repo>-<issue-key> -r <integration-base>
+   #   + jj bookmark create <issue-key> -r @   (git worktree add -b <issue-key> in a git-only repo)
    ```
 
    Creating a workspace is a branch operation, so it stays inside the orchestrator's boundary. Next dispatch an `integrator` with a brief conforming to [`agents/handoff.md`](../../agents/handoff.md) and carrying `mode: baseline`, that `workspace`, the issue's existing tests as `sealedTests`, and the exact suite argv as `baselineCommand`. It runs the green command in the workspace, records a `kind: baseline` seal, runs `tdd-guard handoff --to builder`, and returns the green evidence and seal state.
