@@ -1,6 +1,6 @@
 {
   "title": "How work moves through Workcell",
-  "description": "A goal becomes a reviewed plan, then sealed tests, an implementation, review, and a merge the orchestrator makes on gate output — with blocked work returning to the human and failed gates returning to the builder.",
+  "description": "A goal becomes a reviewed plan, then sealed tests, an implementation, review, and a merge the orchestrator makes on gate output — with the documenter working alongside the integrator so one gate covers both, blocked work returning to the human, and failed gates returning to the builder.",
   "direction": "TB",
   "width": 880,
   "nodes": [
@@ -74,7 +74,7 @@
       "id": "docs",
       "kind": "agent",
       "label": "documenter",
-      "sub": "READMEs, ADRs, and the changelog match reality"
+      "sub": "alongside the integrator · docs match reality"
     },
     {
       "id": "deploy",
@@ -104,10 +104,11 @@
       "label": "nothing critical or high stands · the builder opens it"
     },
     { "from": "pr", "to": "integrator" },
+    { "from": "pr", "to": "docs" },
     { "from": "integrator", "to": "gate" },
+    { "from": "docs", "to": "gate" },
     { "from": "gate", "to": "merge", "label": "green" },
-    { "from": "merge", "to": "docs" },
-    { "from": "docs", "to": "deploy" },
+    { "from": "merge", "to": "deploy" },
     {
       "from": "gate",
       "to": "builder",
