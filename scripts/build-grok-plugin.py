@@ -14,6 +14,7 @@ So Grok gets a staged copy instead of a link farm:
     ├── .grok-plugin/marketplace.json
     └── plugins/workcell/
         ├── .claude-plugin/plugin.json   Grok accepts the Claude manifest layout
+        ├── .workcell-stamp.json         provenance and tree digest
         ├── handoff.md                   the contract agents/*.md link to as ../handoff.md
         ├── agents/                      real copies of agents/grok/*.md
         └── skills/                      real copies of skills/*, sans caches
@@ -26,8 +27,10 @@ rewritten to ../skills/; ../handoff.md already resolves to the copied file.
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import lib_dist
@@ -91,6 +94,22 @@ def main() -> int:
         PLUGIN / "skills",
         symlinks=False,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+
+    manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
+    version = manifest_data.get("version", "0.1.0")
+
+    digest = lib_dist.compute_tree_digest(PLUGIN)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    lib_dist.write_json(
+        PLUGIN / ".workcell-stamp.json",
+        {
+            "name": "workcell",
+            "version": version,
+            "builtAt": now,
+            "sourceRoot": str(ROOT),
+            "contentDigest": digest,
+        },
     )
 
     agents = len(list(staged_agents.glob("*.md")))
