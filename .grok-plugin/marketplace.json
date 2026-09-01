@@ -1,7 +1,8 @@
 {
   "name": "workcell",
   "owner": {
-    "name": "Foundry Zero"
+    "name": "Anvil Palamattam",
+    "url": "https://anvilpalamattam.com"
   },
   "metadata": {
     "description": "Local marketplace for the Workcell Grok Build plugin."
