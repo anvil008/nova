@@ -1,289 +1,532 @@
 {
-  "planId": "wave-loop-overlap",
-  "planName": "Overlap the build wave loop",
+  "planId": "self-contained-harness-deployment",
+  "planName": "Self-contained harness deployment",
   "repo": "anvil008/workcell",
-  "generatedAt": "2026-08-30T22:10:00Z",
-  "summary": "A Workcell build round is currently gated twice over: `skills/build/scripts/waves.py` selects only issues in the earliest unfinished declared wave, so one straggler holds back later issues whose own `dependsOn` are already merged, and everything after the builders — integration, then documentation — runs strictly serially. This milestone lands the four approved parallelization changes against the workcell repository itself: (1) dependency-gated selection in `waves.py`, with the ownership-overlap check moved from the declared wave to the whole candidate in-flight set and overlapping candidates deferred rather than dispatched concurrently; (2) `skills/new-feature/SKILL.md` step 5 dispatching the `documenter` alongside the `integrator` instead of after the merge; (3) an explicit, opportunistic allowance in `skills/build/SKILL.md` for speculative next-wave `specifier` dispatches while the integrator runs; (4) a granularity rule for `ownershipHint` in the planner's sidecar contract, with a mechanical check so a hint is one path or glob rather than prose. What stays serial is stated and untouched: `specifier` -> `builder` per issue, the integrator's serial merge, nothing merging before combined GREEN, and the two-phase seal. Assumptions taken rather than asked: (a) `ownershipHint` keeps its string type — 'finer-grained' means a narrower glob and, where files span unrelated subtrees, more issues, not a list of globs; (b) a wave-0 overlap now defers the second issue instead of only warning and leaving it to hand-serialization, because the deferral machinery this milestone adds is exactly what wave 0 was missing; (c) the shipped offline dry-run keeps its outcome — the demo fixture still selects `API` and `UI` — and gains only the new `pulledForward` and `deferred` fields; (d) plan-time ownership-overlap detection inside `render_plan.py` is deliberately out of scope, because the glob matcher lives in `waves.py` and sharing it would couple two skills' scripts in a refactor nobody asked for.",
+  "generatedAt": "2026-09-01T00:00:00Z",
+  "summary": "REFRAMED GOAL (supersedes the previous revision of this plan): every Workcell artifact a harness or project consumes at runtime — the plugin in all four harnesses, the `tdd-guard` binary, and the hook/CLI wrappers — becomes a deployed, version-identifiable copy; the repository working tree is needed only to build and stage, never at runtime. The prior revision deliberately left `~/.local/bin/build-hooks`, `build-format`, `build-lint`, `build-guard` and `workcell-ws` as live symlinks (`scripts/bootstrap-tools.sh:87-93`, pinned at `scripts/tests/test_install.sh:78-81`); that non-goal is now in scope. Verified feasible: none of the five wrappers nor `workcell-ws` sources `scripts/lib.sh` or dereferences `$ROOT` at runtime, so a copy runs standalone.\n\nGROUND TRUTH, verified on this machine (CLIs: claude 2.1.252, codex 0.151.0, agy 1.1.23, grok 1.0.13). Claude's cached plugin is already a self-contained copy (`~/.claude/plugins/cache/workcell/{0.4.0,0.5.0,0.6.0}`, zero symlinks) but `known_marketplaces.json` records source AND installLocation `/home/anvil/repos/workcell` — a live pointer with no snapshot. Codex caches a symlink-free copy keyed by manifest version (`~/.codex/plugins/cache/workcell/workcell/0.1.0+codex.20260830065625`) but its marketplace resolves `$ROOT/dist/codex`, a gitignored build directory. Grok's installed copy is real (`~/.grok/installed-plugins/workcell-87b7a35e`) but `registry.json` records `source_url_or_path: $ROOT/dist/grok` — the same gitignored coupling. Antigravity is two live symlinks into `$ROOT/plugins/agy` (`bootstrap-plugins.sh:119-122,146-149`) plus a third per project (`bootstrap-project.sh:77`); `agy plugin list` prints \"No imported plugins\" with both present, while `agy plugin validate plugins/agy` reports ok (skills:15 agents:10 hooks:1). `tdd-guard` is a symlink from `~/.local/bin` into gitignored `$ROOT/bin/tdd-guard` with no version anywhere (`guard/guard.go:25-26` names only the status contract).\n\nDESIGN DECISIONS, each chosen between two. (1) Copy ownership: the prior revision's receipt-backed `install_owned` / `uninstall_owned` / `owned_copy` / `installed_version` under `${WORKCELL_STATE:-$HOME/.local/state/workcell}/receipts/` with a `.workcell-stamp.json` in staged trees is REUSED unchanged — it already won a design-twice against digest-vs-$ROOT ownership (a digest comparison dies with the working tree, the very dependency this milestone removes), and this redo extends it with one helper, `workcell_share_dir` (`${WORKCELL_SHARE:-$HOME/.local/share/workcell}`), the durable staging area the new Claude and Codex marketplace roots live in. (2) Claude: command-source marketplace versus a durable staged directory marketplace. A directory marketplace at a durable path keeps every behaviour documented but keeps the seam where this repository's staleness bugs actually live — a directory someone must keep fresh, defeated by version-keyed caching (docs: same version, users keep the cached copy; a non-git local dir resolves \"unknown\" and updates are never detected) and refreshed today by a destructive uninstall/install pair. The `command` plugin source with `\"mode\": \"copy\"` (docs fetched 2026-09-01; CLI 2.1.229+, local is 2.1.252, and `claude plugin install --help` confirms `--yes` exists precisely to accept a command-declared plugin non-interactively) inverts the seam: the marketplace names a producer, Claude copies its output, versions it by CONTENT HASH, and re-runs it once per session in the background and on install/update/cache-miss — retiring manual version bumps and the destructive refresh in one move. The producer bootstrap writes is a durable shim that restages from the repository when it exists and replays the last staged durable tree when it does not, so the undocumented repo-gone failure mode never reaches Claude: the command always prints one line and exits 0. Command source wins on depth (refresh disappears as a human ceremony), seam (the one-line-producer contract is an interface Claude itself documents) and locality (staging logic in one new `build-claude-plugin.py` plus one shim). Cost: `disableCommandPluginSources` can forbid it — carried as a risk with a documented directory-source fallback from the same durable tree. (3) Grok: durable staged marketplace versus the documented drop directory. The vendored user guide (xai-org/grok-build, 09-plugins.md) documents `~/.grok/plugins/` as user-scope, auto-discovered AND auto-trusted; the drop wins because it deletes the worst coupling in the system (a registry entry naming gitignored `dist/grok`), removes the uninstall/reinstall refresh hack (`version` is optional metadata only, so the marketplace flow can never detect updates), and lands on the same shape as Antigravity: one owned copy at a harness-documented path. (4) Antigravity: ADR 0006's premise is stale — `agy plugin` commands are now documented (antigravity.google/docs/cli/plugins/) — but the CLI installs into a directory whose scan status is undocumented and its registry does not see scanned plugins, while dropping a folder at `~/.gemini/config/plugins/` IS the documented supported install. So: one owned copy at the documented scan directory; both legacy symlinks are deleted by our own installer (never by `agy plugin uninstall`, which is undocumented against a pre-existing symlink and must not purge through it); the `~/.gemini/antigravity-cli/plugins/workcell` location is retired rather than duplicated, because two distinct copies — unlike two symlinks resolving to one target — are a double-loading surface (the exact bug class agy fixed for symlinks in v1.1.3). Codex is not contested: it keeps the only flow its CLI documents (marketplace `add`/`remove`, verified against `codex plugin --help`), but the registered root moves to an owned durable copy and the staged manifest version becomes `<tracked semver>+codex.<content-hash>`, keeping the accidental content-varying refresh protection deliberately and closing ADR 0021's \"Codex version cannot confirm a release\" consequence.\n\nASSUMPTIONS, stated rather than asked. (a) The durable staging area is `~/.local/share/workcell/` and receipts stay under `~/.local/state/workcell/`; both derive from `$HOME` so the throwaway-HOME test harness stays hermetic. (b) The release version is 0.6.0 everywhere; `plugins/agy/plugin.json` (0.1.0) and `plugins/codex/.codex-plugin/plugin.json` (buildstamped) converge on it inside the issues that own them. (c) The repo-root marketplace manifests `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` are deleted once nothing registers them — leaving a registration-shaped file that points into the working tree would be exactly the live pointer this milestone exists to remove. (d) Full self-containment was found coherent for every piece — no needs-decision remains: the wrappers copy cleanly, and each harness has a documented copy-shaped mechanism.",
   "architecture": {
-    "changeSummary": "This is a change to how one build round is scheduled, not to what a round proves. Today the orchestrator asks `waves.py` for the earliest unfinished declared wave, dispatches a specifier and builder pair per issue in it, waits for the integrator's combined run, merges, and only then dispatches the documenter — three serial stages after the builders, and a straggler in the current wave freezes issues that are already unblocked. After this milestone the selector answers a different question — which not-done issues have all their dependencies done — and resolves ownership collisions across the whole in-flight set by deferring a candidate to a later round instead of rejecting the plan or dispatching an overlapping pair. Documentation authoring moves beside the integrator rather than behind the merge, and the orchestrator may spend the integrator's idle time sealing next-round tests. The gates are untouched: overlapping work is never dispatched concurrently, a builder never starts without a seal, and nothing merges before combined GREEN.",
+    "changeSummary": "Nothing about what the gates prove changes; what changes is where a running harness reads Workcell from, and what a deploy leaves behind. Today the four harnesses split three ways: Claude and Codex hold self-contained cache copies but resolve refreshes through registrations that point at the working tree or its gitignored dist/; Grok holds a copy whose registry names dist/grok; Antigravity and every `~/.local/bin` tool are live symlinks into the tree. After this milestone every runtime read lands on an owned, version-identifiable copy: Claude installs from a durable command-source marketplace whose shim restages when the repo exists and replays the last staged tree when it does not (content-hash versioned, refreshed once per session by the harness itself); Codex installs from an owned durable marketplace tree with a `<semver>+codex.<content-hash>` staged version; Grok and Antigravity get owned copies at their documented auto-discovery directories with no registration at all; `tdd-guard` (now carrying `guard.Version`), the four hook wrappers and `workcell-ws` install as receipt-owned copies; CI publishes versioned guard artifacts so a machine without a checkout can install the gate. Ownership — what lets an uninstall remove our files and refuse everyone else's — moves from 'symlink whose target is inside $ROOT' to receipts plus on-disk stamps, and drift becomes visible: stamps carry versions, `bootstrap-tools.sh` reports installed-versus-repo drift, and a bootstrap re-run re-stages everything.",
     "components": [
       {
-        "name": "skills/build/scripts/waves.py",
-        "purpose": "Deterministic offline selector over the sidecar and a GitHub issue snapshot; becomes dependency-gated and gains ownership deferral."
+        "name": "guard/version.go + guard/run.go",
+        "purpose": "New `guard.Version` semver (single source of truth for the release) plus optional ldflags build metadata, and a `version` / `--version` subcommand that answers outside any git repository."
       },
       {
-        "name": "skills/build/SKILL.md",
-        "purpose": "The build orchestrator's contract: wave loop, ownership check before dispatch, integration and merge, and the new speculative-specifier allowance."
+        "name": "scripts/lib.sh",
+        "purpose": "Copy-ownership primitives beside the link primitives: install_owned / uninstall_owned / owned_copy / installed_version, receipt-backed under ~/.local/state/workcell, plus workcell_share_dir for the durable staging area; bash 3.2, GNU-free."
       },
       {
-        "name": "skills/build/examples/",
-        "purpose": "The offline dry-run fixtures that make the contract demonstrable without touching GitHub."
+        "name": "scripts/bootstrap-tools.sh + scripts/bootstrap-project.sh (tools half)",
+        "purpose": "Builds tdd-guard with its version stamp and installs it, the four hook wrappers, and workcell-ws as owned copies; reports version drift in report mode."
       },
       {
-        "name": "skills/new-feature/SKILL.md",
-        "purpose": "Entry workflow in single-PR mode whose step 5 decides when the documenter is dispatched."
+        "name": "scripts/build-agy-plugin.py + scripts/build-claude-plugin.py",
+        "purpose": "New stagers mirroring build-codex-plugin.py / build-grok-plugin.py: dereference the wrappers into symlink-free dist/agy and dist/claude trees carrying .workcell-stamp.json; agy inherits the ADR 0003 exclusion by copying through plugins/agy/skills."
       },
       {
-        "name": "skills/planner/references/sidecar-contract.md",
-        "purpose": "The artifact contract the planner agent follows; canonical home of the ownershipHint granularity rule."
+        "name": "scripts/bootstrap-plugins.sh",
+        "purpose": "Installs owned copies at ~/.gemini/config/plugins/workcell and ~/.grok/plugins/workcell, writes the durable Claude command-source marketplace and the durable Codex marketplace tree under ~/.local/share/workcell, migrates every legacy symlink and repo-rooted registration, and uninstalls by receipt."
       },
       {
-        "name": "skills/planner/scripts/render_plan.py",
-        "purpose": "Strict sidecar validator and folio renderer; gains the single-path-or-glob hint check."
+        "name": "scripts/build-codex-plugin.py + plugins/codex manifest",
+        "purpose": "Staged Codex manifest version becomes <tracked semver>+codex.<content-hash>; the tracked manifest becomes plain 0.6.0 so the release is confirmable (closes ADR 0021's Codex consequence)."
       },
       {
-        "name": "docs/adr, docs/diagrams, README.md, CHANGELOG.md",
-        "purpose": "ADR 0017, the generated how-work-moves diagram and its source, and the prose that has to match them."
+        "name": "scripts/build-guard-release.py + .github/workflows/ci.yml",
+        "purpose": "Cross-platform versioned tdd-guard artifacts, SHA256SUMS, and a --check gate proving guard.Version and the claude/grok/agy/codex-base manifests agree on every push."
+      },
+      {
+        "name": "scripts/tests/test_install.sh",
+        "purpose": "The single home for installer behaviour; the pinned symlink-into-repo assertions (:56-57, :62, :67, :78-81, :123, :205, :212-214, :232-233, :315-327, :329-344) are deliberately rewritten wave by wave, each inside its owning issue."
+      },
+      {
+        "name": "docs/adr/0023 + docs/adr/0006 + README.md + docs/install.md + CHANGELOG.md + scripts/tests/test_docs_truth.py",
+        "purpose": "The decision record superseding ADR 0006's Antigravity clause and re-grounding ADR 0021 per harness on the fresh upstream documentation, plus every document and doc-truth test that must match it."
       }
     ],
     "diagramsMermaid": {
-      "currentArchitecture": "flowchart LR\n  W[\"waves.py: earliest unfinished declared wave\"] --> S[\"specifier per issue\"]\n  S --> B[\"builder per issue\"]\n  B --> I[\"integrator: combined suite\"]\n  I --> M[\"orchestrator merges on combined GREEN\"]\n  M --> D[\"documenter\"]\n  D --> N[\"next declared wave\"]\n  X[\"ready issue in a later wave\"] -. held by the straggler .-> W",
-      "targetArchitecture": "flowchart LR\n  W[\"waves.py: every not-done issue whose dependsOn are done\"] --> Q[\"disjoint in-flight set; overlaps deferred\"]\n  Q --> S[\"specifier per issue\"]\n  S --> B[\"builder per issue\"]\n  B --> I[\"integrator: combined suite\"]\n  B --> D[\"documenter alongside the integrator\"]\n  I --> SP[\"speculative next-round specifiers: MAY\"]\n  I --> M[\"orchestrator merges on combined GREEN incl. docs\"]\n  D --> M\n  M --> W"
+      "currentArchitecture": "flowchart LR\n  R[\"workcell working tree\"]\n  D[\"dist/codex + dist/grok (gitignored build output)\"]\n  CC[\"~/.claude cache copy (self-contained)\"]\n  KM[\"known_marketplaces.json -> repo path (live pointer)\"]\n  XC[\"~/.codex cache copy (self-contained)\"]\n  XR[\"codex marketplace -> dist/codex (live pointer)\"]\n  GC[\"~/.grok installed copy\"]\n  GR[\"grok registry -> dist/grok (live pointer)\"]\n  A1[\"~/.gemini/config/plugins/workcell\"]\n  A2[\"~/.gemini/antigravity-cli/plugins/workcell\"]\n  T[\"~/.local/bin: tdd-guard + build-* + workcell-ws\"]\n  R --> D\n  R --> KM --> CC\n  D --> XR --> XC\n  D --> GR --> GC\n  R -->|live symlink| A1\n  R -->|live symlink| A2\n  R -->|live symlinks| T\n  X[\"working tree moved, cleaned, or deleted\"] -.->|breaks| A1\n  X -.->|breaks| A2\n  X -.->|breaks| T\n  X -.->|breaks refresh + reinstall| KM\n  X -.->|breaks refresh + reinstall| XR\n  X -.->|breaks refresh + reinstall| GR\n",
+      "targetArchitecture": "flowchart LR\n  R[\"workcell working tree (build + stage only)\"]\n  D[\"dist/claude + dist/codex + dist/grok + dist/agy staged trees\"]\n  S[\"~/.local/share/workcell: durable claude command-source marketplace + shim, durable codex marketplace tree\"]\n  CC[\"~/.claude cache copy, content-hash versioned, session auto-refresh\"]\n  XC[\"~/.codex cache copy, semver+content-hash versioned\"]\n  GC[\"~/.grok/plugins/workcell: owned copy, auto-trusted\"]\n  A1[\"~/.gemini/config/plugins/workcell: owned copy (documented scan dir)\"]\n  T[\"~/.local/bin: copied tdd-guard (prints guard.Version) + copied wrappers\"]\n  RC[\"~/.local/state/workcell receipts + .workcell-stamp.json\"]\n  CI[\"CI release artifacts: tdd-guard per version and platform\"]\n  R --> D --> S\n  S --> CC\n  S --> XC\n  D -->|install_owned| GC\n  D -->|install_owned| A1\n  R -->|build, stamp, install_owned| T\n  R --> CI -->|install without a checkout| T\n  RC -.->|owns every copy| GC\n  RC -.-> A1\n  RC -.-> T\n  RC -.-> S\n  X[\"working tree moved, cleaned, or deleted\"] -.->|runtime unaffected; shim replays last staged tree| S\n"
     }
   },
   "issues": [
     {
-      "key": "WaveSelection",
-      "title": "Dependency-gated wave selection with ownership deferral in waves.py",
-      "body": "## Goal\n\nStop one straggler from freezing issues whose own dependencies are already merged. `skills/build/scripts/waves.py` currently selects \"every unblocked, not-done issue in the earliest unfinished declared wave\"; it must instead select every not-done issue whose `dependsOn` are all done, regardless of declared wave, and resolve ownership collisions across the whole candidate set by deferring rather than by rejecting the plan or dispatching an overlapping pair.\n\n## Change 1 - `skills/build/scripts/waves.py`\n\nIn `derive()`:\n\n- Build `ready`: every not-done issue whose every `dependsOn` entry is done (`is_done` is unchanged). Order it by declared `wave` ascending, then by sidecar order. Do not filter by `currentWave`.\n- Walk `ready` in that order, keeping a selected list. A candidate whose `ownershipHint` overlaps the hint of an already-selected candidate (`globs_overlap`) is **deferred**, not selected this round.\n- `unblocked[]` entries keep `key`, `number`, `ownershipHint`, `wave` and gain `pulledForward` (`true` when the issue's declared `wave` is greater than `currentWave`).\n- Add top-level `deferred[]`: `{key, number, ownershipHint, wave, overlapsWith}`, in the same order, where `overlapsWith` names the already-selected issue key it collides with.\n- `currentWave` keeps its present meaning and name: the earliest declared wave that still has an unfinished issue. It is reporting, not a filter.\n- A declared same-wave overlap in a grouped wave (>= 1) stays a hard `BuildError`: the planner asserted parallelism the ownership hints cannot deliver, and that is a plan defect.\n- Wave 0, the ungrouped bucket, keeps its single stderr warning naming both keys, and now **defers** the second issue of the pair instead of emitting both as concurrently dispatchable.\n- The ordering matters and should be commented: earlier declared waves are selected first, so a deliberately coarse late hint (a whole-repository documentation pass, for example) defers itself rather than starving the issues it overlaps.\n\n## Change 2 - `skills/build/SKILL.md`\n\n- Wave-loop step 1: replace the \"earliest unfinished declared wave\" sentence with the dependency-gated definition, and say that `currentWave` still names the earliest unfinished declared wave for reporting and resume.\n- Wave-loop step 2: the ownership check runs across the whole candidate in-flight set, not per declared wave; `waves.py` names deferred issues and the orchestrator dispatches them in a later round; overlapping work is never dispatched concurrently; a grouped-wave declared overlap is still rejected outright; the orchestrator may dispatch a subset of `unblocked` when it wants to cap concurrency, and pulled-forward issues are dispatched on the same base as the rest of the round and join the same integration round.\n- Extend \"Offline demonstration\" with the second fixture command. A plain `python3 .../waves.py` block is safe; do **not** add a second `gh ... | jq` block - `test_documented_capture_command_produces_a_valid_snapshot` requires exactly one.\n\n## Change 3 - fixtures (`skills/build/examples/`)\n\n- Update `expected-waves.json` for the new fields. The selection outcome must not move: `unblocked` is still `API` then `UI`, both with `pulledForward: false`, and `deferred` is `[]`.\n- Add `skills/build/examples/pull-forward/{plan.sidecar.json,issue-state.json,expected-waves.json}` covering both new behaviours in one plan: an unfinished wave-1 issue that no longer holds back a later-wave issue whose dependencies are done, and a ready candidate deferred because its hint overlaps a selected one. Its `planId` must differ from `builder-v3-demo`.\n\n## Constraints\n\n`skills/build/tests/test_build.py` and `skills/build/tests/test_skill_contracts.py` pin prose in this SKILL.md. Preserve these, verbatim:\n\n- The canonical ADR-0007 orchestrator paragraph, still the second paragraph after the title.\n- The single done-definition sentence: closed **and** (status:done or state_reason == completed), with its existing backticks and the reference to waves.py.\n- The phrases: \"GitHub is the source of truth\", \"current wave\", \"jj workspace\", \"combined GREEN\", \"sole completion authority\", \"force-push `main`\", \"at most twice\", \"stalled\", \"escalate to the human\", \"never dispatch a builder for an issue with no seal\".\n- The `## Single-PR mode` section, including \"<planId>-integration\", \"agents/handoff.md\", the `base` field, and \"final PR from the integration branch to `main`\".\n- `Phase 1` before `Phase 2`.\n\n## Verification\n\n```sh\nruff check skills/\npython3 -m unittest discover -s skills/build/tests -p 'test_*.py'\nPYTHONDONTWRITEBYTECODE=1 python3 skills/build/scripts/waves.py skills/build/examples/plan.sidecar.json skills/build/examples/issue-state.json\nPYTHONDONTWRITEBYTECODE=1 python3 skills/build/scripts/waves.py skills/build/examples/pull-forward/plan.sidecar.json skills/build/examples/pull-forward/issue-state.json\n```\n",
-      "labels": [
-        "planning",
-        "orchestration"
-      ],
+      "key": "GuardVersion",
+      "title": "tdd-guard reports a version, and does so outside any repository",
+      "body": "## Goal\n\n`tdd-guard` carries no build version at all. The only version-shaped constant in the package is `guard.APIVersion = \"anvil.guard/v1\"` (`guard/guard.go:25-26`), which names the `status --json` contract, not the build. Once the binary is a copy rather than a symlink there is nothing on disk that says which release it is, and no way to detect a stale install. Give the binary a version it can print, and make it printable from anywhere — an installed guard usually runs from `$HOME`, and today an unknown subcommand falls into `dispatch`, calls `loadState` (`guard/run.go:92`), fails to resolve a repository root and exits 1.\n\n## Scope\n\n- New `guard/version.go`:\n  - `const Version = \"0.6.0\"` — the semver single source of truth for the release, matching `plugins/claude/.claude-plugin/plugin.json` and the `v0.6.0` tag. It lives in Go source, not only in ldflags, so a plain `go build ./...` still produces a binary that tells the truth.\n  - `var BuildMetadata string`, settable with `-ldflags \"-X github.com/anvil008/workcell/guard.BuildMetadata=<commit>\"`. It *appends* (`0.6.0+abc1234`) and never replaces the semver, so an unstamped build degrades to a correct `0.6.0`, not to `dev` or an empty string.\n  - `func VersionString() string` composing the two.\n- `guard/run.go`: handle `version` (plus `--version` / `-v` aliases) **before** any `loadState` call, alongside the existing `--help` short-circuit at lines 52-55, so it never needs a repository. Output is exactly `tdd-guard <VersionString()>` on stdout, exit 0. Add `version` to `usageCommands` (`guard/run.go:14-22`).\n- Tests in `guard/version_test.go`.\n\n## Constraints\n\n- Do not change `guard.APIVersion` or any `status --json` field; the control-plane contract is untouched.\n- No new dependency; `go.mod` lists none today and `go.sum` stays empty.\n- `--version` must not read, create or require any state directory.\n\n## Verification\n\n```sh\ngo build ./...\ngo vet ./...\ngo test -count=1 -race ./...\n```\n",
+      "labels": ["planning", "type:feature", "guard", "cli"],
       "dependsOn": [],
-      "ownershipHint": "skills/build/**",
+      "ownershipHint": "guard/**",
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "pull_forward_selects_a_ready_later_wave_issue",
+          "name": "version-subcommand-prints-semver-outside-a-repository",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "Over the new pull-forward fixture (an unfinished wave-1 issue plus a later-wave issue whose dependsOn are all done), the run exits 0, `unblocked` contains both keys, the later-wave entry has `pulledForward: true`, and `currentWave` is still the earliest unfinished declared wave."
+          "oracle": "guard.Run(Options{Dir: <a temp dir with no git repository at or above it>, Stdout: buf}, []string{\"version\"}) returns 0 and buf contains exactly \"tdd-guard \" + guard.Version + \"\\n\"; stderr is empty.",
+          "testPath": "guard/version_test.go"
         },
         {
-          "name": "blocked_issue_is_never_selected",
+          "name": "version-flags-are-aliases-of-the-subcommand",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "In that same run, an issue with at least one not-done dependency appears in neither `unblocked` nor `deferred`."
+          "oracle": "Run with []string{\"--version\"} and with []string{\"-v\"} each produce byte-identical stdout and the same exit code 0 as []string{\"version\"}, from the same repository-free directory.",
+          "testPath": "guard/version_test.go"
         },
         {
-          "name": "overlapping_candidate_is_deferred_not_dispatched",
+          "name": "version-constant-is-a-plain-semver",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "A ready candidate whose ownershipHint overlaps an already-selected candidate's exits 0, appears only in `deferred` with `overlapsWith` naming the selected key, and every pair of hints in `unblocked` is disjoint under waves.globs_overlap."
+          "oracle": "guard.Version matches ^[0-9]+\\.[0-9]+\\.[0-9]+$ (no prefix, no metadata) and guard.Version != guard.APIVersion.",
+          "testPath": "guard/version_test.go"
         },
         {
-          "name": "wave_zero_overlap_serializes_instead_of_warning_only",
+          "name": "build-metadata-appends-and-never-replaces-the-semver",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "Two overlapping wave-0 issues exit 0 with exactly one key in `unblocked`, the other in `deferred`, and exactly one stderr warning naming both keys - never two concurrently dispatchable entries."
+          "oracle": "With BuildMetadata set to \"abc1234\", VersionString() == guard.Version + \"+abc1234\"; with BuildMetadata empty, VersionString() == guard.Version.",
+          "testPath": "guard/version_test.go"
         },
         {
-          "name": "declared_grouped_wave_overlap_still_fails",
+          "name": "usage-lists-the-version-command",
           "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "Two overlapping issues declared in wave 1 still raise BuildError and exit 1 with a message containing 'overlapping ownershipHint', printing no dispatchable output."
-        },
-        {
-          "name": "shipped_demo_selection_is_unchanged_and_deterministic",
-          "kind": "integration",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "The documented offline command over skills/build/examples/plan.sidecar.json and issue-state.json exits 0, produces byte-identical output across two runs equal to expected-waves.json, still selects ['API','UI'] with `pulledForward: false`, and reports `deferred: []`."
-        },
-        {
-          "name": "skill_text_defines_dependency_gated_selection",
-          "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "skills/build/SKILL.md states that selection is by completed dependencies rather than the earliest declared wave and that the ownership check spans the whole in-flight set with deferred issues dispatched in a later round; the pinned phrases 'current wave', 'combined GREEN', and the single done-definition sentence survive; and exactly one `gh ... | jq` capture block remains."
+          "oracle": "Run with []string{\"--help\"} exits 0 and its stdout contains a line naming `version`, so the command is discoverable the same way `status` is.",
+          "testPath": "guard/version_test.go"
         }
       ]
     },
     {
-      "key": "DocumenterOverlap",
-      "title": "Dispatch the documenter alongside the integrator in new-feature",
-      "body": "## Goal\n\n`skills/new-feature/SKILL.md` step 5 dispatches the `documenter` only after the wave has been integrated and merged, although doc authoring needs nothing but the changed-file and PR list, which exists the moment the builders finish. Move the dispatch beside the `integrator` and hold the landing, not the authoring, until combined GREEN.\n\n## Change - `skills/new-feature/SKILL.md` step 5\n\nRewrite the step so it says, in this order:\n\n- Dispatch the `integrator` over the wave **and** the `documenter` for whatever the feature changed about how the project is used, at the same time, on the same base, each in its own workspace (`workcell-ws add <name>`).\n- The documenter's brief carries the changed-file and PR list and the docs-only `ownership` glob ([`agents/handoff.md`](../../agents/handoff.md)). Reading a file list or diffstat to choose a dispatch is orchestration under [ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md); reading a file's contents to judge it is not.\n- The documenter's `ownership` must be disjoint from every code issue's `ownershipHint`, so its branch can never collide with a builder's.\n- Documentation never merges on its own authority. The docs branch merges only inside a combined GREEN that includes it: if the documenter returns before the integrator's serial merge begins, its branch joins that round and one combined run covers everything; if it returns later, dispatch one more `integrator` round over the docs branch on the merged base, and that round is also the docs gate (`skills/docs/scripts/docs_check.py`, plus `scripts/render-diagrams.py --check` where the README's visuals are generated).\n- Nothing else moves: the wave's code PRs still merge on the integrator's evidence, and the final PR to `main` in step 6 is unchanged.\n\n## Change - a home for this skill's contract tests\n\nCreate `skills/new-feature/tests/test_new_feature.py`. CI already discovers `skills/*/tests`, and `ruff check skills/` covers it.\n\n## Constraints\n\n- The canonical ADR-0007 orchestrator paragraph must stay the second paragraph after the title (`skills/build/tests/test_skill_contracts.py::test_orchestrator_boundary_is_canonical`).\n- `single-PR mode` must still appear in this file (`test_build_defines_single_pr_mode`).\n- The interview's \"at least five clarifying questions\" rule and the step numbering are untouched.\n- This issue owns `skills/new-feature/**` only. `skills/build/tests/test_skill_contracts.py` asserts phrases about this file but belongs to another owner; if a change here would break one of those assertions, stop and escalate rather than editing it.\n\n## Verification\n\n```sh\nruff check skills/\npython3 -m unittest discover -s skills/new-feature/tests -p 'test_*.py'\npython3 -m unittest discover -s skills/build/tests -p 'test_*.py'\n```\n",
-      "labels": [
-        "planning",
-        "skills"
-      ],
+      "key": "CopyOwnership",
+      "title": "scripts/lib.sh can own a copied file or tree, not only a symlink",
+      "body": "## Goal\n\nEvery installer decision runs through one question: is the thing at this destination ours? Today the answer is `owned_link` (`scripts/lib.sh:11`) — 'a symlink whose literal target is inside `$ROOT`'. A copy cannot answer that question, so before anything is converted, `lib.sh` needs the copy-side equivalent with the same three behaviours the link side guarantees: install only over absent-or-ours, refuse a foreign destination **by name** with a non-zero return, and remove on uninstall only what we installed while reporting what was left behind.\n\n## Scope — `scripts/lib.sh` only; no caller changes in this issue\n\nAdd, beside the existing link helpers:\n\n- `install_owned SRC DST VERSION [--force]` — copies a regular file (mode 0755) or a directory tree to `DST` when `DST` is absent, is already an owned copy, or is one of our own symlinks left by a previous install (removed first: that is the upgrade path). A foreign file or directory is refused by name on stderr with a non-zero return, wording consistent with `link_owned` (`scripts/lib.sh:17-30`); `--force` additionally replaces a *foreign symlink*, never a real file or directory. On success it writes a receipt, and a copied directory tree additionally carries `.workcell-stamp.json` (name, version, builtAt, sourceRoot, contentDigest) so a destination is self-describing without its receipt.\n- `owned_copy DST` — true when a receipt exists for `DST` and the destination's current digest still matches the recorded one.\n- `uninstall_owned DST` — removes `DST` and its receipt only when `owned_copy`; otherwise leaves it and prints `  left <DST> (not ours)`, matching `unlink_owned`'s wording (`scripts/lib.sh:33-37`) so the two can never disagree.\n- `installed_version DST` — prints the recorded version, empty when there is no receipt.\n- `workcell_state_dir` / `workcell_share_dir` — print `${WORKCELL_STATE:-$HOME/.local/state/workcell}` and `${WORKCELL_SHARE:-$HOME/.local/share/workcell}`. Receipts live under `$(workcell_state_dir)/receipts/`, one JSON file per destination, recording destination, kind (`file` or `tree`), digest, version, source path and install time. The share dir is where later issues put the durable Claude and Codex marketplace trees. Deriving both from `$HOME` is what keeps the throwaway-HOME tests hermetic and lets `bootstrap-plugins.sh --uninstall` read a receipt `bootstrap-tools.sh --install` wrote.\n- `report_unowned` (`scripts/lib.sh:92-100`) also treats an owned copy as managed, so an uninstall does not report our own destination as kept-unmanaged.\n\n## Constraints\n\n- bash 3.2, no GNU-only constructs: `scripts/tests/test_install.sh:86` greps `scripts/*.sh` for `mapfile`, `find -printf`, `readlink -f` and `sed -i` and must stay green. Digests go through one helper picking `shasum -a 256` or `sha256sum`. Receipts may be read with `jq` — it is a required core tool (`bootstrap-tools.sh:50`) — but must be *written* with plain shell so a partial bootstrap cannot deadlock on the tool it is installing.\n- A tree digest is computed from the sorted list of relative-path plus per-file digest lines, stable across machines and inode order.\n- `set -euo pipefail` is in force in every caller; helpers return non-zero rather than exit, exactly as `link_owned` does.\n- Tests go into `scripts/tests/test_install.sh` as a new section — it is the documented home for installer behaviour (README.md:234) and CI already runs it.\n\n## Verification\n\n```sh\nbash scripts/tests/test_install.sh\nshellcheck -S warning scripts/*.sh\n```\n",
+      "labels": ["planning", "type:feature", "installer", "portability"],
       "dependsOn": [],
-      "ownershipHint": "skills/new-feature/**",
+      "ownershipHint": "scripts/**",
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "documenter_is_dispatched_with_the_integrator",
+          "name": "install-owned-creates-a-real-copy-not-a-link",
           "kind": "unit",
-          "testPath": "skills/new-feature/tests/test_new_feature.py",
-          "oracle": "In skills/new-feature/SKILL.md the `documenter` dispatch appears inside the same numbered step as the `integrator` dispatch, and no step after the merge dispatches it."
+          "oracle": "After install_owned of a source file into a throwaway HOME, the destination satisfies `[[ -f DST && -x DST && ! -L DST ]]`, is byte-identical to the source (cmp -s), and `find \"$HOME\" -type l` reports no symlink at that path.",
+          "testPath": "scripts/tests/test_install.sh"
         },
         {
-          "name": "docs_land_only_inside_a_combined_green",
+          "name": "install-owned-refuses-a-foreign-destination-by-name",
           "kind": "unit",
-          "testPath": "skills/new-feature/tests/test_new_feature.py",
-          "oracle": "That step states the docs branch merges only inside a combined GREEN that includes it, and names the extra integrator round for a documenter that returns after the wave's run."
+          "oracle": "With a foreign regular file already at DST, install_owned returns non-zero, prints DST on stderr, and leaves DST byte-identical; the same holds for a foreign directory.",
+          "testPath": "scripts/tests/test_install.sh"
         },
         {
-          "name": "docs_ownership_is_disjoint_from_code_ownership",
+          "name": "install-owned-replaces-our-own-previous-symlink",
           "kind": "unit",
-          "testPath": "skills/new-feature/tests/test_new_feature.py",
-          "oracle": "That step requires the documenter's dispatch `ownership` to be docs-only and disjoint from every code issue's ownershipHint, and cites agents/handoff.md as where the field is defined."
+          "oracle": "With a symlink at DST whose literal target is inside $ROOT (what a pre-milestone install left), install_owned returns 0, DST is afterwards a real file or directory rather than a symlink, and no error is printed.",
+          "testPath": "scripts/tests/test_install.sh"
         },
         {
-          "name": "pinned_new_feature_contracts_survive",
+          "name": "uninstall-owned-removes-ours-and-reports-a-foreign-one",
           "kind": "unit",
-          "testPath": "skills/new-feature/tests/test_new_feature.py",
-          "oracle": "The file still contains 'single-PR mode' and 'at least five clarifying questions', and the canonical ADR-0007 orchestrator paragraph is still the second paragraph after the title."
+          "oracle": "uninstall_owned removes an installed copy and its receipt file and returns 0; against a destination the test wrote itself it leaves the file untouched and prints a line containing `left` and the exact path.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "uninstall-owned-keeps-a-locally-modified-copy",
+          "kind": "unit",
+          "oracle": "After appending a byte to an installed destination, uninstall_owned leaves the destination on disk, returns 0, and prints a line naming the path so the human can see what was kept.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "install-owned-records-version-stamp-and-source-for-a-tree",
+          "kind": "unit",
+          "oracle": "After install_owned of a directory tree with VERSION=9.9.9, the destination contains the same relative file list and contents as the source plus .workcell-stamp.json whose version field is 9.9.9, `installed_version DST` prints `9.9.9`, and the receipt records the source path.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "state-and-share-dirs-derive-from-home-and-honour-overrides",
+          "kind": "unit",
+          "oracle": "With WORKCELL_STATE and WORKCELL_SHARE unset, workcell_state_dir and workcell_share_dir print paths under the current $HOME; with each exported to a temp dir, the helpers print exactly that dir and install_owned writes its receipt beneath it.",
+          "testPath": "scripts/tests/test_install.sh"
         }
       ]
     },
     {
-      "key": "HintContract",
-      "title": "Ownership hints are one narrow glob: planner contract and a mechanical check",
-      "body": "## Goal\n\nCoarse `ownershipHint` values are what force the build to serialize work that was planned as parallel, and the wave-0 bucket is where they collide most. Make the planner's contract say what a good hint is, and give the rule mechanical teeth for the one failure mode a machine can catch cheaply: a hint that is not a single path or glob at all. The shipped sample sidecar carries `templates/** and scripts/render_plan.py`, which every consumer - `waves.py`'s overlap check and the `ownership` field an agent is handed - treats as one literal path.\n\n## Change 1 - `skills/planner/references/sidecar-contract.md`\n\nState the rule where the planner agent actually reads it:\n\n- `ownershipHint` is exactly one path or glob - a single token, never prose, a comma list, or two paths joined by \"and\".\n- It is the narrowest glob that covers every file the issue changes **and the tests the `specifier` will write for it**, so place an issue's tests inside the subtree it owns.\n- Hints must be disjoint within a wave; a collision is not merely untidy, it costs the parallelism the wave was for. `skills/build/scripts/waves.py` rejects a declared same-wave overlap outright and defers an overlapping candidate that it pulled forward.\n- When an issue's files span unrelated subtrees, split the issue rather than widening the glob to their common parent. A pass that genuinely spans the repository (a documentation pass across `docs/`, the README, and the changelog) declares the common parent and, because a coarse hint overlaps everything, serializes itself.\n- Give two worked contrasts: `skills/build/scripts/**` beats `skills/**`; root-level docs are `*.md`, not `**`.\n\n## Change 2 - `skills/planner/SKILL.md`\n\nOne sentence in the plan workflow pointing at the rule, so the orchestrator reviewing a folio knows a coarse hint is a reason to send the plan back.\n\n## Change 3 - `skills/planner/scripts/render_plan.py`\n\nExtend sidecar validation: `issues[i].ownershipHint` must be a single token - reject any value containing whitespace or a comma, with a `PlanError` naming the issue index and the offending value and saying the field takes one path or glob. Nothing else about the field changes; it stays a required non-empty string.\n\n## Change 4 - `skills/planner/examples/sample.sidecar.json`\n\nReplace `templates/** and scripts/render_plan.py` with a single glob that covers that example issue's files and its `testPath`.\n\n## Out of scope, deliberately\n\nPlan-time ownership-overlap detection. The glob matcher (`generate_witnesses`, `path_matches`, `globs_overlap`) lives in `skills/build/scripts/waves.py`, which already imports the planner's validator; moving or duplicating it to run the check at render time is a cross-skill refactor that belongs to its own plan. Do not import `waves.py` from `render_plan.py`.\n\n## Constraints\n\n- Existing assertions in `skills/planner/tests/test_planner.py` stay green; the sample plans they build must satisfy the new rule.\n- The canonical ADR-0007 orchestrator paragraph stays the second paragraph after the title of `skills/planner/SKILL.md`.\n- This issue owns `skills/planner/**` only; the build-side fixtures and any other sidecar in the tree belong to other owners and already use single-glob hints.\n\n## Verification\n\n```sh\nruff check skills/\npython3 -m unittest discover -s skills/planner/tests -p 'test_*.py'\npython3 skills/planner/scripts/render_plan.py skills/planner/examples/sample.sidecar.json /tmp/sample-folio.html\n```\n",
-      "labels": [
-        "planning",
-        "skills"
-      ],
-      "dependsOn": [],
-      "ownershipHint": "skills/planner/**",
-      "wave": 1,
-      "acceptanceTests": [
-        {
-          "name": "prose_ownership_hint_is_rejected",
-          "kind": "unit",
-          "testPath": "skills/planner/tests/test_planner.py",
-          "oracle": "Rendering a sidecar whose first issue has ownershipHint 'templates/** and scripts/render_plan.py' exits non-zero with an error naming issues[0].ownershipHint and stating the field takes one path or glob."
-        },
-        {
-          "name": "comma_or_space_separated_hints_are_rejected",
-          "kind": "unit",
-          "testPath": "skills/planner/tests/test_planner.py",
-          "oracle": "Both 'a/**, b/**' and 'a/** b/**' are rejected by the same validation path, while a leading or trailing space around an otherwise valid glob is either stripped or rejected rather than reaching the rendered folio."
-        },
-        {
-          "name": "single_glob_hints_still_render",
-          "kind": "unit",
-          "testPath": "skills/planner/tests/test_planner.py",
-          "oracle": "A sidecar whose hints are 'skills/build/scripts/**' and 'docs/adr/**' renders to HTML with exit 0 and both hints appear in the folio's issue table."
-        },
-        {
-          "name": "shipped_sample_sidecar_passes_the_rule",
-          "kind": "integration",
-          "testPath": "skills/planner/tests/test_planner.py",
-          "oracle": "skills/planner/examples/sample.sidecar.json renders to a temporary path with exit 0, and no ownershipHint in it contains whitespace or a comma."
-        },
-        {
-          "name": "contract_states_the_granularity_rule",
-          "kind": "unit",
-          "testPath": "skills/planner/tests/test_planner.py",
-          "oracle": "skills/planner/references/sidecar-contract.md states that the hint is exactly one path or glob, that it is the narrowest glob covering the issue's files and the tests the specifier will write, that hints are disjoint within a wave, and that an issue spanning unrelated subtrees is split rather than widened."
-        }
-      ]
-    },
-    {
-      "key": "SpeculativeSpecifiers",
-      "title": "Permit speculative next-round specifiers while the integrator runs",
-      "body": "## Goal\n\nWhile the `integrator` runs the combined suite, the orchestrator has idle capacity and the next round's specifiers need nothing that does not already exist: they write failing tests and seal them. Write that allowance into `skills/build/SKILL.md` as an option with its cost stated, not as a default.\n\n## Change - `skills/build/SKILL.md`, wave loop step 5\n\nAdd a short subsection (\"Speculative specifiers\", or equivalent) stating:\n\n- While the integrator runs, the orchestrator **may** dispatch `specifier` agents for issues that will become ready once the in-flight set merges. They write the issue's `acceptanceTests` as failing tests on the current base, prove honest RED, and seal - exactly the standard Phase 1, nothing relaxed.\n- It is opportunistic, never the default. The plain sequence stays correct and a run that skips speculation is not deficient.\n- **Disqualifier**: an issue whose acceptance tests need the dependency's merged code to import or compile cannot be speculated. A test that cannot express its failure on the current base produces a hollow RED, and the `specifier` should return `blocked` rather than seal one.\n- **Rework cost**: when a wave bounces - the integrator names an offending PR, a builder redoes work, or the merged base changes what the tests assume - the speculative seal has to be re-proved on the merged base and amended with `tdd-guard reseal --reason <text>`, and a re-scoped issue throws that specifier's work away entirely. The guard binds a seal to the sealed test files and the red command, not to the base it was proved on, so nothing mechanical catches a stale speculative seal: the discipline is textual and belongs here.\n- **Never a speculative builder.** Phase 2 for a speculated issue starts only after its dependencies are merged, in a workspace on the merged base, and the builder re-proves the sealed tests still fail there for the right reason before implementing. If they now pass or fail differently, send the issue back to a `specifier` to reseal.\n\n## Constraints\n\n- Keep the wave loop's numbered steps and their order intact; add the subsection without renumbering.\n- The canonical ADR-0007 orchestrator paragraph stays the second paragraph after the title; `Phase 1` still precedes `Phase 2`; the file keeps exactly one `gh ... | jq` capture block (`test_documented_capture_command_produces_a_valid_snapshot`).\n- Do not weaken any existing sentence about the seal, the two phases, or merging on combined GREEN.\n\n## Verification\n\n```sh\nruff check skills/\npython3 -m unittest discover -s skills/build/tests -p 'test_*.py'\n```\n",
-      "labels": [
-        "planning",
-        "orchestration"
-      ],
-      "dependsOn": [
-        "WaveSelection"
-      ],
-      "ownershipHint": "skills/build/**",
+      "key": "GuardVersionedInstall",
+      "title": "tdd-guard, the hook wrappers, and workcell-ws install as versioned copies, not symlinks into the repo",
+      "body": "## Goal\n\n`scripts/bootstrap-tools.sh:69-75` builds gitignored `$ROOT/bin/tdd-guard` and `link_owned`s it to `~/.local/bin/tdd-guard`; lines 85-94 link `build-hooks`, `build-format`, `build-lint`, `build-guard` and `workcell-ws` the same way, and `bootstrap-project.sh:67` repeats three of those links. Every harness hook dispatch (`plugins/codex/hooks/hooks.json`, `plugins/agy/hooks.json` both invoke `~/.local/bin/...`) therefore resolves through the working tree on every tool call. Replace all six with receipt-owned copies — verified safe: none of the five scripts sources `scripts/lib.sh` or reads `$ROOT` at runtime — and give a human a way to see that a copy has gone stale. This deliberately reverses the previous plan revision's non-goal.\n\n## Scope\n\n**`scripts/bootstrap-tools.sh`**\n\n- Build the guard with the metadata stamp: `go build -buildvcs=false -ldflags \"-X github.com/anvil008/workcell/guard.BuildMetadata=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\" -o \"$ROOT/bin/tdd-guard\" ./cmd/tdd-guard`. The semver still comes from `guard.Version`.\n- Install with `install_owned \"$ROOT/bin/tdd-guard\" \"$HOME/.local/bin/tdd-guard\" \"$version\"` where `$version` is what the freshly built binary prints; install the four wrappers from `scripts/hooks/` and `workcell-ws` from `scripts/` the same way, versioned with the release semver read from `guard/version.go`. Replace the 'Symlinked, not copied: editing scripts/hooks/* takes effect immediately' comment (`:85`) — that capability is the one this milestone removes.\n- Report mode (no `--install`): compare `installed_version` of each destination against the repository (guard: `guard/version.go`; wrappers: content digest vs the receipt) and print one drift line per stale destination naming the remediation `scripts/bootstrap-tools.sh --install`. Absent tools, absent receipts and matching versions stay quiet or report normally; report mode must not fail.\n\n**`scripts/bootstrap-project.sh`**\n\n- The gate-binaries block (`:67`) installs `build-format`, `build-lint`, `build-guard` as owned copies instead of links, and its comment loses the same live-edit claim.\n\n**`scripts/bootstrap-plugins.sh`**\n\n- Line 168 sweeps all six names through `unlink_owned`. Sweep each through `unlink_owned` **and** `uninstall_owned` (legacy link installs and copy installs both remove cleanly); update the message at `:169`, which claims everything removed was a link into `$ROOT`.\n\n**`scripts/tests/test_install.sh` — deliberate updates to pinned symlink semantics**\n\n- `:62`: the fixtures `ln -sfn \"$ROOT/bin/tdd-guard\" ...` / `\"$ROOT/scripts/hooks/build-hooks\" ...` encode the old install shape; keep them as *legacy* fixtures and assert uninstall still removes them (upgrade path), and add owned-copy fixtures produced by a real `bootstrap-tools.sh --install`.\n- `:66-67` `uninstall removes every link into ROOT` keeps its meaning; add the copy-side assertion that receipts are gone and a foreign `tdd-guard` the test wrote is left and named.\n- `:78-81` `build-format/lint/guard are symlinks into scripts/hooks` — rewritten: after `bootstrap-project.sh --with-hooks`, the three are real executable files, not symlinks, byte-identical to their `scripts/hooks/` sources.\n\n## Non-goals\n\n`scripts/hooks/build-hooks:12-13` treats `$HOME/.local/bin/tdd-guard` as an opaque executable and fails closed at exit 2 when missing; `scripts/hooks/tests/test_hooks.sh:277-278,315-318` substitutes a stub. Neither changes; if this issue finds itself editing either, stop and say so. The Claude plugin's own hook dispatch (`${CLAUDE_PLUGIN_ROOT}/scripts/...`) is already served by cache copies and is untouched.\n\n## Verification\n\n```sh\nbash scripts/tests/test_install.sh\nbash scripts/hooks/tests/test_hooks.sh\nshellcheck -S warning scripts/*.sh scripts/hooks/build-* scripts/workcell-ws\n```\n",
+      "labels": ["planning", "type:feature", "installer", "bootstrap", "guard"],
+      "dependsOn": ["GuardVersion", "CopyOwnership"],
+      "ownershipHint": "scripts/**",
       "wave": 2,
       "acceptanceTests": [
         {
-          "name": "speculation_is_optional_not_default",
-          "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "skills/build/SKILL.md presents speculative specifier dispatch as something the orchestrator may do while the integrator runs, and says in the same subsection that it is opportunistic and not the default."
+          "name": "bootstrap-tools-installs-real-executables-not-symlinks",
+          "kind": "integration",
+          "oracle": "After `scripts/bootstrap-tools.sh --install` against a throwaway HOME, each of tdd-guard, build-hooks, build-format, build-lint, build-guard and workcell-ws at $HOME/.local/bin satisfies `[[ -f X && -x X && ! -L X ]]`, and `find \"$HOME\" -type l` lists no symlink whose literal target starts with `$ROOT/`.",
+          "testPath": "scripts/tests/test_install.sh"
         },
         {
-          "name": "speculation_disqualifier_is_stated",
-          "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "The subsection states that an issue whose acceptance tests need the dependency's merged code to import or compile is disqualified from speculation."
+          "name": "installed-guard-reports-the-repository-version",
+          "kind": "integration",
+          "oracle": "`$HOME/.local/bin/tdd-guard version` exits 0 and prints `tdd-guard <V>` where `<V>` starts with the semver in guard/version.go; running it from a directory that is not a git repository produces the same output.",
+          "testPath": "scripts/tests/test_install.sh"
         },
         {
-          "name": "bounce_cost_and_reseal_are_stated",
-          "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "The subsection names the rework cost when a wave bounces and names `tdd-guard reseal --reason` as how a stale speculative seal is amended."
+          "name": "installed-copies-survive-the-repo-build-output-disappearing",
+          "kind": "integration",
+          "oracle": "After a successful install, removing $ROOT/bin/tdd-guard leaves `$HOME/.local/bin/tdd-guard version` still exiting 0 with byte-identical output, and the installed build-hooks copy still runs standalone: invoked with no arguments it exits 2 and prints its usage line to stderr.",
+          "testPath": "scripts/tests/test_install.sh"
         },
         {
-          "name": "no_speculative_builder",
-          "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "The subsection states that no builder is dispatched before its dependencies are merged and that the builder re-proves the sealed tests fail on the merged base before implementing."
+          "name": "wrapper-copies-are-byte-identical-to-their-sources",
+          "kind": "integration",
+          "oracle": "After install, `cmp -s` succeeds between each of the five wrapper destinations and its scripts/hooks/ or scripts/ source, and after `bootstrap-project.sh --with-hooks` the three gate binaries are real files (`! -L`) with the same property.",
+          "testPath": "scripts/tests/test_install.sh"
         },
         {
-          "name": "build_skill_invariants_survive",
-          "kind": "unit",
-          "testPath": "skills/build/tests/test_build.py",
-          "oracle": "After the edit, `Phase 1` still precedes `Phase 2`, exactly one `gh ... | jq` capture block remains, and the existing pinned phrases ('combined GREEN', 'sole completion authority', 'never dispatch a builder for an issue with no seal') are unchanged."
+          "name": "uninstall-removes-owned-copies-and-legacy-links-and-leaves-foreign-tools",
+          "kind": "integration",
+          "oracle": "`scripts/bootstrap-plugins.sh --uninstall` exits 0 and removes both a copy-installed tdd-guard (receipt gone too) and a legacy `ln -sfn $ROOT/...` wrapper fixture; a foreign tdd-guard executable the test wrote is still present afterwards and named in the output.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "report-mode-names-a-version-drift-and-the-remediation",
+          "kind": "integration",
+          "oracle": "With a receipt recording a version different from guard/version.go's, `scripts/bootstrap-tools.sh` (no --install) exits 0 and prints one line containing both version strings and the text `scripts/bootstrap-tools.sh --install`; with matching versions no such line is printed.",
+          "testPath": "scripts/tests/test_install.sh"
         }
       ]
     },
     {
-      "key": "OverlapDocs",
-      "title": "Record the overlap policy: ADR 0017, the how-work-moves diagram, README and changelog",
-      "body": "## Goal\n\nOne documentation pass that makes the repository's own account of the build loop true again, once the four mechanical changes have merged: an ADR for the decision, the generated README diagram, the prose beside it, and a changelog entry.\n\n## Change 1 - `docs/adr/0017-the-build-wave-overlaps-where-the-seal-allows.md`\n\nStatus/Context/Decision/Consequences, Status `Accepted`, name in `docs/adr/NNNN-title.md` form (`skills/docs/scripts/docs_check.py` enforces the shape and unique numbers; 0016 is the highest today - renumber if something else has landed first, and keep the same number in the README and changelog). Record:\n\n- Selection is dependency-gated, not wave-gated: a not-done issue whose `dependsOn` are all done is dispatchable regardless of its declared wave, and `wave` becomes a planning hint plus a reporting anchor.\n- Ownership overlap is resolved by deferral across the in-flight set; a declared same-wave overlap stays a plan defect and is still rejected.\n- The `documenter` is dispatched alongside the `integrator`; documentation merges only inside a combined GREEN that includes it.\n- Speculative `specifier` dispatches are permitted and opportunistic; speculative builders are not.\n- `ownershipHint` is one narrow glob, and issues are split rather than hints widened.\n- What deliberately stays serial: `specifier` -> `builder` per issue, the integrator's serial merge, nothing merging before combined GREEN, and the two-phase seal.\n\n## Change 2 - `docs/diagrams/src/how-work-moves.json` and the generated SVGs\n\nToday the flow is `gate -> merge -> docs -> deploy`, which says documentation happens after the merge. Change it to `pr -> integrator`, `pr -> docs`, `docs -> gate`, `gate -> merge`, `merge -> deploy`: authoring starts from the PRs, and the gate covers the documentation before the orchestrator merges. Keep the node kinds, the group, and the direction; adjust the `docs` node `sub` to say it runs alongside the integrator. Regenerate both themes with `python3 scripts/render-diagrams.py` - editing an SVG by hand does not survive the next run - and keep `--check` green. The renderer's `check_fits` will reject labels that no longer fit; shorten the label rather than widening the diagram.\n\n## Change 3 - `README.md`\n\nUpdate the \"How work moves through Workcell\" paragraph and the `<img alt=...>` text so both match the regenerated picture: the `documenter` is dispatched alongside the `integrator`, its work is covered by the same gate, and the orchestrator merges only on that gate's output. Remove the \"then hands the result to `documenter`\" sequencing. [ADR 0004](docs/adr/0004-visuals-require-text-equivalents.md) requires the alt text and the nearby prose to carry the same flow as the picture.\n\n## Change 4 - `CHANGELOG.md`\n\nOne new top entry naming the four changes - dependency-gated scheduling with ownership deferral, the documenter beside the integrator, speculative specifiers, and the ownership-hint granularity rule - and pointing at ADR-0017.\n\n## Change 5 - the assertions\n\nAdd them to `scripts/tests/test_docs_truth.py`, the existing home for \"the docs still say something true\" checks, which CI runs via `python3 -m unittest discover -s scripts/tests`.\n\n## Ownership\n\nThis issue's hint is `**` on purpose: the pass spans `docs/adr/`, `docs/diagrams/`, the root `README.md` and `CHANGELOG.md`, and `scripts/tests/`, whose nearest common parent is the repository root. It is the last wave, it is dependency-blocked until everything else has merged, and under this milestone's own deferral rule a repository-wide hint serializes itself. Change only the files named above.\n\n## Verification\n\n```sh\npython3 -B skills/docs/scripts/docs_check.py .\npython3 scripts/render-diagrams.py --check\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\n```\n",
+      "key": "AgyStagedDeploy",
+      "title": "Antigravity loads an owned copy at its documented plugin directory, not live symlinks into the repo",
+      "body": "## Goal\n\nAntigravity is served by live symlinks: `bootstrap-plugins.sh:119-122` plans `~/.gemini/config/plugins/workcell` and `~/.gemini/antigravity-cli/plugins/workcell`, `:146-149` links `$ROOT/plugins/agy` into both, and `bootstrap-project.sh:77` links the same wrapper into a project's `.agents/plugins/workcell`. Replace them with one staged, owned copy at the **documented** location. Fresh upstream evidence (fetched 2026-09-01, antigravity.google/docs/cli/plugins/): placing a plugin folder at `~/.gemini/config/plugins/` is a documented supported install (auto-scan; `plugin.json` needs only `name`); the `agy plugin` CLI now exists and installs to a *different* directory whose scan status is undocumented; `agy plugin list` does not see scanned plugins (verified locally: prints `No imported plugins` with both symlinks present). So the copy goes to the scan directory, and the `antigravity-cli` location is retired rather than duplicated — two distinct copies, unlike two symlinks resolving to one target, are a double-loading surface (the bug class agy fixed for symlinks in v1.1.3).\n\n## Scope\n\n**New `scripts/build-agy-plugin.py`**, mirroring `scripts/build-grok-plugin.py` and reusing `scripts/lib_dist.py`:\n\n- Stages `dist/agy/workcell/` from `plugins/agy/` with `symlinks=False`, so the wrapper's `agents -> ../../agents/agy` link and its per-skill `skills/*` links are dereferenced into real files; ignore `__pycache__` and `*.pyc`.\n- The ADR 0003 exclusion is inherited, not reimplemented: `sync_agy_skills()` (`bootstrap-plugins.sh:100-114`) regenerates `plugins/agy/skills/` from `skills/` minus every `agents/agy/<agent>/skills/<name>`, and the builder copies through that directory. **Ordering: `sync_agy_skills` runs before staging** (bootstrap already calls it at `:141`); state it in the docstring. `scripts/tests/test_install.sh:192-198` and `skills/wiki/tests/test_wiki.py:1136-1142` pin the wrapper's link set and must stay green.\n- Writes `.workcell-stamp.json` (name, version, builtAt, sourceRoot, contentDigest) and refuses to finish if any symlink survives, as `build-codex-plugin.py:262-267` does.\n\n**`scripts/bootstrap-plugins.sh`**\n\n- Replace the `PLUGIN_TARGETS` link plan and `link_owned` call (`:119-122`, `:146-149`) with: stage (python3-guarded as at `:210`, `:257`), then `install_owned \"$ROOT/dist/agy/workcell\" \"$HOME/.gemini/config/plugins/workcell\" \"$version\"` where `$version` is the wrapper manifest's version. `--force` and refusal semantics unchanged.\n- Migration, done by our installer and **never** via `agy plugin uninstall` (undocumented against a pre-existing symlink; it must not purge through one): before installing, remove our own symlink at *both* legacy paths with the existing `owned_link` test; do not recreate `~/.gemini/antigravity-cli/plugins/workcell`. Keep the `swarm-coder` sweeps (`:143-144`, `:154-155`).\n- Uninstall (`:151`) switches to `uninstall_owned` on the config path plus `unlink_owned` on both legacy paths.\n- Update the header claims at `:23-24` and `:36-37` that the Antigravity links are live and need no re-install.\n- Post-install note: print that a **new agy session** is required (discovery caches lookups — changelog v1.1.3); when the `agy` CLI is present, run `agy plugin validate \"$ROOT/dist/agy/workcell\"` as a best-effort gate (verified working locally: reports ok, skills:15 agents:10 hooks:1) without failing the install when the CLI is absent.\n\n**`scripts/bootstrap-project.sh`**\n\n- `.agents/plugins/workcell` (`:74-78`) becomes an owned copy of the staged tree; `git_exclude_add .agents/plugins` (`:102`) unchanged. Do not introduce `install -m` (pinned at `test_install.sh:104`).\n\n**`scripts/tests/test_install.sh` — deliberate updates**\n\n- `:56-57` install links → one owned copy at the config path and *no* entry at the antigravity-cli path; `:123` `--force replaces a foreign symlink` → destination is our copy afterwards (`:124-125` foreign-dir refusal unchanged in meaning); `:205` linked → copy; `:212-214` uninstall; `:232-233` workspace plugin → copy with stamp. New: `dist/agy` is symlink-free, mirroring `:339`.\n\nBuilder unit tests go in a new `scripts/tests/test_agy_plugin.py`, discovered by the existing `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` command.\n\n## Note\n\n`plugins/agy/plugin.json` stays at 0.1.0 in this issue; GuardReleaseArtifact owns the coordinated bump of every version carrier. In-session load verification (skills visible in a fresh agy session) is a deploy-step check recorded in docs, not a sealed test — CI has no agy CLI.\n\n## Verification\n\n```sh\npython3 scripts/build-agy-plugin.py\nbash scripts/tests/test_install.sh\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\nbash scripts/hooks/tests/test_plugin_hooks.sh\nruff check scripts/build-agy-plugin.py\nshellcheck -S warning scripts/*.sh\n```\n",
       "labels": [
         "planning",
-        "docs"
+        "type:feature",
+        "plugins",
+        "installer",
+        "harness-parity"
       ],
-      "dependsOn": [
-        "WaveSelection",
-        "DocumenterOverlap",
-        "HintContract",
-        "SpeculativeSpecifiers"
-      ],
-      "ownershipHint": "**",
+      "dependsOn": ["CopyOwnership"],
+      "ownershipHint": "scripts/**",
       "wave": 3,
       "acceptanceTests": [
         {
-          "name": "adr_0017_records_the_overlap_policy",
+          "name": "build-agy-plugin-stages-a-symlink-free-tree",
           "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "docs/adr/0017-*.md exists, carries Status/Context/Decision/Consequences with Status 'Accepted', and its Decision names dependency-gated selection, deferral of overlapping candidates, the documenter beside the integrator, speculative specifiers, and the one-narrow-glob ownership rule."
+          "oracle": "`python3 scripts/build-agy-plugin.py` exits 0; `find dist/agy -type l` prints nothing; and dist/agy/workcell/plugin.json, hooks.json, rules/, agents/<some-agent>/agent.md and skills/plan/SKILL.md all exist as regular files.",
+          "testPath": "scripts/tests/test_agy_plugin.py"
         },
         {
-          "name": "adr_0017_names_what_stays_serial",
+          "name": "staged-skills-are-exactly-the-non-agent-owned-ones",
           "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "The same ADR states that specifier-then-builder stays serial per issue, that the integrator's merge stays serial, and that nothing merges before combined GREEN."
+          "oracle": "The sorted directory names under dist/agy/workcell/skills/ equal the sorted names of skills/*/ minus every directory name appearing under agents/agy/*/skills/*, computed from the tree rather than a hard-coded list (ADR 0003).",
+          "testPath": "scripts/tests/test_agy_plugin.py"
         },
         {
-          "name": "how_work_moves_routes_the_documenter_through_the_gate",
+          "name": "staged-tree-carries-a-stamp-matching-the-manifest",
           "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "docs/diagrams/src/how-work-moves.json contains edges pr->docs and docs->gate and no merge->docs edge, and the docs node's sub-label says it runs alongside the integrator."
+          "oracle": "dist/agy/workcell/.workcell-stamp.json parses as JSON with name == \"workcell\" and a version equal to plugins/agy/plugin.json's version.",
+          "testPath": "scripts/tests/test_agy_plugin.py"
         },
         {
-          "name": "generated_diagrams_match_their_source",
+          "name": "install-places-one-owned-copy-at-the-documented-scan-dir",
           "kind": "integration",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "`python3 scripts/render-diagrams.py --check` exits 0, and both how-work-moves-light.svg and how-work-moves-dark.svg contain the new documenter edge label."
+          "oracle": "After `scripts/bootstrap-plugins.sh --install --harness agy` in a throwaway HOME, ~/.gemini/config/plugins/workcell is a real directory (`-d`, not `-L`) containing .workcell-stamp.json, ~/.gemini/antigravity-cli/plugins/workcell does not exist, and `find \"$HOME\" -type l` reports no symlink whose literal target starts with `$ROOT/`.",
+          "testPath": "scripts/tests/test_install.sh"
         },
         {
-          "name": "readme_prose_and_alt_text_match_the_diagram",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "README.md's how-work-moves paragraph and the diagram's img alt text both say the documenter is dispatched alongside the integrator and that the orchestrator merges on the gate covering both; the previous 'then hands the result to' documenter sequencing is gone."
-        },
-        {
-          "name": "changelog_entry_names_the_four_changes",
-          "kind": "unit",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "The top CHANGELOG.md entry names dependency-gated scheduling, the documenter/integrator overlap, speculative specifiers, and ownership-hint granularity, and cites ADR-0017."
-        },
-        {
-          "name": "docs_gate_is_green",
+          "name": "upgrade-deletes-both-legacy-symlinks-itself",
           "kind": "integration",
-          "testPath": "scripts/tests/test_docs_truth.py",
-          "oracle": "`python3 -B skills/docs/scripts/docs_check.py .` exits 0 with no ADR-numbering or instruction-file-budget violations."
+          "oracle": "With `ln -sfn \"$ROOT/plugins/agy\"` at BOTH legacy paths beforehand, the install exits 0, the config path is afterwards a real directory matching dist/agy/workcell, and the antigravity-cli path is gone — removed by the installer, not replaced.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "install-still-refuses-a-foreign-plugin-directory",
+          "kind": "integration",
+          "oracle": "With a foreign ~/.gemini/config/plugins/workcell/plugin.json present, the install exits non-zero, its output names the path, it does not print `done.`, and the foreign file is byte-identical afterwards.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "reinstall-restages-a-drifted-destination",
+          "kind": "integration",
+          "oracle": "After overwriting a staged file at the installed destination with different bytes, re-running the install exits 0 and that file is byte-identical to its dist/agy/workcell source again.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "project-bootstrap-stages-a-copy-into-the-workspace",
+          "kind": "integration",
+          "oracle": "`scripts/bootstrap-project.sh --install <tmp repo>` leaves .agents/plugins/workcell a real directory containing .workcell-stamp.json and not a symlink, the repository's info/exclude still contains the line `.agents/plugins`, and no symlink under the project points into `$ROOT`.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "uninstall-removes-the-owned-copy-and-reports-foreign-ones",
+          "kind": "integration",
+          "oracle": "`scripts/bootstrap-plugins.sh --uninstall` exits 0, the config-path copy is gone when it was ours, legacy symlink fixtures at both paths are gone, and a foreign directory at the config path is still present afterwards and named in the output.",
+          "testPath": "scripts/tests/test_install.sh"
+        }
+      ]
+    },
+    {
+      "key": "GrokDropDeploy",
+      "title": "Grok loads an owned copy at ~/.grok/plugins, not a marketplace rooted in gitignored dist/",
+      "body": "## Goal\n\nGrok's installed copy is real, but its registry records where fresh copies come from: `~/.grok/installed-plugins/registry.json` names `source_url_or_path: $ROOT/dist/grok` (verified locally) — a gitignored build directory that `git clean -dfx` deletes, the exact failure class ADR 0021 documents. And because `version` is optional metadata in Grok's manifest model, the marketplace flow can never detect an update, which is why `grok_plugin()` (`bootstrap-plugins.sh:249-274`) does an uninstall/reinstall on every run. The vendored user guide (xai-org/grok-build, `~/.grok/docs/user-guide/09-plugins.md`) documents a better shape: `~/.grok/plugins/` is user-scope, **auto-discovered and auto-trusted** (guide lines 148, 266, 362) — no CLI, no `--trust` prompt, no registration, no refresh hack. Move Grok to one owned copy there.\n\n## Scope\n\n**`scripts/build-grok-plugin.py`**\n\n- Additionally writes `.workcell-stamp.json` into `dist/grok/plugins/workcell/` (name, version from `plugins/grok/.claude-plugin/plugin.json`, builtAt, sourceRoot, contentDigest). The `.grok-plugin/marketplace.json` staging may remain (harmless, and useful for a manual marketplace flow) but nothing registers it any more.\n\n**`scripts/bootstrap-plugins.sh` — `grok_plugin()`**\n\n- Install: stage as today, then `install_owned \"$ROOT/dist/grok/plugins/workcell\" \"$HOME/.grok/plugins/workcell\" \"$version\"`. Keep the `[[ -d $HOME/.grok ]]` guard. Migration when the `grok` CLI is present (best-effort, `|| true`): `grok plugin uninstall workcell` and `grok plugin marketplace remove` for both `$ROOT/dist/grok` and `$ROOT` — the verbs verified against `grok plugin --help` (install/uninstall, marketplace add/remove). When the CLI is absent the copy still installs: the drop directory needs no CLI at all, which also un-skips today's no-CLI path (`:252-255`).\n- Uninstall: `uninstall_owned \"$HOME/.grok/plugins/workcell\"` plus the same CLI retirement lines.\n- Print that a new session (or `r` in Grok's Plugins tab) is required; there is no live reload.\n- Update the header (`:25-31`) and the trailing `grok:` messages.\n\n**`scripts/tests/test_install.sh` — deliberate updates to `:329-344`**\n\n- Keep: `dist/grok` staged-content and symlink-free assertions (`:336-339`) — symlink-dropping on install is UNDOCUMENTED Grok behaviour (open issues openai/codex#18863 and #24770 document the same gap for Codex), and with a drop install the tree is read in place, so symlink-freedom is now *our* gate, not the harness's.\n- Change: the stub-CLI log must show the migration retirement calls and must NOT show `plugin install workcell --trust` any more (`:340-344` inverted); new assertions that `~/.grok/plugins/workcell` is a real owned copy containing `.claude-plugin/plugin.json`, `agents/builder.md`, `skills/plan/SKILL.md` and `.workcell-stamp.json`, and that an install with **no** grok CLI on PATH but `~/.grok` present still places the copy.\n\n## Verification\n\n```sh\npython3 scripts/build-grok-plugin.py\nbash scripts/tests/test_install.sh\nshellcheck -S warning scripts/*.sh\nruff check scripts/build-grok-plugin.py\n```\n",
+      "labels": [
+        "planning",
+        "type:feature",
+        "plugins",
+        "installer",
+        "harness-parity"
+      ],
+      "dependsOn": ["CopyOwnership"],
+      "ownershipHint": "scripts/**",
+      "wave": 4,
+      "acceptanceTests": [
+        {
+          "name": "install-places-an-owned-auto-trusted-copy",
+          "kind": "integration",
+          "oracle": "After `scripts/bootstrap-plugins.sh --install --harness grok` in a throwaway HOME with ~/.grok present, ~/.grok/plugins/workcell is a real directory (not a symlink) containing .claude-plugin/plugin.json, agents/builder.md, skills/plan/SKILL.md and .workcell-stamp.json, and `find \"$HOME\" -type l` reports no symlink whose literal target starts with `$ROOT/`.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "install-works-without-the-grok-cli",
+          "kind": "integration",
+          "oracle": "With ~/.grok present and no grok executable on PATH, the install exits 0 and the owned copy exists at ~/.grok/plugins/workcell — the drop directory needs no CLI.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "migration-retires-the-marketplace-flow-and-never-reinstalls-through-it",
+          "kind": "integration",
+          "oracle": "With a stub grok CLI logging its argv, the install's log contains `plugin uninstall workcell` and `plugin marketplace remove` for the dist path, and contains no `plugin install` line at all.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "staged-stamp-agrees-with-the-tracked-manifest",
+          "kind": "unit",
+          "oracle": "After `python3 scripts/build-grok-plugin.py`, dist/grok/plugins/workcell/.workcell-stamp.json parses as JSON whose version equals the version in plugins/grok/.claude-plugin/plugin.json, and `find dist/grok -type l` prints nothing.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "uninstall-removes-ours-and-refuses-foreign",
+          "kind": "integration",
+          "oracle": "`scripts/bootstrap-plugins.sh --uninstall` removes an owned ~/.grok/plugins/workcell and its receipt; a foreign directory the test wrote at that path is refused by name on install (non-zero exit, path in output, bytes untouched) and left in place with a `left`/`kept` line on uninstall.",
+          "testPath": "scripts/tests/test_install.sh"
+        }
+      ]
+    },
+    {
+      "key": "CodexDurableMarketplace",
+      "title": "Codex resolves its marketplace from a durable owned copy with a release-tracking version",
+      "body": "## Goal\n\nCodex installs a symlink-free copy into its cache (verified: `~/.codex/plugins/cache/workcell/workcell/0.1.0+codex.20260830065625`, zero symlinks) but the marketplace it would refresh or reinstall from is `$ROOT/dist/codex` — gitignored build output. Worse, the buildstamp in that version is a **static tracked string** (`plugins/codex/.codex-plugin/plugin.json`, copied verbatim by `build-codex-plugin.py:186-189`), so today content changes without a manual manifest edit are invisible to a cache keyed by version; the remove/add cycle at `:222-223` papers over it. Move the registered root to an owned durable copy and make the staged version honest: `<tracked semver>+codex.<content-hash>`, computed at stage time. This also closes ADR 0021's consequence that 'Codex's manifest version cannot confirm a release on its own' — the base becomes the tracked release semver.\n\n## Scope\n\n**`scripts/build-codex-plugin.py`**\n\n- Read the *base* semver from the tracked manifest, build the staged tree, compute a deterministic content digest of `dist/codex/plugins/workcell/` (sorted relative-path + per-file digest lines), and write the staged manifest version as `<base>+codex.<digest12>`. Restaging unchanged content yields the identical version; any content change yields a new one — Codex has no documented refresh contract for local marketplaces (`codex plugin marketplace upgrade` refreshes *Git* snapshots only, per `codex plugin marketplace --help`), so the content-varying key is what defeats the stale cache, now deliberately instead of by accident.\n\n**`plugins/codex/.codex-plugin/plugin.json`**\n\n- Version becomes plain `0.6.0`, agreeing with the Claude and Grok manifests; the buildstamp now exists only in staged output.\n\n**`scripts/bootstrap-plugins.sh`** (codex arm of the MARKET_HARNESSES loop, `:188-242`)\n\n- After staging, `install_owned \"$ROOT/dist/codex\" \"$(workcell_share_dir)/codex\" \"$version\"` and register **that** path: `codex plugin marketplace add \"$(workcell_share_dir)/codex\"`. Migration: retire same-name registrations rooted at `$ROOT` or `$ROOT/dist/codex` first (`codex plugin marketplace remove workcell` best-effort — ADR 0021 records that Codex refuses a second registration under the same name from a different source). Keep the remove/add plugin refresh pair (`:222-223`) — verified verbs `add`/`remove`.\n- Uninstall: `uninstall_owned` the share tree in addition to the existing CLI retirement.\n\n**`scripts/bootstrap-project.sh`**\n\n- The codex `marketplace add \"$ROOT\"` (`:93-94`) becomes the durable share path (staging first if absent).\n\n**Repo root**\n\n- Delete `.agents/plugins/marketplace.json`: after this issue nothing registers the repository root as a Codex marketplace, and a tracked registration manifest pointing into the working tree is the live pointer this milestone removes. Update its pins: `test_install.sh:138-146` (manifest list) and any references found by grep.\n\n**`scripts/tests/test_install.sh`**\n\n- `:155-159` staged-manifest assertions extended with the version-shape check; `:315-327` codex refresh-order stub test updated to also assert the marketplace add argument is the share path, not `$ROOT` or `$ROOT/dist/codex`.\n\n## Verification\n\n```sh\npython3 scripts/build-codex-plugin.py\nbash scripts/tests/test_install.sh\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\nruff check scripts/build-codex-plugin.py\nshellcheck -S warning scripts/*.sh\n```\n",
+      "labels": [
+        "planning",
+        "type:feature",
+        "plugins",
+        "installer",
+        "harness-parity"
+      ],
+      "dependsOn": ["CopyOwnership"],
+      "ownershipHint": "**",
+      "wave": 5,
+      "acceptanceTests": [
+        {
+          "name": "staged-version-is-base-semver-plus-content-hash",
+          "kind": "unit",
+          "oracle": "After `python3 scripts/build-codex-plugin.py`, the staged dist/codex/plugins/workcell/.codex-plugin/plugin.json version matches ^0\\.6\\.0\\+codex\\.[0-9a-f]{12}$; restaging with no source change reproduces the identical version string; appending a byte to one staged-source skill file and restaging produces a different one.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "tracked-codex-manifest-carries-the-plain-release-semver",
+          "kind": "unit",
+          "oracle": "plugins/codex/.codex-plugin/plugin.json's version equals the version in plugins/claude/.claude-plugin/plugin.json and matches ^[0-9]+\\.[0-9]+\\.[0-9]+$ — no +codex buildstamp remains in the tracked file.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "bootstrap-registers-the-durable-share-path",
+          "kind": "integration",
+          "oracle": "With a stub codex CLI logging argv in a throwaway HOME, `scripts/bootstrap-plugins.sh --install --harness codex` exits 0, the log's `plugin marketplace add` argument is $HOME/.local/share/workcell/codex (never $ROOT or $ROOT/dist/codex), `plugin remove` still precedes `plugin add` for workcell@workcell, and the share tree exists as a real owned copy containing .agents/plugins/marketplace.json and plugins/workcell/.codex-plugin/plugin.json with zero symlinks.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "durable-tree-survives-dist-removal",
+          "kind": "integration",
+          "oracle": "After the install, `rm -rf $ROOT/dist/codex` leaves the share tree intact: the staged manifest and at least one skill SKILL.md are still present as regular files under $HOME/.local/share/workcell/codex.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "root-codex-marketplace-manifest-is-retired",
+          "kind": "unit",
+          "oracle": ".agents/plugins/marketplace.json no longer exists at the repository root, and `grep -rn 'agents/plugins/marketplace.json' scripts/` finds no reference to the repo-root copy (dist/ references excepted).",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "uninstall-removes-the-durable-copy-and-retires-the-registration",
+          "kind": "integration",
+          "oracle": "`scripts/bootstrap-plugins.sh --uninstall` with the stub CLI removes the owned share tree and its receipt, and the stub log contains `plugin marketplace remove` for the workcell marketplace.",
+          "testPath": "scripts/tests/test_install.sh"
+        }
+      ]
+    },
+    {
+      "key": "ClaudeCommandMarketplace",
+      "title": "Claude installs through a durable command-source marketplace that restages on demand",
+      "body": "## Goal\n\nClaude's cached plugin is already a self-contained copy (verified: `~/.claude/plugins/cache/workcell/{0.4.0,0.5.0,0.6.0}`, zero symlinks) — the remaining repo coupling is the registration: `known_marketplaces.json` records source path AND `installLocation: /home/anvil/repos/workcell`, a live pointer with no snapshot, refreshed today by a destructive uninstall/install pair (`bootstrap-plugins.sh:220-223`) because a version-keyed cache never refreshes on content change (docs: same version, users keep the cached copy; a non-git local dir resolves version to \"unknown\" and updates are never detected; local directory marketplaces are never auto-refreshed on install). Adopt the mechanism Claude documents for exactly this (v2.1.229+, local CLI is 2.1.252): a `command` plugin source with `\"mode\": \"copy\"` — the marketplace entry runs a command that prints one staged-directory path; Claude copies it, versions by CONTENT HASH, and re-runs it once per session in the background and on install/update/cache-miss. Manual version bumps and the destructive refresh both retire. (`\"mode\": \"link\"` is wrong here: it requires the printed directory to persist and the plugin does not load in sessions started under it.)\n\n## Scope\n\n**New `scripts/build-claude-plugin.py`** (mirrors the other stagers, reuses `lib_dist`): stages `dist/claude/workcell/` from `plugins/claude/` with symlinks dereferenced — `agents -> ../../agents/claude`, `skills -> ../../skills`, `scripts -> ../../scripts/hooks` all become real trees — plus `.claude-plugin/`, `hooks/`, ignoring `__pycache__`/`*.pyc`; writes `.workcell-stamp.json`; refuses surviving symlinks; supports `--print-root`.\n\n**Durable marketplace under `$(workcell_share_dir)/claude/`**, written by `bootstrap-plugins.sh`:\n\n- `.claude-plugin/marketplace.json` with name `workcell` and one plugin entry `{\"name\": \"workcell\", \"source\": {\"source\": \"command\", \"command\": [\"<share>/claude/stage-workcell\"], \"mode\": \"copy\"}}`.\n- `stage-workcell`, an owned installed shim (bash 3.2): when the recorded repository root exists and python3 is available, it runs `build-claude-plugin.py` and refreshes the owned copy at `<share>/claude/workcell`; in every case it prints exactly one line — the absolute path of `<share>/claude/workcell` — and exits 0 while that tree exists, with diagnostics only on stderr. The replay branch is the point: the upstream docs do not document what happens when the producing command fails with an intact cache, so the shim makes the question moot — a deleted checkout degrades to serving the last staged tree, never to a failing command. Constraints honoured: one stdout line, exit 0, ≤256 MiB / ≤20k entries (ours is tiny), and the printed path is never the session cwd or a parent (it lives under the share dir).\n\n**`scripts/bootstrap-plugins.sh`** (claude arm, `:188-242`)\n\n- Install: write/refresh the durable marketplace pieces via `install_owned`, retire the repo-rooted registration (`claude plugin marketplace remove workcell` best-effort — NOTE this uninstalls the plugin, which is why the sequence immediately re-adds and reinstalls), `claude plugin marketplace add \"$(workcell_share_dir)/claude\"`, then `claude plugin install workcell@workcell --yes` — `--yes` is required when stdin/stdout is not a TTY for a command-declared plugin (verified against `claude plugin install --help`). Drop the claude-side uninstall/install refresh pair; Codex keeps its own. If the install fails, fail with a message naming `disableCommandPluginSources` and the directory-source fallback (the same durable dir also contains the staged tree).\n- Uninstall: existing CLI retirement plus `uninstall_owned` of the share pieces.\n\n**`scripts/bootstrap-project.sh`** — the claude `marketplace add \"$ROOT\"` (`:93-94`) becomes the durable share path, and the install carries `--yes`.\n\n**Repo root** — delete `.claude-plugin/marketplace.json`; nothing registers the repository root any more. Update pins `test_install.sh:138-146` and `:152-153`.\n\n**`scripts/tests/test_install.sh`** — the claude refresh-order stub test (`:315-327`) is rewritten deliberately: assert `marketplace add` targets the share path and `plugin install` carries `--yes`; the remove-before-add ordering assertion now applies to codex only. New sections: shim behaviour (below) and `dist/claude` symlink-freedom. Builder unit tests in new `scripts/tests/test_claude_plugin.py`.\n\n## Verification\n\n```sh\npython3 scripts/build-claude-plugin.py\nbash scripts/tests/test_install.sh\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\nbash scripts/hooks/tests/test_plugin_hooks.sh\nruff check scripts/build-claude-plugin.py\nshellcheck -S warning scripts/*.sh\n```\n",
+      "labels": [
+        "planning",
+        "type:feature",
+        "plugins",
+        "installer",
+        "harness-parity"
+      ],
+      "dependsOn": ["CopyOwnership"],
+      "ownershipHint": "**",
+      "wave": 6,
+      "acceptanceTests": [
+        {
+          "name": "build-claude-plugin-stages-a-symlink-free-tree",
+          "kind": "unit",
+          "oracle": "`python3 scripts/build-claude-plugin.py` exits 0; `find dist/claude -type l` prints nothing; and dist/claude/workcell/.claude-plugin/plugin.json, hooks/hooks.json, scripts/build-hooks, agents/builder.md and skills/plan/SKILL.md all exist as regular files, with .workcell-stamp.json present.",
+          "testPath": "scripts/tests/test_claude_plugin.py"
+        },
+        {
+          "name": "shim-prints-one-durable-path-and-restages-when-the-repo-exists",
+          "kind": "integration",
+          "oracle": "After install in a throwaway HOME, running $HOME/.local/share/workcell/claude/stage-workcell prints exactly one line — the absolute path of the share's workcell tree — and exits 0; after appending bytes to a file inside the share tree, re-running the shim restores it byte-identical to its dist/claude source.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "shim-replays-the-last-staged-tree-when-the-repo-is-gone",
+          "kind": "integration",
+          "oracle": "With the shim's recorded source root pointed at a path that does not exist, the shim still prints the same single share-tree line, exits 0, and the tree's files are unchanged — the repo-gone case never surfaces as a failing command.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "durable-marketplace-declares-a-command-source-in-copy-mode",
+          "kind": "integration",
+          "oracle": "$HOME/.local/share/workcell/claude/.claude-plugin/marketplace.json parses as JSON with name \"workcell\" and one plugin whose source.source == \"command\", whose mode == \"copy\", and whose command[0] is the installed shim path.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "bootstrap-registers-the-share-path-and-installs-with-yes",
+          "kind": "integration",
+          "oracle": "With a stub claude CLI logging argv, `scripts/bootstrap-plugins.sh --install --harness claude` exits 0, the log shows `plugin marketplace add $HOME/.local/share/workcell/claude` and a `plugin install workcell@workcell` line containing `--yes`, and shows no `marketplace add` of $ROOT.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "root-claude-marketplace-manifest-is-retired",
+          "kind": "unit",
+          "oracle": ".claude-plugin/marketplace.json no longer exists at the repository root and `grep -rn '.claude-plugin/marketplace.json' scripts/` finds no reference to the repo-root copy; the manifest-validity list in test_install.sh no longer names it.",
+          "testPath": "scripts/tests/test_install.sh"
+        },
+        {
+          "name": "uninstall-removes-the-share-pieces-and-retires-the-registration",
+          "kind": "integration",
+          "oracle": "`scripts/bootstrap-plugins.sh --uninstall` with the stub CLI removes the owned shim, marketplace.json and staged tree under the share dir together with their receipts, and the stub log contains `plugin marketplace remove workcell`.",
+          "testPath": "scripts/tests/test_install.sh"
+        }
+      ]
+    },
+    {
+      "key": "GuardReleaseArtifact",
+      "title": "CI publishes versioned tdd-guard artifacts and gates version agreement across every carrier",
+      "body": "## Goal\n\nA copied binary only removes the working-tree dependency for people who already have the working tree. `.github/workflows/ci.yml` builds, vets and tests but publishes nothing, so installing the guard still requires a checkout and a Go toolchain. Publish the guard as a real release artifact, and make the repository prove that everything claiming to be version `X` agrees — including the two carriers this milestone changes: `plugins/agy/plugin.json` (bumped here from 0.1.0 to the release version, load-bearing now that Antigravity holds a copy) and `plugins/codex/.codex-plugin/plugin.json` (now a plain semver after CodexDurableMarketplace, so the exemption ADR 0021 recorded is retired).\n\n## Scope\n\n**New `scripts/build-guard-release.py`**\n\n- Builds `cmd/tdd-guard` for `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64` into `dist/release/tdd-guard-<version>-<os>-<arch>`, each with `-ldflags \"-X github.com/anvil008/workcell/guard.BuildMetadata=<short commit>\"`, plus a `SHA256SUMS` manifest. `--targets` narrows the matrix so a test can build one.\n- `--check` verifies every version carrier agrees: `guard.Version` in `guard/version.go`, `plugins/claude/.claude-plugin/plugin.json`, `plugins/grok/.claude-plugin/plugin.json`, `plugins/agy/plugin.json`, and `plugins/codex/.codex-plugin/plugin.json` (base semver). It names the file and both values on disagreement and exits non-zero.\n\n**`plugins/agy/plugin.json`** — version `0.1.0` -> `0.6.0` (the other manifests are already there; the stamp test from AgyStagedDeploy tracks the manifest, so it stays green through the bump).\n\n**`.github/workflows/ci.yml`**\n\n- A step in the existing `test` job running `python3 scripts/build-guard-release.py --check`, so a release that forgets a carrier fails on every push and pull request rather than at tag time.\n- A `release` job on `push` to `tags: v*`, needing `test`, running the builder and uploading `dist/release/*` (workflow artifacts and, where a release exists for the tag, `gh release upload`). `permissions: contents: write` on that job only; the workflow-level `contents: read` (`ci.yml:9-10`) stays.\n\n**`scripts/tests/test_release.py`** — unit tests for the builder plus structural assertions on the workflow, discovered by the existing unittest command.\n\n## Note on ownership\n\nThis issue owns `**` because it spans `.github/workflows/ci.yml`, `plugins/agy/plugin.json` and `scripts/`; it runs alone in its wave by construction.\n\n## Verification\n\n```sh\npython3 scripts/build-guard-release.py --check\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\nruff check scripts/build-guard-release.py\n```\n",
+      "labels": ["planning", "type:feature", "ci", "guard"],
+      "dependsOn": ["GuardVersion", "CodexDurableMarketplace"],
+      "ownershipHint": "**",
+      "wave": 7,
+      "acceptanceTests": [
+        {
+          "name": "release-builder-produces-a-stamped-binary-and-checksums",
+          "kind": "unit",
+          "oracle": "`python3 scripts/build-guard-release.py --targets <host os>/<host arch>` exits 0 and writes dist/release/tdd-guard-<guard.Version>-<os>-<arch> plus dist/release/SHA256SUMS, whose recorded digest for that file equals the file's actual sha256.",
+          "testPath": "scripts/tests/test_release.py"
+        },
+        {
+          "name": "released-binary-reports-the-release-version-without-a-repository",
+          "kind": "integration",
+          "oracle": "Executing the host-platform artifact as `<artifact> version` from a temporary directory that is not a git repository exits 0 and prints `tdd-guard <guard.Version>` optionally followed by `+<metadata>`.",
+          "testPath": "scripts/tests/test_release.py"
+        },
+        {
+          "name": "version-check-fails-when-a-carrier-disagrees",
+          "kind": "unit",
+          "oracle": "Run against a copied tree whose plugins/agy/plugin.json version has been changed, `--check` exits non-zero and its output names that file and both version strings; run against the real tree it exits 0.",
+          "testPath": "scripts/tests/test_release.py"
+        },
+        {
+          "name": "codex-base-semver-is-inside-the-check",
+          "kind": "unit",
+          "oracle": "Against a copied tree whose plugins/codex/.codex-plugin/plugin.json version is set to a different semver, `--check` exits non-zero naming that file — the former buildstamp exemption is gone.",
+          "testPath": "scripts/tests/test_release.py"
+        },
+        {
+          "name": "every-tracked-manifest-carries-the-release-version",
+          "kind": "unit",
+          "oracle": "The version fields of plugins/claude, plugins/grok, plugins/agy and plugins/codex manifests are all equal to guard.Version, and none is 0.1.0.",
+          "testPath": "scripts/tests/test_release.py"
+        },
+        {
+          "name": "ci-gates-version-agreement-and-releases-on-a-tag",
+          "kind": "unit",
+          "oracle": ".github/workflows/ci.yml parses as YAML, the test job contains a step whose run text includes `scripts/build-guard-release.py --check`, and a separate job is triggered by a push to tags matching `v*`, runs the builder, uploads dist/release artifacts, and is the only job declaring `contents: write`.",
+          "testPath": "scripts/tests/test_release.py"
+        }
+      ]
+    },
+    {
+      "key": "StagedCopyDocs",
+      "title": "ADR 0023 and the docs record full self-containment and the refresh story",
+      "body": "## Goal\n\nThis milestone reopens a decision ADR 0006 made deliberately, changes what an install physically is on all four harnesses, and retires two tracked marketplace manifests. Record it on the fresh upstream evidence, and repair every document and doc-truth test that still describes the old mechanisms.\n\n## Scope\n\n**New `docs/adr/0023-installs-are-self-contained-copies.md`** (0022 is the highest; `skills/docs/scripts/docs_check.py` requires `NNNN-title.md` and Status/Context/Decision/Consequences). Status: Accepted, superseding the Antigravity clause of ADR 0006 and re-grounding ADR 0021 per harness. It must record:\n\n- **The evidence date and sources.** Upstream documentation fetched 2026-09-01: Claude Code command plugin sources with `mode: copy` (v2.1.229+; local CLI 2.1.252); Antigravity's documented plugin CLI and `~/.gemini/config/plugins/` auto-scan (antigravity.google/docs/cli/plugins/); the vendored Grok user guide's `~/.grok/plugins/` auto-discovery and auto-trust; Codex's symlink-dropping copy being UNDOCUMENTED (open issues openai/codex#18863, #24770), which is why the repository keeps its own symlink-free gates.\n- **Per-harness mechanism and why.** Claude: durable command-source marketplace whose shim restages when the repo exists and replays the last staged tree otherwise — chosen over a durable directory marketplace because content-hash versioning plus session auto-refresh retires both the manual-bump and destructive-refresh bug classes; `mode: link` rejected (printed dir must persist; no load in sessions started under it). Codex: durable owned marketplace copy under `~/.local/share/workcell/codex`, staged version `<semver>+codex.<content-hash>` — deliberate, documented replacement for the accidental buildstamp. Grok: documented drop directory, no registration. Antigravity: one owned copy at the documented scan directory; the `agy plugin` CLI deliberately unused (installs to a directory of undocumented scan status, registry blind to scanned plugins) and `agy plugin uninstall` never invoked against a pre-existing symlink; the `antigravity-cli` location retired to avoid the double-copy load surface.\n- **How ADR 0021 is satisfied per harness.** Claude/Codex registrations now name installer-owned durable paths; Grok and Antigravity register nothing — the harness plugin directory is itself the durable path; the Codex version-exemption consequence is retired.\n- **The versioning decision.** `guard.Version` in Go source is the single source of truth; all four tracked manifests agree and CI proves it; ldflags append metadata only; staged Codex versions add the content hash; Claude cache versions are content hashes computed by the harness.\n- **The refresh and drift story.** Claude restages once per session automatically; Codex/Grok/Antigravity copies freeze until `scripts/bootstrap.sh` re-runs; Grok and Antigravity need a new session (no live reload; agy discovery caches lookups); drift is surfaced by `bootstrap-tools.sh`'s report line, receipts, and `.workcell-stamp.json`.\n- **Consequences.** Live-edit-without-reinstall is gone on every surface — that is the point; ownership moves to receipts plus stamps; a locally modified copy is left behind on uninstall and reported; `disableCommandPluginSources` remediation is the directory-source fallback from the same durable tree; the seed-dir alternative (`CLAUDE_CODE_PLUGIN_SEED_DIR` / `CLAUDE_CODE_PLUGIN_CACHE_DIR`) is noted for CI/containers; ADR 0020 still forecloses APM as the distribution layer. State explicitly that **no live symlink into the repository remains** — the previous revision's hook-wrapper remainder is closed.\n\n**Amend `docs/adr/0006-plugins-install-through-local-marketplaces.md`** — Status notes the Antigravity clause and the root-marketplace layout are superseded by ADR 0023; historical Context/Decision/Consequences stay intact. **Amend `docs/adr/0021-deploys-serve-plugins-from-a-durable-path.md`** — Status gains a pointer that the durable paths are now installer-owned and the Codex version consequence is resolved by ADR 0023 (append, do not rewrite history).\n\n**`README.md`** — layout lines for `plugins/agy/` (`:180`, currently 'symlinked...'), `scripts/` (`:182`, add the new stagers), the wrapper paragraph (`:190-203`, currently claiming live Antigravity links and repo-rooted marketplaces); the verification list (`:221-247`) needs no new command — every new test file is discovered by a listed command.\n\n**`docs/install.md`** — what bootstrap now does step by step; the per-harness refresh story and new-session requirements; installing `tdd-guard` from a release artifact without a checkout; the upgrade notes (`:94-112`) extended: upgrading from symlink installs, and from repo-rooted marketplace registrations (`claude`/`codex` remove-then-re-add, sequenced because removing a Claude marketplace uninstalls its plugins).\n\n**`CHANGELOG.md`** — one entry naming the four harness mechanisms, the versioned tool copies, the CI release artifact, the retired root marketplace manifests, and the deliberately updated installer tests, citing ADR-0023.\n\n**`scripts/tests/test_docs_truth.py`** — `test_antigravity_cli_and_symlink_decision_are_documented` (`:154-166`) pins README and ADR 0006 to the symlink decision; rewrite it deliberately: ADR 0006 still names `` `agy plugin` `` and points at its successor; ADR 0023 and the README describe owned copies; neither claims a live Antigravity link. Add the ADR-0023 assertions below as a new test class in the same file.\n\n## Note on ownership\n\nThis issue owns `**` because the artifacts span the repository and their truth is asserted from central test files. It runs alone in the last wave, after everything it describes has landed.\n\n## Verification\n\n```sh\npython3 skills/docs/scripts/docs_check.py .\npython3 -m unittest discover -s scripts/tests -p 'test_*.py'\nfor d in skills/*/tests; do python3 -m unittest discover -s \"$d\" -p 'test_*.py'; done\n```\n",
+      "labels": ["planning", "type:feature", "docs", "architecture"],
+      "dependsOn": [
+        "GuardVersion",
+        "CopyOwnership",
+        "GuardVersionedInstall",
+        "AgyStagedDeploy",
+        "GrokDropDeploy",
+        "CodexDurableMarketplace",
+        "ClaudeCommandMarketplace",
+        "GuardReleaseArtifact"
+      ],
+      "ownershipHint": "**",
+      "wave": 8,
+      "acceptanceTests": [
+        {
+          "name": "adr-0023-records-the-per-harness-mechanisms",
+          "kind": "unit",
+          "oracle": "Exactly one docs/adr/0023-*.md exists with Status/Context/Decision/Consequences headings; Status says Accepted and names ADR 0006; and the Decision names, for each of the four harnesses, its mechanism: Claude command source with copy mode, Codex durable marketplace copy with a content-hash version component, Grok ~/.grok/plugins drop, Antigravity ~/.gemini/config/plugins copy with the `agy plugin` CLI deliberately unused.",
+          "testPath": "scripts/tests/test_docs_truth.py"
+        },
+        {
+          "name": "adr-0023-states-the-refresh-and-drift-story",
+          "kind": "unit",
+          "oracle": "ADR 0023 contains a passage stating that Claude restages per session while Codex, Grok and Antigravity copies stay frozen until a bootstrap re-run, that Grok and Antigravity need a new session, and how drift is surfaced, naming both the version comparison and .workcell-stamp.json.",
+          "testPath": "scripts/tests/test_docs_truth.py"
+        },
+        {
+          "name": "adr-0023-declares-no-remaining-live-symlink",
+          "kind": "unit",
+          "oracle": "One passage in ADR 0023 states that no runtime consumer resolves through a symlink into the repository any more, naming the hook wrappers and workcell-ws as converted — the previous revision's remainder is recorded as closed, not implied.",
+          "testPath": "scripts/tests/test_docs_truth.py"
+        },
+        {
+          "name": "adr-0006-and-adr-0021-point-at-their-successor",
+          "kind": "unit",
+          "oracle": "The Status section of ADR 0006 names 0023 and the file still contains the literal string `agy plugin`; the Status section of ADR 0021 names 0023; neither file's Context, Decision or Consequences prose is deleted.",
+          "testPath": "scripts/tests/test_docs_truth.py"
+        },
+        {
+          "name": "readme-and-install-docs-match-the-new-mechanisms",
+          "kind": "unit",
+          "oracle": "Neither README.md nor docs/install.md claims a live Antigravity link or a marketplace rooted at the repository; the README plugins/agy/ layout line describes an owned copy; docs/install.md describes installing tdd-guard from a release artifact without a checkout and names the new-session requirement for Grok and Antigravity.",
+          "testPath": "scripts/tests/test_docs_truth.py"
+        },
+        {
+          "name": "changelog-entry-names-the-changes-and-cites-the-adr",
+          "kind": "unit",
+          "oracle": "A CHANGELOG.md entry, found by its heading, names the Claude command-source marketplace, the Antigravity and Grok owned copies, the versioned tool copies, and the CI release artifact, and matches ADR[- ]0023.",
+          "testPath": "scripts/tests/test_docs_truth.py"
+        },
+        {
+          "name": "docs-gate-is-green-and-inspects-adr-0023",
+          "kind": "unit",
+          "oracle": "`python3 skills/docs/scripts/docs_check.py .` exits 0, reports no violations, no duplicate ADR numbers, and an entry for 0023 with ok == true and number == 23.",
+          "testPath": "scripts/tests/test_docs_truth.py"
         }
       ]
     }
@@ -291,59 +534,75 @@
   "risks": [
     {
       "id": "R-01",
-      "title": "A stale speculative seal passes the gate on a moved base",
-      "likelihood": 2,
-      "impact": 3,
-      "owner": "build orchestrator",
-      "mitigation": "The guard binds a seal to its test files and red command, not to the base, so the skill text makes the builder re-prove RED on the merged base before implementing and sends a seal that no longer fails back to a specifier for `tdd-guard reseal --reason`. Speculation stays optional, so the exposure is opt-in."
+      "title": "Contributors keep editing skills/ or scripts/hooks/ and expect harnesses to pick it up live",
+      "likelihood": 3,
+      "impact": 2,
+      "owner": "StagedCopyDocs issue owner",
+      "mitigation": "Live edits are the one capability the milestone removes, now on every surface. Claude restages itself each session via the command source; everything else is one `scripts/bootstrap.sh` re-run; bootstrap-tools.sh reports drift; every destination carries .workcell-stamp.json; README/docs/install.md say a re-run (and for agy/grok a new session) is required."
     },
     {
       "id": "R-02",
-      "title": "Pull-forward widens the in-flight set past what one integration round can carry",
+      "title": "An existing install has our symlinks or repo-rooted registrations, and the new install refuses or collides",
       "likelihood": 2,
-      "impact": 2,
-      "owner": "build orchestrator",
-      "mitigation": "waves.py reports the ready set; the skill states the orchestrator may dispatch a subset to cap concurrency, deferral keeps every dispatched pair ownership-disjoint, and the combined-GREEN gate is unchanged."
+      "impact": 3,
+      "owner": "AgyStagedDeploy issue owner",
+      "mitigation": "install_owned treats our own symlink as ours and removes it first (lib-level test in CopyOwnership); every harness issue carries an explicit migration acceptance test (agy deletes both legacy symlinks itself, grok retires the marketplace registration, codex removes the same-name registration before adding the share path, claude sequences marketplace remove/add/install --yes); docs/install.md carries the upgrade notes."
     },
     {
       "id": "R-03",
-      "title": "The wave-0 behaviour change surprises an operator or breaks a pinned test",
-      "likelihood": 3,
-      "impact": 1,
-      "owner": "WaveSelection builder",
-      "mitigation": "test_wave_zero_not_hard_failed is updated in the same issue, the stderr warning is retained, and SKILL.md step 2 states that an overlapping wave-0 pair is now serialized by deferral rather than by hand."
+      "title": "A locally modified installed copy can no longer be removed by the uninstaller",
+      "likelihood": 2,
+      "impact": 2,
+      "owner": "CopyOwnership issue owner",
+      "mitigation": "Refusing to delete a modified destination is the deliberate choice. uninstall_owned leaves it and prints the exact path with the same `left ... (not ours)` wording unlink_owned uses, and docs/install.md names the manual removal."
     },
     {
       "id": "R-04",
-      "title": "A cross-owned contract test blocks an issue that cannot edit it",
+      "title": "Six consecutive waves edit scripts/tests/test_install.sh, so a later wave can invalidate an earlier sealed test",
       "likelihood": 2,
       "impact": 2,
       "owner": "build orchestrator",
-      "mitigation": "skills/build/tests/test_skill_contracts.py pins phrases in skills the DocumenterOverlap and HintContract issues own. Each issue body lists the phrases it must preserve; a builder that needs one changed stops and escalates instead of writing outside its ownership."
+      "mitigation": "The waves are already serialized by ownership (every installer issue claims scripts/** or **), each issue names the exact line ranges it rewrites, and the integrator's combined GREEN runs the whole file after each wave."
     },
     {
       "id": "R-05",
-      "title": "The documentation issue owns the whole repository",
+      "title": "A release ships artifacts or copies stamped with a stale semver because one carrier was not bumped",
       "likelihood": 2,
       "impact": 2,
-      "owner": "OverlapDocs builder",
-      "mitigation": "It runs alone in the last wave, is dependency-blocked until every other issue has merged, self-serializes under the new deferral rule, and its acceptance tests name exactly which files must change."
+      "owner": "GuardReleaseArtifact issue owner",
+      "mitigation": "scripts/build-guard-release.py --check runs in the ordinary CI job on every push and pull request, comparing guard.Version against all four tracked manifests (the Codex exemption is retired), so disagreement fails long before a tag."
     },
     {
       "id": "R-06",
-      "title": "ADR 0017 collides with a number landed on another branch",
+      "title": "The receipt store and the destination stamp disagree about what is installed",
       "likelihood": 1,
-      "impact": 1,
-      "owner": "OverlapDocs builder",
-      "mitigation": "docs_check.py rejects duplicate ADR numbers; the issue says to renumber at execution time and to keep the README and changelog citations in step with whatever number is used."
+      "impact": 2,
+      "owner": "CopyOwnership issue owner",
+      "mitigation": "One location, defined once in scripts/lib.sh and derived from $HOME, is sourced by every bootstrap script; ownership is decided by the receipt digest first, with the stamp as the self-describing fallback a human reads. Tests cover install, modify, reinstall and uninstall against both."
     },
     {
       "id": "R-07",
-      "title": "The stricter hint rule rejects a sidecar already in flight elsewhere",
+      "title": "Claude command plugin sources are disabled by policy, or a future CLI regresses them",
+      "likelihood": 1,
+      "impact": 3,
+      "owner": "ClaudeCommandMarketplace issue owner",
+      "mitigation": "The failure is loud, not silent: bootstrap fails naming disableCommandPluginSources and the fallback — the same durable share dir already contains the staged tree, so a directory-source marketplace.json is the one-line remediation, recorded in ADR 0023 and docs/install.md."
+    },
+    {
+      "id": "R-08",
+      "title": "Antigravity turns out to load from the retired antigravity-cli path, not the documented scan dir",
+      "likelihood": 2,
+      "impact": 3,
+      "owner": "AgyStagedDeploy issue owner",
+      "mitigation": "The scan dir is the documented supported install and the deploy step verifies in a fresh session (discovery caches lookups, so a new session is mandatory) plus `agy plugin validate` on the staged tree; if load fails, the recorded remediation is installing the same owned copy at the second path — a bootstrap-level re-add, not a redesign. ADR 0023 records why one copy was chosen (double-copy load surface, v1.1.3 bug class)."
+    },
+    {
+      "id": "R-09",
+      "title": "Codex or Grok symlink-drop and drop-dir behaviours shift under us — both are undocumented surfaces",
       "likelihood": 2,
       "impact": 2,
-      "owner": "HintContract builder",
-      "mitigation": "The rule rejects only prose and multi-path values, not coarse-but-valid globs; the single in-tree offender (skills/planner/examples/sample.sidecar.json) is fixed in the same issue, and every other sidecar in the tree already uses one glob per issue."
+      "owner": "CodexDurableMarketplace issue owner",
+      "mitigation": "The repository keeps its own gates instead of trusting the harness: dist/codex, dist/grok, dist/claude and dist/agy are all asserted symlink-free by our tests (openai/codex#18863 and #24770 are the open upstream issues), the Grok drop tree is read in place so symlink-freedom is enforced at install_owned time, and the Codex content-hash version defeats any cache-refresh ambiguity."
     }
   ]
 }
