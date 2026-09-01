@@ -59,7 +59,7 @@ def main() -> int:
         DIST / ".grok-plugin" / "marketplace.json",
         {
             "name": "workcell",
-            "owner": {"name": "Foundry Zero"},
+            "owner": {"name": "Anvil Palamattam", "url": "https://anvilpalamattam.com"},
             "metadata": {
                 "description": "Staged marketplace for the Workcell Grok Build plugin."
             },
