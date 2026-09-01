@@ -19,7 +19,8 @@ const usageCommands = `<command> [options]
   diff-review record --findings <file>
   arch-check --assertions <file>
   hook --harness claude|codex|agy --event PreToolUse|PostToolUse|Stop|SubagentStop
-  status [--json]`
+  status [--json]
+  version`
 
 func usage() string {
 	return "usage: " + filepath.Base(os.Args[0]) + " " + usageCommands
@@ -51,6 +52,12 @@ func Run(options Options, args []string) int {
 	}
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
 		fmt.Fprintln(options.Stdout, usage())
+		return 0
+	}
+	// Answered before dispatch, and so before any loadState: an installed guard
+	// usually runs from $HOME, and must still report its version there.
+	if len(args) == 1 && (args[0] == "version" || args[0] == "--version" || args[0] == "-v") {
+		fmt.Fprintln(options.Stdout, "tdd-guard "+VersionString())
 		return 0
 	}
 	code, err := dispatch(options, args)
