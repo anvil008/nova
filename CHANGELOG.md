@@ -2,6 +2,20 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [v0.6.0 — The wiki opts in with one question in-session] - 2026-09-01
+
+Backward-compatible feature, so the bump is a minor.
+
+### Added
+
+- **`/workcell:wiki init` puts the opt-in question in-session.** Invoked directly as
+  `/workcell:wiki init`, or whenever `status` answers `present: false` and a human is present to
+  ask, the orchestrator asks one yes/no question naming the resolved `projectKey` and the
+  namespace path `status` printed, then runs `wiki.py init --repo .` itself only on an explicit
+  yes. A non-interactive run, and a "no," still end at `present: false` — no run creates a
+  namespace unasked, so ADR 0019's deliberate-opt-in principle is unchanged. `wiki.py` itself is
+  untouched.
+
 ## [v0.5.0 — Skills consolidate to 16, MCP servers retire, planner becomes `/workcell:plan`] - 2026-09-01
 
 User-facing renames and consolidations, no compatibility kept — this is pre-1.0, so the bump is a
