@@ -42,6 +42,28 @@ All notable changes to Workcell will be documented in this file.
   `skills/reviewer-frontend-review/SKILL.md` are corrected in this pass; the four generated
   `reviewer` copies were regenerated with `scripts/sync-agents.py`.
 
+### Deploy notes (post-release, 2026-08-31)
+
+The v0.4.0 deploy to Claude, Codex, and Grok (Antigravity deferred) surfaced operational findings
+recorded as ADR 0021 and here, so they don't repeat on the next release:
+
+- **Marketplace paths are load-bearing** (ADR 0021). Claude and Codex resolve the installed plugin
+  through the registered marketplace _path_, not a content snapshot; deploying from a temporary
+  worktree and then deleting it broke both harnesses (`Status: ✘ failed to load — cache-miss`).
+  v0.4.0 currently serves from `/home/anvil/repos/workcell-v0.4.0-plugins`, which must persist
+  until the next bootstrap run from the primary repository re-registers the marketplace there.
+- **The next bootstrap from the primary repository will hit stale-registration conflicts** —
+  Codex refuses a second `workcell` registration from a different source, and Grok ends up with a
+  duplicate marketplace entry — so that run must remove the worktree-path registration first
+  (`docs/install.md`'s upgrade section carries the one-line note).
+- **Grok has no v0.3.0 to roll back to.** It is net-new in v0.4.0; its rollback is
+  registration-level (`grok plugin uninstall workcell` plus removing the marketplace entry), not a
+  version downgrade.
+- **Codex's manifest version (`0.1.0+codex.<buildstamp>`) cannot confirm which release is
+  installed** — it tracks Codex build metadata, not this repository's semver. The v0.4.0 deploy
+  verified Codex's staged content byte-for-byte instead; a GitHub issue is open to give the
+  manifest a version that tracks the release.
+
 ## [The wiki layer — persistent per-project knowledge] - 2026-08-31
 
 ### Added
@@ -81,7 +103,6 @@ All notable changes to Workcell will be documented in this file.
   by a namespace's existence, and why keeping the store outside the repository makes the eval
   ablation structural instead of a guard rule. `README.md` gains the layer, and
   `docs/eval-runs.md` states the eval-mode boundary.
-
 
 ## [Branch and workspace names carry a type prefix] - 2026-08-31
 
