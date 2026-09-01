@@ -42,6 +42,8 @@ import shutil
 import sys
 from pathlib import Path
 
+import lib_dist
+
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "plugins" / "codex"
 SKILLS = ROOT / "skills"
@@ -50,7 +52,7 @@ MODELS = ROOT / "agents" / "models.json"
 OUT = ROOT / "dist" / "codex"
 
 PLUGIN = "workcell"
-MARKETPLACE = "workcell-local"
+MARKETPLACE = "workcell"
 
 # Agent names collide with skill names (planner), so they
 # are namespaced. The prefix is also what tells a reader which are which.
@@ -175,12 +177,16 @@ def agent_skill(
     return skill, agent_yaml
 
 
-def validate_sources() -> tuple[str, list[Path], list[tuple[Path, str]], dict[str, dict[str, str]]]:
+def validate_sources() -> tuple[
+    str, list[Path], list[tuple[Path, str]], dict[str, dict[str, str]]
+]:
     """Validate every source before replacing OUT, so failures leave no partial tree."""
     if not SOURCE.is_dir():
         raise BuildError(f"missing plugin source {SOURCE.relative_to(ROOT)}")
     manifest_path = SOURCE / ".codex-plugin" / "plugin.json"
-    version = json.loads(manifest_path.read_text(encoding="utf-8")).get("version", "0.1.0")
+    version = json.loads(manifest_path.read_text(encoding="utf-8")).get(
+        "version", "0.1.0"
+    )
 
     skill_dirs = sorted(path for path in SKILLS.iterdir() if path.is_dir())
     for skill_dir in skill_dirs:
@@ -200,15 +206,12 @@ def build() -> Path:
     version, skill_dirs, agent_sources, routing = validate_sources()
     dispatch_contract = codex_dispatch_contract(routing)
 
-    if OUT.exists():
-        shutil.rmtree(OUT)
-    plugin_root = OUT / "plugins" / PLUGIN
-    (plugin_root / ".codex-plugin").mkdir(parents=True)
+    plugin_root = lib_dist.reset_dist(OUT, OUT / "plugins" / PLUGIN)
     skills_out = plugin_root / "skills"
     skills_out.mkdir()
 
-    (plugin_root / ".codex-plugin" / "plugin.json").write_text(
-        json.dumps(plugin_manifest(version), indent=2) + "\n", encoding="utf-8"
+    lib_dist.write_json(
+        plugin_root / ".codex-plugin" / "plugin.json", plugin_manifest(version)
     )
 
     hooks = SOURCE / "hooks" / "hooks.json"
@@ -223,9 +226,7 @@ def build() -> Path:
         shutil.copytree(skill_dir, skills_out / skill_dir.name, symlinks=False)
         skill_path = skills_out / skill_dir.name / "SKILL.md"
         skill_path.write_text(
-            skill_path.read_text(encoding="utf-8").rstrip()
-            + "\n"
-            + dispatch_contract,
+            skill_path.read_text(encoding="utf-8").rstrip() + "\n" + dispatch_contract,
             encoding="utf-8",
         )
         skills += 1
@@ -239,25 +240,23 @@ def build() -> Path:
         (target / "agents" / "openai.yaml").write_text(agent_yaml, encoding="utf-8")
         agents += 1
 
-    (OUT / ".agents" / "plugins").mkdir(parents=True)
-    (OUT / ".agents" / "plugins" / "marketplace.json").write_text(
-        json.dumps(
-            {
-                "name": MARKETPLACE,
-                "interface": {"displayName": "Workcell (Local)"},
-                "plugins": [
-                    {
-                        "name": PLUGIN,
-                        "source": {"source": "local", "path": f"./plugins/{PLUGIN}"},
-                        "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
-                        "category": "Developer Tools",
-                    }
-                ],
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
+    lib_dist.write_json(
+        OUT / ".agents" / "plugins" / "marketplace.json",
+        {
+            "name": MARKETPLACE,
+            "interface": {"displayName": "Workcell (Local)"},
+            "plugins": [
+                {
+                    "name": PLUGIN,
+                    "source": {"source": "local", "path": f"./plugins/{PLUGIN}"},
+                    "policy": {
+                        "installation": "AVAILABLE",
+                        "authentication": "ON_INSTALL",
+                    },
+                    "category": "Developer Tools",
+                }
+            ],
+        },
     )
 
     escaping = [p for p in plugin_root.rglob("*") if p.is_symlink()]
@@ -267,13 +266,17 @@ def build() -> Path:
             + ", ".join(str(p.relative_to(OUT)) for p in escaping)
         )
 
-    print(f"staged {skills} skills and {agents} agent-skills into {OUT.relative_to(ROOT)}")
+    print(
+        f"staged {skills} skills and {agents} agent-skills into {OUT.relative_to(ROOT)}"
+    )
     return OUT
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--print-root", action="store_true", help="print the marketplace root only")
+    parser.add_argument(
+        "--print-root", action="store_true", help="print the marketplace root only"
+    )
     args = parser.parse_args()
     out = build()
     if args.print_root:

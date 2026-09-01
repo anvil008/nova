@@ -1,7 +1,4 @@
----
-name: reviewer-frontend-review
-description: Read-only UI/UX review of a built or running frontend — responsiveness across a fixed viewport matrix, accessibility, design-system conformance, and visual QA. Produces evidence-backed findings in the code-review envelope; never changes code. Owned by the reviewer, invoked as the `frontend` lens.
----
+<!-- The frontend lens's method. Read by the reviewer dispatched with lens: frontend; not a standalone skill. -->
 
 # Frontend review (read-only)
 

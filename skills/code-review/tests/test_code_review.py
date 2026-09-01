@@ -389,7 +389,7 @@ class CodeReviewSkillTests(unittest.TestCase):
         self.assertIn("Table overflows the viewport below 1280px", html)
 
     def test_frontend_lens_publishes_its_viewport_matrix_and_envelope(self):
-        skill = (ROOT.parents[1] / "skills" / "reviewer-frontend-review" / "SKILL.md").read_text(encoding="utf-8")
+        skill = (ROOT / "references" / "frontend-review.md").read_text(encoding="utf-8")
         for viewport in (
             "3840 × 2160", "1920 × 2160", "2560 × 1440", "1920 × 1080",
             "1728 × 1117", "1512 × 982", "1440 × 900", "1280 × 800",
@@ -405,7 +405,7 @@ class CodeReviewSkillTests(unittest.TestCase):
         review = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         for phrase in (
             "frontend applies when the change touches user-facing UI",
-            "reviewer-frontend-review", "agent-browser",
+            "references/frontend-review.md", "agent-browser",
             "is not a frontend change",
         ):
             self.assertIn(phrase, review)
@@ -415,7 +415,7 @@ class CodeReviewSkillTests(unittest.TestCase):
 
     def test_renderer_detail_in_references(self):
         skills = ROOT.parents[1] / "skills"
-        for name in ("planner", "code-review", "research"):
+        for name in ("plan", "code-review", "research"):
             with self.subTest(skill=name):
                 skill = (skills / name / "SKILL.md").read_text(encoding="utf-8")
                 rendering = (skills / name / "references" / "report-rendering.md").read_text(

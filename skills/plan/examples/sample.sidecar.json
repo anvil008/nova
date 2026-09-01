@@ -38,9 +38,9 @@
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "four_mermaid_blocks",
+          "name": "four_diagram_svgs",
           "kind": "unit",
-          "oracle": "rendered HTML contains exactly four mermaid blocks",
+          "oracle": "rendered HTML contains four inline SVG diagram blocks",
           "testPath": "renderer/tests/test_folio.py"
         }
       ]

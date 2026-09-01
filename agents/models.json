@@ -60,7 +60,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "pro"
+        "model": "flash"
       }
     },
     "specifier": {
@@ -73,7 +73,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "pro"
+        "model": "flash"
       }
     },
     "builder": {
@@ -86,7 +86,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "pro"
+        "model": "flash"
       }
     },
     "reviewer": {
@@ -112,7 +112,7 @@
         "effort": "medium"
       },
       "agy": {
-        "model": "pro"
+        "model": "flash"
       }
     },
     "researcher": {
@@ -151,7 +151,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "pro"
+        "model": "flash"
       }
     },
     "debugger": {
@@ -164,7 +164,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "pro"
+        "model": "flash"
       }
     },
     "profiler": {

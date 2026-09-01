@@ -92,8 +92,8 @@ if ((install)); then
         || "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace add "$ROOT" --scope local >/dev/null 2>&1 \
         || "$cli" plugin marketplace add "$ROOT" >/dev/null
-      "$cli" plugin "$add" workcell@workcell-local --scope local >/dev/null 2>&1 \
-        || "$cli" plugin "$add" workcell@workcell-local >/dev/null
+      "$cli" plugin "$add" workcell@workcell --scope local >/dev/null 2>&1 \
+        || "$cli" plugin "$add" workcell@workcell >/dev/null
       echo "  installed the $cli plugin from the local workcell marketplace"
     else
       echo "  skipped $cli plugin registration ($cli CLI not found)"

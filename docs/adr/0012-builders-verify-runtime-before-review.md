@@ -27,10 +27,10 @@ The dispatch brief may carry a `runtime` hint (`{launch, url, healthPath}`); abs
 discovers the run command from the repository, and a production URL is never a valid target. The
 handoff record carries the proof in `evidence.runtime`, and a record whose diff touches a runnable
 surface while claiming `surface: "none"` is malformed, exactly as a command without a `commandId`
-is. The builder carries no browser tool definitions on any harness: the `agent-browser` CLI runs
-through the shell, so UI verification costs no per-session tool tokens. The deep diagnostic surface
-(network waterfall, script evaluation) belongs to the `debugger`, which alone carries the
-`chrome-devtools` MCP tools on Claude.
+is. No agent carries browser tool definitions on any harness: the `agent-browser` CLI runs
+through the shell, so browser work costs no per-session tool tokens. The deep diagnostic surface —
+the network waterfall (`network requests` / `network har`), performance traces (`trace`), console,
+and script evaluation (`eval`) — is the same CLI, exercised by the `debugger`.
 
 ## Consequences
 

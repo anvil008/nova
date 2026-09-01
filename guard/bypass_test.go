@@ -208,7 +208,7 @@ func TestDispatchRejectsMalformedInvocations(t *testing.T) {
 	}
 	for _, args := range cases {
 		if code, _, stderr := h.run(args...); code == 0 {
-			t.Errorf("anvil-guard %v exited 0; stderr %q", args, stderr)
+			t.Errorf("tdd-guard %v exited 0; stderr %q", args, stderr)
 		}
 	}
 }

@@ -41,6 +41,25 @@ ROOT = Path(__file__).resolve().parent.parent
 DIAGRAMS = ROOT / "docs" / "diagrams"
 SOURCES = DIAGRAMS / "src"
 
+# The plan skill lays its folio diagrams out with the same layered engine. Skills
+# stay self-contained and repository tooling may depend on them, never the reverse
+# (ADR 0022), so the half the two share — text metrics and layering — is imported
+# from there instead of kept as a second copy. The geometry below is not shared:
+# this front-end centres a fixed-width canvas, gives every node of a kind one
+# width, and routes returns through the side channel its source names.
+sys.path.append(str(ROOT / "skills" / "plan" / "scripts"))
+from diagrams import (
+    Diagram,
+    DiagramError,
+    assign_layers,
+    esc,
+    num,
+    order_within_layers,
+    text_width,
+    toward,
+    wrap,
+)
+
 FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
 KINDS = ("agent", "gate", "human", "artifact", "orchestrator")
 KIND_LEGEND = {
@@ -177,58 +196,6 @@ class Edge:
     label_at: tuple[float, float, str] = (0.0, 0.0, "middle")
 
 
-# ---------------------------------------------------------------- text metrics
-
-NARROW = set("ijltIfr.,:;'`|!()[]{}-·/\\ ")
-WIDE = set("mwMW@%—&")
-
-
-def text_width(text: str, size: float, bold: bool = False) -> float:
-    """Approximate a Helvetica-class advance width. No font is embedded, so this
-    only has to be a safe over-estimate: too wide leaves air, too narrow clips."""
-    units = 0.0
-    for char in text:
-        if char == " ":
-            units += 0.30
-        elif char in NARROW:
-            units += 0.34
-        elif char in WIDE:
-            units += 0.92
-        elif char.isupper():
-            units += 0.70
-        elif char.isdigit():
-            units += 0.56
-        else:
-            units += 0.55
-    return units * size * (1.06 if bold else 1.0)
-
-
-def wrap(text: str, size: float, limit: float) -> list[str]:
-    if not text:
-        return []
-    lines: list[str] = []
-    current = ""
-    for word in text.split(" "):
-        candidate = f"{current} {word}".strip()
-        if current and text_width(candidate, size) > limit:
-            lines.append(current)
-            current = word
-        else:
-            current = candidate
-    lines.append(current)
-    return lines
-
-
-def num(value: float) -> str:
-    """One fixed float format, so a re-render is byte-identical."""
-    text = f"{value:.2f}".rstrip("0").rstrip(".")
-    return "0" if text in ("", "-0") else text
-
-
-def esc(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
 # --------------------------------------------------------------------- loading
 
 
@@ -284,85 +251,14 @@ def load(path: Path) -> dict:
 # ---------------------------------------------------------------------- layout
 
 
-def assign_layers(nodes: dict[str, Node], edges: list[Edge]) -> None:
-    """Longest-path layering. Edges that close a cycle — the `blocked` and
-    `not green` return paths — are marked and left out of the ranking, so a
-    loop never drags its target down the page."""
-    outgoing: dict[str, list[Edge]] = {node: [] for node in nodes}
-    for edge in edges:
-        outgoing[edge.src].append(edge)
-
-    state = dict.fromkeys(nodes, 0)  # 0 unvisited, 1 on the stack, 2 done
-    for start in nodes:
-        if state[start]:
-            continue
-        stack = [(start, iter(outgoing[start]))]
-        state[start] = 1
-        while stack:
-            node, pending = stack[-1]
-            advanced = False
-            for edge in pending:
-                if state[edge.dst] == 1:
-                    edge.back = True
-                elif state[edge.dst] == 0:
-                    state[edge.dst] = 1
-                    stack.append((edge.dst, iter(outgoing[edge.dst])))
-                    advanced = True
-                    break
-            if not advanced:
-                state[node] = 2
-                stack.pop()
-
-    forward = [edge for edge in edges if not edge.back]
-    incoming = {node: 0 for node in nodes}
-    for edge in forward:
-        incoming[edge.dst] += 1
-    ready = [node for node in nodes if not incoming[node]]
-    seen = 0
-    while ready:
-        node = ready.pop(0)
-        seen += 1
-        for edge in forward:
-            if edge.src != node:
-                continue
-            nodes[edge.dst].layer = max(nodes[edge.dst].layer, nodes[node].layer + 1)
-            incoming[edge.dst] -= 1
-            if not incoming[edge.dst]:
-                ready.append(edge.dst)
-    if seen != len(nodes):
-        raise RenderError(
-            "layering did not settle: a cycle escaped back-edge detection"
-        )
-
-
-def order_within_layers(
-    nodes: dict[str, Node], edges: list[Edge], layers: list[list[Node]]
-) -> None:
-    """Two barycentre sweeps. On a mostly linear flow this changes nothing; on a
-    branch it puts a node under its predecessors instead of crossing to reach
-    them."""
-    forward = [edge for edge in edges if not edge.back]
-    for layer in layers:
-        for position, node in enumerate(layer):
-            node.order = position
-
-    for _ in range(2):
-        for direction in ("down", "up"):
-            sweep = layers[1:] if direction == "down" else layers[-2::-1]
-            for layer in sweep:
-                for node in layer:
-                    if direction == "down":
-                        peers = [nodes[e.src] for e in forward if e.dst == node.id]
-                    else:
-                        peers = [nodes[e.dst] for e in forward if e.src == node.id]
-                    node.order = (
-                        sum(peer.order for peer in peers) / len(peers)
-                        if peers
-                        else node.order
-                    )
-                layer.sort(key=lambda item: (item.order, item.index))
-                for position, node in enumerate(layer):
-                    node.order = position
+def graph_of(nodes: dict[str, Node], edges: list[Edge]) -> Diagram:
+    """The shared layering reads a Diagram. This front-end keeps its own records —
+    a node names its `label`, an edge names the `side` its channel runs down — and
+    layering touches only the ids, layers, orders, and back-edge marks all three
+    have in common."""
+    graph = Diagram("TB")
+    graph.nodes, graph.edges = nodes, edges  # type: ignore[assignment]
+    return graph
 
 
 def size_nodes(nodes: dict[str, Node]) -> None:
@@ -505,17 +401,6 @@ def path_of(points: list[tuple[float, float]]) -> str:
         )
     parts.append(f"L {num(points[-1][0])} {num(points[-1][1])}")
     return " ".join(parts)
-
-
-def toward(
-    origin: tuple[float, float], target: tuple[float, float], distance: float
-) -> tuple[float, float]:
-    length = math.dist(origin, target) or 1.0
-    ratio = distance / length
-    return (
-        origin[0] + (target[0] - origin[0]) * ratio,
-        origin[1] + (target[1] - origin[1]) * ratio,
-    )
 
 
 # --------------------------------------------------------------------- drawing
@@ -700,7 +585,8 @@ def render(diagram: dict, scheme: str) -> str:
     theme = THEMES[scheme]
     width = float(spec.get("width", 880))
 
-    assign_layers(nodes, edges)
+    graph = graph_of(nodes, edges)
+    assign_layers(graph)
     depth = max(node.layer for node in nodes.values())
     layers = [
         sorted(
@@ -709,7 +595,7 @@ def render(diagram: dict, scheme: str) -> str:
         )
         for rank in range(depth + 1)
     ]
-    order_within_layers(nodes, edges, layers)
+    order_within_layers(graph, layers)
     size_nodes(nodes)
 
     kinds = [
@@ -820,6 +706,7 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except RenderError as error:
+    # DiagramError is the shared engine's own refusal — the layering invariant.
+    except (RenderError, DiagramError) as error:
         print(f"render-diagrams: {error}", file=sys.stderr)
         sys.exit(2)

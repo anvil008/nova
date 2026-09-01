@@ -2,6 +2,55 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [v0.5.0 — Skills consolidate to 16, MCP servers retire, planner becomes `/workcell:plan`] - 2026-09-01
+
+User-facing renames and consolidations, no compatibility kept — this is pre-1.0, so the bump is a
+minor, not a patch.
+
+### Changed
+
+- **`planner` the skill is now `plan`** — invocation is `/workcell:plan`. The `planner` agent keeps
+  its name; only the skill's invocation changed. Every reference, test, and eval case moved with
+  it (`evals/cases/skills/plan.json` replaces `planner.json`).
+- **Skills consolidate 18 → 16.** `builder-frontend` becomes `skills/build/references/frontend.md`;
+  `reviewer-frontend-review` becomes `skills/code-review/references/frontend-review.md`. Both are
+  reference files now, read by the owning skill's agent body, not separately invocable skills.
+  `code-review`'s own description now names its frontend lens directly. On Antigravity, only `jj`
+  remains a builder-owned skill link; the agy shared-skill sweep was hardened against strays left
+  by a renamed skill.
+- **MCP servers are fully removed.** The `chrome-devtools` MCP server is retired from every
+  harness; the `debugger` now reaches the same diagnostics — network requests/HAR, traces, console,
+  script evaluation — through the `agent-browser` CLI, the same tool the `builder` and `reviewer`
+  already used. No agent carries an `mcp__` tool on any harness (a new generator test asserts it).
+  `register_mcp` in `bootstrap-plugins.sh` is retirement-only now: it removes any `playwright` or
+  `chrome-devtools` MCP entry this repository previously wrote, by exact command match, and
+  registers nothing new. ADR 0012 was amended accordingly.
+- **The plugin marketplace is renamed `workcell-local` → `workcell`.** The plugin reference is now
+  `workcell@workcell`. `bootstrap-plugins.sh` retires the old `workcell-local` registration on both
+  install and uninstall, so a machine that installed under the old name converges automatically.
+- **The planner folio renderer was reworked.** The 3.4MB bundled Mermaid JS is replaced by
+  build-time inline SVG (`skills/plan/scripts/diagrams.py`); folios carry the Workcell mark;
+  summaries and issue bodies render as real paragraphs instead of raw text blocks; SVGs scale
+  responsively; the hints-toggle behavior is documented. `docs/plans/plan07-*` (the wiki-layer
+  folio) is archived; `docs/plans/plan08-*` (the APM-migration folio) and its sidecar/issue-state
+  are dropped as superseded.
+- **The `tdd-guard` rename is complete in Go source.** The 64 remaining `anvil-guard` strings
+  (comments and user-facing error text) across `controlplane/` and `guard/` now read `tdd-guard`;
+  the wire schema ids (`anvil.guard/v1` and friends) are deliberately unchanged, since those are a
+  data contract, not a display string.
+- **`skills/wiki/SKILL.md` frontmatter fix** — a stray colon in the YAML description became an
+  em dash, so the frontmatter parses.
+- **`use-other-harness` gains Grok** as a selectable target harness.
+- **README "Start here" is now "Workflows."**
+- **The deploy skill's release-title rule**: a GitHub release title is exactly `<project> vX.Y.Z`;
+  the descriptive strapline stays in the changelog entry heading, and release notes never repeat
+  the title as their own first heading.
+
+### Removed
+
+- **Root `apm.yml` deleted**, per ADR 0020: Workcell's own plugin does not ship through apm, and a
+  root manifest is what would incorrectly classify this repository for `apm install`.
+
 ## [v0.4.0 — Grok Build joins as a fourth harness; browsers move off Playwright] - 2026-08-31
 
 ### Added

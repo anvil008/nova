@@ -238,8 +238,8 @@ class GeneratorTests(unittest.TestCase):
     def test_planner_links_reference_contract(self):
         for harness, planner in self.agent_variants("planner"):
             with self.subTest(harness=harness):
-                self.assertIn("skills/planner/references/sidecar-contract.md", planner)
-                self.assertNotIn("skills/planner/SKILL.md", planner)
+                self.assertIn("skills/plan/references/sidecar-contract.md", planner)
+                self.assertNotIn("skills/plan/SKILL.md", planner)
 
     def test_rationalization_tables_present(self):
         for name in ("builder", "specifier", "planner"):
@@ -289,19 +289,12 @@ class GeneratorTests(unittest.TestCase):
         self.assertIn("Bash", tool_names)
         self.assertNotIn("mcp__chrome-devtools__list_console_messages", tool_names)
 
-    def test_claude_debugger_carries_chrome_devtools(self):
-        # The debugger alone owns the deep diagnostic surface (ADR 0012): the
-        # network waterfall and script evaluation are beyond the agent-browser CLI.
-        debugger = (ROOT / "agents/claude/debugger.md").read_text(encoding="utf-8")
-        frontmatter = debugger.split("---", 2)[1]
-        tools = next(
-            line.split(":", 1)[1]
-            for line in frontmatter.splitlines()
-            if line.startswith("tools:")
-        )
-        tool_names = [tool.strip() for tool in tools.split(",")]
-        self.assertIn("mcp__chrome-devtools__list_network_requests", tool_names)
-        self.assertIn("mcp__chrome-devtools__list_console_messages", tool_names)
+    def test_no_agent_carries_mcp_browser_tools(self):
+        # ADR 0012: every browser surface, including the debugger's diagnostics
+        # (network waterfall, HAR, traces), runs through the agent-browser CLI.
+        for name in ("builder", "reviewer", "debugger"):
+            agent = (ROOT / f"agents/claude/{name}.md").read_text(encoding="utf-8")
+            self.assertNotIn("mcp__", agent.split("---", 2)[1], name)
 
     def test_build_codex_plugin_rejects_malformed_sources_without_partial_output(self):
         for case in ("missing skill", "no frontmatter", "missing name"):
@@ -311,6 +304,7 @@ class GeneratorTests(unittest.TestCase):
                     "plugins/codex",
                     "skills",
                     "scripts/build-codex-plugin.py",
+                    "scripts/lib_dist.py",
                 )
                 with temporary:
                     if case == "missing skill":
@@ -343,6 +337,7 @@ class GeneratorTests(unittest.TestCase):
             "plugins/codex",
             "skills",
             "scripts/build-codex-plugin.py",
+            "scripts/lib_dist.py",
         )
         with temporary:
             manifest_path = root / "agents/models.json"
@@ -373,6 +368,7 @@ class GeneratorTests(unittest.TestCase):
             "plugins/codex",
             "skills",
             "scripts/build-codex-plugin.py",
+            "scripts/lib_dist.py",
         )
         with temporary:
             manifest_path = root / "agents/models.json"

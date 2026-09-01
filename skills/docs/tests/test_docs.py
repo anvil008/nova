@@ -345,7 +345,9 @@ class DocsCheckTests(unittest.TestCase):
             r = run(t)
             self.assertEqual(r.returncode, 0, r.stderr)
             out = json.loads(r.stdout)
-            self.assertEqual([f["path"] for f in out["instructionFiles"]], ["AGENTS.md"])
+            self.assertEqual(
+                [f["path"] for f in out["instructionFiles"]], ["AGENTS.md"]
+            )
             self.assertEqual(out["violations"], [])
 
     def test_readme_contract_parity(self):
@@ -577,6 +579,13 @@ class DocsCheckTests(unittest.TestCase):
             (root / "scripts").mkdir()
             shutil.copy(script, root / "scripts" / "render-diagrams.py")
             shutil.copytree(repo / "docs" / "diagrams", root / "docs" / "diagrams")
+            # The renderer reads its layout engine out of the plan skill (ADR 0022),
+            # so the copied tree has to carry that too.
+            shutil.copytree(
+                repo / "skills" / "plan" / "scripts",
+                root / "skills" / "plan" / "scripts",
+                ignore=shutil.ignore_patterns("__pycache__"),
+            )
             edited = root / "docs" / "diagrams" / "how-work-moves-light.svg"
             edited.write_text(
                 edited.read_text(encoding="utf-8").replace(

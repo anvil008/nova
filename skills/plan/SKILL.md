@@ -1,5 +1,5 @@
 ---
-name: planner
+name: plan
 description: Investigate a repository task and produce an offline HTML implementation plan plus a strict JSON sidecar, then—only after explicit human approval—idempotently reconcile the plan into a GitHub milestone and issues. Use for substantial coding work that should be reviewed before GitHub tracking is created; do not use for direct implementation or GitHub Projects.
 ---
 
@@ -18,8 +18,8 @@ The planner agent follows the [artifact and sidecar contract](references/sidecar
 1. **Dispatch the `planner` agent** with the goal and any decisions the human has already made. It investigates read-only, defines the architecture delta and dependency-ordered issues, authors each issue's `acceptanceTests`, writes the strict sidecar, renders the folio, and runs the read-only reconciliation preview.
 
    ```bash
-   python3 skills/planner/scripts/render_plan.py plan.sidecar.json
-   python3 skills/planner/scripts/render_plan.py plan.sidecar.json --plans-dir docs/plans
+   python3 skills/plan/scripts/render_plan.py plan.sidecar.json
+   python3 skills/plan/scripts/render_plan.py plan.sidecar.json --plans-dir docs/plans
    ```
 
    Omit the output path to get the `docs/plans/` naming convention; pass one explicitly only for a scratch render nobody intends to keep.
@@ -33,14 +33,14 @@ The planner agent follows the [artifact and sidecar contract](references/sidecar
 4. Before approval, a read-only reconciliation preview is allowed — the agent runs one, and you may run another against a captured snapshot:
 
    ```bash
-   python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json --snapshot github-state.json
-   python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json
+   python3 skills/plan/scripts/reconcile_github.py plan.sidecar.json --snapshot github-state.json
+   python3 skills/plan/scripts/reconcile_github.py plan.sidecar.json
    ```
 
 5. **Only after the human approves the reviewed artifacts**, apply the exact approved sidecar yourself with an approval identity. This write is the orchestrator's, never the agent's:
 
    ```bash
-   python3 skills/planner/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<github-login>"
+   python3 skills/plan/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<github-login>"
    ```
 
    `--approved-by` must equal the login `gh` is authenticated as (`gh api user`). Apply output

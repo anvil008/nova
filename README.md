@@ -22,7 +22,7 @@ Plan → Approve → Tests → Build → Review → Integrate → Merge → Docs
 | Docs      | `documenter` | READMEs and ADRs match reality                                           |
 | Deploy    | `deployer`   | Fresh, explicit approval; verified; reversible                           |
 
-## Start here
+## Workflows
 
 | You're doing                         | Skill             | Key principle                                             |
 | ------------------------------------ | ----------------- | --------------------------------------------------------- |
@@ -43,7 +43,7 @@ Plan → Approve → Tests → Build → Review → Integrate → Merge → Docs
 ## Quick Start
 
 One command. It installs [apm](https://github.com/microsoft/apm) when absent, then the external
-tools, then the plugin and its MCP servers — everything at user (global) level.
+tools, then the plugin — everything at user (global) level.
 
 ```sh
 git clone https://github.com/anvil008/workcell
@@ -56,7 +56,7 @@ It is a thin orchestrator over two scripts you can also run (and re-run) individ
 
 ```sh
 scripts/bootstrap-tools.sh --install     # 1. external dependencies + the tdd-guard gate
-scripts/bootstrap-plugins.sh             # 2. MCP servers + the workcell plugin, into every harness found
+scripts/bootstrap-plugins.sh             # 2. the workcell plugin, into every harness found
 ```
 
 Run either script with no flags to see what it _would_ do first. Useful flags for the second:
@@ -70,18 +70,16 @@ It never overwrites something it does not own — a real file or directory where
 is refused by name. Model/effort configuration, a per-project install, and upgrading from an
 earlier install are covered in **[docs/install.md](docs/install.md)**.
 
-## All 18 skills
+## All 16 skills
 
 **Entry points — one PR, start to finish:** `new-feature`, `code-analysis`, `code-refactor`,
-`debug`, `perf`, `repo-setup` (see [Start here](#start-here) for what each guarantees).
+`debug`, `perf`, `repo-setup` (see [Workflows](#workflows) for what each guarantees).
 
 | Phase    | Skill                                                                  | One line                                                                                                    |
 | -------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Plan     | [`planner`](skills/planner/SKILL.md)                                   | Investigates, then produces an offline plan and each issue's acceptance tests                               |
+| Plan     | [`plan`](skills/plan/SKILL.md)                                   | Investigates, then produces an offline plan and each issue's acceptance tests                               |
 | Build    | [`build`](skills/build/SKILL.md)                                       | Runs an approved milestone as resumable dependency waves, in single-PR mode when an entry workflow needs it |
-| Build    | [`builder-frontend`](skills/builder-frontend/SKILL.md)                 | Clean, accessible, responsive UI fundamentals — owned by the builder                                        |
 | Review   | [`code-review`](skills/code-review/SKILL.md)                           | Multi-lens, adversarially verified review of a PR, diff, or change-set                                      |
-| Review   | [`reviewer-frontend-review`](skills/reviewer-frontend-review/SKILL.md) | Read-only UI/UX, accessibility, and design-system lens for `code-review`                                    |
 | Review   | [`review-fix-loop`](skills/review-fix-loop/SKILL.md)                   | Bounded review-then-fix cycle on a dedicated loop branch                                                    |
 | Research | [`research`](skills/research/SKILL.md)                                 | Parallel read-only investigation merged into one evidence packet                                            |
 | Docs     | [`docs`](skills/docs/SKILL.md)                                         | Standardizes and updates documentation, records ADRs, runs the docs gate                                    |
@@ -175,7 +173,7 @@ evidence is fresh — otherwise it sends the builder back. The full gate-by-gate
 ```
 workcell/
 ├── agents/            generated per harness — edit agents/bodies/ + agents.json, then sync-agents.py
-├── skills/             18 shared workflows: planner, build, code-review, docs, deploy, …
+├── skills/             16 shared workflows: plan, build, code-review, docs, deploy, …
 ├── plugins/            one thin wrapper per harness — no content of its own
 │   ├── claude/          .claude-plugin/plugin.json, hooks/hooks.json
 │   ├── codex/           .codex-plugin/plugin.json, hooks.json — staged into dist/codex/, not symlinked

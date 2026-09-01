@@ -124,7 +124,7 @@ class BuildSkillTests(unittest.TestCase):
 
     def test_done_label_unblocks_dependency_and_order_is_sidecar_stable(self):
         """`status:done` marks a *closed* issue finished. Doneness is agreed with
-        skills/planner/scripts/reconcile_github.py: closed AND (status:done OR completed)."""
+        skills/plan/scripts/reconcile_github.py: closed AND (status:done OR completed)."""
         snapshot = self._snapshot()
         snapshot["issues"][0].update(
             state="closed", state_reason="not_planned", labels=["status:done"]
@@ -431,8 +431,8 @@ class BuildSkillTests(unittest.TestCase):
             hasattr(waves, "globs_overlap"),
             "waves does not have globs_overlap function",
         )
-        self.assertTrue(waves.globs_overlap("skills/planner/**", "skills/**"))
-        self.assertFalse(waves.globs_overlap("skills/planner/**", "skills/build/**"))
+        self.assertTrue(waves.globs_overlap("skills/plan/**", "skills/**"))
+        self.assertFalse(waves.globs_overlap("skills/plan/**", "skills/build/**"))
 
     def test_wave_ownership_overlap_validation(self):
         # Create a mock sidecar and snapshot with overlapping ownershipHints
@@ -450,7 +450,7 @@ class BuildSkillTests(unittest.TestCase):
                     "body": "Body A",
                     "labels": ["build"],
                     "dependsOn": [],
-                    "ownershipHint": "skills/planner/**",
+                    "ownershipHint": "skills/plan/**",
                     "wave": 1,
                     "acceptanceTests": [
                         {"name": "test", "kind": "unit", "oracle": "pass"}

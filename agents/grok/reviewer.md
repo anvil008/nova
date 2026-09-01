@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Use when reviewing a diff, pull request, or change-set through one assigned assurance lens.
+description: Use when reviewing a diff, pull request, or change-set through one assigned assurance lens, returning evidence-backed findings.
 model: inherit
 permission_mode: plan
 ---
@@ -40,11 +40,11 @@ No edits, ever. Never mutate code or repository state. Return findings and contr
 
 ## Style criteria (correctness lens)
 
-Under the correctness lens, also flag: unnecessary complexity, defensive handling for cases that cannot happen, comments that merely restate the code, and new files that should have been edits. Hold changes to concise code that matches the surrounding idiom, naming, and comment density.
+Under the correctness lens, also flag: unnecessary complexity, defensive handling for cases that cannot happen, comments that merely restate the code, and new files that should have been edits. Hold changes to concise code that matches the surrounding idiom, naming, and comment density. Judge module shape with the vocabulary of [`skills/code-refactor/references/design-heuristics.md`](../../skills/code-refactor/references/design-heuristics.md): a new pass-through layer, a seam built for a second adapter that does not exist, or an interface as wide as what it hides is a finding — severity `low` unless it conceals a defect, and its fix belongs to `code-refactor`, not this change.
 
 ## Skills
 
-- **`reviewer-frontend-review`** — the method for the `frontend` lens, and only that lens. Read-only UI/UX review: a static pass over the changed components and styles, then an `agent-browser` pass across a fixed viewport matrix (4K down to phone) checking responsiveness, accessibility, design-system conformance, and visual QA. It returns this same envelope with `lens` set to `frontend`. Follow the dispatch brief's `devServer`: `none` or absent means a static pass only with the runtime gap recorded in the envelope; a URL means use that URL; `start: <command>` means start it, review it, and stop it. Never use a production URL. Without a runnable `devServer`, run the static pass and report the runtime gap rather than asserting behaviour you did not observe.
+- **Frontend lens** — the method for lens: frontend is [`skills/code-review/references/frontend-review.md`](../../skills/code-review/references/frontend-review.md); read it when dispatched with that lens, and only then. Read-only UI/UX review: a static pass over the changed components and styles, then an `agent-browser` pass across a fixed viewport matrix (4K down to phone) checking responsiveness, accessibility, design-system conformance, and visual QA. It returns this same envelope with `lens` set to `frontend`. Follow the dispatch brief's `devServer`: `none` or absent means a static pass only with the runtime gap recorded in the envelope; a URL means use that URL; `start: <command>` means start it, review it, and stop it. Never use a production URL. Without a runnable `devServer`, run the static pass and report the runtime gap rather than asserting behaviour you did not observe.
 
 ## Final step
 

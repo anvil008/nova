@@ -30,10 +30,10 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 # absent. A CI runner has neither claude nor codex, and their absence is not a defect.
 registered(){ local cli=$1 label=$2
   if ! command -v "$cli" >/dev/null; then printf 'skip %s (no %s CLI)\n' "$label" "$cli"; return 0; fi
-  "$cli" plugin list 2>/dev/null | grep -q 'workcell@workcell-local' && ok "$label" || no "$label"; }
+  "$cli" plugin list 2>/dev/null | grep -q 'workcell@workcell' && ok "$label" || no "$label"; }
 not_registered(){ local cli=$1
   command -v "$cli" >/dev/null || return 0
-  ! "$cli" plugin list 2>/dev/null | grep -q 'workcell@workcell-local'; }
+  ! "$cli" plugin list 2>/dev/null | grep -q 'workcell@workcell'; }
 
 # --- install-refuses-foreign-target --------------------------------------------------------------
 fresh_home foreign
@@ -150,10 +150,10 @@ jq -e '.name == "workcell" and .version and .description and .capabilities' "$RO
 jq -e '.name == "workcell" and .version and .description' "$ROOT/plugins/claude/.claude-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
 jq -e '.name == "workcell" and .version and .description' "$ROOT/plugins/codex/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
 # Claude's marketplace is rooted at the repository and follows the wrapper's links.
-jq -e '.name == "workcell-local" and (.plugins[0].source == "./plugins/claude")' "$ROOT/.claude-plugin/marketplace.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "workcell" and (.plugins[0].source == "./plugins/claude")' "$ROOT/.claude-plugin/marketplace.json" >/dev/null 2>&1 || bad_schema=1
 # Codex's is generated into dist/, because Codex copies a plugin and drops escaping symlinks.
 python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1 || bad_schema=1
-jq -e '.name == "workcell-local" and (.plugins[0].source.path == "./plugins/workcell")' "$ROOT/dist/codex/.agents/plugins/marketplace.json" >/dev/null 2>&1 || bad_schema=1
+jq -e '.name == "workcell" and (.plugins[0].source.path == "./plugins/workcell")' "$ROOT/dist/codex/.agents/plugins/marketplace.json" >/dev/null 2>&1 || bad_schema=1
 # The staged manifest must carry what Codex validation actually requires.
 jq -e '.author.name and .interface.displayName and .interface.defaultPrompt and .skills == "./skills/" and (has("hooks") | not)' \
   "$ROOT/dist/codex/plugins/workcell/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
@@ -319,8 +319,8 @@ for harness in claude codex; do
   out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness "$harness" 2>&1); rc=$?
   [[ $rc -eq 0 ]] || no "$harness refresh install exits zero (rc=$rc): $out"
   if [[ $harness == claude ]]; then add=install; del=uninstall; else add=add; del=remove; fi
-  add_at=$(call_line "$log" "plugin $add workcell@workcell-local")
-  del_at=$(call_line "$log" "plugin $del workcell@workcell-local")
+  add_at=$(call_line "$log" "plugin $add workcell@workcell")
+  del_at=$(call_line "$log" "plugin $del workcell@workcell")
   [[ -n $add_at && -n $del_at && $del_at -lt $add_at ]] \
     && ok "$harness removes its cached plugin before adding it" \
     || no "$harness cache refresh order (remove=${del_at:-none} add=${add_at:-none})"
@@ -334,7 +334,7 @@ stub_cli grok "$stubs" "$log"
 out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness grok 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "grok-only install exits zero" || no "grok-only install failed (rc=$rc): $out"
 [[ -f $ROOT/dist/grok/.grok-plugin/marketplace.json ]] && ok "grok marketplace staged" || no "grok staged marketplace missing"
-[[ -f $ROOT/dist/grok/plugins/workcell/agents/builder.md && -f $ROOT/dist/grok/plugins/workcell/skills/planner/SKILL.md ]] \
+[[ -f $ROOT/dist/grok/plugins/workcell/agents/builder.md && -f $ROOT/dist/grok/plugins/workcell/skills/plan/SKILL.md ]] \
   && ok "grok staged agents and skills are real files" || no "grok staged content missing"
 find "$ROOT/dist/grok" -type l | grep -q . && no "grok staged tree contains symlinks" || ok "grok staged tree is symlink-free"
 del_at=$(call_line "$log" "plugin uninstall workcell")

@@ -1,7 +1,4 @@
----
-name: builder-frontend
-description: Build a basic, clean, accessible, responsive frontend. Use for straightforward UI work — pages, forms, components — where correct fundamentals matter more than elaborate art direction. Owned by the builder.
----
+<!-- Read by the builder agent when a task touches UI; not a standalone skill. -->
 
 # Frontend (basics done right)
 

@@ -15,7 +15,7 @@
 <body>
 
 <div class="bar">
-  <span class="bar-name"><span class="bar-mark">FZ</span>Foundry Zero</span>
+  <span class="bar-name"><span class="bar-mark">WC</span>Workcell</span>
   <span class="chip">Implementation Plan</span>
   <span class="bar-spacer"></span>
   <span class="bar-note">{{PLAN_ID}}</span>
@@ -47,7 +47,7 @@
     <section class="section" id="header">
       <div class="doc-eyebrow">Plan &middot; generated <time datetime="{{GENERATED_AT}}">{{DISPLAY_DATE}}</time></div>
       <h1>{{PLAN_NAME}}</h1>
-      <p class="lede">{{SUMMARY}}</p>
+      <div class="lede">{{SUMMARY}}</div>
 
       <div class="verdict-row">
         <div class="verdict gate-proposed">
@@ -149,7 +149,6 @@
   </main>
 </div>
 
-<script>{{MERMAID_JS}}</script>
 <script>
 (() => {
   const root = document.documentElement;
@@ -158,7 +157,6 @@
     const next = root.dataset.theme === "light" ? "dark" : "light";
     root.dataset.theme = next;
     document.getElementById("theme-toggle").innerHTML = next === "light" ? "&#9789;" : "&#9788;";
-    render();
   });
 
   document.getElementById("hints-toggle").addEventListener("click", () => {
@@ -175,41 +173,6 @@
     reopened.forEach((node) => { node.open = false; });
     reopened = [];
   });
-
-  // Wave and neutral node paint lives here rather than in the Mermaid classDef,
-  // because classDef values are parsed by Mermaid and cannot carry var().
-  const themeCSS = ".neutral rect,.neutral polygon,.neutral path{fill:transparent!important;stroke:var(--mut)!important}"
-    + ".neutral .nodeLabel,.neutral span{color:var(--mut)!important}"
-    + [1, 2, 3, 4, 5].map((n) =>
-        `.wave${n} rect,.wave${n} polygon,.wave${n} path`
-        + `{fill:var(--wave-${n})!important;stroke:var(--wave-stroke)!important}`
-        + `.wave${n} .nodeLabel,.wave${n} span{color:var(--wave-text)!important}`
-      ).join("");
-
-  async function render() {
-    const dark = root.dataset.theme !== "light";
-    const themeVariables = dark
-      ? {background:"#24292f",primaryColor:"#2b323f",primaryTextColor:"#e8ebf0",lineColor:"#8d97a8",secondaryColor:"#343c4b",tertiaryColor:"#2b323f"}
-      : {background:"#ffffff",primaryColor:"#f4f6f9",primaryTextColor:"#1f2531",lineColor:"#68717f",secondaryColor:"#e7ebf1",tertiaryColor:"#ffffff"};
-    mermaid.initialize({startOnLoad:false, securityLevel:"strict", theme: dark ? "dark" : "default", themeVariables, themeCSS});
-    for (const node of document.querySelectorAll("pre.mermaid")) {
-      const shell = node.closest(".diagram-shell");
-      const source = node.getAttribute("data-src") || node.textContent;
-      node.setAttribute("data-src", source);
-      node.removeAttribute("data-processed");
-      node.textContent = source;
-      try {
-        await mermaid.run({nodes:[node], suppressErrors:false});
-        shell?.classList.remove("diagram-failed");
-      } catch {
-        shell?.classList.add("diagram-failed");
-        const message = shell?.querySelector(".diagram-error");
-        if (message) message.textContent = "Diagram could not render; source is preserved below.";
-      }
-    }
-  }
-
-  render();
 })();
 </script>
 </body>
