@@ -364,5 +364,162 @@ claude_ver=$(jq -r .version "$ROOT/plugins/claude/.claude-plugin/plugin.json" 2>
   && ok "claude plugin version is past the stale 0.1.0 cache" \
   || no "claude plugin version is past the stale 0.1.0 cache (got '$claude_ver')"
 
+# --- copy ownership: install_owned / uninstall_owned / receipts (#129) ---------------------------
+# The copy-side equivalent of the link helpers, with the same three guarantees: install only
+# over absent-or-ours, refuse a foreign destination by name with a non-zero return, and remove
+# on uninstall only what we installed while reporting what was left behind. Every case runs
+# against a throwaway HOME, so the receipts under $HOME/.local/state are hermetic too.
+# shellcheck source=../lib.sh
+. "$ROOT/scripts/lib.sh"
+unset WORKCELL_STATE WORKCELL_SHARE
+# receipts_for DST -> every receipt file under the current state dir that names DST
+receipts_for(){ local r; r="$(workcell_state_dir)/receipts"; [[ -n $r && -d $r ]] || return 0
+  grep -rlF -- "$1" "$r" 2>/dev/null || true; }
+# tree_list DIR -> the sorted relative path of every file under DIR, minus our own stamp
+tree_list(){ [[ -d $1 ]] || return 0
+  ( cd "$1" && find . -type f ! -name .workcell-stamp.json | sort ); }
+CSRC="$TMP/copy-src"; mkdir -p "$CSRC"
+printf '#!/usr/bin/env bash\necho workcell\n' > "$CSRC/tool.sh"; chmod 0644 "$CSRC/tool.sh"
+CTREE="$TMP/copy-tree"; mkdir -p "$CTREE/nested"
+printf 'alpha\n' > "$CTREE/a.txt"; printf 'beta\n' > "$CTREE/nested/b.txt"
+
+# install-owned-creates-a-real-copy-not-a-link
+fresh_home copy_real
+DST="$HOME/.local/bin/wc-tool"
+rc=0; err=$({ install_owned "$CSRC/tool.sh" "$DST" 1.2.3 >/dev/null; } 2>&1) || rc=$?
+[[ $rc -eq 0 ]] && ok "install_owned into an absent destination exits zero" \
+  || no "install_owned into an absent destination exits zero (rc=$rc): $err"
+[[ -f $DST && -x $DST && ! -L $DST ]] && ok "install_owned creates a real executable file, not a symlink" \
+  || no "install_owned creates a real executable file, not a symlink"
+cmp -s "$CSRC/tool.sh" "$DST" && ok "the installed copy is byte-identical to its source" \
+  || no "the installed copy is byte-identical to its source"
+find "$HOME" -type l | grep -qxF -- "$DST" \
+  && no "install_owned left a symlink at the destination" \
+  || ok "no symlink under HOME at the installed path"
+
+# install-owned-refuses-a-foreign-destination-by-name
+fresh_home copy_foreign
+DST="$HOME/.local/bin/wc-tool"
+printf 'the user own script\n' > "$DST"; cp "$DST" "$TMP/foreign-file-before"
+rc=0; err=$({ install_owned "$CSRC/tool.sh" "$DST" 1.2.3 >/dev/null; } 2>&1) || rc=$?
+[[ $rc -ne 0 ]] && ok "install_owned refuses a foreign file with a non-zero return" \
+  || no "install_owned refuses a foreign file with a non-zero return (rc=$rc)"
+grep -qF -- "$DST" <<<"$err" && ok "the refusal names the foreign file on stderr" \
+  || no "the refusal names the foreign file on stderr: $err"
+cmp -s "$TMP/foreign-file-before" "$DST" && ok "the foreign file is left byte-identical" \
+  || no "the foreign file is left byte-identical"
+FDIR="$HOME/.local/share/foreign-tree"; mkdir -p "$FDIR"; printf 'mine\n' > "$FDIR/keep.txt"
+rc=0; err=$({ install_owned "$CTREE" "$FDIR" 1.2.3 >/dev/null; } 2>&1) || rc=$?
+[[ $rc -ne 0 ]] && ok "install_owned refuses a foreign directory with a non-zero return" \
+  || no "install_owned refuses a foreign directory with a non-zero return (rc=$rc)"
+grep -qF -- "$FDIR" <<<"$err" && ok "the refusal names the foreign directory on stderr" \
+  || no "the refusal names the foreign directory on stderr: $err"
+[[ -f $FDIR/keep.txt && $(cat "$FDIR/keep.txt") == mine && ! -e $FDIR/a.txt ]] \
+  && ok "the foreign directory is left untouched" || no "the foreign directory is left untouched"
+
+# install-owned-replaces-our-own-previous-symlink
+fresh_home copy_relink
+DST="$HOME/.local/bin/wc-tool"
+ln -sfn "$ROOT/scripts/lib.sh" "$DST"
+owned_link "$DST" && ok "the pre-milestone destination is one of our own symlinks" \
+  || no "the pre-milestone destination is one of our own symlinks"
+rc=0; err=$({ install_owned "$CSRC/tool.sh" "$DST" 1.2.3 >/dev/null; } 2>&1) || rc=$?
+[[ $rc -eq 0 ]] && ok "install_owned over our own symlink exits zero" \
+  || no "install_owned over our own symlink exits zero (rc=$rc): $err"
+[[ -f $DST && ! -L $DST ]] && ok "the upgraded destination is a real file, not a symlink" \
+  || no "the upgraded destination is a real file, not a symlink"
+cmp -s "$CSRC/tool.sh" "$DST" && ok "the upgraded destination holds the copied source" \
+  || no "the upgraded destination holds the copied source"
+[[ -z $err ]] && ok "replacing our own symlink prints nothing on stderr" \
+  || no "replacing our own symlink prints nothing on stderr: $err"
+
+# uninstall-owned-removes-ours-and-reports-a-foreign-one
+fresh_home copy_uninstall
+DST="$HOME/.local/bin/wc-tool"
+install_owned "$CSRC/tool.sh" "$DST" 1.2.3 >/dev/null 2>&1
+RCPT=$(receipts_for "$DST" | head -1)
+[[ -n $RCPT ]] && ok "install_owned writes a receipt naming the destination" \
+  || no "install_owned writes a receipt naming the destination"
+rc=0; out=$(uninstall_owned "$DST" 2>&1) || rc=$?
+[[ $rc -eq 0 ]] && ok "uninstall_owned exits zero on an owned copy" \
+  || no "uninstall_owned exits zero on an owned copy (rc=$rc): $out"
+[[ ! -e $DST ]] && ok "uninstall_owned removes the installed copy" \
+  || no "uninstall_owned removes the installed copy"
+[[ -n $RCPT && ! -e $RCPT ]] && ok "uninstall_owned removes the receipt file" \
+  || no "uninstall_owned removes the receipt file (receipt='$RCPT')"
+FOREIGN="$HOME/.local/bin/not-ours"
+printf 'user script\n' > "$FOREIGN"
+rc=0; out=$(uninstall_owned "$FOREIGN" 2>&1) || rc=$?
+[[ $rc -eq 0 ]] && ok "uninstall_owned exits zero on a foreign destination" \
+  || no "uninstall_owned exits zero on a foreign destination (rc=$rc): $out"
+[[ -f $FOREIGN && $(cat "$FOREIGN") == "user script" ]] \
+  && ok "uninstall_owned leaves a foreign destination byte-identical" \
+  || no "uninstall_owned leaves a foreign destination byte-identical"
+grep -- 'left' <<<"$out" | grep -qF -- "$FOREIGN" \
+  && ok "uninstall_owned reports the foreign destination it left" \
+  || no "uninstall_owned reports the foreign destination it left: $out"
+
+# uninstall-owned-keeps-a-locally-modified-copy
+fresh_home copy_modified
+DST="$HOME/.local/bin/wc-tool"
+install_owned "$CSRC/tool.sh" "$DST" 1.2.3 >/dev/null 2>&1
+printf 'locally edited\n' >> "$DST"
+cat "$CSRC/tool.sh" > "$TMP/modified-expected"; printf 'locally edited\n' >> "$TMP/modified-expected"
+rc=0; out=$(uninstall_owned "$DST" 2>&1) || rc=$?
+[[ $rc -eq 0 ]] && ok "uninstall_owned exits zero on a locally modified copy" \
+  || no "uninstall_owned exits zero on a locally modified copy (rc=$rc): $out"
+[[ -e $DST ]] && cmp -s "$TMP/modified-expected" "$DST" \
+  && ok "uninstall_owned keeps the locally modified copy exactly as the human left it" \
+  || no "uninstall_owned keeps the locally modified copy exactly as the human left it"
+grep -- 'left' <<<"$out" | grep -qF -- "$DST" \
+  && ok "uninstall_owned names the modified copy it kept" \
+  || no "uninstall_owned names the modified copy it kept: $out"
+
+# install-owned-records-version-stamp-and-source-for-a-tree
+fresh_home copy_tree
+DST="$HOME/.local/share/workcell/plugins/demo"
+rc=0; err=$({ install_owned "$CTREE" "$DST" 9.9.9 >/dev/null; } 2>&1) || rc=$?
+[[ $rc -eq 0 ]] && ok "install_owned copies a directory tree and exits zero" \
+  || no "install_owned copies a directory tree and exits zero (rc=$rc): $err"
+[[ -n $(tree_list "$CTREE") && $(tree_list "$CTREE") == $(tree_list "$DST") ]] \
+  && ok "the copied tree has the same relative file list as its source" \
+  || no "the copied tree has the same relative file list as its source"
+diff -r -x .workcell-stamp.json "$CTREE" "$DST" >/dev/null 2>&1 \
+  && ok "the copied tree is content-identical to its source" \
+  || no "the copied tree is content-identical to its source"
+[[ -f $DST/.workcell-stamp.json ]] && [[ $(jq -r .version "$DST/.workcell-stamp.json" 2>/dev/null) == 9.9.9 ]] \
+  && ok "the copied tree carries .workcell-stamp.json with version 9.9.9" \
+  || no "the copied tree carries .workcell-stamp.json with version 9.9.9"
+[[ $(installed_version "$DST") == 9.9.9 ]] && ok "installed_version prints the recorded version" \
+  || no "installed_version prints the recorded version (got '$(installed_version "$DST")')"
+[[ -z $(installed_version "$HOME/.local/share/workcell/plugins/never-installed") ]] \
+  && ok "installed_version is empty when there is no receipt" \
+  || no "installed_version is empty when there is no receipt"
+RCPT=$(receipts_for "$DST" | head -1)
+[[ -n $RCPT ]] && grep -qF -- "$CTREE" "$RCPT" \
+  && ok "the receipt records the source path of the tree" \
+  || no "the receipt records the source path of the tree (receipt='$RCPT')"
+
+# state-and-share-dirs-derive-from-home-and-honour-overrides
+fresh_home copy_dirs
+unset WORKCELL_STATE WORKCELL_SHARE
+sd=$(workcell_state_dir); shd=$(workcell_share_dir)
+[[ $sd == "$HOME/.local/state/workcell" ]] && ok "workcell_state_dir defaults under the current HOME" \
+  || no "workcell_state_dir defaults under the current HOME (got '$sd', HOME=$HOME)"
+[[ $shd == "$HOME/.local/share/workcell" ]] && ok "workcell_share_dir defaults under the current HOME" \
+  || no "workcell_share_dir defaults under the current HOME (got '$shd', HOME=$HOME)"
+WORKCELL_STATE="$TMP/state-override"; WORKCELL_SHARE="$TMP/share-override"
+export WORKCELL_STATE WORKCELL_SHARE
+[[ $(workcell_state_dir) == "$WORKCELL_STATE" ]] && ok "workcell_state_dir honours WORKCELL_STATE" \
+  || no "workcell_state_dir honours WORKCELL_STATE (got '$(workcell_state_dir)')"
+[[ $(workcell_share_dir) == "$WORKCELL_SHARE" ]] && ok "workcell_share_dir honours WORKCELL_SHARE" \
+  || no "workcell_share_dir honours WORKCELL_SHARE (got '$(workcell_share_dir)')"
+DST="$HOME/.local/bin/wc-tool-override"
+install_owned "$CSRC/tool.sh" "$DST" 4.5.6 >/dev/null 2>&1
+[[ -n $(grep -rlF -- "$DST" "$TMP/state-override/receipts" 2>/dev/null) ]] \
+  && ok "install_owned writes its receipt beneath WORKCELL_STATE" \
+  || no "install_owned writes its receipt beneath WORKCELL_STATE"
+unset WORKCELL_STATE WORKCELL_SHARE
+
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]
