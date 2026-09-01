@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: Consolidate what a project's finished runs taught into its own persistent wiki — a namespace outside the repository holding write-once raw traces, append-only pattern pages, and a catalog. Opt-in per project — no namespace means nothing is recorded and nothing is dispatched.
+description: Consolidate what a project's finished runs taught into its own persistent wiki — a namespace outside the repository holding write-once raw traces, append-only pattern pages, and a catalog. Opt-in per project — no namespace means nothing is recorded and nothing is dispatched; invoke as `/workcell:wiki init` to opt the current repository in with one confirmed question.
 ---
 
 # Wiki
@@ -24,9 +24,25 @@ it looks in is `$WORKCELL_WIKI_HOME`, defaulting to `~/.workcell/wiki/`, one nam
 project key; the key derivation is in
 [`references/wiki-layout.md`](references/wiki-layout.md). A project
 with no namespace means no record, no dispatch, and no tokens spent — `present: false` is
-an ordinary answer, not a failure, and it ends this workflow right here. Opting a project
-in is a human act: a person runs `wiki.py init --repo <path>` for it once, and nothing
-else creates a namespace.
+an ordinary answer, not a failure, and it ends this workflow unless the human opts in
+right here. Opting a project in is a human act: a namespace exists only because a person
+ran `wiki.py init --repo <path>` for it, or answered yes to the one question below, and
+nothing else creates one.
+
+### `init` — the opt-in, asked in-session
+
+When the skill is invoked as `/workcell:wiki init`, or when `status` answers
+`present: false` and a human is present to ask, put the opt-in to them as one question —
+opt this project in, yes or no — naming the resolved `projectKey` and the namespace path
+`status` printed, so they see exactly what would be created. On an explicit yes, run:
+
+```bash
+python3 -B skills/wiki/scripts/wiki.py init --repo .
+```
+
+then re-run `status` and continue. On no — or in a non-interactive run, where there is no
+one to ask — the workflow still ends at `present: false`. The answered question is the
+only shortcut; it is never a default, and no run creates a namespace unasked.
 
 Two more answers end the workflow before any dispatch. A repository carrying
 `.workcell/eval-mode.json` is refused by name, because a benchmark run neither records
