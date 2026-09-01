@@ -18,8 +18,12 @@ fresh_home(){ HOME="$TMP/$1"; export HOME
   CLAUDE_CONFIG_DIR="$HOME/.claude"; export CLAUDE_CONFIG_DIR
   mkdir -p "$HOME/.claude" "$HOME/.codex" "$HOME/.gemini/config" "$HOME/.local/bin"
   [[ $HOME != "$REAL_HOME" ]] || { echo "refusing to test against the real HOME" >&2; exit 99; }; }
-# is_link_to DST SRC LABEL -> asserts DST is a symlink pointing exactly at SRC
-is_link_to(){ [[ -L $1 && $(readlink "$1") == "$2" ]] && ok "$3" || no "$3"; }
+# is_staged_copy DST LABEL -> asserts DST is a real, stamped directory and not a symlink.
+# The shape every harness destination now has to have: nothing installed resolves back into
+# this working tree, so a link at the destination is a defect however it got there.
+is_staged_copy(){ [[ -d $1 && ! -L $1 && -f $1/.workcell-stamp.json ]] && ok "$2" || no "$2 ($1)"; }
+# is_absent DST LABEL -> asserts nothing at all exists at DST, link or file
+is_absent(){ [[ ! -e $1 && ! -L $1 ]] && ok "$2" || no "$2 ($1 still exists)"; }
 # links_into_root DIR -> prints every symlink under DIR whose literal target is inside $ROOT
 links_into_root(){ local l; find "$1" -type l | while read -r l; do
   case "$(readlink "$l")" in "$ROOT"/*) echo "$l";; esac; done; }
@@ -35,7 +39,11 @@ not_registered(){ local cli=$1
   command -v "$cli" >/dev/null || return 0
   ! "$cli" plugin list 2>/dev/null | grep -q 'workcell@workcell'; }
 
-# --- install-refuses-foreign-target --------------------------------------------------------------
+# --- install-still-refuses-a-foreign-plugin-directory (#131) -------------------------------------
+# The destination is now one owned COPY at the documented scan path, but a directory the
+# human put there themselves is still theirs: refused by name, non-zero, nothing claimed as
+# done, and — since the antigravity-cli location is retired rather than duplicated — nothing
+# created at the legacy path either.
 fresh_home foreign
 mkdir -p "$HOME/.gemini/config/plugins/workcell"
 echo "user's own plugin" > "$HOME/.gemini/config/plugins/workcell/plugin.json"
@@ -47,14 +55,16 @@ grep -q "done\." <<<"$out" && no "refused install must not print done." || ok "r
 [[ ! -L $HOME/.gemini/config/plugins/workcell ]] \
   && cmp -s "$TMP/foreign-before/config/plugins/workcell/plugin.json" "$HOME/.gemini/config/plugins/workcell/plugin.json" \
   && ok "foreign targets left byte-identical" || no "foreign targets left byte-identical"
+is_absent "$HOME/.gemini/antigravity-cli/plugins/workcell" \
+  "a refused install creates nothing at the retired antigravity-cli path"
 
 # --- uninstall-removes-only-owned-links ----------------------------------------------------------
 fresh_home owned
 mkdir -p "$TMP/elsewhere" "$HOME/.claude/plugins"; echo foreign > "$TMP/elsewhere/foreign-plugin"
 out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -eq 0 ]] && grep -q "done\." <<<"$out" && ok "install into fresh HOME succeeds" || no "install into fresh HOME succeeds (rc=$rc): $out"
-[[ -L $HOME/.gemini/config/plugins/workcell && -L $HOME/.gemini/antigravity-cli/plugins/workcell ]] \
-  && ok "install links the Antigravity plugin" || no "install links the Antigravity plugin"
+is_staged_copy "$HOME/.gemini/config/plugins/workcell" "install stages the Antigravity plugin as a copy"
+is_absent "$HOME/.gemini/antigravity-cli/plugins/workcell" "install writes nothing to the retired antigravity-cli path"
 registered codex "install registers the Codex plugin"
 registered claude "install registers the Claude plugin"
 git_repo "$TMP/owned-proj"
@@ -123,15 +133,26 @@ grep -qxF '.claude/settings.local.json' "$ex" && ok "exclude written to common-d
 ( cd "$TMP/wt-tree" && git status --porcelain | grep -q settings.local ) && no "settings.local.json visible to git in worktree" || ok "settings.local.json invisible to git in worktree"
 
 # --- --force replaces only symlinks, never real files/dirs ---------------------------------------
-fresh_home force
-mkdir -p "$TMP/elsewhere" "$HOME/.gemini/antigravity-cli/plugins" "$HOME/.gemini/config/plugins/workcell"
+# Same two guarantees as before the staged copy landed, now read at the one destination that
+# still exists: --force replaces a foreign *symlink* with our copy, and never a real directory.
+fresh_home force_link
+mkdir -p "$TMP/elsewhere" "$HOME/.gemini/config/plugins"
 echo foreign > "$TMP/elsewhere/foreign-plugin"
-ln -sfn "$TMP/elsewhere/foreign-plugin" "$HOME/.gemini/antigravity-cli/plugins/workcell"
+ln -sfn "$TMP/elsewhere/foreign-plugin" "$HOME/.gemini/config/plugins/workcell"
+out=$("$INSTALL" --install --harness agy --force 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "--force install over a foreign symlink exits zero" \
+  || no "--force install over a foreign symlink exits zero (rc=$rc): $out"
+is_staged_copy "$HOME/.gemini/config/plugins/workcell" "--force replaces a foreign symlink with our staged copy"
+
+fresh_home force
+mkdir -p "$HOME/.gemini/config/plugins/workcell"
 echo real > "$HOME/.gemini/config/plugins/workcell/plugin.json"
 out=$("$INSTALL" --install --force 2>&1); rc=$?
-is_link_to "$HOME/.gemini/antigravity-cli/plugins/workcell" "$ROOT/plugins/agy" "--force replaces a foreign symlink"
 [[ $rc -ne 0 && ! -L $HOME/.gemini/config/plugins/workcell && -f $HOME/.gemini/config/plugins/workcell/plugin.json ]] \
   && ok "--force still refuses a real directory" || no "--force still refuses a real directory (rc=$rc): $out"
+grep -qx 'real' "$HOME/.gemini/config/plugins/workcell/plugin.json" \
+  && ok "--force leaves the refused real directory's contents alone" \
+  || no "--force leaves the refused real directory's contents alone"
 
 # --- frontmatter validated before any harness is touched -----------------------------------------
 fresh_home fm
@@ -211,14 +232,16 @@ fresh_home plugins
 mkdir -p "$HOME/.gemini/antigravity-cli"
 out=$("$INSTALL" --install 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "install exits zero" || no "install exits zero (rc=$rc): $out"
-is_link_to "$HOME/.gemini/antigravity-cli/plugins/workcell" "$ROOT/plugins/agy" "agy plugin linked"
+is_staged_copy "$HOME/.gemini/config/plugins/workcell" "agy plugin copied to the documented scan path"
+is_absent "$HOME/.gemini/antigravity-cli/plugins/workcell" "nothing installed at the retired antigravity-cli path"
 registered codex "codex plugin installed from local marketplace"
 registered claude "claude plugin installed from local marketplace"
 
 # --- uninstall-cleans-plugins (integration) ------------------------------------------------------
 out=$("$INSTALL" --uninstall 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "uninstall exits zero" || no "uninstall exits zero (rc=$rc): $out"
-[[ ! -L "$HOME/.gemini/antigravity-cli/plugins/workcell" ]] \
+{ [[ ! -e $HOME/.gemini/config/plugins/workcell && ! -L $HOME/.gemini/config/plugins/workcell ]] \
+  && [[ ! -e $HOME/.gemini/antigravity-cli/plugins/workcell && ! -L $HOME/.gemini/antigravity-cli/plugins/workcell ]]; } \
   && not_registered codex && not_registered claude \
   && ok "uninstall removes all plugins" || no "uninstall removes all plugins"
 
@@ -238,8 +261,8 @@ out=$("$BOOTSTRAP" --install "$TMP/pb-plugins-proj" 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "bootstrap-project --install exits zero" || no "bootstrap-project --install exits zero (rc=$rc): $out"
 
 ex=$(cd "$TMP/pb-plugins-proj" && git rev-parse --git-path info/exclude)
-is_link_to "$TMP/pb-plugins-proj/.agents/plugins/workcell" "$ROOT/plugins/agy" \
-  "bootstrap-project agy workspace plugin linked"
+is_staged_copy "$TMP/pb-plugins-proj/.agents/plugins/workcell" \
+  "bootstrap-project agy workspace plugin is a stamped copy"
 grep -qxF ".agents/plugins" "$TMP/pb-plugins-proj/$ex" && ok "exclude .agents/plugins written" || no "exclude .agents/plugins written"
 registered codex "bootstrap-project registers the Codex plugin"
 # --- codex-model-profiles ------------------------------------------------------------------------
@@ -671,6 +694,133 @@ fout=$("$INSTALL" --uninstall 2>&1); frc=$?
   || no "uninstall leaves a foreign tdd-guard exactly as the human left it"
 grep -qF -- "$GUARD" <<<"$fout" && ok "uninstall names the foreign tdd-guard it left" \
   || no "uninstall names the foreign tdd-guard it left: $fout"
+
+# --- Antigravity: one owned copy at the documented scan directory (#131) --------------------------
+# ADR 0006 kept Antigravity on live symlinks into this repository because `agy plugin` was not a
+# documented contract. It is now: a folder under ~/.gemini/config/plugins/ is auto-scanned, while
+# the CLI installs to a different directory whose scan status is undocumented. So the wrapper is
+# staged into dist/agy/ and installed as ONE owned copy at the scan path, and the antigravity-cli
+# location is retired rather than duplicated — two real copies, unlike two symlinks resolving to a
+# single target, are the double-loading surface agy fixed for symlinks in v1.1.3.
+AGY_CFG_REL=".gemini/config/plugins/workcell"
+AGY_CLI_REL=".gemini/antigravity-cli/plugins/workcell"
+AGY_STAGED="$ROOT/dist/agy/workcell"
+
+# agy-staged-tree-is-symlink-free (mirrors the codex and grok staging assertions above)
+python3 "$ROOT/scripts/build-agy-plugin.py" >/dev/null 2>&1
+[[ -d $AGY_STAGED ]] && ok "build-agy-plugin stages dist/agy/workcell" \
+  || no "build-agy-plugin stages dist/agy/workcell"
+if [[ ! -d $ROOT/dist/agy ]]; then no "agy staged tree is symlink-free (dist/agy missing)"
+elif find "$ROOT/dist/agy" -type l | grep -q .; then no "agy staged tree is symlink-free"
+else ok "agy staged tree is symlink-free"; fi
+
+# install-places-one-owned-copy-at-the-documented-scan-dir
+# The antigravity-cli *parent* exists, so "nothing there" is a decision the installer made
+# rather than a directory it happened not to create.
+fresh_home agy_install
+mkdir -p "$HOME/.gemini/antigravity-cli/plugins"
+out=$("$INSTALL" --install --harness agy 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "agy-only install exits zero" || no "agy-only install exits zero (rc=$rc): $out"
+is_staged_copy "$HOME/$AGY_CFG_REL" "the agy plugin is a stamped real directory at the documented scan path"
+is_absent "$HOME/$AGY_CLI_REL" "the retired antigravity-cli path is not installed to"
+diff -r -x .workcell-stamp.json "$AGY_STAGED" "$HOME/$AGY_CFG_REL" >/dev/null 2>&1 \
+  && ok "the installed agy copy is content-identical to dist/agy/workcell" \
+  || no "the installed agy copy is content-identical to dist/agy/workcell"
+agy_left=$(links_into_root "$HOME")
+[[ -z $agy_left ]] && ok "the agy install leaves no symlink under HOME pointing into ROOT" \
+  || no "the agy install left symlinks into ROOT: $agy_left"
+
+# upgrade-deletes-both-legacy-symlinks-itself
+# Never `agy plugin uninstall`: purging through a pre-existing symlink is undocumented, so our
+# own installer deletes both legacy links before it writes anything.
+fresh_home agy_upgrade
+mkdir -p "$HOME/.gemini/config/plugins" "$HOME/.gemini/antigravity-cli/plugins"
+ln -sfn "$ROOT/plugins/agy" "$HOME/$AGY_CFG_REL"
+ln -sfn "$ROOT/plugins/agy" "$HOME/$AGY_CLI_REL"
+out=$("$INSTALL" --install --harness agy 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "an upgrade from the pre-#131 symlinks exits zero" \
+  || no "an upgrade from the pre-#131 symlinks exits zero (rc=$rc): $out"
+is_staged_copy "$HOME/$AGY_CFG_REL" "the legacy scan-path symlink becomes our real copy"
+diff -r -x .workcell-stamp.json "$AGY_STAGED" "$HOME/$AGY_CFG_REL" >/dev/null 2>&1 \
+  && ok "the upgraded copy is content-identical to dist/agy/workcell" \
+  || no "the upgraded copy is content-identical to dist/agy/workcell"
+is_absent "$HOME/$AGY_CLI_REL" "the legacy antigravity-cli symlink is removed, not replaced"
+
+# reinstall-restages-a-drifted-destination
+# A destination we installed is generated content: an edit there is drift to be corrected on the
+# next install, not the human's file. A destination we never installed stays refused (above).
+fresh_home agy_drift
+"$INSTALL" --install --harness agy >/dev/null 2>&1
+DRIFTED="$HOME/$AGY_CFG_REL/plugin.json"
+# Only ever write into a real, non-symlinked destination: while the installer still links, this
+# path resolves into $ROOT/plugins/agy and the fixture would edit the repository itself.
+if [[ -d $HOME/$AGY_CFG_REL && ! -L $HOME/$AGY_CFG_REL && -f $DRIFTED && ! -L $DRIFTED ]]; then
+  printf 'drifted by hand\n' > "$DRIFTED"
+  cmp -s "$AGY_STAGED/plugin.json" "$DRIFTED" \
+    && no "the drift fixture leaves the installed file different from its source" \
+    || ok "the drift fixture leaves the installed file different from its source"
+  out=$("$INSTALL" --install --harness agy 2>&1); rc=$?
+  [[ $rc -eq 0 ]] && ok "a reinstall over a drifted copy exits zero" \
+    || no "a reinstall over a drifted copy exits zero (rc=$rc): $out"
+  cmp -s "$AGY_STAGED/plugin.json" "$DRIFTED" \
+    && ok "the reinstall restages the drifted file byte-identically to its dist source" \
+    || no "the reinstall restages the drifted file byte-identically to its dist source"
+else
+  no "the drift fixture needs a real installed copy at $HOME/$AGY_CFG_REL (nothing was edited)"
+fi
+
+# project-bootstrap-stages-a-copy-into-the-workspace
+fresh_home agy_project
+git_repo "$TMP/agy-proj"
+out=$("$BOOTSTRAP" --install "$TMP/agy-proj" 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "bootstrap-project --install exits zero with the staged agy copy" \
+  || no "bootstrap-project --install exits zero with the staged agy copy (rc=$rc): $out"
+is_staged_copy "$TMP/agy-proj/.agents/plugins/workcell" \
+  "the workspace plugin is a stamped real directory, not a symlink"
+ex=$(cd "$TMP/agy-proj" && git rev-parse --git-path info/exclude)
+grep -qxF ".agents/plugins" "$TMP/agy-proj/$ex" \
+  && ok "the workspace copy is still local-ignored via info/exclude" \
+  || no "the workspace copy is still local-ignored via info/exclude"
+proj_links=$(links_into_root "$TMP/agy-proj")
+[[ -z $proj_links ]] && ok "no symlink under the bootstrapped project points into ROOT" \
+  || no "symlinks into ROOT left under the project: $proj_links"
+
+# uninstall-removes-the-owned-copy-and-reports-foreign-ones
+fresh_home agy_uninstall
+"$INSTALL" --install --harness agy >/dev/null 2>&1
+is_staged_copy "$HOME/$AGY_CFG_REL" "the uninstall fixture starts from an installed copy"
+agy_rcpt=$(receipts_for "$HOME/$AGY_CFG_REL" | head -1)
+out=$("$INSTALL" --uninstall 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "uninstall over the staged agy copy exits zero" \
+  || no "uninstall over the staged agy copy exits zero (rc=$rc): $out"
+is_absent "$HOME/$AGY_CFG_REL" "uninstall removes the owned copy at the scan path"
+[[ -n $agy_rcpt && ! -e $agy_rcpt ]] && ok "uninstall removes the agy copy's receipt too" \
+  || no "uninstall removes the agy copy's receipt too (receipt='$agy_rcpt')"
+
+# the pre-#131 shape: our own symlinks at both legacy paths and no copy anywhere
+fresh_home agy_uninstall_legacy
+mkdir -p "$HOME/.gemini/config/plugins" "$HOME/.gemini/antigravity-cli/plugins"
+ln -sfn "$ROOT/plugins/agy" "$HOME/$AGY_CFG_REL"
+ln -sfn "$ROOT/plugins/agy" "$HOME/$AGY_CLI_REL"
+out=$("$INSTALL" --uninstall 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "uninstall over the legacy symlink fixtures exits zero" \
+  || no "uninstall over the legacy symlink fixtures exits zero (rc=$rc): $out"
+is_absent "$HOME/$AGY_CFG_REL" "uninstall removes the legacy scan-path symlink"
+is_absent "$HOME/$AGY_CLI_REL" "uninstall removes the legacy antigravity-cli symlink"
+
+# a plugin directory the human put there is kept, and named
+fresh_home agy_uninstall_foreign
+mkdir -p "$HOME/$AGY_CFG_REL"
+printf 'the user own plugin\n' > "$HOME/$AGY_CFG_REL/plugin.json"
+out=$("$INSTALL" --uninstall 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "uninstall exits zero with a foreign agy plugin directory present" \
+  || no "uninstall exits zero with a foreign agy plugin directory present (rc=$rc): $out"
+grep -q 'the user own plugin' "$HOME/$AGY_CFG_REL/plugin.json" 2>/dev/null \
+  && ok "uninstall leaves the foreign agy plugin directory exactly as it was" \
+  || no "uninstall leaves the foreign agy plugin directory exactly as it was"
+grep -qF -- "$HOME/$AGY_CFG_REL" <<<"$out" \
+  && ok "uninstall names the foreign agy plugin directory it left" \
+  || no "uninstall names the foreign agy plugin directory it left: $out"
 
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]
