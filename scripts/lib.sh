@@ -142,7 +142,12 @@ install_owned(){
   local src=$1 dst version=$3 force=${4:-} kind stage digest rcpt now rcpt_failed=
   dst=$(_clean_path "$2") || return 1
   [[ -e $src ]] || { echo "refusing $dst: source $src does not exist" >&2; return 1; }
-  if [[ -e $dst || -L $dst ]] && ! owned_copy "$dst" && ! owned_link "$dst"; then
+  rcpt=$(_receipt_path "$dst"); stamp="$dst/.workcell-stamp.json"
+  has_stamp=
+  if [[ -d $dst && -f $stamp ]] && [[ $(_json_field "$stamp" name) == "$(basename "$dst")" ]]; then
+    has_stamp=1
+  fi
+  if [[ -e $dst || -L $dst ]] && ! owned_copy "$dst" && ! owned_link "$dst" && [[ ! -f $rcpt && -z $has_stamp ]]; then
     if [[ -L $dst && $force == --force ]]; then
       echo "  replacing foreign symlink $dst (--force)"
     elif [[ -L $dst ]]; then

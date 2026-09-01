@@ -20,8 +20,8 @@
 #                            plugin root, so it gets a real tree instead of a link farm.
 #                            After install, trust its non-managed hooks with `/hooks`, or
 #                            bypass hook trust for one invocation with --dangerously-bypass-hook-trust.
-#   Agy      plugins/agy     symlinked into ~/.gemini/config/plugins/workcell and
-#                            ~/.gemini/antigravity-cli/plugins/workcell
+#   Agy      plugins/agy     staged into dist/agy/ first, then installed as an
+#                            owned copy into ~/.gemini/config/plugins/workcell
 #   Grok     plugins/grok    staged into dist/grok/ first (Grok, like Codex, copies a
 #                            plugin on install and DROPS symlinks that leave the plugin
 #                            root), then installed via the grok CLI from the staged
@@ -32,9 +32,8 @@
 #
 # The Claude marketplace is rooted at this repository so the wrapper's agents/ and
 # skills/ symlinks resolve inside the marketplace: an install drops any symlink escaping
-# the root. Codex and Grok install from their staged trees under dist/. All three
-# install a copy, so edits here reach them on the next run of this script; the
-# Antigravity links are live and need no re-install.
+# the root. Codex, Grok, and Antigravity install from their staged trees under dist/. All
+# four install a copy, so edits here reach them on the next run of this script.
 #
 # A target that already exists and is not one of our links (a real file or directory, or
 # a symlink elsewhere) is never replaced: it is refused by name and the run exits
@@ -113,22 +112,6 @@ sync_agy_skills(){
   done
 }
 
-# ---- plan the symlink targets (Antigravity only) ----
-# Fields: harness | directory that must exist first ("-" = install anyway) | destination.
-# Antigravity is unguarded: it creates ~/.gemini on first run.
-PLUGIN_TARGETS=(
-  "agy|-|$HOME/.gemini/config/plugins/workcell"
-  "agy|-|$HOME/.gemini/antigravity-cli/plugins/workcell"
-)
-PLAN_DST=()
-for spec in "${PLUGIN_TARGETS[@]}"; do
-  h=${spec%%|*}; rest=${spec#*|}; guard=${rest%%|*}; dst=${rest#*|}
-  want "$h" || continue
-  [[ $guard == - || -d $guard ]] || continue
-  [[ -d "$ROOT/plugins/$h" ]] || continue
-  PLAN_DST+=("$dst")
-done
-
 # ---- marketplace-installed harnesses ----
 # Fields: harness | CLI | directory that must exist first | install verb | remove verb.
 # The two CLIs agree on everything but the word for "install" and "uninstall".
@@ -137,22 +120,42 @@ MARKET_HARNESSES=(
   "codex|codex|$HOME/.codex|add|remove"
 )
 
+bad=0
 if [[ $MODE == install ]]; then
-  sync_agy_skills
-  # Retire owned Antigravity links created under the former product name.
-  unlink_owned "$HOME/.gemini/config/plugins/swarm-coder"
-  unlink_owned "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
-  bad=0
-  for dst in ${PLAN_DST[@]+"${PLAN_DST[@]}"}; do
-    link_owned "$ROOT/plugins/agy" "$dst" $FORCE || bad=$((bad+1))
-  done
-  ((${#PLAN_DST[@]})) && echo "agy: workcell plugin linked"
+  if want agy; then
+    sync_agy_skills
+    # Retire owned Antigravity links created under the former product name.
+    unlink_owned "$HOME/.gemini/config/plugins/swarm-coder"
+    unlink_owned "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
+    # Migration: remove our own legacy symlinks at both paths before installing the copy.
+    # Do not recreate ~/.gemini/antigravity-cli/plugins/workcell.
+    unlink_owned "$HOME/.gemini/config/plugins/workcell"
+    unlink_owned "$HOME/.gemini/antigravity-cli/plugins/workcell"
+
+    command -v python3 >/dev/null || die "agy: python3 is required to stage the plugin"
+    python3 "$ROOT/scripts/build-agy-plugin.py" >/dev/null || die "agy: staging failed"
+
+    version=$(_json_field "$ROOT/plugins/agy/plugin.json" version)
+    if install_owned "$ROOT/dist/agy/workcell" "$HOME/.gemini/config/plugins/workcell" "$version" $FORCE; then
+      echo "agy: workcell plugin copied to ~/.gemini/config/plugins/workcell"
+      echo "agy: note: a new agy session is required to load changes"
+      if command -v agy >/dev/null; then
+        agy plugin validate "$ROOT/dist/agy/workcell" >/dev/null 2>&1 || true
+      fi
+    else
+      bad=$((bad+1))
+    fi
+  fi
 else
-  for dst in ${PLAN_DST[@]+"${PLAN_DST[@]}"}; do unlink_owned "$dst"; done
-  # Remove live links created before the Workcell rename when they still point
-  # into this repository. Foreign paths remain protected by unlink_owned.
-  unlink_owned "$HOME/.gemini/config/plugins/swarm-coder"
-  unlink_owned "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
+  if want agy; then
+    unlink_owned "$HOME/.gemini/config/plugins/workcell"
+    unlink_owned "$HOME/.gemini/antigravity-cli/plugins/workcell"
+    uninstall_owned "$HOME/.gemini/config/plugins/workcell"
+    # Remove live links created before the Workcell rename when they still point
+    # into this repository. Foreign paths remain protected by unlink_owned.
+    unlink_owned "$HOME/.gemini/config/plugins/swarm-coder"
+    unlink_owned "$HOME/.gemini/antigravity-cli/plugins/swarm-coder"
+  fi
   # Pre-ADR-0005 layout: one link per agent and per skill, straight into the harness
   # root. Swept by directory rather than by today's names, so links left by agents and
   # skills that have since been renamed go too. Anything not ours is passed over in
@@ -174,7 +177,7 @@ else
     if owned_link "$BIN/$h"; then unlink_owned "$BIN/$h"; fi
     uninstall_owned "$BIN/$h"
   done
-  echo "removed: our links into $ROOT (agy plugin, legacy agents/skills) and the installed copies of build-{hooks,format,lint,guard}, workcell-ws and tdd-guard in $BIN"
+  echo "removed: our links into $ROOT (legacy agents/skills) and the installed copies of build-{hooks,format,lint,guard}, workcell-ws and tdd-guard in $BIN"
 fi
 
 # ---- Codex config.toml: strip the pre-ADR-0005 [agents.*] block if it is still there ----
