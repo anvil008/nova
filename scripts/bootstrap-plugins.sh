@@ -165,8 +165,16 @@ else
     done
   done
   rm -f "$ROOT/dist/codex"/*.config.toml
-  for h in build-hooks build-format build-lint build-guard tdd-guard workcell-ws; do unlink_owned "$BIN/$h"; done
-  echo "links into $ROOT removed (agy plugin, legacy agents/skills, ~/.local/bin/build-*, workcell-ws and tdd-guard)"
+  # Two install shapes have to come out cleanly: the symlink into $ROOT a pre-#130 install left,
+  # and the receipt-owned copy that replaced it. The link is retired first so that uninstall_owned
+  # then sees an absent destination and sweeps the orphaned receipt with it; running them in the
+  # other order would report as "left" the very file the next call removes. Either way exactly
+  # one of the two speaks, so a tool the human put there themselves is named once and kept.
+  for h in build-hooks build-format build-lint build-guard tdd-guard workcell-ws; do
+    if owned_link "$BIN/$h"; then unlink_owned "$BIN/$h"; fi
+    uninstall_owned "$BIN/$h"
+  done
+  echo "removed: our links into $ROOT (agy plugin, legacy agents/skills) and the installed copies of build-{hooks,format,lint,guard}, workcell-ws and tdd-guard in $BIN"
 fi
 
 # ---- Codex config.toml: strip the pre-ADR-0005 [agents.*] block if it is still there ----

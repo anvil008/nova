@@ -63,9 +63,13 @@ esac; done
 # --- the gate binaries themselves --------------------------------------------------------------
 echo "== gate binaries =="
 if ((install)); then
-  # Symlinked, not copied (same as bootstrap-tools.sh): editing scripts/hooks/* takes effect immediately.
-  for b in build-format build-lint build-guard; do link_owned "$ROOT/scripts/hooks/$b" "$BIN/$b" || die "could not link $b into $BIN"; done
-  echo "  linked build-{format,lint,guard} -> $ROOT/scripts/hooks/"
+  # Copied, not symlinked (same as bootstrap-tools.sh): these three run on every tool call in the
+  # bootstrapped project, so they must not resolve through the Workcell working tree.
+  semver=$(repo_semver)
+  for b in build-format build-lint build-guard; do
+    install_owned "$ROOT/scripts/hooks/$b" "$BIN/$b" "$semver" || die "could not install $b into $BIN"
+  done
+  echo "  installed build-{format,lint,guard} into $BIN as $semver copies of $ROOT/scripts/hooks/"
 
   # The plugin, installed for this project only, so a repo gets exactly the agents and
   # hooks it needs without a global install. Refusals are reported, not fatal: this

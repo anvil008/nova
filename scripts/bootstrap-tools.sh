@@ -43,6 +43,42 @@ need(){ # name | install-cmd | purpose | required(0/1)
   else printf '         install: %s\n' "$cmd"; fi
 }
 
+# --- installed-copy drift (#130) ----------------------------------------------------------------
+# What lands in ~/.local/bin is a version-stamped copy rather than a link into this working tree,
+# so a repository that has moved on since the last --install is invisible unless report mode says
+# so. Absent tools, absent receipts and current versions stay quiet, and nothing here can fail:
+# report mode's job is to describe the machine, never to refuse to describe it.
+WRAPPERS=(build-hooks build-format build-lint build-guard workcell-ws)
+# wrapper_src NAME -> the repository file that wrapper is copied from.
+wrapper_src(){ case "$1" in workcell-ws) echo "$ROOT/scripts/workcell-ws";; *) echo "$ROOT/scripts/hooks/$1";; esac; }
+# version_current INSTALLED REPO -> true when INSTALLED is REPO, or REPO plus a build-metadata
+# suffix; callers establish that both are non-empty. The guard is stamped at link time, so a
+# correct install records "0.6.0+abc1234"; comparing that against "0.6.0" as plain strings would
+# report every install as drift.
+version_current(){ [[ $1 == "$2" || $1 == "$2+"* ]]; }
+# stale_line NAME DETAIL -> the one drift line. Kept in one place so every stale tool names the
+# same remediation, which is the only thing the human has to do about any of them.
+stale_line(){ printf '  stale    %-26s %s — re-run: scripts/bootstrap-tools.sh --install\n' "$1" "$2"; }
+# report_guard_drift -> names the installed guard when its receipt records a version other than
+# the repository's, so the two versions and the fix appear on one line.
+report_guard_drift(){
+  local dst="$HOME/.local/bin/tdd-guard" have want
+  [[ -e $dst ]] || return 0
+  have=$(installed_version "$dst"); want=$(repo_semver)
+  [[ -n $have && -n $want ]] || return 0
+  version_current "$have" "$want" || stale_line tdd-guard "installed $have, repository $want"
+}
+# report_wrapper_drift -> the same for the shell wrappers, which carry no version of their own:
+# the installed copy is current exactly when it is still byte-identical to the file it came from.
+report_wrapper_drift(){
+  local h dst src
+  for h in "${WRAPPERS[@]}"; do
+    dst="$HOME/.local/bin/$h"; src=$(wrapper_src "$h")
+    { [[ -e $dst ]] && [[ -n $(installed_version "$dst") ]]; } || continue
+    cmp -s "$src" "$dst" || stale_line "$h" "the installed copy differs from $src"
+  done
+}
+
 echo "== core (required) =="
 need go      "$(pick brew:go apt:golang-go)"                             "Go toolchain — builds tdd-guard" 1
 need git     "$(pick brew:git apt:git)"                                  "version control" 1
@@ -65,14 +101,25 @@ if [[ -e $ROOT/bin/anvil-guard || -L $ROOT/bin/anvil-guard ]]; then
   fi
 fi
 if ! ((install)); then
-  echo "  would build ~/.local/bin/tdd-guard + build-hooks (run with --install)"
+  echo "  would build and install ~/.local/bin/tdd-guard (run with --install)"
+  report_guard_drift
 elif have go; then
-  # The binary is a build artifact, so it is built into the repo's gitignored
-  # bin/ and linked — same rule as everything else: the repo is the source.
+  # The binary is still a build artifact, so it is built into the repo's gitignored bin/ — but
+  # what lands on PATH is a copy, not a link back here. Every harness hook dispatch runs
+  # ~/.local/bin/tdd-guard on every tool call, so it has to keep working when this working tree
+  # is rebuilt, moved, or checked out at another revision.
   mkdir -p "$ROOT/bin" "$HOME/.local/bin"
-  ( cd "$ROOT" && go build -buildvcs=false -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) || die "go build ./cmd/tdd-guard failed"
-  link_owned "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard" || die "could not link tdd-guard into ~/.local/bin"
-  echo "  built $ROOT/bin/tdd-guard -> ~/.local/bin/tdd-guard"
+  ( cd "$ROOT" && go build -buildvcs=false \
+      -ldflags "-X github.com/anvil008/workcell/guard.BuildMetadata=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" \
+      -o "$ROOT/bin/tdd-guard" ./cmd/tdd-guard ) || die "go build ./cmd/tdd-guard failed"
+  # The receipt records what the binary itself reports, build metadata included, so report mode
+  # compares against the thing that was actually installed rather than against a second guess at
+  # it. The semver still comes from guard.Version; the stamp only appends the commit.
+  gver=$("$ROOT/bin/tdd-guard" version) || die "the freshly built $ROOT/bin/tdd-guard does not run"
+  gver=${gver#tdd-guard }
+  install_owned "$ROOT/bin/tdd-guard" "$HOME/.local/bin/tdd-guard" "$gver" \
+    || die "could not install tdd-guard into ~/.local/bin"
+  echo "  built $ROOT/bin/tdd-guard -> copied to ~/.local/bin/tdd-guard ($gver)"
 else
   echo "  skipped — install Go, then re-run"
 fi
@@ -80,18 +127,22 @@ fi
 echo
 echo "== builder hooks (hooks / format / lint / guard) + the workspace helper =="
 if ! ((install)); then
-  echo "  would link ~/.local/bin/build-{hooks,format,lint,guard} and workcell-ws (run with --install)"
+  echo "  would install ~/.local/bin/build-{hooks,format,lint,guard} and workcell-ws (run with --install)"
+  report_wrapper_drift
 else
-  # Symlinked, not copied: editing scripts/hooks/* takes effect immediately.
+  # Copied, not symlinked: a wrapper that runs on every tool call must not resolve through this
+  # working tree. None of the five reads $ROOT or sources scripts/lib.sh, so a copy is complete.
+  # The price is that editing scripts/hooks/* no longer takes effect until the next --install,
+  # which is what report mode above exists to make visible.
+  # Agents call the workspace helper by name from whatever project they are working in, so it
+  # goes on PATH the same way the hooks do.
   mkdir -p "$HOME/.local/bin"
-  for h in build-hooks build-format build-lint build-guard; do
-    link_owned "$ROOT/scripts/hooks/$h" "$HOME/.local/bin/$h" || die "could not link $h into ~/.local/bin"
+  semver=$(repo_semver)
+  for h in "${WRAPPERS[@]}"; do
+    install_owned "$(wrapper_src "$h")" "$HOME/.local/bin/$h" "$semver" \
+      || die "could not install $h into ~/.local/bin"
   done
-  # Agents call the workspace helper by name from whatever project they are working in, so it has
-  # to be on PATH the same way the hooks are.
-  link_owned "$ROOT/scripts/workcell-ws" "$HOME/.local/bin/workcell-ws" \
-    || die "could not link workcell-ws into ~/.local/bin"
-  echo "  linked ~/.local/bin/build-{hooks,format,lint,guard} -> scripts/hooks/, workcell-ws -> scripts/"
+  echo "  installed ~/.local/bin/build-{hooks,format,lint,guard} + workcell-ws as $semver copies"
 fi
 
 echo
