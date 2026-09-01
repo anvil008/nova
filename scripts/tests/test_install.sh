@@ -166,8 +166,7 @@ out=$("$BROKEN/scripts/bootstrap-plugins.sh" --install 2>&1); rc=$?
 # --- manifest-schema-validity --------------------------------------------------------------------
 bad_json=0
 for manifest in "$ROOT"/plugins/agy/plugin.json "$ROOT"/plugins/claude/.claude-plugin/plugin.json \
-                "$ROOT"/plugins/codex/.codex-plugin/plugin.json "$ROOT"/.claude-plugin/marketplace.json \
-                "$ROOT"/.agents/plugins/marketplace.json; do
+                "$ROOT"/plugins/codex/.codex-plugin/plugin.json "$ROOT"/.claude-plugin/marketplace.json; do
   if ! jq . "$manifest" >/dev/null 2>&1; then
     bad_json=1
     echo "Invalid JSON or missing: $manifest"
@@ -911,5 +910,134 @@ grep -qF -- "$HOME/$AGY_CFG_REL" <<<"$out" \
   && ok "uninstall names the foreign agy plugin directory it left" \
   || no "uninstall names the foreign agy plugin directory it left: $out"
 
+# --- staged-version-is-base-semver-plus-content-hash (#133) --------------------------------------
+python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1
+staged_manifest="$ROOT/dist/codex/plugins/workcell/.codex-plugin/plugin.json"
+v1=$(jq -r .version "$staged_manifest" 2>/dev/null)
+[[ $v1 =~ ^0\.6\.0\+codex\.[0-9a-f]{12}$ ]] \
+  && ok "staged codex manifest version matches ^0.6.0+codex.[0-9a-f]{12}" \
+  || no "staged codex manifest version matches ^0.6.0+codex.[0-9a-f]{12} (got '$v1')"
+
+python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1
+v2=$(jq -r .version "$staged_manifest" 2>/dev/null)
+[[ $v1 == "$v2" && -n $v1 ]] \
+  && ok "restaging with no source change reproduces identical version string" \
+  || no "restaging with no source change reproduces identical version string (v1='$v1', v2='$v2')"
+
+skill_to_edit="$ROOT/skills/plan/SKILL.md"
+skill_backup="$TMP/skill-plan-backup.md"
+cp "$skill_to_edit" "$skill_backup"
+printf '\n' >> "$skill_to_edit"
+v3=
+if python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1; then
+  v3=$(jq -r .version "$staged_manifest" 2>/dev/null)
+fi
+cp "$skill_backup" "$skill_to_edit"
+python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1
+[[ -n $v1 && -n $v3 && $v1 != "$v3" ]] \
+  && ok "restaging after editing a staged skill produces a different version" \
+  || no "restaging after editing a staged skill produces a different version (v1='$v1', v3='$v3')"
+
+# --- tracked-codex-manifest-carries-the-plain-release-semver (#133) ------------------------------
+codex_tracked_ver=$(jq -r .version "$ROOT/plugins/codex/.codex-plugin/plugin.json" 2>/dev/null)
+claude_tracked_ver=$(jq -r .version "$ROOT/plugins/claude/.claude-plugin/plugin.json" 2>/dev/null)
+[[ $codex_tracked_ver == "$claude_tracked_ver" \
+  && $codex_tracked_ver =~ ^[0-9]+\.[0-9]+\.[0-9]+$ \
+  && $codex_tracked_ver != *"+codex"* ]] \
+  && ok "tracked codex manifest carries the plain release semver matching claude" \
+  || no "tracked codex manifest carries the plain release semver matching claude (codex='$codex_tracked_ver', claude='$claude_tracked_ver')"
+
+# --- bootstrap-registers-the-durable-share-path (#133) -------------------------------------------
+fresh_home codex_durable_share
+stubs="$TMP/stubs-codex-durable"; log="$TMP/codex-durable-calls.log"
+stub_cli codex "$stubs" "$log"
+out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness codex 2>&1); rc=$?
+[[ $rc -eq 0 ]] \
+  && ok "codex install with stub CLI exits zero" \
+  || no "codex install with stub CLI exits zero (rc=$rc): $out"
+
+CODEX_SHARE="$HOME/.local/share/workcell/codex"
+mkt_add_line=$(grep 'plugin marketplace add' "$log" | tail -1)
+[[ $mkt_add_line == "plugin marketplace add $CODEX_SHARE" ]] \
+  && ok "codex marketplace add registers the durable share path" \
+  || no "codex marketplace add registers the durable share path (got: '$mkt_add_line', want 'plugin marketplace add $CODEX_SHARE')"
+
+del_at=$(call_line "$log" "plugin remove workcell@workcell")
+add_at=$(call_line "$log" "plugin add workcell@workcell")
+[[ -n $del_at && -n $add_at && $del_at -lt $add_at ]] \
+  && ok "codex removes workcell@workcell before adding it" \
+  || no "codex plugin refresh order (remove=${del_at:-none} add=${add_at:-none})"
+
+[[ -d $CODEX_SHARE && ! -L $CODEX_SHARE \
+  && -f $CODEX_SHARE/.agents/plugins/marketplace.json && ! -L $CODEX_SHARE/.agents/plugins/marketplace.json \
+  && -f $CODEX_SHARE/plugins/workcell/.codex-plugin/plugin.json && ! -L $CODEX_SHARE/plugins/workcell/.codex-plugin/plugin.json ]] \
+  && ok "codex durable share tree exists as a real copy with marketplace and plugin manifests" \
+  || no "codex durable share tree exists as a real copy with marketplace and plugin manifests"
+
+if [[ -d $CODEX_SHARE ]] && find "$CODEX_SHARE" -type l | grep -q .; then
+  no "codex durable share tree is symlink-free"
+elif [[ -d $CODEX_SHARE ]]; then
+  ok "codex durable share tree is symlink-free"
+else
+  no "codex durable share tree is symlink-free (share tree missing)"
+fi
+
+# --- durable-tree-survives-dist-removal (#133) ---------------------------------------------------
+fresh_home codex_survives_dist
+stubs="$TMP/stubs-codex-survive"; log="$TMP/codex-survive-calls.log"
+stub_cli codex "$stubs" "$log"
+PATH="$stubs:$PATH" "$INSTALL" --install --harness codex >/dev/null 2>&1
+CODEX_SHARE="$HOME/.local/share/workcell/codex"
+rm -rf "$ROOT/dist/codex"
+[[ -f "$CODEX_SHARE/plugins/workcell/.codex-plugin/plugin.json" && ! -L "$CODEX_SHARE/plugins/workcell/.codex-plugin/plugin.json" \
+  && -f "$CODEX_SHARE/plugins/workcell/skills/plan/SKILL.md" && ! -L "$CODEX_SHARE/plugins/workcell/skills/plan/SKILL.md" ]] \
+  && ok "codex durable share tree survives dist/codex removal as regular files" \
+  || no "codex durable share tree survives dist/codex removal as regular files"
+python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1
+
+# --- root-codex-marketplace-manifest-is-retired (#133) -------------------------------------------
+[[ ! -e "$ROOT/.agents/plugins/marketplace.json" ]] \
+  && ok "repo-root .agents/plugins/marketplace.json is retired" \
+  || no "repo-root .agents/plugins/marketplace.json is retired (.agents/plugins/marketplace.json still exists)"
+
+bad_mkt_refs=$(grep -rn --exclude='test_install.sh' 'agents/plugins/marketplace.json' "$ROOT/scripts" | grep -v 'dist/' | grep -v '├──' || true)
+[[ -z $bad_mkt_refs ]] \
+  && ok "no scripts reference the retired repo-root marketplace manifest" \
+  || no "scripts reference the retired repo-root marketplace manifest: $bad_mkt_refs"
+
+# --- uninstall-removes-the-durable-copy-and-retires-the-registration (#133) ----------------------
+fresh_home codex_uninstall_durable
+stubs="$TMP/stubs-codex-un"; log="$TMP/codex-un-calls.log"
+stub_cli codex "$stubs" "$log"
+PATH="$stubs:$PATH" "$INSTALL" --install --harness codex >/dev/null 2>&1
+CODEX_SHARE="$HOME/.local/share/workcell/codex"
+
+share_rcpt=$(receipts_for "$CODEX_SHARE" | head -1)
+[[ -d $CODEX_SHARE && -n $share_rcpt && -f $share_rcpt ]] \
+  && ok "codex install establishes the durable share tree and receipt before uninstall" \
+  || no "codex install establishes the durable share tree and receipt before uninstall"
+
+: > "$log"
+uout=$(PATH="$stubs:$PATH" "$INSTALL" --uninstall 2>&1); urc=$?
+[[ $urc -eq 0 ]] \
+  && ok "codex uninstall exits zero" \
+  || no "codex uninstall exits zero (rc=$urc): $uout"
+
+if [[ ! -d $CODEX_SHARE ]]; then
+  install_owned "$ROOT/dist/codex" "$CODEX_SHARE" "0.6.0" >/dev/null 2>&1 || true
+  PATH="$stubs:$PATH" "$INSTALL" --uninstall >/dev/null 2>&1 || true
+fi
+
+[[ ! -e $CODEX_SHARE ]] \
+  && ok "uninstall removes the owned codex share tree" \
+  || no "uninstall removes the owned codex share tree"
+
+[[ -z $(receipts_for "$CODEX_SHARE") ]] \
+  && ok "uninstall removes the codex share tree receipt" \
+  || no "uninstall removes the codex share tree receipt"
+
+grep -q 'plugin marketplace remove workcell' "$log" \
+  && ok "uninstall retires the codex marketplace registration" \
+  || no "uninstall retires the codex marketplace registration"
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]
