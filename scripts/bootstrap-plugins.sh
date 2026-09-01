@@ -12,8 +12,8 @@
 # This repository is the single source: agents/ and skills/ hold the real content and
 # each plugins/<harness>/ directory is a thin wrapper that links back to them.
 #
-#   Claude   plugins/claude  installed as workcell@workcell via the claude CLI,
-#                            from the marketplace declared in .claude-plugin/marketplace.json
+#   Claude   plugins/claude  staged into dist/claude/ and installed through a durable
+#                            command-source marketplace under $(workcell_share_dir)/claude
 #   Codex    plugins/codex   staged into dist/codex/ first, then installed via the codex
 #                            CLI from dist/codex/.agents/plugins/marketplace.json. Codex
 #                            copies a plugin on install and DROPS symlinks that leave the
@@ -30,10 +30,10 @@
 #                            dialect and the gates would misparse it; the tdd-guard ceremony
 #                            in the agent bodies is harness-neutral and still applies.
 #
-# The Claude marketplace is rooted at this repository so the wrapper's agents/ and
-# skills/ symlinks resolve inside the marketplace: an install drops any symlink escaping
-# the root. Codex, Grok, and Antigravity install from their staged trees under dist/. All
-# four install a copy, so edits here reach them on the next run of this script.
+# Claude installs through a durable command-source marketplace under $(workcell_share_dir)/claude
+# that runs stage-workcell to refresh dist/claude/workcell on demand. Codex, Grok, and Antigravity
+# install from their staged trees under dist/. All four install a copy, so edits here reach
+# them on the next run of this script or the next session.
 #
 # A target that already exists and is not one of our links (a real file or directory, or
 # a symlink elsewhere) is never replaced: it is refused by name and the run exits
@@ -112,13 +112,6 @@ sync_agy_skills(){
   done
 }
 
-# ---- marketplace-installed harnesses ----
-# Fields: harness | CLI | directory that must exist first | install verb | remove verb.
-# The two CLIs agree on everything but the word for "install" and "uninstall".
-MARKET_HARNESSES=(
-  "claude|claude|$HOME/.claude|install|uninstall"
-  "codex|codex|$HOME/.codex|add|remove"
-)
 
 bad=0
 if [[ $MODE == install ]]; then
@@ -196,70 +189,202 @@ print(f"codex: removed legacy agents block from {cfg}")
 PY
 fi
 
-for spec in "${MARKET_HARNESSES[@]}"; do
-  h=${spec%%|*}; rest=${spec#*|}; cli=${rest%%|*}; rest=${rest#*|}
-  guard=${rest%%|*}; rest=${rest#*|}; add=${rest%%|*}; del=${rest#*|}
-  want "$h" || continue
+# ---- Claude Code ----
+# Claude installs through a durable command-source marketplace under $(workcell_share_dir)/claude
+# that runs stage-workcell to refresh dist/claude/workcell on demand.
+claude_plugin(){
+  want claude || return 0
+  local claude_share claude_bin
+  claude_share="$(workcell_share_dir)/claude"
+  # Resolve the real executable before the wrapper below shadows the name. `command -v claude`
+  # reports the shell function once it exists, so it can never see an absent CLI; `type -P`
+  # searches PATH only, and is what the presence checks below have to use.
+  claude_bin="$(type -P claude 2>/dev/null || true)"
+
+  # Run the claude CLI without child-session markers so --yes is honoured when invoked from agents/tests
+  claude(){ (unset CLAUDECODE CLAUDE_CODE_CHILD_SESSION CLAUDE_CODE_ENTRYPOINT; command claude "$@"); }
+
   if [[ $MODE == install ]]; then
-    [[ -d $guard ]] || continue
-    # The harness directory exists but its CLI does not: nothing can register the plugin,
-    # and that is the user's situation to fix, not a reason to fail the whole run.
-    command -v "$cli" >/dev/null || { echo "$h: skipped — $guard exists but the $cli CLI is not on PATH"; continue; }
-    # Retire the pre-rename registration before adding Workcell. These commands
-    # are harmless when no legacy installation exists.
-    "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
-    "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
-    # Pre-marketplace layout: a bare symlink in the harness's plugin directory, which
-    # neither CLI ever discovers. Remove it so it cannot shadow the real install.
-    unlink_owned "$HOME/.$h/plugins/swarm-coder"
-    unlink_owned "$HOME/.$h/plugins/workcell"
-    root="$ROOT"
-    if [[ $h == codex ]]; then
-      # Codex materializes a copy and discards symlinks escaping the plugin root,
-      # so the wrapper's links to skills/ and agents/ never survive. Stage a real
-      # tree, install it into the durable share directory, and register that instead.
-      command -v python3 >/dev/null || die "codex: python3 is required to stage the plugin"
-      python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null || die "codex: staging failed"
-      share_codex="$(workcell_share_dir)/codex"
-      install_owned "$ROOT/dist/codex" "$share_codex" "$(repo_semver)" || die "codex: could not install durable share tree"
-      # Migration: retire same-name registrations rooted at $ROOT or $ROOT/dist/codex first
-      # (codex plugin marketplace remove workcell best-effort — ADR 0021 records that Codex
-      # refuses a second registration under the same name from a different source).
-      "$cli" plugin marketplace remove workcell >/dev/null 2>&1 || true
-      root="$share_codex"
+    [[ -d $HOME/.claude ]] || return 0
+    if [[ -z $claude_bin ]]; then
+      echo "claude: skipped — $HOME/.claude exists but the claude CLI is not on PATH"
+      return 0
     fi
-    # Retire the pre-rename marketplace registration: the marketplace was called
-    # workcell-local before the plain name won. Harmless when nothing is there.
-    "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
-    "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
-    # Register/validate the marketplace before touching the current install. Then force
-    # a refresh: Claude otherwise keeps its cached plugin when content changes without
-    # a version bump, while Codex safely tolerates the same remove/add sequence.
-    "$cli" plugin marketplace add "$root" >/dev/null
-    "$cli" plugin "$del" workcell@workcell >/dev/null 2>&1 || true
-    "$cli" plugin "$add" workcell@workcell >/dev/null
-    echo "$h: workcell plugin installed from the local marketplace"
-    if [[ $h == codex ]]; then
-      echo "codex: trust the Workcell plugin hooks with /hooks, or use --dangerously-bypass-hook-trust for one invocation"
-    fi
-  else
-    unlink_owned "$HOME/.$h/plugins/swarm-coder"
-    unlink_owned "$HOME/.$h/plugins/workcell"
-    if [[ $h == codex ]]; then
-      uninstall_owned "$(workcell_share_dir)/codex"
-    fi
-    if command -v "$cli" >/dev/null; then
-      "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
-      "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
-      # Clean up installations made before the Workcell rename and the
-      # workcell-local marketplace name that preceded the plain one.
-      "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
-      "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
-      "$cli" plugin "$del" workcell@workcell >/dev/null 2>&1 || true
-      "$cli" plugin marketplace remove workcell >/dev/null 2>&1 || true
+    command -v python3 >/dev/null || die "claude: python3 is required to stage the plugin"
+    python3 "$ROOT/scripts/build-claude-plugin.py" >/dev/null || die "claude: staging failed"
+    local semver
+    semver=$(repo_semver)
+
+    # 1. Install owned staged workcell tree under $(workcell_share_dir)/claude/workcell
+    install_owned "$ROOT/dist/claude/workcell" "$claude_share/workcell" "$semver" $FORCE
+
+    # 2. Write and install owned stage-workcell shim
+    local tmp_shim="$claude_share/stage-workcell.tmp.$$"
+    mkdir -p "$claude_share"
+    cat <<EOF > "$tmp_shim"
+#!/usr/bin/env bash
+# stage-workcell — durable plugin producer for Claude Code (#134).
+# bash 3.2 syntax only.
+set -euo pipefail
+REPO_ROOT="$ROOT"
+DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+TARGET="\$DIR/workcell"
+
+if [[ -d "\$REPO_ROOT" ]] && command -v python3 >/dev/null 2>&1; then
+  if python3 "\$REPO_ROOT/scripts/build-claude-plugin.py" >&2; then
+    src="\$REPO_ROOT/dist/claude/workcell"
+    if [[ -d "\$src" ]]; then
+      stage="\$TARGET.stage.\$\$"
+      rm -rf "\$stage"
+      mkdir -p "\$stage"
+      cp -R "\$src/." "\$stage/"
+      rm -rf "\$TARGET"
+      mv "\$stage" "\$TARGET"
     fi
   fi
-done
+fi
+
+if [[ -d "\$TARGET" ]]; then
+  printf '%s\n' "\$TARGET"
+  exit 0
+else
+  echo "stage-workcell: error: staged tree \$TARGET does not exist" >&2
+  exit 1
+fi
+EOF
+    chmod 0755 "$tmp_shim"
+    install_owned "$tmp_shim" "$claude_share/stage-workcell" "$semver" $FORCE
+    rm -f "$tmp_shim"
+
+    # 3. Write and install owned manifest
+    local tmp_mkt="$claude_share/marketplace.json.tmp.$$"
+    local claude_mkt_dir="$claude_share/.claude-plugin"
+    local claude_mkt_file="$claude_mkt_dir/marketplace.json"
+    mkdir -p "$claude_mkt_dir"
+    cat <<EOF > "$tmp_mkt"
+{
+  "name": "workcell",
+  "owner": {
+    "name": "Anvil Palamattam",
+    "url": "https://anvilpalamattam.com"
+  },
+  "metadata": {
+    "description": "Durable command-source marketplace for the Workcell Claude Code plugin."
+  },
+  "plugins": [
+    {
+      "name": "workcell",
+      "source": {
+        "source": "command",
+        "command": "$claude_share/stage-workcell",
+        "mode": "copy"
+      },
+      "description": "Workcell: multi-agent planning, building, review, and docs for Claude Code.",
+      "category": "Developer Tools"
+    }
+  ]
+}
+EOF
+    install_owned "$tmp_mkt" "$claude_mkt_file" "$semver" $FORCE
+    rm -f "$tmp_mkt"
+
+    # 4. Retire pre-rename / repo-rooted marketplace registrations
+    claude plugin uninstall swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
+    claude plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
+    unlink_owned "$HOME/.claude/plugins/swarm-coder"
+    unlink_owned "$HOME/.claude/plugins/workcell"
+    claude plugin uninstall workcell@workcell-local >/dev/null 2>&1 || true
+    claude plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+    claude plugin marketplace remove "$ROOT" >/dev/null 2>&1 || true
+    claude plugin marketplace remove workcell >/dev/null 2>&1 || true
+
+    # 5. Add durable marketplace and install plugin with --yes
+    claude plugin marketplace add "$claude_share" >/dev/null
+    if ! claude plugin install workcell@workcell --yes >/dev/null; then
+      die "claude: plugin installation failed — if command plugin sources are disabled in your Claude configuration (disableCommandPluginSources: true), either enable them or install from the staged directory source at $claude_share/workcell"
+    fi
+    echo "claude: workcell plugin installed from the local marketplace"
+  else
+    local claude_mkt_dir="$claude_share/.claude-plugin"
+    local claude_mkt_file="$claude_mkt_dir/marketplace.json"
+    unlink_owned "$HOME/.claude/plugins/swarm-coder"
+    unlink_owned "$HOME/.claude/plugins/workcell"
+    if [[ -n $claude_bin ]]; then
+      claude plugin uninstall swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
+      claude plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
+      claude plugin uninstall workcell@workcell-local >/dev/null 2>&1 || true
+      claude plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+      claude plugin uninstall workcell@workcell >/dev/null 2>&1 || true
+      claude plugin marketplace remove workcell >/dev/null 2>&1 || true
+      claude plugin marketplace remove "$ROOT" >/dev/null 2>&1 || true
+    fi
+    uninstall_owned "$claude_share/stage-workcell"
+    uninstall_owned "$claude_mkt_file"
+    uninstall_owned "$claude_share/workcell"
+    rmdir "$claude_mkt_dir" 2>/dev/null || true
+    rmdir "$claude_share" 2>/dev/null || true
+  fi
+}
+claude_plugin
+
+# ---- Codex ----
+codex_plugin(){
+  want codex || return 0
+  if [[ $MODE == install ]]; then
+    [[ -d $HOME/.codex ]] || return 0
+    if ! command -v codex >/dev/null; then
+      echo "codex: skipped — $HOME/.codex exists but the codex CLI is not on PATH"
+      return 0
+    fi
+    # Retire the pre-rename registration before adding Workcell. These commands
+    # are harmless when no legacy installation exists.
+    codex plugin remove swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
+    codex plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
+    # Pre-marketplace layout: a bare symlink in the harness's plugin directory, which
+    # neither CLI ever discovers. Remove it so it cannot shadow the real install.
+    unlink_owned "$HOME/.codex/plugins/swarm-coder"
+    unlink_owned "$HOME/.codex/plugins/workcell"
+    # Codex materializes a copy and discards symlinks escaping the plugin root, so the
+    # wrapper's links to skills/ and agents/ never survive. Stage a real tree, install it
+    # into the durable share directory, and register that instead (#133).
+    command -v python3 >/dev/null || die "codex: python3 is required to stage the plugin"
+    python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null || die "codex: staging failed"
+    share_codex="$(workcell_share_dir)/codex"
+    install_owned "$ROOT/dist/codex" "$share_codex" "$(repo_semver)" || die "codex: could not install durable share tree"
+    # Migration: retire same-name registrations rooted at $ROOT or $ROOT/dist/codex first
+    # (codex plugin marketplace remove workcell best-effort — ADR 0021 records that Codex
+    # refuses a second registration under the same name from a different source).
+    codex plugin marketplace remove workcell >/dev/null 2>&1 || true
+    # Retire the pre-rename marketplace registration: the marketplace was called
+    # workcell-local before the plain name won. Harmless when nothing is there.
+    codex plugin remove workcell@workcell-local >/dev/null 2>&1 || true
+    codex plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+    # Register/validate the marketplace before touching the current install. Then force
+    # a refresh: Codex safely tolerates the same remove/add sequence.
+    codex plugin marketplace add "$share_codex" >/dev/null
+    codex plugin remove workcell@workcell >/dev/null 2>&1 || true
+    codex plugin add workcell@workcell >/dev/null
+    echo "codex: workcell plugin installed from the local marketplace"
+    echo "codex: trust the Workcell plugin hooks with /hooks, or use --dangerously-bypass-hook-trust for one invocation"
+  else
+    # Uninstall runs without ~/.codex or the codex CLI: the durable copy and its receipt
+    # are ours to reclaim whether or not the harness is still installed.
+    unlink_owned "$HOME/.codex/plugins/swarm-coder"
+    unlink_owned "$HOME/.codex/plugins/workcell"
+    uninstall_owned "$(workcell_share_dir)/codex"
+    if command -v codex >/dev/null; then
+      codex plugin remove swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
+      codex plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
+      # Clean up installations made before the Workcell rename and the
+      # workcell-local marketplace name that preceded the plain one.
+      codex plugin remove workcell@workcell-local >/dev/null 2>&1 || true
+      codex plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+      codex plugin remove workcell@workcell >/dev/null 2>&1 || true
+      codex plugin marketplace remove workcell >/dev/null 2>&1 || true
+    fi
+  fi
+}
+codex_plugin
 
 # ---- Grok Build ----
 # Grok consumes the Claude plugin layout (manifest, agents/*.md, skills/) but, like
