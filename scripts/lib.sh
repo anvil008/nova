@@ -214,6 +214,11 @@ installed_version(){
   _json_field "$rcpt" version
 }
 
+# repo_semver -> the release semver from its single source of truth, guard/version.go. The
+# wrappers carry no version of their own, so both installers stamp their copies with this one;
+# it lives here rather than in either of them so the two can never stamp different numbers.
+repo_semver(){ sed -n 's/^const Version = "\(.*\)"$/\1/p' "$ROOT/guard/version.go" 2>/dev/null; }
+
 # check_frontmatter FILE -> the file starts with a '---' block that closes and carries name + description.
 check_frontmatter(){
   local f=$1 fm
