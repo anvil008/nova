@@ -69,16 +69,25 @@ left=$(links_into_root "$HOME")
   && ok "uninstall leaves the foreign plugin link" || no "uninstall leaves the foreign plugin link"
 grep -q "foreign-plugin" <<<"$out" && ok "uninstall reports what it left behind" || no "uninstall reports what it left behind: $out"
 
-# --- hooks-are-symlinks-after-bootstrap-project --------------------------------------------------
+# --- hooks-are-real-copies-after-bootstrap-project (#130) ----------------------------------------
+# These three used to be symlinks into scripts/hooks/, so every gate call resolved through this
+# working tree. They are now owned copies: real, executable files, byte-identical to their
+# sources, and nothing under ~/.local/bin points back into $ROOT.
 fresh_home hooks
 git_repo "$TMP/hooks-proj"
 out=$("$BOOTSTRAP" --with-hooks "$TMP/hooks-proj" 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "bootstrap-project --with-hooks exits zero" || no "bootstrap-project --with-hooks exits zero (rc=$rc): $out"
-allsym=1
+allcopies=1; copybad=
 for h in build-format build-lint build-guard; do
-  [[ -L $HOME/.local/bin/$h && $(readlink "$HOME/.local/bin/$h") == "$ROOT/scripts/hooks/$h" ]] || allsym=0
+  d="$HOME/.local/bin/$h"
+  { [[ -f $d && -x $d && ! -L $d ]] && cmp -s "$ROOT/scripts/hooks/$h" "$d"; } || copybad="$copybad $h"
 done
-[[ $allsym -eq 1 ]] && ok "build-format/lint/guard are symlinks into scripts/hooks" || no "build-format/lint/guard are symlinks into scripts/hooks"
+[[ -z $copybad ]] || allcopies=0
+[[ $allcopies -eq 1 ]] && ok "build-format/lint/guard are real copies of scripts/hooks/, not symlinks" \
+  || no "build-format/lint/guard are real copies of scripts/hooks/, not symlinks (wrong:$copybad)"
+gate_links=$(links_into_root "$HOME/.local/bin")
+[[ -z $gate_links ]] && ok "bootstrap-project leaves no gate link into ROOT" \
+  || no "bootstrap-project leaves gate links into ROOT: $gate_links"
 [[ -f $TMP/hooks-proj/.claude/settings.local.json ]] && ok "settings.local.json written" || no "settings.local.json written"
 grep -qxF '.claude/settings.local.json' "$TMP/hooks-proj/.git/info/exclude" && ok "exclude written in plain repo" || no "exclude written in plain repo"
 
@@ -520,6 +529,148 @@ install_owned "$CSRC/tool.sh" "$DST" 4.5.6 >/dev/null 2>&1
   && ok "install_owned writes its receipt beneath WORKCELL_STATE" \
   || no "install_owned writes its receipt beneath WORKCELL_STATE"
 unset WORKCELL_STATE WORKCELL_SHARE
+
+# --- versioned copy install: scripts/bootstrap-tools.sh --install (#130) -------------------------
+# Every harness hook dispatch invokes ~/.local/bin/tdd-guard and ~/.local/bin/build-* on every
+# tool call, so what lands there has to be a self-contained, version-stamped copy rather than a
+# symlink back into this working tree. One --install run against a throwaway HOME feeds the
+# install, version, survival, byte-identity and drift-report cases below.
+BT="$ROOT/scripts/bootstrap-tools.sh"
+WRAPPERS="build-hooks build-format build-lint build-guard workcell-ws"
+# wrapper_src NAME -> the repository file a wrapper destination is copied from
+wrapper_src(){ case "$1" in workcell-ws) echo "$ROOT/scripts/workcell-ws";; *) echo "$ROOT/scripts/hooks/$1";; esac; }
+# repo_semver -> the release, from its single source of truth
+repo_semver(){ sed -n 's/^const Version = "\(.*\)"$/\1/p' "$ROOT/guard/version.go"; }
+have_go(){ command -v go >/dev/null 2>&1; }
+# The Go build cache is content-addressed and machine-wide, so keeping it out of the throwaway
+# HOME costs nothing in hermeticity and saves a cold rebuild of the standard library per install.
+GOCACHE=$(HOME="$REAL_HOME" go env GOCACHE 2>/dev/null || echo "$TMP/gocache"); export GOCACHE
+
+fresh_home versioned_install
+GUARD="$HOME/.local/bin/tdd-guard"
+out=$("$BT" --install 2>&1); rc=$?
+[[ $rc -eq 0 ]] && ok "bootstrap-tools --install exits zero" || no "bootstrap-tools --install exits zero (rc=$rc): $out"
+
+# bootstrap-tools-installs-real-executables-not-symlinks
+notcopy=
+for b in tdd-guard $WRAPPERS; do
+  if [[ $b == tdd-guard ]] && ! have_go; then continue; fi
+  d="$HOME/.local/bin/$b"
+  [[ -f $d && -x $d && ! -L $d ]] || notcopy="$notcopy $b"
+done
+have_go || printf 'skip tdd-guard install assertions (no go toolchain)\n'
+[[ -z $notcopy ]] && ok "every installed tool is a real executable file, not a symlink" \
+  || no "installed tools that are not real executable files:$notcopy"
+into_root=$(links_into_root "$HOME")
+[[ -z $into_root ]] && ok "the install leaves no symlink under HOME pointing into ROOT" \
+  || no "symlinks into ROOT left by the install: $into_root"
+
+# installed-guard-reports-the-repository-version
+if have_go; then
+  semver=$(repo_semver)
+  [[ -n $semver ]] && ok "guard/version.go carries a semver" || no "guard/version.go carries a semver"
+  gout=$("$GUARD" version 2>&1); grc=$?
+  [[ $grc -eq 0 && $gout == "tdd-guard $semver"* ]] \
+    && ok "the installed guard prints the repository version" \
+    || no "the installed guard prints the repository version (rc=$grc): '$gout' want 'tdd-guard $semver...'"
+  mkdir -p "$TMP/not-a-repo"
+  gout_out=$(cd "$TMP/not-a-repo" && "$GUARD" version 2>&1); grc_out=$?
+  [[ $grc_out -eq 0 && $gout_out == "$gout" ]] \
+    && ok "the installed guard reports the same version outside any git repository" \
+    || no "the installed guard reports the same version outside any git repository (rc=$grc_out): '$gout_out' vs '$gout'"
+  # The receipt has to record what the binary itself reports, or report mode below is reading a
+  # version nothing installed. (Scope: install_owned ... "$version" is what the built binary prints.)
+  recorded=$(installed_version "$GUARD")
+  [[ -n $recorded && "tdd-guard $recorded" == "$gout" ]] \
+    && ok "the install records the built guard's own version in its receipt" \
+    || no "the install records the built guard's own version in its receipt (receipt='$recorded', binary='$gout')"
+fi
+
+# installed-copies-survive-the-repo-build-output-disappearing
+if have_go; then
+  cp "$ROOT/bin/tdd-guard" "$TMP/guard-build-backup" 2>/dev/null
+  rm -f "$ROOT/bin/tdd-guard"
+  gout_gone=$("$GUARD" version 2>&1); grc_gone=$?
+  [[ $grc_gone -eq 0 && $gout_gone == "$gout" ]] \
+    && ok "the installed guard still runs, byte-identically, once ROOT/bin/tdd-guard is gone" \
+    || no "the installed guard still runs once ROOT/bin/tdd-guard is gone (rc=$grc_gone): '$gout_gone' vs '$gout'"
+  hout=$("$HOME/.local/bin/build-hooks" </dev/null 2>&1 >/dev/null); hrc=$?
+  [[ $hrc -eq 2 ]] && grep -q 'usage' <<<"$hout" \
+    && ok "the installed build-hooks copy still fails closed with its usage line" \
+    || no "the installed build-hooks copy still fails closed with its usage line (rc=$hrc): $hout"
+  [[ -f $TMP/guard-build-backup ]] && cp "$TMP/guard-build-backup" "$ROOT/bin/tdd-guard"
+fi
+
+# wrapper-copies-are-byte-identical-to-their-sources
+notsame=
+for b in $WRAPPERS; do
+  d="$HOME/.local/bin/$b"
+  { [[ ! -L $d ]] && cmp -s "$(wrapper_src "$b")" "$d"; } || notsame="$notsame $b"
+done
+[[ -z $notsame ]] && ok "every wrapper copy is byte-identical to its repository source" \
+  || no "wrapper copies that differ from their source (or are links):$notsame"
+
+# report-mode-names-a-version-drift-and-the-remediation
+rep=$("$BT" 2>&1); rrc=$?
+[[ $rrc -eq 0 ]] && ok "report mode exits zero with everything current" || no "report mode exits zero with everything current (rc=$rrc)"
+clean_drift=$(grep -F -- 'scripts/bootstrap-tools.sh --install' <<<"$rep" | grep -cF -- "$(repo_semver)")
+[[ $clean_drift -eq 0 ]] && ok "report mode names no drift when the installed version matches" \
+  || no "report mode reported drift for a current install ($clean_drift line(s)): $rep"
+if have_go; then
+  STALE=0.0.1-stale
+  rcpt=$(receipts_for "$GUARD" | head -1)
+  if [[ -n $rcpt && -f $rcpt ]]; then
+    sed 's/"version": "[^"]*"/"version": "'"$STALE"'"/' "$rcpt" > "$rcpt.stale" 2>/dev/null \
+      && mv "$rcpt.stale" "$rcpt"
+  fi
+  [[ $(installed_version "$GUARD") == "$STALE" ]] \
+    && ok "the drift fixture leaves a receipt recording a stale version" \
+    || no "the drift fixture leaves a receipt recording a stale version (receipt='$rcpt', version='$(installed_version "$GUARD")')"
+  rep_stale=$("$BT" 2>&1); rrc_stale=$?
+  [[ $rrc_stale -eq 0 ]] && ok "report mode exits zero with a stale copy" \
+    || no "report mode exits zero with a stale copy (rc=$rrc_stale): $rep_stale"
+  drift=$(grep -F -- "$STALE" <<<"$rep_stale" | grep -F -- "$(repo_semver)" \
+          | grep -cF -- 'scripts/bootstrap-tools.sh --install')
+  [[ $drift -eq 1 ]] \
+    && ok "report mode prints one drift line naming both versions and the remediation" \
+    || no "report mode prints one drift line naming both versions and the remediation (got $drift): $rep_stale"
+fi
+
+# --- uninstall-removes-owned-copies-and-legacy-links-and-leaves-foreign-tools (#130) --------------
+# The sweep now has three cases to get right at once: remove the copies it installed together with
+# their receipts, still remove the links a pre-milestone install left into $ROOT, and never take a
+# tdd-guard the human put on their own PATH.
+fresh_home versioned_uninstall
+GUARD="$HOME/.local/bin/tdd-guard"
+out=$("$BT" --install 2>&1); rc=$?
+[[ $rc -eq 0 ]] || no "bootstrap-tools --install exits zero before the uninstall sweep (rc=$rc): $out"
+ln -sfn "$ROOT/scripts/hooks/build-hooks" "$HOME/.local/bin/build-hooks"   # legacy (pre-#130) install
+guard_rcpt=$(receipts_for "$GUARD" | head -1)
+uout=$("$INSTALL" --uninstall 2>&1); urc=$?
+[[ $urc -eq 0 ]] && ok "uninstall over copies and legacy links exits zero" \
+  || no "uninstall over copies and legacy links exits zero (rc=$urc): $uout"
+if have_go; then
+  [[ -n $guard_rcpt ]] && ok "the copy install left a receipt for tdd-guard" \
+    || no "the copy install left a receipt for tdd-guard"
+  [[ ! -e $GUARD && ! -L $GUARD ]] && ok "uninstall removes the copy-installed tdd-guard" \
+    || no "uninstall removes the copy-installed tdd-guard"
+  [[ -n $guard_rcpt && ! -e $guard_rcpt ]] && ok "uninstall removes the tdd-guard receipt too" \
+    || no "uninstall removes the tdd-guard receipt too (receipt='$guard_rcpt')"
+fi
+[[ ! -e $HOME/.local/bin/build-hooks && ! -L $HOME/.local/bin/build-hooks ]] \
+  && ok "uninstall removes the legacy build-hooks link into ROOT" \
+  || no "uninstall removes the legacy build-hooks link into ROOT"
+left_after=$(links_into_root "$HOME")
+[[ -z $left_after ]] && ok "uninstall leaves no link into ROOT behind" || no "links into ROOT left behind: $left_after"
+printf '#!/usr/bin/env bash\necho not the workcell guard\n' > "$GUARD"; chmod 0755 "$GUARD"
+fout=$("$INSTALL" --uninstall 2>&1); frc=$?
+[[ $frc -eq 0 ]] && ok "uninstall exits zero with a foreign tdd-guard on PATH" \
+  || no "uninstall exits zero with a foreign tdd-guard on PATH (rc=$frc): $fout"
+[[ -f $GUARD ]] && grep -q 'not the workcell guard' "$GUARD" \
+  && ok "uninstall leaves a foreign tdd-guard exactly as the human left it" \
+  || no "uninstall leaves a foreign tdd-guard exactly as the human left it"
+grep -qF -- "$GUARD" <<<"$fout" && ok "uninstall names the foreign tdd-guard it left" \
+  || no "uninstall names the foreign tdd-guard it left: $fout"
 
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]
