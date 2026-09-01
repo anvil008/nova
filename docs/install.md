@@ -105,3 +105,9 @@ scripts/bootstrap-plugins.sh               # installs through the marketplaces
 
 See [ADR 0006](adr/0006-plugins-install-through-local-marketplaces.md) for why the
 mechanism changed.
+
+If a previous install ran from a path that no longer exists — a deleted release worktree, for
+example — remove that stale marketplace registration before re-running `bootstrap-plugins.sh`
+(`claude`/`codex`/`grok plugin marketplace remove <old-path>`); otherwise the harness refuses a
+second registration under the same name, or ends up with a duplicate entry that never resolves.
+See [ADR 0021](adr/0021-deploys-serve-plugins-from-a-durable-path.md).
