@@ -1,6 +1,6 @@
 {
   "name": "workcell",
-  "version": "0.1.0+codex.20260830065625",
+  "version": "0.6.0",
   "description": "Foundry Zero Workcell Plugin",
   "author": {
     "name": "Foundry Zero"

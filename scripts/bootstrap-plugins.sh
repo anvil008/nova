@@ -217,10 +217,16 @@ for spec in "${MARKET_HARNESSES[@]}"; do
     if [[ $h == codex ]]; then
       # Codex materializes a copy and discards symlinks escaping the plugin root,
       # so the wrapper's links to skills/ and agents/ never survive. Stage a real
-      # tree and register that instead.
+      # tree, install it into the durable share directory, and register that instead.
       command -v python3 >/dev/null || die "codex: python3 is required to stage the plugin"
       python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null || die "codex: staging failed"
-      root="$ROOT/dist/codex"
+      share_codex="$(workcell_share_dir)/codex"
+      install_owned "$ROOT/dist/codex" "$share_codex" "$(repo_semver)" || die "codex: could not install durable share tree"
+      # Migration: retire same-name registrations rooted at $ROOT or $ROOT/dist/codex first
+      # (codex plugin marketplace remove workcell best-effort — ADR 0021 records that Codex
+      # refuses a second registration under the same name from a different source).
+      "$cli" plugin marketplace remove workcell >/dev/null 2>&1 || true
+      root="$share_codex"
     fi
     # Retire the pre-rename marketplace registration: the marketplace was called
     # workcell-local before the plain name won. Harmless when nothing is there.
@@ -239,6 +245,9 @@ for spec in "${MARKET_HARNESSES[@]}"; do
   else
     unlink_owned "$HOME/.$h/plugins/swarm-coder"
     unlink_owned "$HOME/.$h/plugins/workcell"
+    if [[ $h == codex ]]; then
+      uninstall_owned "$(workcell_share_dir)/codex"
+    fi
     if command -v "$cli" >/dev/null; then
       "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true

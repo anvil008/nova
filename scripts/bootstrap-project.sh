@@ -84,8 +84,8 @@ if ((install)); then
   version=$(_json_field "$ROOT/plugins/agy/plugin.json" version)
   install_owned "$ROOT/dist/agy/workcell" "$PWD/.agents/plugins/workcell" "${version:-$semver}" \
     && echo "  installed the Antigravity plugin into .agents/plugins"
-  # Claude and Codex install from the marketplace at the repository root. Local scope
-  # keeps the declaration in .claude/settings.local.json / .codex, never a tracked file.
+  # Claude installs from the marketplace at the repository root; Codex installs from its durable share tree.
+  # Local scope keeps the declaration in .claude/settings.local.json / .codex, never a tracked file.
   for cli in claude codex; do
     if command -v "$cli" >/dev/null; then
       case "$cli" in
@@ -98,8 +98,19 @@ if ((install)); then
         || "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace remove swarm-coder-local --scope local >/dev/null 2>&1 \
         || "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
-      "$cli" plugin marketplace add "$ROOT" --scope local >/dev/null 2>&1 \
-        || "$cli" plugin marketplace add "$ROOT" >/dev/null
+      mkt_src="$ROOT"
+      if [[ $cli == codex ]]; then
+        share_codex="$(workcell_share_dir)/codex"
+        if [[ ! -d $share_codex ]]; then
+          if command -v python3 >/dev/null; then
+            python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1 || true
+            install_owned "$ROOT/dist/codex" "$share_codex" "$(repo_semver)" >/dev/null 2>&1 || true
+          fi
+        fi
+        mkt_src="$share_codex"
+      fi
+      "$cli" plugin marketplace add "$mkt_src" --scope local >/dev/null 2>&1 \
+        || "$cli" plugin marketplace add "$mkt_src" >/dev/null
       "$cli" plugin "$add" workcell@workcell --scope local >/dev/null 2>&1 \
         || "$cli" plugin "$add" workcell@workcell >/dev/null
       echo "  installed the $cli plugin from the local workcell marketplace"
