@@ -36,6 +36,7 @@ as skills named `agent-<name>`, which is the one surface that reaches the model.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -177,6 +178,19 @@ def agent_skill(
     return skill, agent_yaml
 
 
+def content_digest(tree: Path) -> str:
+    """Compute a deterministic 12-hex-character content digest of a directory tree."""
+    hasher = hashlib.sha256()
+    for file_path in sorted(
+        [p for p in tree.rglob("*") if p.is_file()],
+        key=lambda p: p.relative_to(tree).as_posix(),
+    ):
+        rel_path = file_path.relative_to(tree).as_posix()
+        file_sha = hashlib.sha256(file_path.read_bytes()).hexdigest()
+        hasher.update(f"{rel_path}:{file_sha}\n".encode())
+    return hasher.hexdigest()[:12]
+
+
 def validate_sources() -> tuple[
     str, list[Path], list[tuple[Path, str]], dict[str, dict[str, str]]
 ]:
@@ -185,7 +199,7 @@ def validate_sources() -> tuple[
         raise BuildError(f"missing plugin source {SOURCE.relative_to(ROOT)}")
     manifest_path = SOURCE / ".codex-plugin" / "plugin.json"
     version = json.loads(manifest_path.read_text(encoding="utf-8")).get(
-        "version", "0.1.0"
+        "version", "0.6.0"
     )
 
     skill_dirs = sorted(path for path in SKILLS.iterdir() if path.is_dir())
@@ -210,10 +224,6 @@ def build() -> Path:
     skills_out = plugin_root / "skills"
     skills_out.mkdir()
 
-    lib_dist.write_json(
-        plugin_root / ".codex-plugin" / "plugin.json", plugin_manifest(version)
-    )
-
     hooks = SOURCE / "hooks" / "hooks.json"
     if hooks.is_file():
         (plugin_root / "hooks").mkdir()
@@ -225,10 +235,9 @@ def build() -> Path:
     for skill_dir in skill_dirs:
         shutil.copytree(skill_dir, skills_out / skill_dir.name, symlinks=False)
         skill_path = skills_out / skill_dir.name / "SKILL.md"
-        skill_path.write_text(
-            skill_path.read_text(encoding="utf-8").rstrip() + "\n" + dispatch_contract,
-            encoding="utf-8",
-        )
+        skill_text = skill_path.read_text(encoding="utf-8")
+        sep = "\n" if skill_text.endswith("\n") else "\n\n"
+        skill_path.write_text(f"{skill_text}{sep}{dispatch_contract}", encoding="utf-8")
         skills += 1
 
     agents = 0
@@ -239,6 +248,15 @@ def build() -> Path:
         (target / "SKILL.md").write_text(skill_text, encoding="utf-8")
         (target / "agents" / "openai.yaml").write_text(agent_yaml, encoding="utf-8")
         agents += 1
+
+    base_semver = version.split("+")[0]
+    digest = content_digest(plugin_root)
+    staged_version = f"{base_semver}+codex.{digest}"
+
+    lib_dist.write_json(
+        plugin_root / ".codex-plugin" / "plugin.json",
+        plugin_manifest(staged_version),
+    )
 
     lib_dist.write_json(
         OUT / ".agents" / "plugins" / "marketplace.json",
