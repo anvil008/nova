@@ -64,6 +64,6 @@ Do not spawn other agents, never broaden the issue, and never claim overall comp
 
 ## Skills
 
-You own these skills — invoke them for their domain, and do not reach for the orchestration skills (planner / build / research / code-review):
+You own these skills — invoke them for their domain, and do not reach for the orchestration skills (plan / build / research / code-review):
 
 - **`jj`** — your version control, always. Workspace creation, bookmarks, commits, and recovery all go through `jj`; plain `git` is for read-only inspection only. Always-in-force safety: pass `-m` on every mutation, never run interactive `jj` (no bare `jj split`, `jj resolve`, `jj squash -i`), recover with `jj undo` / `jj op log` (never destructive git), and never hand-edit `.jj/`. A detached git HEAD is normal in a colocated repo — trust `jj log`, not `git status`.

@@ -3,13 +3,32 @@
   "kind": "skill",
   "trigger": {
     "positive": [
-      {"prompt": "Organize a multi-lens audit of this PR and make independent skeptics validate every candidate before it merges.", "top_k": 3},
-      {"prompt": "Review this diff before merge, independently trying to disprove every proposed finding.", "top_k": 3},
-      {"prompt": "Produce a consolidated verdict for this change-set after adversarial finding checks.", "top_k": 3}
+      {
+        "prompt": "Organize a multi-lens audit of this PR and make independent skeptics validate every candidate before it merges.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Review this diff before merge, independently trying to disprove every proposed finding.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Produce a consolidated verdict for this change-set after adversarial finding checks.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Inspect only the frontend lens at fixed viewports and return evidence-backed UI findings.",
+        "top_k": 3
+      }
     ],
     "negative": [
-      {"prompt": "Inspect only the frontend lens at fixed viewports and return evidence-backed UI findings.", "owner": "skill:reviewer-frontend-review"},
-      {"prompt": "Implement this assigned issue in its isolated branch and open its pull request.", "owner": "agent:builder"}
+      {
+        "prompt": "Implement this assigned issue in its isolated branch and open its pull request.",
+        "owner": "agent:builder"
+      },
+      {
+        "prompt": "Consolidate duplicated modules and delete dead paths without changing behaviour, then open one PR.",
+        "owner": "skill:code-refactor"
+      }
     ]
   },
   "evals": [

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// guardSnapshot is the record set anvil-guard itself produced for a run. The
+// guardSnapshot is the record set tdd-guard itself produced for a run. The
 // forged ids below are shaped exactly like real ones; only their absence from
 // this snapshot distinguishes them.
 func guardSnapshot() *GuardSnapshot {

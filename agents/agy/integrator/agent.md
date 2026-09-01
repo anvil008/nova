@@ -9,7 +9,7 @@ tools:
   - run_command
 mainAgent: true
 subagent: true
-model: pro
+model: flash
 commandExecutionPolicy: sandbox
 ---
 

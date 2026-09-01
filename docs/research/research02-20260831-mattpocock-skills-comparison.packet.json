@@ -1,0 +1,502 @@
+{
+  "inputFindingCount": 56,
+  "findingCount": 56,
+  "areas": [
+    {
+      "area": "local-skills",
+      "findings": [
+        {
+          "source": "skills/code-refactor/SKILL.md:2-8",
+          "finding": "code-refactor is the only skill whose one-line description names concrete design vocabulary \u2014 'consolidate duplicated modules, deepen shallow ones, delete dead paths' and 'interface is wider than their substance'.",
+          "evidence": "\"deepen ones whose interface is wider than their substance, collapse indirection that earns nothing\"",
+          "topic": "design-heuristics-vocabulary",
+          "position": "code-refactor has the only concrete module-depth/interface-width vocabulary in the repo",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/code-refactor/SKILL.md:31",
+          "finding": "code-refactor's survey step lists concrete simplification signals a researcher agent looks for.",
+          "evidence": "\"duplicated logic, modules that only forward, abstractions with a single caller, dead exports, cyclic dependencies, and interfaces wider than their use\"",
+          "topic": "design-heuristics-vocabulary",
+          "position": "the only enumerated architectural smells (single-caller abstractions, cyclic deps, forwarding modules) live in code-refactor's survey step, not in a shared reference doc",
+          "stance": "supports"
+        },
+        {
+          "source": "grep skills/ + docs/ for 'deepen|module depth|shallow module|dependency direction'",
+          "finding": "outside code-refactor's two description/body sentences, no skill or doc uses module-depth/interface-design vocabulary (e.g. no 'deepen shallow modules', 'module depth', 'dependency direction' as a repeated heuristic).",
+          "evidence": "grep matched only skills/code-refactor/SKILL.md:3,8,31 and an unrelated jj git-shallow-clone hit at skills/jj/references/git-compatibility.md:63",
+          "topic": "design-heuristics-thin",
+          "position": "no dedicated design-heuristics reference file exists anywhere in skills/; the phrase is a one-off in the orchestration skill body, not a taught method",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/code-review/SKILL.md:16-24",
+          "finding": "code-review's lens set is correctness, tests, security, performance, api-contract, backend, integrations, frontend \u2014 there is no 'architecture' or 'design' lens.",
+          "evidence": "\"correctness and tests are always selected; security applies when... performance applies to... api-contract applies when... backend applies when... integrations applies when... frontend applies when\"",
+          "topic": "review-lens-coverage",
+          "position": "code-review's lens fan-out has no architecture/design lens; design concerns fall through the correctness lens's 'unnecessary complexity' style criteria instead",
+          "stance": "neutral"
+        },
+        {
+          "source": "agents/bodies/reviewer.md:34-36 (agents/agy/reviewer/agent.md:49-51)",
+          "finding": "the closest thing to design guidance for reviewers is a short 'Style criteria (correctness lens)' clause bolted onto the correctness lens, not a standalone design lens.",
+          "evidence": "\"Under the correctness lens, also flag: unnecessary complexity, defensive handling for cases that cannot happen, comments that merely restate the code, and new files that should have been edits. Hold changes to concise code that matches the surrounding idiom, naming, and comment density.\"",
+          "topic": "design-heuristics-thin",
+          "position": "reviewer agents get only 4 vague style flags (complexity, dead defensiveness, restating comments, unnecessary new files) plus 'match surrounding idiom' \u2014 no module-depth, interface, or dependency-direction heuristics",
+          "stance": "supports"
+        },
+        {
+          "source": "skills/code-review/references/frontend-review.md:1-33",
+          "finding": "code-review has a references/ dir with one design-adjacent lens document (frontend-review.md, 73 lines), covering responsive layout, accessibility, design-system token conformance, and visual QA across a 10-row viewport matrix \u2014 but this is UI/visual design, not code/module architecture.",
+          "evidence": "\"Responsive \u2014 layout holds across the viewport matrix... Design-system conformance \u2014 uses the project's tokens / components / spacing / type scale rather than one-off values.\"",
+          "topic": "review-lens-coverage",
+          "position": "the repo's only lens-specific 'design' reference document is about UI visual design (frontend-review.md), not module/interface architecture",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/code-review/references/report-rendering.md (dir listing)",
+          "finding": "code-review/references/ contains exactly two files: frontend-review.md and report-rendering.md \u2014 the latter governs renderer/template maintenance, not review content.",
+          "evidence": "ls skills/code-review/references/ -> frontend-review.md report-rendering.md",
+          "topic": "review-lens-coverage",
+          "position": "no architecture-lens reference file exists in code-review/references/",
+          "stance": "supports"
+        },
+        {
+          "source": "skills/code-refactor/SKILL.md, skills/code-analysis/SKILL.md, skills/code-review/SKILL.md, skills/plan/SKILL.md, skills/research/SKILL.md, skills/build/SKILL.md (openings, e.g. code-review:10, code-refactor:10)",
+          "finding": "orchestration skills share a canonical boundary paragraph declaring the primary agent a pure orchestrator that dispatches agents and never edits target-project code itself.",
+          "evidence": "\"You are the orchestrator ([ADR 0007]...): you dispatch agents, hold the human gates, run git/jj/gh... You never read or edit the target project's code, run its suites, or author its artifacts.\" (verbatim across code-refactor:10, code-review:10, code-analysis:10, research:10)",
+          "topic": "authoring-conventions",
+          "position": "SKILL.md files are dispatch contracts for a pure-orchestrator primary agent per ADR 0007/0009, not implementation guides themselves",
+          "stance": "neutral"
+        },
+        {
+          "source": "docs/adr/0009-skills-are-dispatch-contracts.md:9",
+          "finding": "the repo's own ADR states the design intent: SKILL.md holds operator procedure while references/ holds artifact schemas, naming rules, reconciliation shapes, and maintenance rules for the agent/maintainer that owns them.",
+          "evidence": "\"Operator procedure stays in SKILL.md; artifact schemas, naming rules, reconciliation shapes, and renderer/template maintenance rules live in linked references/ files read by the agent or maintainer that owns them.\"",
+          "topic": "authoring-conventions",
+          "position": "the SKILL.md/references split is deliberate and codified, not incidental",
+          "stance": "neutral"
+        },
+        {
+          "source": "directory listing across skills/*",
+          "finding": "skill subdirectory conventions vary by whether the skill has deterministic tooling: build, code-review, docs, plan, research, review-fix-loop, wiki have scripts/ (and often examples/, tests/, references/ or templates/); code-analysis, code-refactor, debug, deploy, perf, repo-setup, use-other-harness are SKILL.md-only with no scripts/examples/tests.",
+          "evidence": "e.g. code-review: examples references scripts SKILL.md templates tests; code-refactor: SKILL.md (only); code-analysis: SKILL.md (only)",
+          "topic": "authoring-conventions",
+          "position": "code-refactor and code-analysis \u2014 the two skills closest to 'design quality' work \u2014 have no scripts/, references/, or tests/ subdirectories at all, unlike code-review, plan, research, and build which pair prose procedure with deterministic merge/render/reconcile scripts",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/code-review/SKILL.md:38,40,55-63",
+          "finding": "code-review's deterministic-script pattern merges, verifies, and renders findings via Python scripts (merge_findings.py --dedupe-only / --verification, render_review.py) rather than leaving synthesis to prose judgment.",
+          "evidence": "\"skills/code-review/scripts/merge_findings.py --dedupe-only chooses the representative by highest severity, highest confidence, then lexicographically smallest (lens, failureScenario)\"",
+          "topic": "authoring-conventions",
+          "position": "deterministic scripts exist for merge/dedupe/render/reconcile pipelines but not for judging design quality itself",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/code-review/SKILL.md:82-84,111",
+          "finding": "code-review has an explicit human gate before filing findings as GitHub issues, and a severity floor (default medium) that keeps low/nit findings out of the tracker.",
+          "evidence": "\"Stop for explicit human approval before --apply. Issues are outward-facing... --min-severity (default medium) sets the filing threshold; low and nit stay in the report rather than becoming tracker noise.\"",
+          "topic": "authoring-conventions",
+          "position": "human gates are load-bearing before any outward/durable write (GitHub issues), consistent across skills",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/code-analysis/SKILL.md:16",
+          "finding": "code-analysis explicitly routes style/design complaints away from itself to code-refactor, and explicitly excludes 'this is not how I would write it' as a defect category from any skill.",
+          "evidence": "\"'This could be clearer', 'this lacks a null check nothing can reach', and 'this is not how I would write it' are not defects \u2014 the first belongs to code-refactor and the rest belong nowhere.\"",
+          "topic": "design-heuristics-thin",
+          "position": "the repo's skill taxonomy treats subjective design/style judgment as explicitly out of scope for correctness-hunting, with code-refactor as the sole nominal owner but no method document backing it",
+          "stance": "supports"
+        },
+        {
+          "source": "skills/plan/SKILL.md:1-8, skills/new-feature/SKILL.md:1-8",
+          "finding": "plan and new-feature are the entry points that could route design decisions upstream (planning a milestone / interviewing before planning) but their descriptions focus on process (evidence-backed plan, 5+ clarifying questions) not architectural heuristics.",
+          "evidence": "plan: \"produce an offline HTML implementation plan plus a strict JSON sidecar\"; new-feature: \"starting with a real interview \u2014 at least five clarifying questions before any planning\"",
+          "topic": "design-heuristics-thin",
+          "position": "planning-stage skills govern process rigor (evidence, interview, sidecar) rather than teaching architectural design heuristics",
+          "stance": "neutral"
+        },
+        {
+          "source": "docs/adr/ directory listing",
+          "finding": "the ADR corpus (21 ADRs) is entirely about agent/skill/harness architecture (orchestrator role, dispatch contracts, workspace naming, plugin distribution) \u2014 none is a design-quality or code-architecture standards doc for target-project code.",
+          "evidence": "ls docs/adr: 0007-primary-agent-is-a-pure-orchestrator, 0009-skills-are-dispatch-contracts, 0012-builders-verify-runtime-before-review, 0017-the-build-wave-overlaps..., 0021-deploys-serve-plugins-from-a-durable-path (no ADR titled on code design/architecture standards)",
+          "topic": "repo-standards-docs",
+          "position": "docs/adr/ documents Workcell's own meta-architecture (how agents/skills work), not design standards that reviewer/refactor agents apply to a target codebase's code",
+          "stance": "supports"
+        }
+      ]
+    },
+    {
+      "area": "upstream-repo",
+      "findings": [
+        {
+          "source": "tree API listing",
+          "finding": "Skills are organized into five top-level bucket folders under skills/, of which only two are shipped in the plugin.",
+          "evidence": "skills/deprecated, skills/engineering, skills/in-progress, skills/misc, skills/productivity",
+          "topic": "skill-layout",
+          "position": "bucketed-by-category-and-maturity",
+          "stance": "neutral"
+        },
+        {
+          "source": "tree API listing",
+          "finding": "The repo contains 35 SKILL.md files across engineering (17), in-progress (7), misc (4), and productivity (7).",
+          "evidence": "grep of paths ending SKILL.md, grouped by directory",
+          "topic": "skill-catalog-size",
+          "position": "35-skills-4-buckets",
+          "stance": "neutral"
+        },
+        {
+          "source": ".agents/adr/0002-ship-as-a-claude-code-plugin.md",
+          "finding": "Only the engineering and productivity buckets are 'promoted' (shipped in the plugin); misc, personal, in-progress, and deprecated are excluded.",
+          "evidence": "\"Skills live in bucket folders under skills/: engineering/ and productivity/ are promoted (shipped); misc/, personal/, in-progress/, and deprecated/ are not.\"",
+          "topic": "skill-layout",
+          "position": "promotion-gates-distribution-not-just-directory",
+          "stance": "supports"
+        },
+        {
+          "source": "README.md (installation section)",
+          "finding": "The repo ships via two parallel channels: a read-only Claude Code plugin (subscribe model, official marketplace) and an editable copy-in installer (`npx skills add`) for Codex/other agents.",
+          "evidence": "\"The Claude Code plugin installs the whole set as a managed, read-only bundle... skills.sh copies editable skill files into your project... Pick one: installing both leaves you with every skill twice.\"",
+          "topic": "distribution-mechanism",
+          "position": "dual-channel-subscribe-vs-fork",
+          "stance": "neutral"
+        },
+        {
+          "source": ".agents/adr/0002-ship-as-a-claude-code-plugin.md",
+          "finding": "A native Codex plugin is deferred because Codex's plugin manifest accepts only a single path string for skills (no curated subset, and symlinks are dropped on install), unlike Claude Code's array-of-paths manifest.",
+          "evidence": "\"Codex: .codex-plugin/plugin.json accepts skills only as a single path string (arrays are rejected...). Codex copies the plugin tree into its cache and drops symlinks, so the skills arrive empty.\"",
+          "topic": "cross-harness-support",
+          "position": "codex-plugin-blocked-by-manifest-format",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/engineering/tdd/agents/openai.yaml, skills/engineering/diagnosing-bugs/agents/openai.yaml, skills/productivity/writing-for-agents/agents/openai.yaml",
+          "finding": "Each SKILL.md directory can carry an agents/openai.yaml sidecar giving a harness-specific display_name and short_description, i.e. a per-harness metadata override rather than a full alternate body.",
+          "evidence": "tdd/agents/openai.yaml: \"interface:\\n  display_name: \\\"TDD\\\"\\n  short_description: \\\"Test-driven red-green-refactor\\\"\"",
+          "topic": "cross-harness-support",
+          "position": "per-skill-agents-sidecar-not-full-fork",
+          "stance": "neutral"
+        },
+        {
+          "source": "README.md (skill catalog)",
+          "finding": "Skills are explicitly typed as either 'User-invoked' (run by the human as a slash command) or 'Model-invoked' (triggered automatically by the agent when the task fits), and a user-invoked skill may call a model-invoked one but never the reverse.",
+          "evidence": "\"...invoked by you or reached for automatically by the agent when the task fits...A user-invoked skill may invoke model-invoked skills, but never another user-invoked one.\"",
+          "topic": "skill-invocation-model",
+          "position": "strict-user-vs-model-invocation-hierarchy",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/engineering/to-tickets/SKILL.md:5",
+          "finding": "User-invoked skills use `disable-model-invocation: true` in frontmatter to enforce that they are never auto-triggered.",
+          "evidence": "\"name: to-tickets\\ndescription: ...\\ndisable-model-invocation: true\"",
+          "topic": "skill-invocation-model",
+          "position": "frontmatter-flag-enforces-user-invoked-only",
+          "stance": "supports"
+        },
+        {
+          "source": "skills/engineering/code-review/SKILL.md:1-4",
+          "finding": "Frontmatter is minimal \u2014 only `name` and a long `description` field carrying trigger phrasing (\"Use when...\") \u2014 with no other structured metadata beyond the optional disable-model-invocation flag.",
+          "evidence": "description: \"...Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \\\"review since X\\\".\"",
+          "topic": "frontmatter-fields",
+          "position": "minimal-frontmatter-name-and-description-only",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/engineering/tdd/SKILL.md, skills/engineering/code-review/SKILL.md, skills/engineering/diagnosing-bugs/SKILL.md, skills/engineering/to-tickets/SKILL.md",
+          "finding": "Skill bodies are short (38-138 lines observed) procedural/heuristic hybrids: numbered process steps mixed with named-concept reference sections (e.g. 'seams', 'anti-patterns', 'tracer-bullet', 'wide refactor').",
+          "evidence": "tdd/SKILL.md is 38 lines; diagnosing-bugs/SKILL.md is 138 lines with numbered 'Phase 1' feedback-loop construction options; to-tickets/SKILL.md defines <vertical-slice-rules> tags inline",
+          "topic": "authoring-style",
+          "position": "short-body-numbered-steps-plus-named-heuristics",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/engineering/tdd/SKILL.md and skills/engineering/diagnosing-bugs/SKILL.md",
+          "finding": "Longer or reusable reference material is pushed into sibling files in the same skill directory (mocking.md, tests.md, scripts/hitl-loop.template.sh) rather than inlined, following the repo's own 'progressive disclosure' principle.",
+          "evidence": "tdd/SKILL.md: \"See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.\"; diagnosing-bugs uses scripts/hitl-loop.template.sh",
+          "topic": "authoring-style",
+          "position": "progressive-disclosure-via-sibling-files-and-scripts",
+          "stance": "supports"
+        },
+        {
+          "source": "skills/productivity/writing-for-agents/SKILL.md",
+          "finding": "The repo has a dedicated meta-skill (writing-for-agents) plus a SKILL-MECHANICS.md reference file that formalizes frontmatter, invocation choice, router skills, and an 'information hierarchy' (in-file step / in-file reference / disclosed reference) as the design method behind all other skills.",
+          "evidence": "\"When the document you're writing is a skill, read SKILL-MECHANICS.md for frontmatter, invocation choice, and router skills.\" plus the 'Information hierarchy' section defining three tiers",
+          "topic": "authoring-style",
+          "position": "explicit-meta-skill-governs-skill-authoring",
+          "stance": "neutral"
+        },
+        {
+          "source": "skills/engineering/ask-matt/SKILL.md (README description)",
+          "finding": "The repo has a router skill (ask-matt) whose sole job is to recommend which other user-invoked skill fits the situation.",
+          "evidence": "\"ask-matt: Ask which skill or flow fits your situation. A router over the user-invoked skills in this repo.\"",
+          "topic": "authoring-style",
+          "position": "dedicated-router-skill-over-user-invoked-set",
+          "stance": "neutral"
+        },
+        {
+          "source": "README.md",
+          "finding": "Skills cross-reference each other by name inside descriptions/bodies to compose workflows (e.g. implement drives tdd then code-review; grilling underlies grill-me, grill-with-docs, triage, wayfinder, improve-codebase-architecture).",
+          "evidence": "\"implement: ...driving /tdd at pre-agreed seams and closing out with /code-review before committing.\"; \"grilling: ...The reusable interview primitive behind grill-me, grill-with-docs, triage, wayfinder and improve-codebase-architecture.\"",
+          "topic": "skill-composition",
+          "position": "skills-explicitly-compose-via-named-cross-references",
+          "stance": "neutral"
+        },
+        {
+          "source": "README.md (install section, step 2)",
+          "finding": "A one-time setup skill (setup-matt-pocock-skills) configures per-repo state (issue tracker choice, triage labels, docs location) that other skills then read, rather than each skill re-asking.",
+          "evidence": "\"Run it once per repo before using the other engineering skills... It will: Ask you which issue tracker you want to use...\"",
+          "topic": "skill-composition",
+          "position": "shared-setup-skill-seeds-config-for-others",
+          "stance": "neutral"
+        },
+        {
+          "source": "code-review/SKILL.md:9 and tdd/SKILL.md:5, to-tickets/SKILL.md:11",
+          "finding": "Multiple skills read a repo-local CONTEXT.md and check ADRs before acting, establishing a shared 'project memory' convention that skills defer to rather than duplicating domain knowledge in the skill body.",
+          "evidence": "tdd/SKILL.md: \"read CONTEXT.md (if it exists) so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching.\"",
+          "topic": "project-context-convention",
+          "position": "shared-context-md-plus-adrs-referenced-across-skills",
+          "stance": "neutral"
+        },
+        {
+          "source": "README.md (top)",
+          "finding": "The README frames the project explicitly against competitors (GSD, BMAD, Spec-Kit) and states a design philosophy of small, composable, model-agnostic skills that don't own the whole process.",
+          "evidence": "\"Approaches like GSD, BMAD, and Spec-Kit try to help by owning the process. But while doing so, they take away your control... These skills are designed to be small, easy to adapt, and composable. They work with any model.\"",
+          "topic": "design-philosophy",
+          "position": "small-composable-non-owning-vs-monolithic-process-frameworks",
+          "stance": "neutral"
+        },
+        {
+          "source": "diagnosing-bugs/SKILL.md ('Redact' section)",
+          "finding": "The diagnosing-bugs skill has an explicit secret-redaction rule instructing the agent to write <REDACTED> in place of secrets before showing command output, and to build loops against env vars rather than embedding credentials.",
+          "evidence": "\"This skill has you show commands, outputs and captured artifacts. Redact every secret first: write <REDACTED> in its place.\"",
+          "topic": "safety-conventions",
+          "position": "inline-redaction-rule-in-diagnostics-skill",
+          "stance": "neutral"
+        },
+        {
+          "source": "no repo path found",
+          "finding": "No evidence of automated tests or evals for the skills themselves was found in the tree (a `tests` hit only matched skills/engineering/tdd/tests.md, which is skill reference content, not a test suite of the skill).",
+          "evidence": "grep of tree paths for 'test'/'eval' returned only skills/engineering/tdd/tests.md",
+          "topic": "skill-testing",
+          "position": "no-skill-level-eval-harness-found",
+          "stance": "neutral"
+        },
+        {
+          "source": "README.md skill catalog (engineering, model-invoked)",
+          "finding": "Skills most relevant to a multi-agent SWE workflow suite (planning/review/refactor/testing/docs) beyond the two excluded ones are: code-review (parallel Standards+Spec sub-agent review), tdd (red-green-refactor discipline), diagnosing-bugs (structured debug loop), to-tickets/to-spec/wayfinder (planning and ticket decomposition), implement (drives tdd+code-review), domain-modeling (CONTEXT.md/ADR maintenance), and resolving-merge-conflicts.",
+          "evidence": "README catalog entries for code-review, tdd, diagnosing-bugs, to-tickets, to-spec, wayfinder, implement, domain-modeling, resolving-merge-conflicts",
+          "topic": "relevant-skills-for-suite",
+          "position": "code-review-tdd-diagnosing-bugs-tickets-implement-are-closest-analogues",
+          "stance": "neutral"
+        }
+      ]
+    },
+    {
+      "area": "target-skills",
+      "findings": [
+        {
+          "source": "codebase-design/SKILL.md frontmatter",
+          "finding": "codebase-design is framed as a shared vocabulary skill, not a workflow, invoked whenever another skill needs deep-module language.",
+          "evidence": "name: codebase-design; description: \"Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.\"",
+          "topic": "skill-purpose-codebase-design",
+          "position": "codebase-design is a terminology/reference skill, deliberately not a step-by-step process",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/SKILL.md, Glossary section",
+          "finding": "The skill enforces a strict, closed glossary and explicitly bans synonyms to keep language consistent across agents.",
+          "evidence": "\"Use these terms exactly: don't substitute 'component,' 'service,' 'API,' or 'boundary.' Consistent language is the whole point.\" Terms defined: Module, Interface, Implementation vs Adapter, Depth, Seam (attributed to Michael Feathers), Adapter, Leverage, Locality.",
+          "topic": "glossary-discipline",
+          "position": "vocabulary is treated as a hard constraint (banned synonyms), reused verbatim by the sibling skill's HTML-REPORT tone rules",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/SKILL.md, Deep vs shallow section",
+          "finding": "Core design heuristic is 'depth': a deep module hides a lot of behaviour behind a small interface; a shallow module's interface is nearly as complex as its implementation.",
+          "evidence": "\"A module is deep when a large amount of behaviour sits behind a small interface, shallow when the interface is nearly as complex as the implementation.\" Includes ASCII diagrams of deep vs shallow module shapes and three self-check questions: 'Can I reduce the number of methods? Can I simplify the parameters? Can I hide more complexity inside?'",
+          "topic": "module-depth-heuristic",
+          "position": "depth (interface simplicity vs implementation complexity ratio) is the central design axis, explicitly derived from/attributed to Ousterhout's work but redefined as leverage rather than a line-count ratio",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/SKILL.md, Principles section",
+          "finding": "Four named principles govern when/how to introduce seams and judge whether a module earns its complexity.",
+          "evidence": "\"Depth is a property of the interface, not the implementation.\" \"The deletion test. Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.\" \"The interface is the test surface.\" \"One adapter means a hypothetical seam. Two adapters means a real one.\"",
+          "topic": "seam-and-deletion-heuristics",
+          "position": "these four bullet principles are the operational heuristics used later by improve-codebase-architecture's exploration step",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/SKILL.md, Designing for testability section",
+          "finding": "Three concrete testability rules with before/after TypeScript code examples: inject dependencies, return results instead of mutating, keep surface area small.",
+          "evidence": "\"1. Accept dependencies, don't create them... 2. Return results, don't produce side effects... 3. Small surface area. Fewer methods = fewer tests needed. Fewer params = simpler test setup.\" Code snippets show `processOrder(order, paymentGateway)` vs internal `new StripeGateway()`, and `calculateDiscount(cart): Discount` vs `applyDiscount(cart): void`.",
+          "topic": "testability-rules",
+          "position": "testability is treated as a direct consequence of interface design (dependency injection, pure-return functions, small surface), not a separate concern",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/SKILL.md, Relationships and Rejected framings sections",
+          "finding": "The skill formalizes term relationships and explicitly documents rejected alternative framings, including a named disagreement with Ousterhout's depth metric.",
+          "evidence": "\"Depth as ratio of implementation-lines to interface-lines (Ousterhout): rewards padding the implementation. We use depth-as-leverage instead.\" Also rejects TypeScript `interface` keyword as the meaning of 'Interface' and rejects 'Boundary' as overloaded with DDD's bounded context.",
+          "topic": "ousterhout-depth-metric",
+          "position": "explicitly diverges from Ousterhout's line-count depth ratio in favor of a leverage-based definition, while still crediting Ousterhout by name (also cites Michael Feathers for 'seam')",
+          "stance": "contradicts"
+        },
+        {
+          "source": "codebase-design/SKILL.md, Going deeper section",
+          "finding": "codebase-design links out to two sibling process docs in its own directory: DEEPENING.md (given dependencies) and DESIGN-IT-TWICE.md (alternative interface exploration).",
+          "evidence": "\"Deepening a cluster given its dependencies, see DEEPENING.md... Exploring alternative interfaces, see DESIGN-IT-TWICE.md: spin up parallel sub-agents to design the interface several radically different ways, then compare on depth, locality, and seam placement.\"",
+          "topic": "codebase-design-structure",
+          "position": "codebase-design SKILL.md is a hub (vocabulary + principles) with two satellite process files in the same directory, both of which assume the glossary is already loaded",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/DEEPENING.md",
+          "finding": "DEEPENING.md provides a 4-tier dependency classification that determines testing/adapter strategy when deepening a module.",
+          "evidence": "Categories: \"1. In-process\" (pure computation, no adapter needed), \"2. Local-substitutable\" (test stand-ins like PGLite, seam stays internal), \"3. Remote but owned (Ports & Adapters)\" (define a port, HTTP adapter for prod + in-memory adapter for tests), \"4. True external (Mock)\" (third-party services like Stripe/Twilio, injected port + mock adapter).",
+          "topic": "dependency-classification",
+          "position": "the dependency category of what a module talks to (in-process/local-substitutable/remote-owned/true-external) determines whether and how a seam/port/adapter should be introduced",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/DEEPENING.md, Testing strategy section",
+          "finding": "DEEPENING.md prescribes 'replace, don't layer' testing: delete old shallow-module unit tests once interface-level tests exist for the deepened module.",
+          "evidence": "\"Old unit tests on shallow modules become waste once tests at the deepened module's interface exist; delete them... Tests should survive internal refactors, since they describe behaviour, not implementation. If a test has to change when the implementation changes, it's testing past the interface.\"",
+          "topic": "test-replacement-policy",
+          "position": "tests should sit only at the module's external interface; internal-state or implementation-level tests are considered waste to be deleted, not kept alongside new ones",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/DESIGN-IT-TWICE.md",
+          "finding": "DESIGN-IT-TWICE.md is a named process ('Design It Twice', citing Ousterhout) that spawns 3+ parallel sub-agents to each produce a radically different interface design, then compares and recommends.",
+          "evidence": "\"Based on 'Design It Twice' (Ousterhout): your first idea is unlikely to be the best... Spawn 3+ sub-agents in parallel. Each must produce a radically different interface for the deepened module.\" Example agent briefs: minimize interface to 1-3 entry points, maximise flexibility, optimise for common caller, design around ports & adapters.",
+          "topic": "design-it-twice-process",
+          "position": "cites Ousterhout by name approvingly for the parallel-exploration technique, in contrast to the earlier explicit rejection of his depth-ratio metric \u2014 i.e. the skill selectively adopts some Ousterhout ideas and rejects others",
+          "stance": "supports"
+        },
+        {
+          "source": "DESIGN-IT-TWICE.md, step 3",
+          "finding": "The process ends with an opinionated recommendation step, not a neutral menu.",
+          "evidence": "\"After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated: the user wants a strong read, not a menu.\"",
+          "topic": "opinionated-output-style",
+          "position": "both skills consistently prescribe decisive, opinionated agent output rather than hedged option lists (echoed in improve-codebase-architecture's Top recommendation section and HTML-REPORT's 'no hedging' tone rule)",
+          "stance": "neutral"
+        },
+        {
+          "source": "improve-codebase-architecture/SKILL.md frontmatter",
+          "finding": "improve-codebase-architecture is a command-style skill (not auto-invoked by the model) that scans a codebase and produces a visual HTML report, then a follow-on interactive loop.",
+          "evidence": "name: improve-codebase-architecture; description: \"Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.\"; disable-model-invocation: true",
+          "topic": "skill-purpose-improve-codebase-architecture",
+          "position": "unlike codebase-design (auto-invocable reference), this skill is user-invoked only (disable-model-invocation: true) and is a full workflow with concrete artifacts",
+          "stance": "neutral"
+        },
+        {
+          "source": "improve-codebase-architecture/SKILL.md, top of file",
+          "finding": "The skill explicitly declares its dependency on codebase-design for vocabulary/principles and on project files CONTEXT.md and docs/adr/ for domain names and prior decisions.",
+          "evidence": "\"Call the Skill tool with 'codebase-design' for the architecture vocabulary... and its principles (the deletion test, 'the interface is the test surface', 'one adapter = hypothetical seam, two = real'). Use these terms exactly in every suggestion... The domain language in CONTEXT.md gives names to good seams; ADRs in docs/adr/ record decisions this command should not re-litigate.\"",
+          "topic": "cross-skill-dependency",
+          "position": "improve-codebase-architecture explicitly composes codebase-design as a dependency (vocabulary/principles), plus two other skills (grilling, domain-modeling) invoked later in its process \u2014 it is downstream of codebase-design, not a peer",
+          "stance": "supports"
+        },
+        {
+          "source": "improve-codebase-architecture/SKILL.md, Process step 1 (Explore)",
+          "finding": "Step 1 prescribes a YAGNI-scoped exploration: prefer a user-named direction, else mine `git log --oneline` for hot spots before scanning broadly, then spawn a sub-agent to explore organically (not via rigid heuristics) using five friction questions plus the deletion test.",
+          "evidence": "\"Scope before you scan: YAGNI... walk back a good stretch of the commit history (git log --oneline) to find the codebase's hot spots... Then spawn a sub-agent to walk the codebase. Don't follow rigid heuristics; explore organically...\" Friction questions include: \"Where does understanding one concept require bouncing between many small modules?\" and \"Apply the deletion test to anything you suspect is shallow.\"",
+          "topic": "exploration-scoping",
+          "position": "exploration is git-history-driven and delegated to a sub-agent, explicitly avoiding a fixed checklist in favor of organic search guided by named friction questions",
+          "stance": "neutral"
+        },
+        {
+          "source": "improve-codebase-architecture/SKILL.md, Process step 2 (Present candidates)",
+          "finding": "Step 2 produces a self-contained HTML report (Tailwind+Mermaid via CDN) written to the OS temp dir (never the repo), with one card per candidate containing Files/Problem/Solution/Benefits/Before-After diagram/Recommendation strength badge, ending in a Top recommendation section; explicitly does NOT propose interfaces yet.",
+          "evidence": "\"Write a self-contained HTML file to the OS temp directory so nothing lands in the repo... write to <tmpdir>/architecture-review-<timestamp>.html... Recommendation strength: one of Strong, Worth exploring, Speculative... Do NOT propose interfaces yet. After the file is written, ask the user: 'Which of these would you like to explore?'\"",
+          "topic": "html-report-output",
+          "position": "output artifact is an ephemeral, non-repo HTML report used purely for human triage before any interface design work begins",
+          "stance": "neutral"
+        },
+        {
+          "source": "improve-codebase-architecture/SKILL.md, ADR conflicts subsection",
+          "finding": "The skill has an explicit policy for handling conflicts with existing Architecture Decision Records: surface only when friction genuinely warrants revisiting, and flag with a warning callout rather than silently overriding or blanket-listing.",
+          "evidence": "\"if a candidate contradicts an existing ADR, only surface it when the friction is real enough to warrant revisiting the ADR. Mark it clearly in the card (e.g. a warning callout: 'contradicts ADR-0007, but worth reopening because\u2026'). Don't list every theoretical refactor an ADR forbids.\"",
+          "topic": "adr-conflict-policy",
+          "position": "ADRs are treated as durable constraints that can be reopened only with real justification, not as a rulebook to work around silently",
+          "stance": "neutral"
+        },
+        {
+          "source": "improve-codebase-architecture/SKILL.md, Process step 3 (Grilling loop)",
+          "finding": "Step 3 is an interactive loop invoking two more external skills: 'grilling' to walk a decision tree with the user, and 'domain-modeling' to keep CONTEXT.md current; also offers to record an ADR when the user rejects a candidate for a load-bearing reason.",
+          "evidence": "\"Once the user picks a candidate, call the Skill tool with 'grilling' to walk the decision tree... call the Skill tool with 'domain-modeling' to keep the domain model current... User rejects the candidate with a load-bearing reason? Offer an ADR, framed as: 'Want me to record this as an ADR so future architecture reviews don't re-suggest it?'\"",
+          "topic": "full-workflow-loop",
+          "position": "improve-codebase-architecture is a 3-step audit->report->interactive-refine loop that also touches project state (CONTEXT.md, ADRs) as a side effect, distinguishing it from codebase-design's stateless vocabulary role; it also references codebase-design's DESIGN-IT-TWICE pattern again when the user wants alternative interfaces",
+          "stance": "neutral"
+        },
+        {
+          "source": "improve-codebase-architecture/HTML-REPORT.md, Tone section",
+          "finding": "HTML-REPORT.md enforces the exact same closed glossary as codebase-design (module, interface, depth, seam, adapter, leverage, locality) with explicit banned synonyms, plus a 'no hedging' prose style and specific example phrasings.",
+          "evidence": "\"Use exactly: module, interface, implementation, depth, deep, shallow, seam, adapter, leverage, locality. Never substitute: component, service, unit (for module) \u00b7 API, signature (for interface) \u00b7 boundary (for seam)...\" \"No hedging, no throat-clearing, no 'it's worth noting that\u2026'. Don't write 'easier to maintain' or 'cleaner code', because those terms aren't in the glossary.\"",
+          "topic": "glossary-discipline",
+          "position": "confirms the glossary discipline is enforced end-to-end into the rendered report output, not just the reasoning phase",
+          "stance": "supports"
+        },
+        {
+          "source": "improve-codebase-architecture/HTML-REPORT.md, Diagram patterns",
+          "finding": "HTML-REPORT.md prescribes five distinct diagram patterns (Mermaid graph, hand-built boxes-and-arrows, cross-section, mass diagram, call-graph collapse) each mapped to a specific kind of architectural before/after story, explicitly requiring visual variety.",
+          "evidence": "\"Pick the pattern that fits the candidate. Mix them. Don't make every diagram look the same. Variety is part of the point.\" Mass diagram pattern: \"Before: interface rectangle is nearly as tall as the implementation rectangle (shallow). After: interface rectangle is short, implementation rectangle is tall (deep).\"",
+          "topic": "html-report-diagrams",
+          "position": "visual encoding of the depth/shallow concept is treated as central to the report's persuasive power, with detailed CSS/Tailwind/Mermaid scaffolding provided",
+          "stance": "neutral"
+        },
+        {
+          "source": "codebase-design/agents/openai.yaml and improve-codebase-architecture/agents/openai.yaml",
+          "finding": "Both skill directories include an openai.yaml file under an agents/ subfolder, suggesting an OpenAI-harness-specific agent/tool binding alongside the primary SKILL.md.",
+          "evidence": "GitHub API listing shows agents/openai.yaml (102 bytes) in codebase-design and agents/openai.yaml (166 bytes) in improve-codebase-architecture; contents not yet fetched.",
+          "topic": "harness-specific-adapters",
+          "position": "the skills ship harness-specific companion files beyond SKILL.md, which matters for porting into a different skill suite (may need adaptation, not just copying SKILL.md)",
+          "stance": "neutral"
+        },
+        {
+          "source": "improve-codebase-architecture/SKILL.md and codebase-design/SKILL.md, sizes",
+          "finding": "Both SKILL.md files are moderate length (~6KB, roughly 100-150 lines each) with satellite files similarly sized (2.5-6.6KB), making the full bundle (SKILL.md + 2-3 referenced files per skill) portable but non-trivial to inline into a single file.",
+          "evidence": "GitHub API sizes: codebase-design/SKILL.md 6446 bytes, DEEPENING.md 2553 bytes, DESIGN-IT-TWICE.md 2664 bytes; improve-codebase-architecture/SKILL.md 5993 bytes, HTML-REPORT.md 6641 bytes.",
+          "topic": "porting-size-format",
+          "position": "for porting, each skill's SKILL.md is the entry point but genuinely depends on its sibling .md files being carried along (they are relative-linked, e.g. '[DEEPENING.md](DEEPENING.md)'), and improve-codebase-architecture additionally depends on two skills not investigated here ('grilling', 'domain-modeling')",
+          "stance": "neutral"
+        }
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "topic": "ousterhout-depth-metric",
+      "positions": [
+        "explicitly diverges from Ousterhout's line-count depth ratio in favor of a leverage-based definition, while still crediting Ousterhout by name (also cites Michael Feathers for 'seam')"
+      ]
+    }
+  ],
+  "coverage": {
+    "missingAreas": [],
+    "complete": true
+  },
+  "gaps": [
+    "local-skills: Did not inspect agents/agy/builder, planner, specifier, or debugger bodies for design guidance, since the task scoped this to reviewer and the skills directly named.",
+    "local-skills: Did not check whether target repos' own AGENTS.md/CLAUDE.md (produced by repo-setup) are expected to carry project-specific design conventions that skills then defer to \u2014 repo-setup/SKILL.md was only read for its one-line description, not fully.",
+    "upstream-repo: Did not fetch every SKILL.md body (only 5 of 35 were read in full); frontmatter-only descriptions were relied on for the remaining 30, taken from README.md rather than re-verified against each file's own frontmatter.",
+    "upstream-repo: Did not investigate the skills.sh installer's own code/behavior beyond the README's description of it.",
+    "upstream-repo: Did not check the deprecated/ or personal/ buckets' contents (personal/ folder wasn't even present in the tree fetched \u2014 may not exist in this repo state, or the ADR text is stale).",
+    "target-skills: Did not fetch/decode the contents of agents/openai.yaml in either directory (only confirmed their existence and size via the GitHub contents API) \u2014 unclear if these are load-bearing for porting or purely OpenAI-harness plumbing.",
+    "target-skills: Did not investigate the 'grilling' and 'domain-modeling' skills that improve-codebase-architecture explicitly depends on in step 3 \u2014 out of scope for this area but relevant to a complete port.",
+    "target-skills: Did not verify whether main vs master branch matters; main resolved successfully on first try so master was never tried.",
+    "target-skills: CONTEXT.md and docs/adr/ are referenced as external project-level dependencies but their expected schema/format is not defined anywhere in the two target skills \u2014 unclear what 'CONTEXT.md vocabulary' looks like structurally."
+  ],
+  "openQuestions": [
+    "local-skills: Is the near-total absence of module-depth/interface-design vocabulary (Ousterhout-style heuristics, coupling/cohesion, dependency-direction rules) in code-refactor and the correctness lens intentional minimalism, or a genuine coverage gap versus an external skills repo that might supply such a reference?",
+    "local-skills: Should code-refactor and code-analysis gain a references/ (or shared) design-heuristics document analogous to code-review/references/frontend-review.md, given they are SKILL.md-only today?",
+    "upstream-repo: Does the skills.sh installer (npx skills@latest add) perform any validation or versioning of skills on copy-in, or is it a raw file copy?",
+    "upstream-repo: How does 'ask-matt' (the router skill) decide which skill to recommend \u2014 keyword matching, an LLM call, or a static decision table? (body not read)",
+    "upstream-repo: Is there any real evaluation harness elsewhere in the mattpocock organization (outside this repo) for testing skill efficacy, given none was found here?",
+    "target-skills: Should a ported version of improve-codebase-architecture require the 'grilling' and 'domain-modeling' skills to exist, or should it be adapted to work standalone / with substitute steps?",
+    "target-skills: Is the disable-model-invocation: true frontmatter field meaningful/supported in the target skill suite, or does it need translation to that suite's equivalent (e.g. a different trigger/manual-only mechanism)?",
+    "target-skills: Do the openai.yaml agent files carry configuration (e.g. model choice for the sub-agents in DESIGN-IT-TWICE.md or the exploration sub-agent in step 1) that should be preserved during a port?"
+  ]
+}

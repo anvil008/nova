@@ -1,4 +1,4 @@
-// Package guard implements anvil-guard, the harness-neutral test-seal and
+// Package guard implements tdd-guard, the harness-neutral test-seal and
 // diff-review gate. It records either a RED baseline for behaviour changes or
 // a GREEN baseline for refactors, refuses edits to sealed tests, and refuses to
 // let an agent stop until a passing run and a real diff review exist for the
@@ -205,7 +205,7 @@ type Status struct {
 	DiffStale    bool        `json:"diffStale"`
 	ArchStale    bool        `json:"archStale"`
 	Ready        bool        `json:"ready"`
-	// Records is the stable list of runs anvil-guard itself performed. It is
+	// Records is the stable list of runs tdd-guard itself performed. It is
 	// what the control plane resolves an agent-cited commandId against.
 	Records []controlplane.GuardRecord `json:"records"`
 }
@@ -246,7 +246,7 @@ func stateBaseDirectory() (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("resolve home for guard state: %w", err)
 		}
-		base = filepath.Join(home, ".local", "state", "anvil-guard")
+		base = filepath.Join(home, ".local", "state", "tdd-guard")
 	}
 	if !filepath.IsAbs(base) {
 		return "", fmt.Errorf("guard state directory %q must be absolute", base)
@@ -293,7 +293,7 @@ func writeJSON(pathname string, value any) error {
 	if err := os.MkdirAll(filepath.Dir(pathname), 0o700); err != nil {
 		return err
 	}
-	temporary, err := os.CreateTemp(filepath.Dir(pathname), ".anvil-guard-*")
+	temporary, err := os.CreateTemp(filepath.Dir(pathname), ".tdd-guard-*")
 	if err != nil {
 		return err
 	}
@@ -442,7 +442,7 @@ func (s *state) sealedTestsTouchedSince(before map[string]testStat) ([]string, e
 	return touched, nil
 }
 
-// records lists the runs anvil-guard performed for this repository, in a stable
+// records lists the runs tdd-guard performed for this repository, in a stable
 // order so two readers of the same state agree byte for byte.
 func (s *state) records() []controlplane.GuardRecord {
 	collected := make([]controlplane.GuardRecord, 0, 3)

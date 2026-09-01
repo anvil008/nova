@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>mattpocock/skills comparison · Foundry Zero Research</title>
+  <style>/* Foundry Zero report design system.
+   Shared core for the planner folio, the code-review report, and the research packet.
+   This file is byte-identical in skills/planner, skills/code-review, and skills/research;
+   a test asserts that. Skill-specific rules live alongside it. */
+
+:root, [data-theme="dark"] {
+  --bg: oklch(0.19 0.012 250);
+  --bg-2: oklch(0.225 0.014 250);
+  --bg-3: oklch(0.265 0.016 250);
+  --bg-4: oklch(0.305 0.018 250);
+  --line: oklch(0.325 0.018 250);
+  --line-2: oklch(0.415 0.020 250);
+  --txt: oklch(0.945 0.006 250);
+  --txt-2: oklch(0.735 0.014 250);
+  --txt-3: oklch(0.590 0.016 250);
+  --acc: oklch(0.700 0.145 255);
+  --acc-bg: oklch(0.265 0.045 255);
+  --sev-critical: oklch(0.680 0.180 22);
+  --sev-critical-bg: oklch(0.290 0.070 22);
+  --sev-high: oklch(0.775 0.145 62);
+  --sev-high-bg: oklch(0.295 0.060 62);
+  --sev-medium: oklch(0.820 0.130 95);
+  --sev-medium-bg: oklch(0.300 0.055 95);
+  --sev-low: oklch(0.740 0.090 230);
+  --sev-low-bg: oklch(0.280 0.045 230);
+  --sev-nit: oklch(0.700 0.030 250);
+  --sev-nit-bg: oklch(0.280 0.014 250);
+  --ok: oklch(0.780 0.130 155);
+  --ok-bg: oklch(0.275 0.055 155);
+  --mut: var(--txt-3); /* alias the generated diagrams paint neutral nodes with */
+  --gap: 46px;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: oklch(0.980 0.004 250);
+  --bg-2: oklch(1 0 0);
+  --bg-3: oklch(0.962 0.006 250);
+  --bg-4: oklch(0.935 0.008 250);
+  --line: oklch(0.900 0.008 250);
+  --line-2: oklch(0.820 0.012 250);
+  --txt: oklch(0.245 0.014 250);
+  --txt-2: oklch(0.455 0.016 250);
+  --txt-3: oklch(0.585 0.016 250);
+  --acc: oklch(0.520 0.170 258);
+  --acc-bg: oklch(0.955 0.022 258);
+  --sev-critical: oklch(0.505 0.190 22);
+  --sev-critical-bg: oklch(0.940 0.045 22);
+  --sev-high: oklch(0.560 0.140 55);
+  --sev-high-bg: oklch(0.945 0.050 62);
+  --sev-medium: oklch(0.560 0.115 90);
+  --sev-medium-bg: oklch(0.950 0.055 95);
+  --sev-low: oklch(0.520 0.110 230);
+  --sev-low-bg: oklch(0.945 0.035 230);
+  --sev-nit: oklch(0.520 0.020 250);
+  --sev-nit-bg: oklch(0.945 0.006 250);
+  --ok: oklch(0.470 0.115 155);
+  --ok-bg: oklch(0.938 0.050 155);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+}
+
+a { color: var(--acc); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 4px; }
+::selection { background: var(--acc-bg); }
+
+.mono, .kbd, code, pre {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* ── Chrome: toolbar ───────────────────────────────────────────── */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 8px 22px;
+  flex-wrap: wrap;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.bar-mark {
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--acc); color: var(--bg);
+  display: grid; place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; font-weight: 700;
+}
+.bar-name { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.01em; }
+.bar-spacer { flex: 1; }
+.chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 5px;
+  background: var(--acc-bg); color: var(--acc); border: 1px solid var(--line);
+}
+.bar button {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; padding: 5px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg-3); color: var(--txt-2);
+  cursor: pointer;
+}
+.bar button:hover { border-color: var(--line-2); color: var(--txt); }
+.bar-note {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+
+/* ── Chrome: shell and contents rail ───────────────────────────── */
+
+.shell {
+  display: grid;
+  grid-template-columns: 246px minmax(0, 1fr);
+  align-items: start;
+  max-width: 1420px;
+  margin: 0 auto;
+}
+
+.rail {
+  position: sticky;
+  top: 56px;
+  align-self: start;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 28px 18px 60px 22px;
+  border-right: 1px solid var(--line);
+}
+.rail-title, .eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--txt-3);
+}
+.rail-title { margin-bottom: 12px; }
+.rail nav { display: flex; flex-direction: column; gap: 1px; }
+.rail nav a {
+  display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: baseline;
+  padding: 5px 8px; border-radius: 6px; font-size: 13px;
+  color: var(--txt-2); border-left: 2px solid transparent;
+}
+.rail nav a:hover { background: var(--bg-3); text-decoration: none; color: var(--txt); }
+.rail nav a .num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; color: var(--txt-3);
+}
+.rail-foot {
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; line-height: 1.8; color: var(--txt-3);
+  overflow-wrap: anywhere;
+}
+
+main { padding: 34px 44px 120px; max-width: 1010px; min-width: 0; }
+
+/* ── Sections ──────────────────────────────────────────────────── */
+
+.section { margin-bottom: var(--gap); scroll-margin-top: 68px; }
+.section-head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.section-head .num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.section-head h2 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; flex: 1; }
+.section-head .count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+h3 { font-size: 13.5px; font-weight: 600; margin: 22px 0 10px; letter-spacing: -0.005em; }
+p { margin: 0 0 14px; max-width: 76ch; }
+.lede { font-size: 16.5px; color: var(--txt-2); max-width: 68ch; }
+.muted { color: var(--txt-3); }
+
+/* ── Header block ──────────────────────────────────────────────── */
+
+.doc-eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 10px;
+}
+h1 { margin: 0 0 10px; font-size: 33px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.18; }
+
+.verdict-row { display: flex; gap: 12px; align-items: stretch; margin: 20px 0; flex-wrap: wrap; }
+.verdict {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 17px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg-2);
+  flex: 1; min-width: 320px;
+}
+.verdict-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--txt-3); }
+.verdict-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt-3);
+}
+.verdict-value { font-weight: 600; font-size: 15px; }
+
+.meter { display: flex; gap: 3px; }
+.meter i { width: 15px; height: 5px; border-radius: 3px; background: var(--bg-4); }
+.meter i.on { background: var(--acc); }
+
+.meta-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.meta-grid > div { background: var(--bg-2); padding: 11px 14px; min-width: 0; }
+.meta-grid dt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 3px;
+}
+.meta-grid dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px; color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Metrics ───────────────────────────────────────────────────── */
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.metric { padding: 13px 15px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); }
+.metric .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.metric .v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+.metric .v span { font-size: 12.5px; font-weight: 400; color: var(--txt-3); margin-left: 4px; }
+.metric .d {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.metric.tone-critical .v { color: var(--sev-critical); }
+.metric.tone-high .v { color: var(--sev-high); }
+.metric.tone-ok .v { color: var(--ok); }
+
+/* ── Cards, chips, callouts ────────────────────────────────────── */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.card { padding: 14px 16px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); min-width: 0; }
+.card h3 { margin: 0 0 5px; font-size: 14.5px; }
+.card p { margin: 0; color: var(--txt-2); font-size: 13.5px; }
+
+.tag {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; padding: 1px 6px; border-radius: 4px;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--txt-3);
+}
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.callout {
+  display: grid; grid-template-columns: 18px 1fr; gap: 10px;
+  padding: 11px 14px; border-radius: 9px; margin: 14px 0;
+  border: 1px solid var(--line); background: var(--bg-2); font-size: 13.5px;
+}
+.callout .mark { font-weight: 700; }
+.callout p { margin: 0; }
+.callout.warn { background: var(--sev-high-bg); }
+.callout.warn .mark { color: var(--sev-high); }
+.callout.note { background: var(--acc-bg); }
+.callout.note .mark { color: var(--acc); }
+.callout.blocker { background: var(--sev-critical-bg); }
+.callout.blocker .mark { color: var(--sev-critical); }
+
+.spec {
+  display: grid; grid-template-columns: 16px 1fr; gap: 10px;
+  margin: 0 0 16px; padding: 9px 12px;
+  background: var(--acc-bg); border: 1px dashed var(--line-2); border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; line-height: 1.7; color: var(--txt-2);
+}
+.spec .mark { color: var(--acc); font-weight: 700; }
+.spec b { color: var(--txt); }
+[data-hints="off"] .spec { display: none; }
+
+/* ── Severity ──────────────────────────────────────────────────── */
+
+.sev {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+}
+.sev-critical { background: var(--sev-critical-bg); color: var(--sev-critical); }
+.sev-high     { background: var(--sev-high-bg);     color: var(--sev-high); }
+.sev-medium   { background: var(--sev-medium-bg);   color: var(--sev-medium); }
+.sev-low      { background: var(--sev-low-bg);      color: var(--sev-low); }
+.sev-nit      { background: var(--sev-nit-bg);      color: var(--sev-nit); }
+
+.bar-critical { background: var(--sev-critical); }
+.bar-high     { background: var(--sev-high); }
+.bar-medium   { background: var(--sev-medium); }
+.bar-low      { background: var(--sev-low); }
+.bar-nit      { background: var(--sev-nit); }
+
+/* ── Tables ────────────────────────────────────────────────────── */
+
+.table-shell { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); font-weight: 500; background: var(--bg-3);
+}
+td { font-size: 13.5px; }
+td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+/* ── Diagrams ──────────────────────────────────────────────────── */
+
+.diagram-shell {
+  overflow-x: auto; border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; background: var(--bg-2);
+}
+/* Generated at build time at its natural size; the shell scrolls rather than
+   shrinking the labels, and print falls back to fitting the page. */
+.diagram-shell > svg.diagram { display: block; margin: 0 auto; }
+.diagram-text { margin-top: 10px; color: var(--txt-3); font-size: 12px; }
+.diagram-text summary { cursor: pointer; }
+.diagram-text ul { margin: 8px 0 0; padding-left: 20px; }
+.diagram-text li { margin: 3px 0; overflow-wrap: anywhere; }
+
+/* ── Disclosure rows ───────────────────────────────────────────── */
+
+.rows { display: flex; flex-direction: column; gap: 9px; }
+.row {
+  border-radius: 10px; background: var(--bg-2);
+  border: 1px solid var(--line); overflow: hidden;
+}
+.row > summary {
+  display: grid; grid-template-columns: 4px 1fr auto;
+  align-items: stretch; cursor: pointer; list-style: none;
+}
+.row > summary::-webkit-details-marker { display: none; }
+.row > summary:hover { background: var(--bg-3); }
+.row .stripe { grid-row: 1; }
+.row .row-body { padding: 13px 16px; min-width: 0; }
+.row .row-title { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 5px; }
+.row .row-title strong { font-weight: 600; font-size: 15px; }
+.row .row-meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+.row .caret {
+  display: grid; place-items: center; padding: 0 16px; color: var(--txt-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+}
+.row[open] .caret { transform: rotate(180deg); }
+.row-detail { padding: 4px 16px 16px 20px; border-top: 1px solid var(--line); }
+
+.block { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); margin-top: 12px; }
+.block .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 5px;
+}
+.block p { margin: 0; font-size: 13.8px; max-width: 74ch; }
+/* Neutral on purpose: severity is carried by the stripe and badge, so tinting
+   the impact block by severity would double-encode it — and mis-encode it on a
+   low finding. */
+.block.impact { background: var(--bg-3); }
+.block.impact .k { color: var(--txt-2); }
+.block.proof { background: var(--ok-bg); }
+.block.proof .k { color: var(--ok); }
+
+/* ── Motion, print, narrow viewports ───────────────────────────── */
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.pulse { animation: pulse 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail {
+    position: static; max-height: none; border-right: 0;
+    border-bottom: 1px solid var(--line); padding: 20px 22px;
+  }
+  .rail nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  main { padding: 26px 22px 90px; }
+  h1 { font-size: 27px; }
+}
+
+@media (max-width: 560px) {
+  .bar { padding: 8px 14px; gap: 9px; }
+  main { padding: 22px 14px 70px; }
+  .rail { padding: 16px 14px; }
+  h1 { font-size: 23px; }
+  .verdict { min-width: 0; }
+}
+
+@media print {
+  .bar, .rail, .spec, .no-print { display: none !important; }
+  .shell { display: block; max-width: none; }
+  main { padding: 0; max-width: none; }
+  body { background: #fff; color: #111; font-size: 10.5pt; }
+  .section { break-inside: auto; margin-bottom: 22px; }
+  .section-head, .card, .metric, .row, .block, .verdict { break-inside: avoid; }
+  .row > summary { cursor: default; }
+  .row-detail { display: block !important; border-top: 1px solid #ddd; }
+  .diagram-shell, .table-shell { overflow: visible; }
+  .diagram-shell > svg.diagram { max-width: 100%; height: auto; }
+  a { color: inherit; text-decoration: none; }
+}
+
+/* Research packet — additions on top of report.css. */
+
+.verdict-clean { background: var(--ok-bg); }
+.verdict-clean .verdict-dot { background: var(--ok); }
+.verdict-advisory { background: var(--sev-medium-bg); }
+.verdict-advisory .verdict-dot { background: var(--sev-medium); }
+.verdict-action { background: var(--sev-critical-bg); }
+.verdict-action .verdict-dot { background: var(--sev-critical); }
+.verdict-incomplete { background: var(--sev-high-bg); }
+.verdict-incomplete .verdict-dot { background: var(--sev-high); }
+
+.filters { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+.filter-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-right: 2px;
+}
+.filter {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 20px; cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+  border: 1px solid var(--line); background: var(--bg-3); color: var(--txt-2);
+}
+.filter:hover { border-color: var(--line-2); color: var(--txt); }
+.filter .n { opacity: 0.6; }
+.filter[aria-pressed="false"] { opacity: 0.42; }
+.filter[aria-pressed="true"] { border-color: var(--line-2); color: var(--txt); }
+.row[hidden] { display: none; }
+
+.finding-id, .loc {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-2);
+}
+.finding-id { color: var(--txt-3); font-size: 11px; }
+.area, .topic {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px; border: 1px solid var(--line);
+}
+.area { background: var(--acc-bg); color: var(--acc); }
+.topic { background: var(--bg-3); color: var(--txt-2); }
+
+.recs { display: flex; flex-direction: column; gap: 10px; }
+.rec {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px;
+  padding: 14px 16px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line);
+}
+.rec .stripe { width: 4px; border-radius: 2px; align-self: stretch; }
+.rec h3 { margin: 0 0 4px; font-size: 14.5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.rec p { margin: 0 0 6px; font-size: 13.3px; color: var(--txt-2); }
+.rec .refs { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.conflict { padding: 12px 14px; border-radius: 10px; background: var(--sev-high-bg); border: 1px solid var(--line); margin-bottom: 8px; }
+.conflict .k { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sev-high); }
+.conflict ul { margin: 6px 0 0 18px; padding: 0; font-size: 13.3px; }
+
+.list { margin: 0; padding-left: 20px; font-size: 13.4px; color: var(--txt-2); }
+.list li { margin: 4px 0; }
+.list .area { margin-right: 6px; }
+
+.empty {
+  padding: 26px; text-align: center; border-radius: 10px;
+  border: 1px dashed var(--line-2); color: var(--txt-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
+}
+
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.step-card { padding: 14px 16px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); }
+.step-card .n {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--acc);
+}
+.step-card h3 { margin: 4px 0 6px; font-size: 14.5px; }
+.step-card p { margin: 0; font-size: 13.3px; color: var(--txt-2); }
+
+@media print {
+  .filters { display: none !important; }
+  .row[hidden] { display: block !important; }
+}
+</style>
+  <script>
+  document.documentElement.dataset.theme =
+    window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  </script>
+</head>
+<body>
+
+<div class="bar">
+  <span class="bar-name"><span class="bar-mark">FZ</span>Foundry Zero</span>
+  <span class="chip">Research</span>
+  <span class="bar-spacer"></span>
+  <span class="bar-note">What Workcell&#x27;s skills can borrow from mattpocock/skills, focused on codebase-design and improve-codebase-architecture</span>
+  <button type="button" id="hints-toggle">&#9671; hints</button>
+  <button type="button" id="theme-toggle" aria-label="Toggle colour theme">&#9788;</button>
+</div>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail-title">Contents</div>
+    <nav>
+      <a href="#summary"><span class="num">01</span><span>Summary</span></a>
+      <a href="#recommendations"><span class="num">02</span><span>Recommendations</span></a>
+      <a href="#findings"><span class="num">03</span><span>Findings</span></a>
+      <a href="#conflicts"><span class="num">04</span><span>Conflicts</span></a>
+      <a href="#coverage"><span class="num">05</span><span>Coverage &amp; Gaps</span></a>
+      <a href="#method"><span class="num">06</span><span>Method</span></a>
+    </nav>
+    <div class="rail-foot">
+      <div>repo · anvil008/workcell</div>
+      <div>subject · What Workcell&#x27;s skills can borrow from mattpocock/skills, focused on codebase-design and improve-codebase-architecture</div>
+      <div>areas · 3</div>
+    </div>
+  </aside>
+
+  <main>
+
+    <section class="section" id="header">
+      <div class="doc-eyebrow">Research &middot; generated <time datetime="2026-08-31T22:07:34-06:00">August 31, 2026</time></div>
+      <h1>mattpocock/skills comparison</h1>
+      <p class="lede">56 deduplicated finding(s) from 56 raw observation(s) across 3 area(s); 1 conflict(s), 9 gap(s), 8 open question(s).</p>
+
+      <div class="verdict-row">
+        <div class="verdict verdict-advisory">
+          <span class="verdict-dot pulse"></span>
+          <div>
+            <div class="verdict-label">Verdict</div>
+            <div class="verdict-value">Advisory — issues found, none urgent</div>
+          </div>
+        </div>
+        <div class="verdict" style="flex: 0 0 auto;">
+          <div>
+            <div class="verdict-label">Coverage</div>
+            <div class="verdict-value">complete</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div><dt>Repository</dt><dd>anvil008/workcell</dd></div>
+        <div><dt>Subject</dt><dd>What Workcell&#x27;s skills can borrow from mattpocock/skills, focused on codebase-design and improve-codebase-architecture</dd></div>
+        <div><dt>Areas</dt><dd>3</dd></div>
+        <div><dt>Findings</dt><dd>56</dd></div>
+        <div><dt>Recommendations</dt><dd>6</dd></div>
+        <div><dt>Generated</dt><dd>2026-08-31T22:07:34-06:00</dd></div>
+      </div>
+    </section>
+
+    <section class="section" id="summary">
+      <div class="section-head"><span class="num">01</span><h2>Summary</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>metrics-row</b> &mdash; the funnel from raw per-area findings to the deduplicated packet, plus what the merge surfaced: conflicts, gaps, and open questions.</div>
+      </div>
+      <div class="metrics"><div class="metric"><div class="k">Raw findings</div><div class="v">56</div><div class="d">before dedupe</div></div><div class="metric"><div class="k">Deduplicated</div><div class="v">56</div><div class="d">across 3 area(s)</div></div><div class="metric tone-high"><div class="k">Conflicts</div><div class="v">1</div><div class="d">topics with a contradicting stance</div></div><div class="metric tone-ok"><div class="k">Missing areas</div><div class="v">0</div><div class="d">declared, no report</div></div><div class="metric"><div class="k">Gaps</div><div class="v">9</div><div class="d">unresolved by an area</div></div><div class="metric"><div class="k">Open questions</div><div class="v">8</div><div class="d">raised by an area</div></div></div>
+      <h3>Areas researched</h3>
+      <div class="tags"><span class="tag">local-skills</span><span class="tag">upstream-repo</span><span class="tag">target-skills</span></div>
+      <p style="margin-top:16px;">Workcell&#x27;s skills are strong on orchestration process (dispatch contracts, deterministic merge/render scripts, human gates, evals) but carry almost no code-design method: the only architecture vocabulary in the repo is two sentences in code-refactor, code-review has no architecture lens, and reviewer agents get four vague style flags. mattpocock/skills supplies exactly the missing layer — codebase-design is a portable, closed-glossary design method (depth-as-leverage, the deletion test, seam/adapter rules, testability rules, a 4-tier dependency classification) and improve-codebase-architecture is a report-first architecture-audit workflow whose shape (git-history scoping, sub-agent exploration, HTML candidate report for human triage, ADR-conflict policy) maps almost one-to-one onto patterns Workcell already has. Port the content — the glossary, principles, and workflow steps — into Workcell&#x27;s existing skill shapes (references/ files, lenses, research/refactor survey steps) rather than importing the single-agent skills wholesale.</p>
+    </section>
+
+    <section class="section" id="recommendations">
+      <div class="section-head"><span class="num">02</span><h2>Recommendations</h2><span class="count">6</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>recommendations</b> &mdash; the primary agent&rsquo;s synthesis over the evidence below. Subagent output is evidence, never the verdict; each recommendation cites the findings it rests on.</div>
+      </div>
+      <div class="recs"><article class="rec"><span class="stripe bar-high"></span><div><h3><span class="sev sev-high">high</span><span class="finding-id">R-01</span>Port the codebase-design glossary and principles as a shared design-heuristics reference</h3><p>Create a design-heuristics reference (e.g. skills/code-refactor/references/design-heuristics.md, cross-linked from code-review and plan) carrying the closed glossary (module, interface, depth, seam, adapter, leverage, locality — with banned synonyms), the four principles (depth is a property of the interface; the deletion test; the interface is the test surface; one adapter = hypothetical seam, two = real), the three testability rules, and DEEPENING.md&#x27;s 4-tier dependency classification. This fills the repo&#x27;s only real content gap: no skill or doc currently teaches a design method, and code-refactor/code-analysis are SKILL.md-only with no references/ today.</p><div class="refs"><a class="tag" href="#F1-03">F1-03</a><a class="tag" href="#F1-10">F1-10</a><a class="tag" href="#F3-02">F3-02</a><a class="tag" href="#F3-03">F3-03</a><a class="tag" href="#F3-04">F3-04</a><a class="tag" href="#F3-05">F3-05</a><a class="tag" href="#F3-08">F3-08</a></div></div></article><article class="rec"><span class="stripe bar-high"></span><div><h3><span class="sev sev-high">high</span><span class="finding-id">R-02</span>Upgrade code-refactor&#x27;s survey step with the ported heuristics</h3><p>code-refactor&#x27;s survey currently lists six smells in one sentence. Give its researcher agents the deletion test, depth-as-leverage, the adapter-count seam rule, and git-log hot-spot scoping (YAGNI: scan where the history shows churn, not the whole tree) from improve-codebase-architecture&#x27;s exploration step, plus the &#x27;replace, don&#x27;t layer&#x27; test policy (delete implementation-level tests once interface-level tests exist) when a module is deepened.</p><div class="refs"><a class="tag" href="#F1-02">F1-02</a><a class="tag" href="#F3-04">F3-04</a><a class="tag" href="#F3-09">F3-09</a><a class="tag" href="#F3-14">F3-14</a></div></div></article><article class="rec"><span class="stripe bar-medium"></span><div><h3><span class="sev sev-medium">medium</span><span class="finding-id">R-03</span>Adopt improve-codebase-architecture&#x27;s report-first triage as the front half of code-refactor (or a research preset)</h3><p>Before any refactor work, produce a candidate report for human triage: one card per deepening opportunity with Files/Problem/Solution/Benefits, a recommendation-strength badge (Strong / Worth exploring / Speculative), an explicit ADR-conflict callout policy (only surface a conflict when friction justifies reopening the ADR; offer to record an ADR when the human rejects a candidate), and a hard rule of not designing interfaces before the human picks. Render it with Workcell&#x27;s existing Foundry Zero report tooling rather than the upstream Tailwind/Mermaid scaffold.</p><div class="refs"><a class="tag" href="#F3-12">F3-12</a><a class="tag" href="#F3-15">F3-15</a><a class="tag" href="#F3-16">F3-16</a><a class="tag" href="#F3-17">F3-17</a><a class="tag" href="#F1-15">F1-15</a></div></div></article><article class="rec"><span class="stripe bar-medium"></span><div><h3><span class="sev sev-medium">medium</span><span class="finding-id">R-04</span>Add Design-It-Twice to plan/new-feature for interface decisions</h3><p>The DESIGN-IT-TWICE process — spawn 3+ parallel agents, each forced to design the interface a radically different way (minimal surface, max flexibility, optimise for the common caller, ports &amp; adapters), compare on depth/locality/seam placement, end with one opinionated recommendation — is a natural fit for Workcell&#x27;s existing fan-out orchestration and would slot into plan or new-feature at the point an interface is being chosen.</p><div class="refs"><a class="tag" href="#F3-10">F3-10</a><a class="tag" href="#F3-11">F3-11</a><a class="tag" href="#F1-14">F1-14</a></div></div></article><article class="rec"><span class="stripe bar-medium"></span><div><h3><span class="sev sev-medium">medium</span><span class="finding-id">R-05</span>Close the architecture-lens gap in code-review deliberately</h3><p>code-review&#x27;s lens set (correctness, tests, security, performance, api-contract, backend, integrations, frontend) has no architecture lens; design judgment today is four style flags bolted onto the correctness lens, while code-analysis explicitly routes design to code-refactor. Either add an architecture lens reference (analogous to references/frontend-review.md) built on the ported glossary, or state in the reviewer bodies that module-design findings belong to code-refactor — the current in-between leaves reviewers with no method.</p><div class="refs"><a class="tag" href="#F1-04">F1-04</a><a class="tag" href="#F1-05">F1-05</a><a class="tag" href="#F1-07">F1-07</a><a class="tag" href="#F1-13">F1-13</a></div></div></article><article class="rec"><span class="stripe bar-low"></span><div><h3><span class="sev sev-low">low</span><span class="finding-id">R-06</span>Borrow small authoring conventions where Workcell lacks them</h3><p>Worth copying: `disable-model-invocation: true` frontmatter on human-gated command skills; the project-memory convention of a domain-vocabulary file that skills read so seam names match domain language (Workcell&#x27;s wiki/AGENTS.md could carry this); and the glossary-enforced, no-hedging report tone. Not worth copying: the upstream repo has no eval harness for its skills (Workcell&#x27;s evals/cases is ahead) and its single-agent skill shape conflicts with ADR 0007&#x27;s pure-orchestrator contract — port content, not process shape.</p><div class="refs"><a class="tag" href="#F2-08">F2-08</a><a class="tag" href="#F2-16">F2-16</a><a class="tag" href="#F2-19">F2-19</a><a class="tag" href="#F3-18">F3-18</a><a class="tag" href="#F1-08">F1-08</a></div></div></article></div>
+    </section>
+
+    <section class="section" id="findings">
+      <div class="section-head"><span class="num">03</span><h2>Findings</h2><span class="count">56</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>findings-list</b> &mdash; data: areas[]{area, findings[]{source, finding, evidence, topic, position}}. Deduplicated by (area, source, finding); declared-area order preserved.</div>
+      </div>
+      <div class="filters" data-filter-group="area">
+        <span class="filter-label">Area</span><button type="button" class="filter" aria-pressed="true" data-value="local-skills">local-skills <span class="n">15</span></button><button type="button" class="filter" aria-pressed="true" data-value="upstream-repo">upstream-repo <span class="n">20</span></button><button type="button" class="filter" aria-pressed="true" data-value="target-skills">target-skills <span class="n">21</span></button>
+      </div>
+      <div class="rows" id="finding-rows"><details class="row" id="F1-01" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-01</span><strong>code-refactor is the only skill whose one-line description names concrete design vocabulary — &#x27;consolidate duplicated modules, deepen shallow ones, delete dead paths&#x27; and &#x27;interface is wider than their substance&#x27;.</strong></div><div class="row-meta"><span class="loc">skills/code-refactor/SKILL.md:2-8</span><span class="area">local-skills</span><span class="topic">design-heuristics-vocabulary</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;deepen ones whose interface is wider than their substance, collapse indirection that earns nothing&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>code-refactor has the only concrete module-depth/interface-width vocabulary in the repo</p></div></div></details><details class="row" id="F1-02" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-02</span><strong>code-refactor&#x27;s survey step lists concrete simplification signals a researcher agent looks for.</strong></div><div class="row-meta"><span class="loc">skills/code-refactor/SKILL.md:31</span><span class="area">local-skills</span><span class="topic">design-heuristics-vocabulary</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;duplicated logic, modules that only forward, abstractions with a single caller, dead exports, cyclic dependencies, and interfaces wider than their use&quot;</p></div><div class="block"><div class="k">Position (supports)</div><p>the only enumerated architectural smells (single-caller abstractions, cyclic deps, forwarding modules) live in code-refactor&#x27;s survey step, not in a shared reference doc</p></div></div></details><details class="row" id="F1-03" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-03</span><strong>outside code-refactor&#x27;s two description/body sentences, no skill or doc uses module-depth/interface-design vocabulary (e.g. no &#x27;deepen shallow modules&#x27;, &#x27;module depth&#x27;, &#x27;dependency direction&#x27; as a repeated heuristic).</strong></div><div class="row-meta"><span class="loc">grep skills/ + docs/ for &#x27;deepen|module depth|shallow module|dependency direction&#x27;</span><span class="area">local-skills</span><span class="topic">design-heuristics-thin</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>grep matched only skills/code-refactor/SKILL.md:3,8,31 and an unrelated jj git-shallow-clone hit at skills/jj/references/git-compatibility.md:63</p></div><div class="block"><div class="k">Position (neutral)</div><p>no dedicated design-heuristics reference file exists anywhere in skills/; the phrase is a one-off in the orchestration skill body, not a taught method</p></div></div></details><details class="row" id="F1-04" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-04</span><strong>code-review&#x27;s lens set is correctness, tests, security, performance, api-contract, backend, integrations, frontend — there is no &#x27;architecture&#x27; or &#x27;design&#x27; lens.</strong></div><div class="row-meta"><span class="loc">skills/code-review/SKILL.md:16-24</span><span class="area">local-skills</span><span class="topic">review-lens-coverage</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;correctness and tests are always selected; security applies when... performance applies to... api-contract applies when... backend applies when... integrations applies when... frontend applies when&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>code-review&#x27;s lens fan-out has no architecture/design lens; design concerns fall through the correctness lens&#x27;s &#x27;unnecessary complexity&#x27; style criteria instead</p></div></div></details><details class="row" id="F1-05" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-05</span><strong>the closest thing to design guidance for reviewers is a short &#x27;Style criteria (correctness lens)&#x27; clause bolted onto the correctness lens, not a standalone design lens.</strong></div><div class="row-meta"><span class="loc">agents/bodies/reviewer.md:34-36 (agents/agy/reviewer/agent.md:49-51)</span><span class="area">local-skills</span><span class="topic">design-heuristics-thin</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Under the correctness lens, also flag: unnecessary complexity, defensive handling for cases that cannot happen, comments that merely restate the code, and new files that should have been edits. Hold changes to concise code that matches the surrounding idiom, naming, and comment density.&quot;</p></div><div class="block"><div class="k">Position (supports)</div><p>reviewer agents get only 4 vague style flags (complexity, dead defensiveness, restating comments, unnecessary new files) plus &#x27;match surrounding idiom&#x27; — no module-depth, interface, or dependency-direction heuristics</p></div></div></details><details class="row" id="F1-06" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-06</span><strong>code-review has a references/ dir with one design-adjacent lens document (frontend-review.md, 73 lines), covering responsive layout, accessibility, design-system token conformance, and visual QA across a 10-row viewport matrix — but this is UI/visual design, not code/module architecture.</strong></div><div class="row-meta"><span class="loc">skills/code-review/references/frontend-review.md:1-33</span><span class="area">local-skills</span><span class="topic">review-lens-coverage</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Responsive — layout holds across the viewport matrix... Design-system conformance — uses the project&#x27;s tokens / components / spacing / type scale rather than one-off values.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>the repo&#x27;s only lens-specific &#x27;design&#x27; reference document is about UI visual design (frontend-review.md), not module/interface architecture</p></div></div></details><details class="row" id="F1-07" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-07</span><strong>code-review/references/ contains exactly two files: frontend-review.md and report-rendering.md — the latter governs renderer/template maintenance, not review content.</strong></div><div class="row-meta"><span class="loc">skills/code-review/references/report-rendering.md (dir listing)</span><span class="area">local-skills</span><span class="topic">review-lens-coverage</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>ls skills/code-review/references/ -&gt; frontend-review.md report-rendering.md</p></div><div class="block"><div class="k">Position (supports)</div><p>no architecture-lens reference file exists in code-review/references/</p></div></div></details><details class="row" id="F1-08" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-08</span><strong>orchestration skills share a canonical boundary paragraph declaring the primary agent a pure orchestrator that dispatches agents and never edits target-project code itself.</strong></div><div class="row-meta"><span class="loc">skills/code-refactor/SKILL.md, skills/code-analysis/SKILL.md, skills/code-review/SKILL.md, skills/plan/SKILL.md, skills/research/SKILL.md, skills/build/SKILL.md (openings, e.g. code-review:10, code-refactor:10)</span><span class="area">local-skills</span><span class="topic">authoring-conventions</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;You are the orchestrator ([ADR 0007]...): you dispatch agents, hold the human gates, run git/jj/gh... You never read or edit the target project&#x27;s code, run its suites, or author its artifacts.&quot; (verbatim across code-refactor:10, code-review:10, code-analysis:10, research:10)</p></div><div class="block"><div class="k">Position (neutral)</div><p>SKILL.md files are dispatch contracts for a pure-orchestrator primary agent per ADR 0007/0009, not implementation guides themselves</p></div></div></details><details class="row" id="F1-09" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-09</span><strong>the repo&#x27;s own ADR states the design intent: SKILL.md holds operator procedure while references/ holds artifact schemas, naming rules, reconciliation shapes, and maintenance rules for the agent/maintainer that owns them.</strong></div><div class="row-meta"><span class="loc">docs/adr/0009-skills-are-dispatch-contracts.md:9</span><span class="area">local-skills</span><span class="topic">authoring-conventions</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Operator procedure stays in SKILL.md; artifact schemas, naming rules, reconciliation shapes, and renderer/template maintenance rules live in linked references/ files read by the agent or maintainer that owns them.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>the SKILL.md/references split is deliberate and codified, not incidental</p></div></div></details><details class="row" id="F1-10" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-10</span><strong>skill subdirectory conventions vary by whether the skill has deterministic tooling: build, code-review, docs, plan, research, review-fix-loop, wiki have scripts/ (and often examples/, tests/, references/ or templates/); code-analysis, code-refactor, debug, deploy, perf, repo-setup, use-other-harness are SKILL.md-only with no scripts/examples/tests.</strong></div><div class="row-meta"><span class="loc">directory listing across skills/*</span><span class="area">local-skills</span><span class="topic">authoring-conventions</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>e.g. code-review: examples references scripts SKILL.md templates tests; code-refactor: SKILL.md (only); code-analysis: SKILL.md (only)</p></div><div class="block"><div class="k">Position (neutral)</div><p>code-refactor and code-analysis — the two skills closest to &#x27;design quality&#x27; work — have no scripts/, references/, or tests/ subdirectories at all, unlike code-review, plan, research, and build which pair prose procedure with deterministic merge/render/reconcile scripts</p></div></div></details><details class="row" id="F1-11" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-11</span><strong>code-review&#x27;s deterministic-script pattern merges, verifies, and renders findings via Python scripts (merge_findings.py --dedupe-only / --verification, render_review.py) rather than leaving synthesis to prose judgment.</strong></div><div class="row-meta"><span class="loc">skills/code-review/SKILL.md:38,40,55-63</span><span class="area">local-skills</span><span class="topic">authoring-conventions</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;skills/code-review/scripts/merge_findings.py --dedupe-only chooses the representative by highest severity, highest confidence, then lexicographically smallest (lens, failureScenario)&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>deterministic scripts exist for merge/dedupe/render/reconcile pipelines but not for judging design quality itself</p></div></div></details><details class="row" id="F1-12" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-12</span><strong>code-review has an explicit human gate before filing findings as GitHub issues, and a severity floor (default medium) that keeps low/nit findings out of the tracker.</strong></div><div class="row-meta"><span class="loc">skills/code-review/SKILL.md:82-84,111</span><span class="area">local-skills</span><span class="topic">authoring-conventions</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Stop for explicit human approval before --apply. Issues are outward-facing... --min-severity (default medium) sets the filing threshold; low and nit stay in the report rather than becoming tracker noise.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>human gates are load-bearing before any outward/durable write (GitHub issues), consistent across skills</p></div></div></details><details class="row" id="F1-13" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-13</span><strong>code-analysis explicitly routes style/design complaints away from itself to code-refactor, and explicitly excludes &#x27;this is not how I would write it&#x27; as a defect category from any skill.</strong></div><div class="row-meta"><span class="loc">skills/code-analysis/SKILL.md:16</span><span class="area">local-skills</span><span class="topic">design-heuristics-thin</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;&#x27;This could be clearer&#x27;, &#x27;this lacks a null check nothing can reach&#x27;, and &#x27;this is not how I would write it&#x27; are not defects — the first belongs to code-refactor and the rest belong nowhere.&quot;</p></div><div class="block"><div class="k">Position (supports)</div><p>the repo&#x27;s skill taxonomy treats subjective design/style judgment as explicitly out of scope for correctness-hunting, with code-refactor as the sole nominal owner but no method document backing it</p></div></div></details><details class="row" id="F1-14" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-14</span><strong>plan and new-feature are the entry points that could route design decisions upstream (planning a milestone / interviewing before planning) but their descriptions focus on process (evidence-backed plan, 5+ clarifying questions) not architectural heuristics.</strong></div><div class="row-meta"><span class="loc">skills/plan/SKILL.md:1-8, skills/new-feature/SKILL.md:1-8</span><span class="area">local-skills</span><span class="topic">design-heuristics-thin</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>plan: &quot;produce an offline HTML implementation plan plus a strict JSON sidecar&quot;; new-feature: &quot;starting with a real interview — at least five clarifying questions before any planning&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>planning-stage skills govern process rigor (evidence, interview, sidecar) rather than teaching architectural design heuristics</p></div></div></details><details class="row" id="F1-15" data-area="local-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F1-15</span><strong>the ADR corpus (21 ADRs) is entirely about agent/skill/harness architecture (orchestrator role, dispatch contracts, workspace naming, plugin distribution) — none is a design-quality or code-architecture standards doc for target-project code.</strong></div><div class="row-meta"><span class="loc">docs/adr/ directory listing</span><span class="area">local-skills</span><span class="topic">repo-standards-docs</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>ls docs/adr: 0007-primary-agent-is-a-pure-orchestrator, 0009-skills-are-dispatch-contracts, 0012-builders-verify-runtime-before-review, 0017-the-build-wave-overlaps..., 0021-deploys-serve-plugins-from-a-durable-path (no ADR titled on code design/architecture standards)</p></div><div class="block"><div class="k">Position (supports)</div><p>docs/adr/ documents Workcell&#x27;s own meta-architecture (how agents/skills work), not design standards that reviewer/refactor agents apply to a target codebase&#x27;s code</p></div></div></details><details class="row" id="F2-01" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-01</span><strong>Skills are organized into five top-level bucket folders under skills/, of which only two are shipped in the plugin.</strong></div><div class="row-meta"><span class="loc">tree API listing</span><span class="area">upstream-repo</span><span class="topic">skill-layout</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>skills/deprecated, skills/engineering, skills/in-progress, skills/misc, skills/productivity</p></div><div class="block"><div class="k">Position (neutral)</div><p>bucketed-by-category-and-maturity</p></div></div></details><details class="row" id="F2-02" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-02</span><strong>The repo contains 35 SKILL.md files across engineering (17), in-progress (7), misc (4), and productivity (7).</strong></div><div class="row-meta"><span class="loc">tree API listing</span><span class="area">upstream-repo</span><span class="topic">skill-catalog-size</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>grep of paths ending SKILL.md, grouped by directory</p></div><div class="block"><div class="k">Position (neutral)</div><p>35-skills-4-buckets</p></div></div></details><details class="row" id="F2-03" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-03</span><strong>Only the engineering and productivity buckets are &#x27;promoted&#x27; (shipped in the plugin); misc, personal, in-progress, and deprecated are excluded.</strong></div><div class="row-meta"><span class="loc">.agents/adr/0002-ship-as-a-claude-code-plugin.md</span><span class="area">upstream-repo</span><span class="topic">skill-layout</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Skills live in bucket folders under skills/: engineering/ and productivity/ are promoted (shipped); misc/, personal/, in-progress/, and deprecated/ are not.&quot;</p></div><div class="block"><div class="k">Position (supports)</div><p>promotion-gates-distribution-not-just-directory</p></div></div></details><details class="row" id="F2-04" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-04</span><strong>The repo ships via two parallel channels: a read-only Claude Code plugin (subscribe model, official marketplace) and an editable copy-in installer (`npx skills add`) for Codex/other agents.</strong></div><div class="row-meta"><span class="loc">README.md (installation section)</span><span class="area">upstream-repo</span><span class="topic">distribution-mechanism</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;The Claude Code plugin installs the whole set as a managed, read-only bundle... skills.sh copies editable skill files into your project... Pick one: installing both leaves you with every skill twice.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>dual-channel-subscribe-vs-fork</p></div></div></details><details class="row" id="F2-05" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-05</span><strong>A native Codex plugin is deferred because Codex&#x27;s plugin manifest accepts only a single path string for skills (no curated subset, and symlinks are dropped on install), unlike Claude Code&#x27;s array-of-paths manifest.</strong></div><div class="row-meta"><span class="loc">.agents/adr/0002-ship-as-a-claude-code-plugin.md</span><span class="area">upstream-repo</span><span class="topic">cross-harness-support</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Codex: .codex-plugin/plugin.json accepts skills only as a single path string (arrays are rejected...). Codex copies the plugin tree into its cache and drops symlinks, so the skills arrive empty.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>codex-plugin-blocked-by-manifest-format</p></div></div></details><details class="row" id="F2-06" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-06</span><strong>Each SKILL.md directory can carry an agents/openai.yaml sidecar giving a harness-specific display_name and short_description, i.e. a per-harness metadata override rather than a full alternate body.</strong></div><div class="row-meta"><span class="loc">skills/engineering/tdd/agents/openai.yaml, skills/engineering/diagnosing-bugs/agents/openai.yaml, skills/productivity/writing-for-agents/agents/openai.yaml</span><span class="area">upstream-repo</span><span class="topic">cross-harness-support</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>tdd/agents/openai.yaml: &quot;interface:\n  display_name: \&quot;TDD\&quot;\n  short_description: \&quot;Test-driven red-green-refactor\&quot;&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>per-skill-agents-sidecar-not-full-fork</p></div></div></details><details class="row" id="F2-07" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-07</span><strong>Skills are explicitly typed as either &#x27;User-invoked&#x27; (run by the human as a slash command) or &#x27;Model-invoked&#x27; (triggered automatically by the agent when the task fits), and a user-invoked skill may call a model-invoked one but never the reverse.</strong></div><div class="row-meta"><span class="loc">README.md (skill catalog)</span><span class="area">upstream-repo</span><span class="topic">skill-invocation-model</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;...invoked by you or reached for automatically by the agent when the task fits...A user-invoked skill may invoke model-invoked skills, but never another user-invoked one.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>strict-user-vs-model-invocation-hierarchy</p></div></div></details><details class="row" id="F2-08" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-08</span><strong>User-invoked skills use `disable-model-invocation: true` in frontmatter to enforce that they are never auto-triggered.</strong></div><div class="row-meta"><span class="loc">skills/engineering/to-tickets/SKILL.md:5</span><span class="area">upstream-repo</span><span class="topic">skill-invocation-model</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;name: to-tickets\ndescription: ...\ndisable-model-invocation: true&quot;</p></div><div class="block"><div class="k">Position (supports)</div><p>frontmatter-flag-enforces-user-invoked-only</p></div></div></details><details class="row" id="F2-09" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-09</span><strong>Frontmatter is minimal — only `name` and a long `description` field carrying trigger phrasing (&quot;Use when...&quot;) — with no other structured metadata beyond the optional disable-model-invocation flag.</strong></div><div class="row-meta"><span class="loc">skills/engineering/code-review/SKILL.md:1-4</span><span class="area">upstream-repo</span><span class="topic">frontmatter-fields</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>description: &quot;...Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \&quot;review since X\&quot;.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>minimal-frontmatter-name-and-description-only</p></div></div></details><details class="row" id="F2-10" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-10</span><strong>Skill bodies are short (38-138 lines observed) procedural/heuristic hybrids: numbered process steps mixed with named-concept reference sections (e.g. &#x27;seams&#x27;, &#x27;anti-patterns&#x27;, &#x27;tracer-bullet&#x27;, &#x27;wide refactor&#x27;).</strong></div><div class="row-meta"><span class="loc">skills/engineering/tdd/SKILL.md, skills/engineering/code-review/SKILL.md, skills/engineering/diagnosing-bugs/SKILL.md, skills/engineering/to-tickets/SKILL.md</span><span class="area">upstream-repo</span><span class="topic">authoring-style</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>tdd/SKILL.md is 38 lines; diagnosing-bugs/SKILL.md is 138 lines with numbered &#x27;Phase 1&#x27; feedback-loop construction options; to-tickets/SKILL.md defines &lt;vertical-slice-rules&gt; tags inline</p></div><div class="block"><div class="k">Position (neutral)</div><p>short-body-numbered-steps-plus-named-heuristics</p></div></div></details><details class="row" id="F2-11" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-11</span><strong>Longer or reusable reference material is pushed into sibling files in the same skill directory (mocking.md, tests.md, scripts/hitl-loop.template.sh) rather than inlined, following the repo&#x27;s own &#x27;progressive disclosure&#x27; principle.</strong></div><div class="row-meta"><span class="loc">skills/engineering/tdd/SKILL.md and skills/engineering/diagnosing-bugs/SKILL.md</span><span class="area">upstream-repo</span><span class="topic">authoring-style</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>tdd/SKILL.md: &quot;See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.&quot;; diagnosing-bugs uses scripts/hitl-loop.template.sh</p></div><div class="block"><div class="k">Position (supports)</div><p>progressive-disclosure-via-sibling-files-and-scripts</p></div></div></details><details class="row" id="F2-12" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-12</span><strong>The repo has a dedicated meta-skill (writing-for-agents) plus a SKILL-MECHANICS.md reference file that formalizes frontmatter, invocation choice, router skills, and an &#x27;information hierarchy&#x27; (in-file step / in-file reference / disclosed reference) as the design method behind all other skills.</strong></div><div class="row-meta"><span class="loc">skills/productivity/writing-for-agents/SKILL.md</span><span class="area">upstream-repo</span><span class="topic">authoring-style</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;When the document you&#x27;re writing is a skill, read SKILL-MECHANICS.md for frontmatter, invocation choice, and router skills.&quot; plus the &#x27;Information hierarchy&#x27; section defining three tiers</p></div><div class="block"><div class="k">Position (neutral)</div><p>explicit-meta-skill-governs-skill-authoring</p></div></div></details><details class="row" id="F2-13" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-13</span><strong>The repo has a router skill (ask-matt) whose sole job is to recommend which other user-invoked skill fits the situation.</strong></div><div class="row-meta"><span class="loc">skills/engineering/ask-matt/SKILL.md (README description)</span><span class="area">upstream-repo</span><span class="topic">authoring-style</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;ask-matt: Ask which skill or flow fits your situation. A router over the user-invoked skills in this repo.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>dedicated-router-skill-over-user-invoked-set</p></div></div></details><details class="row" id="F2-14" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-14</span><strong>Skills cross-reference each other by name inside descriptions/bodies to compose workflows (e.g. implement drives tdd then code-review; grilling underlies grill-me, grill-with-docs, triage, wayfinder, improve-codebase-architecture).</strong></div><div class="row-meta"><span class="loc">README.md</span><span class="area">upstream-repo</span><span class="topic">skill-composition</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;implement: ...driving /tdd at pre-agreed seams and closing out with /code-review before committing.&quot;; &quot;grilling: ...The reusable interview primitive behind grill-me, grill-with-docs, triage, wayfinder and improve-codebase-architecture.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>skills-explicitly-compose-via-named-cross-references</p></div></div></details><details class="row" id="F2-15" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-15</span><strong>A one-time setup skill (setup-matt-pocock-skills) configures per-repo state (issue tracker choice, triage labels, docs location) that other skills then read, rather than each skill re-asking.</strong></div><div class="row-meta"><span class="loc">README.md (install section, step 2)</span><span class="area">upstream-repo</span><span class="topic">skill-composition</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Run it once per repo before using the other engineering skills... It will: Ask you which issue tracker you want to use...&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>shared-setup-skill-seeds-config-for-others</p></div></div></details><details class="row" id="F2-16" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-16</span><strong>Multiple skills read a repo-local CONTEXT.md and check ADRs before acting, establishing a shared &#x27;project memory&#x27; convention that skills defer to rather than duplicating domain knowledge in the skill body.</strong></div><div class="row-meta"><span class="loc">code-review/SKILL.md:9 and tdd/SKILL.md:5, to-tickets/SKILL.md:11</span><span class="area">upstream-repo</span><span class="topic">project-context-convention</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>tdd/SKILL.md: &quot;read CONTEXT.md (if it exists) so test names and interface vocabulary match the project&#x27;s domain language, and respect ADRs in the area you&#x27;re touching.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>shared-context-md-plus-adrs-referenced-across-skills</p></div></div></details><details class="row" id="F2-17" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-17</span><strong>The README frames the project explicitly against competitors (GSD, BMAD, Spec-Kit) and states a design philosophy of small, composable, model-agnostic skills that don&#x27;t own the whole process.</strong></div><div class="row-meta"><span class="loc">README.md (top)</span><span class="area">upstream-repo</span><span class="topic">design-philosophy</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Approaches like GSD, BMAD, and Spec-Kit try to help by owning the process. But while doing so, they take away your control... These skills are designed to be small, easy to adapt, and composable. They work with any model.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>small-composable-non-owning-vs-monolithic-process-frameworks</p></div></div></details><details class="row" id="F2-18" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-18</span><strong>The diagnosing-bugs skill has an explicit secret-redaction rule instructing the agent to write &lt;REDACTED&gt; in place of secrets before showing command output, and to build loops against env vars rather than embedding credentials.</strong></div><div class="row-meta"><span class="loc">diagnosing-bugs/SKILL.md (&#x27;Redact&#x27; section)</span><span class="area">upstream-repo</span><span class="topic">safety-conventions</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;This skill has you show commands, outputs and captured artifacts. Redact every secret first: write &lt;REDACTED&gt; in its place.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>inline-redaction-rule-in-diagnostics-skill</p></div></div></details><details class="row" id="F2-19" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-19</span><strong>No evidence of automated tests or evals for the skills themselves was found in the tree (a `tests` hit only matched skills/engineering/tdd/tests.md, which is skill reference content, not a test suite of the skill).</strong></div><div class="row-meta"><span class="loc">no repo path found</span><span class="area">upstream-repo</span><span class="topic">skill-testing</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>grep of tree paths for &#x27;test&#x27;/&#x27;eval&#x27; returned only skills/engineering/tdd/tests.md</p></div><div class="block"><div class="k">Position (neutral)</div><p>no-skill-level-eval-harness-found</p></div></div></details><details class="row" id="F2-20" data-area="upstream-repo"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F2-20</span><strong>Skills most relevant to a multi-agent SWE workflow suite (planning/review/refactor/testing/docs) beyond the two excluded ones are: code-review (parallel Standards+Spec sub-agent review), tdd (red-green-refactor discipline), diagnosing-bugs (structured debug loop), to-tickets/to-spec/wayfinder (planning and ticket decomposition), implement (drives tdd+code-review), domain-modeling (CONTEXT.md/ADR maintenance), and resolving-merge-conflicts.</strong></div><div class="row-meta"><span class="loc">README.md skill catalog (engineering, model-invoked)</span><span class="area">upstream-repo</span><span class="topic">relevant-skills-for-suite</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>README catalog entries for code-review, tdd, diagnosing-bugs, to-tickets, to-spec, wayfinder, implement, domain-modeling, resolving-merge-conflicts</p></div><div class="block"><div class="k">Position (neutral)</div><p>code-review-tdd-diagnosing-bugs-tickets-implement-are-closest-analogues</p></div></div></details><details class="row" id="F3-01" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-01</span><strong>codebase-design is framed as a shared vocabulary skill, not a workflow, invoked whenever another skill needs deep-module language.</strong></div><div class="row-meta"><span class="loc">codebase-design/SKILL.md frontmatter</span><span class="area">target-skills</span><span class="topic">skill-purpose-codebase-design</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>name: codebase-design; description: &quot;Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module&#x27;s interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>codebase-design is a terminology/reference skill, deliberately not a step-by-step process</p></div></div></details><details class="row" id="F3-02" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-02</span><strong>The skill enforces a strict, closed glossary and explicitly bans synonyms to keep language consistent across agents.</strong></div><div class="row-meta"><span class="loc">codebase-design/SKILL.md, Glossary section</span><span class="area">target-skills</span><span class="topic">glossary-discipline</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Use these terms exactly: don&#x27;t substitute &#x27;component,&#x27; &#x27;service,&#x27; &#x27;API,&#x27; or &#x27;boundary.&#x27; Consistent language is the whole point.&quot; Terms defined: Module, Interface, Implementation vs Adapter, Depth, Seam (attributed to Michael Feathers), Adapter, Leverage, Locality.</p></div><div class="block"><div class="k">Position (neutral)</div><p>vocabulary is treated as a hard constraint (banned synonyms), reused verbatim by the sibling skill&#x27;s HTML-REPORT tone rules</p></div></div></details><details class="row" id="F3-03" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-03</span><strong>Core design heuristic is &#x27;depth&#x27;: a deep module hides a lot of behaviour behind a small interface; a shallow module&#x27;s interface is nearly as complex as its implementation.</strong></div><div class="row-meta"><span class="loc">codebase-design/SKILL.md, Deep vs shallow section</span><span class="area">target-skills</span><span class="topic">module-depth-heuristic</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;A module is deep when a large amount of behaviour sits behind a small interface, shallow when the interface is nearly as complex as the implementation.&quot; Includes ASCII diagrams of deep vs shallow module shapes and three self-check questions: &#x27;Can I reduce the number of methods? Can I simplify the parameters? Can I hide more complexity inside?&#x27;</p></div><div class="block"><div class="k">Position (neutral)</div><p>depth (interface simplicity vs implementation complexity ratio) is the central design axis, explicitly derived from/attributed to Ousterhout&#x27;s work but redefined as leverage rather than a line-count ratio</p></div></div></details><details class="row" id="F3-04" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-04</span><strong>Four named principles govern when/how to introduce seams and judge whether a module earns its complexity.</strong></div><div class="row-meta"><span class="loc">codebase-design/SKILL.md, Principles section</span><span class="area">target-skills</span><span class="topic">seam-and-deletion-heuristics</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Depth is a property of the interface, not the implementation.&quot; &quot;The deletion test. Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.&quot; &quot;The interface is the test surface.&quot; &quot;One adapter means a hypothetical seam. Two adapters means a real one.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>these four bullet principles are the operational heuristics used later by improve-codebase-architecture&#x27;s exploration step</p></div></div></details><details class="row" id="F3-05" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-05</span><strong>Three concrete testability rules with before/after TypeScript code examples: inject dependencies, return results instead of mutating, keep surface area small.</strong></div><div class="row-meta"><span class="loc">codebase-design/SKILL.md, Designing for testability section</span><span class="area">target-skills</span><span class="topic">testability-rules</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;1. Accept dependencies, don&#x27;t create them... 2. Return results, don&#x27;t produce side effects... 3. Small surface area. Fewer methods = fewer tests needed. Fewer params = simpler test setup.&quot; Code snippets show `processOrder(order, paymentGateway)` vs internal `new StripeGateway()`, and `calculateDiscount(cart): Discount` vs `applyDiscount(cart): void`.</p></div><div class="block"><div class="k">Position (neutral)</div><p>testability is treated as a direct consequence of interface design (dependency injection, pure-return functions, small surface), not a separate concern</p></div></div></details><details class="row" id="F3-06" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-06</span><strong>The skill formalizes term relationships and explicitly documents rejected alternative framings, including a named disagreement with Ousterhout&#x27;s depth metric.</strong></div><div class="row-meta"><span class="loc">codebase-design/SKILL.md, Relationships and Rejected framings sections</span><span class="area">target-skills</span><span class="topic">ousterhout-depth-metric</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Depth as ratio of implementation-lines to interface-lines (Ousterhout): rewards padding the implementation. We use depth-as-leverage instead.&quot; Also rejects TypeScript `interface` keyword as the meaning of &#x27;Interface&#x27; and rejects &#x27;Boundary&#x27; as overloaded with DDD&#x27;s bounded context.</p></div><div class="block"><div class="k">Position (contradicts)</div><p>explicitly diverges from Ousterhout&#x27;s line-count depth ratio in favor of a leverage-based definition, while still crediting Ousterhout by name (also cites Michael Feathers for &#x27;seam&#x27;)</p></div></div></details><details class="row" id="F3-07" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-07</span><strong>codebase-design links out to two sibling process docs in its own directory: DEEPENING.md (given dependencies) and DESIGN-IT-TWICE.md (alternative interface exploration).</strong></div><div class="row-meta"><span class="loc">codebase-design/SKILL.md, Going deeper section</span><span class="area">target-skills</span><span class="topic">codebase-design-structure</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Deepening a cluster given its dependencies, see DEEPENING.md... Exploring alternative interfaces, see DESIGN-IT-TWICE.md: spin up parallel sub-agents to design the interface several radically different ways, then compare on depth, locality, and seam placement.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>codebase-design SKILL.md is a hub (vocabulary + principles) with two satellite process files in the same directory, both of which assume the glossary is already loaded</p></div></div></details><details class="row" id="F3-08" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-08</span><strong>DEEPENING.md provides a 4-tier dependency classification that determines testing/adapter strategy when deepening a module.</strong></div><div class="row-meta"><span class="loc">codebase-design/DEEPENING.md</span><span class="area">target-skills</span><span class="topic">dependency-classification</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>Categories: &quot;1. In-process&quot; (pure computation, no adapter needed), &quot;2. Local-substitutable&quot; (test stand-ins like PGLite, seam stays internal), &quot;3. Remote but owned (Ports &amp; Adapters)&quot; (define a port, HTTP adapter for prod + in-memory adapter for tests), &quot;4. True external (Mock)&quot; (third-party services like Stripe/Twilio, injected port + mock adapter).</p></div><div class="block"><div class="k">Position (neutral)</div><p>the dependency category of what a module talks to (in-process/local-substitutable/remote-owned/true-external) determines whether and how a seam/port/adapter should be introduced</p></div></div></details><details class="row" id="F3-09" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-09</span><strong>DEEPENING.md prescribes &#x27;replace, don&#x27;t layer&#x27; testing: delete old shallow-module unit tests once interface-level tests exist for the deepened module.</strong></div><div class="row-meta"><span class="loc">codebase-design/DEEPENING.md, Testing strategy section</span><span class="area">target-skills</span><span class="topic">test-replacement-policy</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Old unit tests on shallow modules become waste once tests at the deepened module&#x27;s interface exist; delete them... Tests should survive internal refactors, since they describe behaviour, not implementation. If a test has to change when the implementation changes, it&#x27;s testing past the interface.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>tests should sit only at the module&#x27;s external interface; internal-state or implementation-level tests are considered waste to be deleted, not kept alongside new ones</p></div></div></details><details class="row" id="F3-10" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-10</span><strong>DESIGN-IT-TWICE.md is a named process (&#x27;Design It Twice&#x27;, citing Ousterhout) that spawns 3+ parallel sub-agents to each produce a radically different interface design, then compares and recommends.</strong></div><div class="row-meta"><span class="loc">codebase-design/DESIGN-IT-TWICE.md</span><span class="area">target-skills</span><span class="topic">design-it-twice-process</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Based on &#x27;Design It Twice&#x27; (Ousterhout): your first idea is unlikely to be the best... Spawn 3+ sub-agents in parallel. Each must produce a radically different interface for the deepened module.&quot; Example agent briefs: minimize interface to 1-3 entry points, maximise flexibility, optimise for common caller, design around ports &amp; adapters.</p></div><div class="block"><div class="k">Position (supports)</div><p>cites Ousterhout by name approvingly for the parallel-exploration technique, in contrast to the earlier explicit rejection of his depth-ratio metric — i.e. the skill selectively adopts some Ousterhout ideas and rejects others</p></div></div></details><details class="row" id="F3-11" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-11</span><strong>The process ends with an opinionated recommendation step, not a neutral menu.</strong></div><div class="row-meta"><span class="loc">DESIGN-IT-TWICE.md, step 3</span><span class="area">target-skills</span><span class="topic">opinionated-output-style</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated: the user wants a strong read, not a menu.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>both skills consistently prescribe decisive, opinionated agent output rather than hedged option lists (echoed in improve-codebase-architecture&#x27;s Top recommendation section and HTML-REPORT&#x27;s &#x27;no hedging&#x27; tone rule)</p></div></div></details><details class="row" id="F3-12" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-12</span><strong>improve-codebase-architecture is a command-style skill (not auto-invoked by the model) that scans a codebase and produces a visual HTML report, then a follow-on interactive loop.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/SKILL.md frontmatter</span><span class="area">target-skills</span><span class="topic">skill-purpose-improve-codebase-architecture</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>name: improve-codebase-architecture; description: &quot;Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.&quot;; disable-model-invocation: true</p></div><div class="block"><div class="k">Position (neutral)</div><p>unlike codebase-design (auto-invocable reference), this skill is user-invoked only (disable-model-invocation: true) and is a full workflow with concrete artifacts</p></div></div></details><details class="row" id="F3-13" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-13</span><strong>The skill explicitly declares its dependency on codebase-design for vocabulary/principles and on project files CONTEXT.md and docs/adr/ for domain names and prior decisions.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/SKILL.md, top of file</span><span class="area">target-skills</span><span class="topic">cross-skill-dependency</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Call the Skill tool with &#x27;codebase-design&#x27; for the architecture vocabulary... and its principles (the deletion test, &#x27;the interface is the test surface&#x27;, &#x27;one adapter = hypothetical seam, two = real&#x27;). Use these terms exactly in every suggestion... The domain language in CONTEXT.md gives names to good seams; ADRs in docs/adr/ record decisions this command should not re-litigate.&quot;</p></div><div class="block"><div class="k">Position (supports)</div><p>improve-codebase-architecture explicitly composes codebase-design as a dependency (vocabulary/principles), plus two other skills (grilling, domain-modeling) invoked later in its process — it is downstream of codebase-design, not a peer</p></div></div></details><details class="row" id="F3-14" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-14</span><strong>Step 1 prescribes a YAGNI-scoped exploration: prefer a user-named direction, else mine `git log --oneline` for hot spots before scanning broadly, then spawn a sub-agent to explore organically (not via rigid heuristics) using five friction questions plus the deletion test.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/SKILL.md, Process step 1 (Explore)</span><span class="area">target-skills</span><span class="topic">exploration-scoping</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Scope before you scan: YAGNI... walk back a good stretch of the commit history (git log --oneline) to find the codebase&#x27;s hot spots... Then spawn a sub-agent to walk the codebase. Don&#x27;t follow rigid heuristics; explore organically...&quot; Friction questions include: &quot;Where does understanding one concept require bouncing between many small modules?&quot; and &quot;Apply the deletion test to anything you suspect is shallow.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>exploration is git-history-driven and delegated to a sub-agent, explicitly avoiding a fixed checklist in favor of organic search guided by named friction questions</p></div></div></details><details class="row" id="F3-15" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-15</span><strong>Step 2 produces a self-contained HTML report (Tailwind+Mermaid via CDN) written to the OS temp dir (never the repo), with one card per candidate containing Files/Problem/Solution/Benefits/Before-After diagram/Recommendation strength badge, ending in a Top recommendation section; explicitly does NOT propose interfaces yet.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/SKILL.md, Process step 2 (Present candidates)</span><span class="area">target-skills</span><span class="topic">html-report-output</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Write a self-contained HTML file to the OS temp directory so nothing lands in the repo... write to &lt;tmpdir&gt;/architecture-review-&lt;timestamp&gt;.html... Recommendation strength: one of Strong, Worth exploring, Speculative... Do NOT propose interfaces yet. After the file is written, ask the user: &#x27;Which of these would you like to explore?&#x27;&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>output artifact is an ephemeral, non-repo HTML report used purely for human triage before any interface design work begins</p></div></div></details><details class="row" id="F3-16" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-16</span><strong>The skill has an explicit policy for handling conflicts with existing Architecture Decision Records: surface only when friction genuinely warrants revisiting, and flag with a warning callout rather than silently overriding or blanket-listing.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/SKILL.md, ADR conflicts subsection</span><span class="area">target-skills</span><span class="topic">adr-conflict-policy</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;if a candidate contradicts an existing ADR, only surface it when the friction is real enough to warrant revisiting the ADR. Mark it clearly in the card (e.g. a warning callout: &#x27;contradicts ADR-0007, but worth reopening because…&#x27;). Don&#x27;t list every theoretical refactor an ADR forbids.&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>ADRs are treated as durable constraints that can be reopened only with real justification, not as a rulebook to work around silently</p></div></div></details><details class="row" id="F3-17" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-17</span><strong>Step 3 is an interactive loop invoking two more external skills: &#x27;grilling&#x27; to walk a decision tree with the user, and &#x27;domain-modeling&#x27; to keep CONTEXT.md current; also offers to record an ADR when the user rejects a candidate for a load-bearing reason.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/SKILL.md, Process step 3 (Grilling loop)</span><span class="area">target-skills</span><span class="topic">full-workflow-loop</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Once the user picks a candidate, call the Skill tool with &#x27;grilling&#x27; to walk the decision tree... call the Skill tool with &#x27;domain-modeling&#x27; to keep the domain model current... User rejects the candidate with a load-bearing reason? Offer an ADR, framed as: &#x27;Want me to record this as an ADR so future architecture reviews don&#x27;t re-suggest it?&#x27;&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>improve-codebase-architecture is a 3-step audit-&gt;report-&gt;interactive-refine loop that also touches project state (CONTEXT.md, ADRs) as a side effect, distinguishing it from codebase-design&#x27;s stateless vocabulary role; it also references codebase-design&#x27;s DESIGN-IT-TWICE pattern again when the user wants alternative interfaces</p></div></div></details><details class="row" id="F3-18" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-18</span><strong>HTML-REPORT.md enforces the exact same closed glossary as codebase-design (module, interface, depth, seam, adapter, leverage, locality) with explicit banned synonyms, plus a &#x27;no hedging&#x27; prose style and specific example phrasings.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/HTML-REPORT.md, Tone section</span><span class="area">target-skills</span><span class="topic">glossary-discipline</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Use exactly: module, interface, implementation, depth, deep, shallow, seam, adapter, leverage, locality. Never substitute: component, service, unit (for module) · API, signature (for interface) · boundary (for seam)...&quot; &quot;No hedging, no throat-clearing, no &#x27;it&#x27;s worth noting that…&#x27;. Don&#x27;t write &#x27;easier to maintain&#x27; or &#x27;cleaner code&#x27;, because those terms aren&#x27;t in the glossary.&quot;</p></div><div class="block"><div class="k">Position (supports)</div><p>confirms the glossary discipline is enforced end-to-end into the rendered report output, not just the reasoning phase</p></div></div></details><details class="row" id="F3-19" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-19</span><strong>HTML-REPORT.md prescribes five distinct diagram patterns (Mermaid graph, hand-built boxes-and-arrows, cross-section, mass diagram, call-graph collapse) each mapped to a specific kind of architectural before/after story, explicitly requiring visual variety.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/HTML-REPORT.md, Diagram patterns</span><span class="area">target-skills</span><span class="topic">html-report-diagrams</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>&quot;Pick the pattern that fits the candidate. Mix them. Don&#x27;t make every diagram look the same. Variety is part of the point.&quot; Mass diagram pattern: &quot;Before: interface rectangle is nearly as tall as the implementation rectangle (shallow). After: interface rectangle is short, implementation rectangle is tall (deep).&quot;</p></div><div class="block"><div class="k">Position (neutral)</div><p>visual encoding of the depth/shallow concept is treated as central to the report&#x27;s persuasive power, with detailed CSS/Tailwind/Mermaid scaffolding provided</p></div></div></details><details class="row" id="F3-20" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-20</span><strong>Both skill directories include an openai.yaml file under an agents/ subfolder, suggesting an OpenAI-harness-specific agent/tool binding alongside the primary SKILL.md.</strong></div><div class="row-meta"><span class="loc">codebase-design/agents/openai.yaml and improve-codebase-architecture/agents/openai.yaml</span><span class="area">target-skills</span><span class="topic">harness-specific-adapters</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>GitHub API listing shows agents/openai.yaml (102 bytes) in codebase-design and agents/openai.yaml (166 bytes) in improve-codebase-architecture; contents not yet fetched.</p></div><div class="block"><div class="k">Position (neutral)</div><p>the skills ship harness-specific companion files beyond SKILL.md, which matters for porting into a different skill suite (may need adaptation, not just copying SKILL.md)</p></div></div></details><details class="row" id="F3-21" data-area="target-skills"><summary><span class="stripe" style="background: var(--acc);"></span><div class="row-body"><div class="row-title"><span class="finding-id">F3-21</span><strong>Both SKILL.md files are moderate length (~6KB, roughly 100-150 lines each) with satellite files similarly sized (2.5-6.6KB), making the full bundle (SKILL.md + 2-3 referenced files per skill) portable but non-trivial to inline into a single file.</strong></div><div class="row-meta"><span class="loc">improve-codebase-architecture/SKILL.md and codebase-design/SKILL.md, sizes</span><span class="area">target-skills</span><span class="topic">porting-size-format</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="block proof"><div class="k">Evidence</div><p>GitHub API sizes: codebase-design/SKILL.md 6446 bytes, DEEPENING.md 2553 bytes, DESIGN-IT-TWICE.md 2664 bytes; improve-codebase-architecture/SKILL.md 5993 bytes, HTML-REPORT.md 6641 bytes.</p></div><div class="block"><div class="k">Position (neutral)</div><p>for porting, each skill&#x27;s SKILL.md is the entry point but genuinely depends on its sibling .md files being carried along (they are relative-linked, e.g. &#x27;[DEEPENING.md](DEEPENING.md)&#x27;), and improve-codebase-architecture additionally depends on two skills not investigated here (&#x27;grilling&#x27;, &#x27;domain-modeling&#x27;)</p></div></div></details></div>
+      <div class="empty" id="no-matches" hidden>No findings match the active filters.</div>
+    </section>
+
+    <section class="section" id="conflicts">
+      <div class="section-head"><span class="num">04</span><h2>Conflicts</h2><span class="count">1</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>conflicts</b> &mdash; a shared topic carrying more than one position across areas. Both positions are kept; nothing is dropped to make the packet look tidy.</div>
+      </div>
+      <div class="conflict"><div class="k">ousterhout-depth-metric</div><ul><li>explicitly diverges from Ousterhout&#x27;s line-count depth ratio in favor of a leverage-based definition, while still crediting Ousterhout by name (also cites Michael Feathers for &#x27;seam&#x27;)</li></ul></div>
+    </section>
+
+    <section class="section" id="coverage">
+      <div class="section-head"><span class="num">05</span><h2>Coverage &amp; Gaps</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>coverage</b> &mdash; declared areas with no report make the packet incomplete. Gaps are what an area could not resolve; open questions are what it raised.</div>
+      </div>
+      <div class="callout note"><span class="mark">&#9679;</span><p>Every declared area returned a report; the packet is complete.</p></div>
+      <h3>Gaps</h3>
+      <ul class="list"><li><span class="area">local-skills</span>Did not inspect agents/agy/builder, planner, specifier, or debugger bodies for design guidance, since the task scoped this to reviewer and the skills directly named.</li><li><span class="area">local-skills</span>Did not check whether target repos&#x27; own AGENTS.md/CLAUDE.md (produced by repo-setup) are expected to carry project-specific design conventions that skills then defer to — repo-setup/SKILL.md was only read for its one-line description, not fully.</li><li><span class="area">upstream-repo</span>Did not fetch every SKILL.md body (only 5 of 35 were read in full); frontmatter-only descriptions were relied on for the remaining 30, taken from README.md rather than re-verified against each file&#x27;s own frontmatter.</li><li><span class="area">upstream-repo</span>Did not investigate the skills.sh installer&#x27;s own code/behavior beyond the README&#x27;s description of it.</li><li><span class="area">upstream-repo</span>Did not check the deprecated/ or personal/ buckets&#x27; contents (personal/ folder wasn&#x27;t even present in the tree fetched — may not exist in this repo state, or the ADR text is stale).</li><li><span class="area">target-skills</span>Did not fetch/decode the contents of agents/openai.yaml in either directory (only confirmed their existence and size via the GitHub contents API) — unclear if these are load-bearing for porting or purely OpenAI-harness plumbing.</li><li><span class="area">target-skills</span>Did not investigate the &#x27;grilling&#x27; and &#x27;domain-modeling&#x27; skills that improve-codebase-architecture explicitly depends on in step 3 — out of scope for this area but relevant to a complete port.</li><li><span class="area">target-skills</span>Did not verify whether main vs master branch matters; main resolved successfully on first try so master was never tried.</li><li><span class="area">target-skills</span>CONTEXT.md and docs/adr/ are referenced as external project-level dependencies but their expected schema/format is not defined anywhere in the two target skills — unclear what &#x27;CONTEXT.md vocabulary&#x27; looks like structurally.</li></ul>
+      <h3>Open questions</h3>
+      <ul class="list"><li><span class="area">local-skills</span>Is the near-total absence of module-depth/interface-design vocabulary (Ousterhout-style heuristics, coupling/cohesion, dependency-direction rules) in code-refactor and the correctness lens intentional minimalism, or a genuine coverage gap versus an external skills repo that might supply such a reference?</li><li><span class="area">local-skills</span>Should code-refactor and code-analysis gain a references/ (or shared) design-heuristics document analogous to code-review/references/frontend-review.md, given they are SKILL.md-only today?</li><li><span class="area">upstream-repo</span>Does the skills.sh installer (npx skills@latest add) perform any validation or versioning of skills on copy-in, or is it a raw file copy?</li><li><span class="area">upstream-repo</span>How does &#x27;ask-matt&#x27; (the router skill) decide which skill to recommend — keyword matching, an LLM call, or a static decision table? (body not read)</li><li><span class="area">upstream-repo</span>Is there any real evaluation harness elsewhere in the mattpocock organization (outside this repo) for testing skill efficacy, given none was found here?</li><li><span class="area">target-skills</span>Should a ported version of improve-codebase-architecture require the &#x27;grilling&#x27; and &#x27;domain-modeling&#x27; skills to exist, or should it be adapted to work standalone / with substitute steps?</li><li><span class="area">target-skills</span>Is the disable-model-invocation: true frontmatter field meaningful/supported in the target skill suite, or does it need translation to that suite&#x27;s equivalent (e.g. a different trigger/manual-only mechanism)?</li><li><span class="area">target-skills</span>Do the openai.yaml agent files carry configuration (e.g. model choice for the sub-agents in DESIGN-IT-TWICE.md or the exploration sub-agent in step 1) that should be preserved during a port?</li></ul>
+    </section>
+
+    <section class="section" id="method">
+      <div class="section-head"><span class="num">06</span><h2>Method</h2></div>
+      <div class="steps">
+        <article class="step-card"><div class="n">Step 1</div><h3>Area split</h3>
+          <p>The goal is decomposed into genuinely distinct areas &mdash; by subsystem, source type, or question. The fan-out count equals the number of real areas, never a fixed N.</p></article>
+        <article class="step-card"><div class="n">Step 2</div><h3>Blind fan-out</h3>
+          <p>One read-only researcher agent per area, in parallel. Each is confined to its area and returns a strict findings envelope with evidence.</p></article>
+        <article class="step-card"><div class="n">Step 3</div><h3>Deterministic merge</h3>
+          <p>Deduplicated by (area, source, finding). Conflicts are surfaced when a topic carries more than one position; coverage, gaps, and open questions are rolled up.</p></article>
+        <article class="step-card"><div class="n">Step 4</div><h3>Synthesis</h3>
+          <p>The primary agent owns the conclusion and recommendations. Evidence from the areas is cited, never inherited as a verdict.</p></article>
+      </div>
+      <div class="callout note"><span class="mark">&#9679;</span>
+        <p>Research output is evidence, not authority. The primary agent running the research owns the consolidated conclusion.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    document.getElementById("theme-toggle").innerHTML = next === "light" ? "&#9789;" : "&#9788;";
+  });
+
+  document.getElementById("hints-toggle").addEventListener("click", () => {
+    root.dataset.hints = root.dataset.hints === "off" ? "on" : "off";
+  });
+
+  const groups = [...document.querySelectorAll("[data-filter-group]")].map((node) => ({
+    key: node.dataset.filterGroup,
+    buttons: [...node.querySelectorAll(".filter")],
+  }));
+  const rows = [...document.querySelectorAll("#finding-rows .row")];
+  const empty = document.getElementById("no-matches");
+
+  function apply() {
+    let shown = 0;
+    for (const row of rows) {
+      const visible = groups.every((group) => {
+        const active = group.buttons.filter((b) => b.getAttribute("aria-pressed") === "true");
+        return active.some((b) => b.dataset.value === row.dataset[group.key]);
+      });
+      row.hidden = !visible;
+      if (visible) { shown += 1; }
+    }
+    empty.hidden = shown !== 0 || rows.length === 0;
+  }
+
+  for (const group of groups) {
+    for (const button of group.buttons) {
+      button.addEventListener("click", () => {
+        const on = button.getAttribute("aria-pressed") === "true";
+        button.setAttribute("aria-pressed", on ? "false" : "true");
+        apply();
+      });
+    }
+  }
+
+  let reopened = [];
+  window.addEventListener("beforeprint", () => {
+    reopened = [...document.querySelectorAll("details:not([open])")];
+    reopened.forEach((node) => { node.open = true; });
+  });
+  window.addEventListener("afterprint", () => {
+    reopened.forEach((node) => { node.open = false; });
+    reopened = [];
+  });
+})();
+</script>
+</body>
+</html>

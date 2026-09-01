@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: Consolidate what a project's finished runs taught into its own persistent wiki — a namespace outside the repository holding write-once raw traces, append-only pattern pages, and a catalog. Opt-in per project: no namespace means nothing is recorded and nothing is dispatched.
+description: Consolidate what a project's finished runs taught into its own persistent wiki — a namespace outside the repository holding write-once raw traces, append-only pattern pages, and a catalog. Opt-in per project — no namespace means nothing is recorded and nothing is dispatched.
 ---
 
 # Wiki

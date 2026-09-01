@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# bootstrap-plugins.sh — install the Workcell plugin, and the MCP servers its agents
-# require, into every coding harness on this machine. Idempotent and reversible (MCP
-# entries excepted; see register_mcp). Run scripts/bootstrap-tools.sh first: the
+# bootstrap-plugins.sh — install the Workcell plugin into every coding harness on
+# this machine. Idempotent and reversible (legacy MCP retirement excepted; see
+# register_mcp). Run scripts/bootstrap-tools.sh first: the
 # plugin's hooks call ~/.local/bin/tdd-guard and build-*, which that script provides.
 #
 #   scripts/bootstrap-plugins.sh                    # install into every harness present
@@ -12,7 +12,7 @@
 # This repository is the single source: agents/ and skills/ hold the real content and
 # each plugins/<harness>/ directory is a thin wrapper that links back to them.
 #
-#   Claude   plugins/claude  installed as workcell@workcell-local via the claude CLI,
+#   Claude   plugins/claude  installed as workcell@workcell via the claude CLI,
 #                            from the marketplace declared in .claude-plugin/marketplace.json
 #   Codex    plugins/codex   staged into dist/codex/ first, then installed via the codex
 #                            CLI from dist/codex/.agents/plugins/marketplace.json. Codex
@@ -100,7 +100,11 @@ fi
 sync_agy_skills(){
   local dir="$ROOT/plugins/agy/skills" s name owned
   mkdir -p "$dir"
-  for s in "$dir"/*; do owned_link "$s" && rm -f "$s"; done
+  # Our links are relative by construction; owned_link covers absolute legacies.
+  # Sweeping both means a renamed skill cannot leave a dangling stray behind.
+  for s in "$dir"/*; do
+    if owned_link "$s" || { [[ -L $s ]] && [[ $(readlink "$s") == ../../../skills/* ]]; }; then rm -f "$s"; fi
+  done
   for s in "$ROOT"/skills/*/; do
     name=$(basename "$s")
     owned=$(find "$ROOT/agents/agy" -mindepth 3 -maxdepth 3 -name "$name" -print -quit 2>/dev/null || true)
@@ -207,12 +211,16 @@ for spec in "${MARKET_HARNESSES[@]}"; do
       python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null || die "codex: staging failed"
       root="$ROOT/dist/codex"
     fi
+    # Retire the pre-rename marketplace registration: the marketplace was called
+    # workcell-local before the plain name won. Harmless when nothing is there.
+    "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
+    "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
     # Register/validate the marketplace before touching the current install. Then force
     # a refresh: Claude otherwise keeps its cached plugin when content changes without
     # a version bump, while Codex safely tolerates the same remove/add sequence.
     "$cli" plugin marketplace add "$root" >/dev/null
-    "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
-    "$cli" plugin "$add" workcell@workcell-local >/dev/null
+    "$cli" plugin "$del" workcell@workcell >/dev/null 2>&1 || true
+    "$cli" plugin "$add" workcell@workcell >/dev/null
     echo "$h: workcell plugin installed from the local marketplace"
     if [[ $h == codex ]]; then
       echo "codex: trust the Workcell plugin hooks with /hooks, or use --dangerously-bypass-hook-trust for one invocation"
@@ -223,9 +231,12 @@ for spec in "${MARKET_HARNESSES[@]}"; do
     if command -v "$cli" >/dev/null; then
       "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
-      # Clean up installations made before the Workcell rename.
+      # Clean up installations made before the Workcell rename and the
+      # workcell-local marketplace name that preceded the plain one.
       "$cli" plugin "$del" workcell@workcell-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace remove workcell-local >/dev/null 2>&1 || true
+      "$cli" plugin "$del" workcell@workcell >/dev/null 2>&1 || true
+      "$cli" plugin marketplace remove workcell >/dev/null 2>&1 || true
     fi
   fi
 done
@@ -262,46 +273,34 @@ grok_plugin(){
 }
 grok_plugin
 
-# ---- MCP servers the agents require, at user scope ----
-# The debugger drives deep browser diagnostics through the chrome-devtools MCP
-# server (ADR 0012; builder and reviewer use the agent-browser CLI instead), but
-# nothing installed that server until now. apm cannot help: its MCP entries
-# are project-scoped by design ("--global is not supported for MCP entries"), so each
-# harness CLI records the server in its own user-level config. An entry that already
-# exists under this name — whatever its command — is the user's configuration and is
-# left alone, on install and on uninstall alike; that is also why --uninstall does
-# not remove these (ownership cannot be told apart afterwards).
+# ---- retire the MCP servers this script used to register ----
+# Every browser surface, the debugger's diagnostics included, now runs through the
+# agent-browser CLI (ADR 0012): no agent carries MCP browser tool definitions, so no
+# MCP server is registered at all. This block only *retires* the servers earlier
+# versions of this script wrote (playwright, then chrome-devtools) — and only while
+# an entry still runs exactly the command we wrote, so a customized entry stays.
+# Drop it once no install from those eras is left.
 register_mcp(){
-  local name=chrome-devtools; local -a cmd=(npx -y chrome-devtools-mcp@latest)
-  # Retire the playwright server this script registered before the chrome-devtools
-  # switch — only while the entry still runs exactly the command we wrote, so a
-  # customized entry stays. Drop this block once no playwright-era install is left.
-  if want claude && command -v claude >/dev/null \
-     && claude mcp get playwright 2>/dev/null | grep -q -- '-y @playwright/mcp@latest'; then
-    claude mcp remove playwright -s user >/dev/null 2>&1 && echo "claude: playwright MCP server retired"
-  fi
-  if want codex && command -v codex >/dev/null \
-     && codex mcp get playwright 2>/dev/null | grep -q '@playwright/mcp@latest'; then
-    codex mcp remove playwright >/dev/null 2>&1 && echo "codex: playwright MCP server retired"
-  fi
-  if want agy && command -v agy >/dev/null \
-     && agy mcp list 2>/dev/null | grep '^playwright[[:space:]]' | grep -q '@playwright/mcp@latest'; then
-    agy mcp remove playwright >/dev/null 2>&1 && echo "agy: playwright MCP server retired"
-  fi
-
-  if want claude && command -v claude >/dev/null && ! claude mcp get "$name" >/dev/null 2>&1; then
-    claude mcp add -s user "$name" -- "${cmd[@]}" >/dev/null && echo "claude: $name MCP server registered (user scope)"
-  fi
-  if want codex && command -v codex >/dev/null && ! codex mcp get "$name" >/dev/null 2>&1; then
-    codex mcp add "$name" -- "${cmd[@]}" >/dev/null && echo "codex: $name MCP server registered"
-  fi
-  if want agy && command -v agy >/dev/null && ! agy mcp list 2>/dev/null | grep -q "^${name}[[:space:]]"; then
-    agy mcp add "$name" "${cmd[@]}" >/dev/null && echo "agy: $name MCP server registered"
-  fi
-  # grok mcp add takes the command, then the command's own flags after --.
-  if want grok && command -v grok >/dev/null && ! grok mcp list 2>/dev/null | grep -q "$name"; then
-    grok mcp add "$name" "${cmd[0]}" -- "${cmd[@]:1}" >/dev/null && echo "grok: $name MCP server registered"
-  fi
+  local name cmd
+  for spec in "playwright|@playwright/mcp@latest" "chrome-devtools|chrome-devtools-mcp@latest"; do
+    name=${spec%%|*}; cmd=${spec#*|}
+    if want claude && command -v claude >/dev/null \
+       && claude mcp get "$name" 2>/dev/null | grep -qF -- "$cmd"; then
+      claude mcp remove "$name" -s user >/dev/null 2>&1 && echo "claude: $name MCP server retired"
+    fi
+    if want codex && command -v codex >/dev/null \
+       && codex mcp get "$name" 2>/dev/null | grep -qF -- "$cmd"; then
+      codex mcp remove "$name" >/dev/null 2>&1 && echo "codex: $name MCP server retired"
+    fi
+    if want agy && command -v agy >/dev/null \
+       && agy mcp list 2>/dev/null | grep "^${name}[[:space:]]" | grep -qF -- "$cmd"; then
+      agy mcp remove "$name" >/dev/null 2>&1 && echo "agy: $name MCP server retired"
+    fi
+    if want grok && command -v grok >/dev/null \
+       && grok mcp list 2>/dev/null | grep "$name" | grep -qF -- "$cmd"; then
+      grok mcp remove "$name" >/dev/null 2>&1 && echo "grok: $name MCP server retired"
+    fi
+  done
 }
 
 if [[ $MODE == install ]]; then

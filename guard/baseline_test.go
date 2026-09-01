@@ -110,7 +110,7 @@ func TestBaselineFlowRefusesHandoffAndStopBeforeSeal(t *testing.T) {
 	if code, _, stderr := h.run("handoff", "--to", "builder"); code == 0 || !strings.Contains(stderr, "nothing to hand off: seal the tests first") {
 		t.Fatalf("handoff without baseline seal: exit %d stderr %q", code, stderr)
 	}
-	if code, _, stderr := h.stop(); code == 0 || !strings.Contains(stderr, "no seal; run `anvil-guard seal --tests <globs> --red-command <argv...>` (or `--green-baseline <argv...>` for a refactor) first") {
+	if code, _, stderr := h.stop(); code == 0 || !strings.Contains(stderr, "no seal; run `tdd-guard seal --tests <globs> --red-command <argv...>` (or `--green-baseline <argv...>` for a refactor) first") {
 		t.Fatalf("Stop without baseline seal or green: exit %d stderr %q", code, stderr)
 	}
 }
