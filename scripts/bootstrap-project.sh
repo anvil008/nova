@@ -75,11 +75,15 @@ if ((install)); then
   # hooks it needs without a global install. Refusals are reported, not fatal: this
   # script is best-effort by design, but it must not claim work it did not do.
   echo "== workspace plugin =="
-  # Antigravity has no plugin CLI, so it reads a symlink in the workspace.
+  # Antigravity reads the plugin in .agents/plugins/workcell.
   mkdir -p .agents/plugins
   unlink_owned "$PWD/.agents/plugins/workcell"
-  link_owned "$ROOT/plugins/agy" "$PWD/.agents/plugins/workcell" \
-    && echo "  linked the Antigravity plugin into .agents/plugins"
+  if command -v python3 >/dev/null; then
+    python3 "$ROOT/scripts/build-agy-plugin.py" >/dev/null 2>&1 || true
+  fi
+  version=$(_json_field "$ROOT/plugins/agy/plugin.json" version)
+  install_owned "$ROOT/dist/agy/workcell" "$PWD/.agents/plugins/workcell" "${version:-$semver}" \
+    && echo "  installed the Antigravity plugin into .agents/plugins"
   # Claude and Codex install from the marketplace at the repository root. Local scope
   # keeps the declaration in .claude/settings.local.json / .codex, never a tracked file.
   for cli in claude codex; do
