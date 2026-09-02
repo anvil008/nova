@@ -4,6 +4,11 @@
 
 Accepted. Supersedes the install mechanism in [ADR 0005](0005-unified-cross-harness-plugin-architecture.md).
 
+Partly superseded by [ADR 0023](0023-installs-are-self-contained-copies.md): the Antigravity
+clause and the repository-rooted marketplace layout decided below no longer describe how an
+install works. Everything that follows is the record of what was decided here and why, kept
+intact; read ADR 0023 for current behaviour.
+
 ## Context
 
 ADR 0005 installed every harness wrapper the same way: a symlink from the harness's
