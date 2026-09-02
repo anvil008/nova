@@ -28,7 +28,8 @@ import lib_dist
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist" / "claude"
 STAGED = DIST / "workcell"
-SOURCE = ROOT / "plugins" / "claude"
+HARNESS = ROOT / "harnesses" / "claude"
+LEGACY_SOURCE = ROOT / "plugins" / "claude"
 PLUGIN_NAME = "workcell"
 
 
@@ -36,12 +37,15 @@ class BuildError(Exception):
     pass
 
 
-def validate_sources() -> str:
+def validate_sources() -> tuple[str, Path, bool]:
     """Ensure all required sources exist and extract the plugin version."""
-    if not SOURCE.is_dir():
-        raise BuildError(f"missing plugin source {SOURCE.relative_to(ROOT)}")
+    layered = HARNESS.is_dir()
+    source = HARNESS if layered else LEGACY_SOURCE
+    if not source.is_dir():
+        raise BuildError(f"missing plugin source {source.relative_to(ROOT)}")
 
-    manifest_path = SOURCE / ".claude-plugin" / "plugin.json"
+    runtime = source / "runtime" if layered else source
+    manifest_path = runtime / ".claude-plugin" / "plugin.json"
     if not manifest_path.is_file():
         raise BuildError(f"missing manifest {manifest_path.relative_to(ROOT)}")
 
@@ -54,46 +58,54 @@ def validate_sources() -> str:
 
     version = manifest.get("version", "0.6.0")
 
-    hooks_path = SOURCE / "hooks" / "hooks.json"
+    hooks_path = runtime / "hooks" / "hooks.json"
     if not hooks_path.is_file():
         raise BuildError(f"missing hooks manifest {hooks_path.relative_to(ROOT)}")
 
-    agents_dir = SOURCE / "agents"
+    agents_dir = source / "agents"
     if not agents_dir.is_dir():
         raise BuildError(f"missing agents directory {agents_dir.relative_to(ROOT)}")
 
-    skills_dir = SOURCE / "skills"
+    skills_dir = source / "skills"
     if not skills_dir.is_dir():
         raise BuildError(f"missing skills directory {skills_dir.relative_to(ROOT)}")
 
-    scripts_dir = SOURCE / "scripts"
+    scripts_dir = runtime / "scripts"
     if not scripts_dir.is_dir():
         raise BuildError(f"missing scripts directory {scripts_dir.relative_to(ROOT)}")
 
-    return version
+    return version, source, layered
 
 
 def build() -> Path:
-    version = validate_sources()
+    version, source, layered = validate_sources()
+    runtime = source / "runtime" if layered else source
 
     lib_dist.reset_dist(DIST, STAGED)
 
     # .claude-plugin
     (STAGED / ".claude-plugin").mkdir()
     shutil.copy2(
-        SOURCE / ".claude-plugin" / "plugin.json",
+        runtime / ".claude-plugin" / "plugin.json",
         STAGED / ".claude-plugin" / "plugin.json",
     )
 
     # hooks
-    shutil.copytree(SOURCE / "hooks", STAGED / "hooks", symlinks=False)
+    shutil.copytree(runtime / "hooks", STAGED / "hooks", symlinks=False)
 
     # agents (dereferencing symlinks)
-    shutil.copytree(SOURCE / "agents", STAGED / "agents", symlinks=False)
+    shutil.copytree(source / "agents", STAGED / "agents", symlinks=False)
+    if layered:
+        shutil.copy2(runtime / "handoff.md", STAGED / "handoff.md")
+        for agent in (STAGED / "agents").glob("*.md"):
+            text = agent.read_text(encoding="utf-8").replace(
+                "](../runtime/handoff.md)", "](../handoff.md)"
+            )
+            agent.write_text(text, encoding="utf-8")
 
     # skills (dereferencing symlinks, ignoring python cache files)
     shutil.copytree(
-        SOURCE / "skills",
+        source / "skills",
         STAGED / "skills",
         symlinks=False,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
@@ -101,11 +113,14 @@ def build() -> Path:
 
     # scripts (dereferencing symlinks, ignoring python cache files)
     shutil.copytree(
-        SOURCE / "scripts",
+        runtime / "scripts",
         STAGED / "scripts",
         symlinks=False,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
+
+    if layered:
+        shutil.copytree(runtime, STAGED / "runtime", symlinks=False)
 
     # .workcell-stamp.json
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -115,7 +130,7 @@ def build() -> Path:
             "name": PLUGIN_NAME,
             "version": version,
             "builtAt": now,
-            "sourceRoot": str(ROOT),
+            "sourceRoot": "harnesses/claude" if layered else "plugins/claude",
         },
     )
 

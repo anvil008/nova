@@ -1,7 +1,7 @@
 ---
 name: profiler
 description: Use when measuring performance against a project benchmark harness and reporting distributions rather than a single number.
-model: inherit
+model: grok-4.6
 permission_mode: plan
 ---
 

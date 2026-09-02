@@ -1,7 +1,7 @@
 ---
 name: deployer
 description: Use when executing one already-approved release against one named target, with verification and rollback.
-model: inherit
+model: grok-4.6
 permission_mode: plan
 ---
 

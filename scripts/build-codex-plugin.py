@@ -50,6 +50,7 @@ SOURCE = ROOT / "plugins" / "codex"
 SKILLS = ROOT / "skills"
 AGENTS = ROOT / "agents" / "codex"
 MODELS = ROOT / "agents" / "models.json"
+HARNESS = ROOT / "harnesses" / "codex"
 OUT = ROOT / "dist" / "codex"
 
 PLUGIN = "workcell"
@@ -67,9 +68,9 @@ class BuildError(Exception):
     pass
 
 
-def codex_routing() -> dict[str, dict[str, str]]:
+def codex_routing(models_path: Path = MODELS) -> dict[str, dict[str, str]]:
     """Resolve the runtime model and effort for every Codex specialist."""
-    data = json.loads(MODELS.read_text(encoding="utf-8"))
+    data = json.loads(models_path.read_text(encoding="utf-8"))
     defaults = data.get("defaults", {}).get("codex", {})
     agents = data.get("agents", {})
     routing: dict[str, dict[str, str]] = {}
@@ -158,6 +159,7 @@ def agent_skill(
     """Wrap one agent definition as a Codex skill plus its openai.yaml."""
     description = frontmatter_field(text, "description", path)
     body = FRONTMATTER.sub("", text).lstrip("\n")
+    body = body.replace("](../runtime/handoff.md)", "](../../handoff.md)")
     skill = (
         f"---\nname: {AGENT_PREFIX}{name}\ndescription: {description}\n---\n\n"
         f"{body.rstrip()}\n{dispatch_contract}"
@@ -195,25 +197,30 @@ def validate_sources() -> tuple[
     str, list[Path], list[tuple[Path, str]], dict[str, dict[str, str]]
 ]:
     """Validate every source before replacing OUT, so failures leave no partial tree."""
-    if not SOURCE.is_dir():
-        raise BuildError(f"missing plugin source {SOURCE.relative_to(ROOT)}")
-    manifest_path = SOURCE / ".codex-plugin" / "plugin.json"
+    layered = HARNESS.is_dir()
+    source = HARNESS / "runtime" if layered else SOURCE
+    skills_root = HARNESS / "skills" if layered else SKILLS
+    agents_root = HARNESS / "agents" if layered else AGENTS
+    models_path = source / "models.json" if layered else MODELS
+    if not source.is_dir():
+        raise BuildError(f"missing plugin source {source.relative_to(ROOT)}")
+    manifest_path = source / ".codex-plugin" / "plugin.json"
     version = json.loads(manifest_path.read_text(encoding="utf-8")).get(
         "version", "0.6.0"
     )
 
-    skill_dirs = sorted(path for path in SKILLS.iterdir() if path.is_dir())
+    skill_dirs = sorted(path for path in skills_root.iterdir() if path.is_dir())
     for skill_dir in skill_dirs:
         if not (skill_dir / "SKILL.md").is_file():
             raise BuildError(f"{skill_dir.relative_to(ROOT)}: no SKILL.md")
 
     agents = []
-    for agent in sorted(AGENTS.glob("*.md")):
+    for agent in sorted(agents_root.glob("*.md")):
         text = agent.read_text(encoding="utf-8")
         frontmatter_field(text, "name", agent)
         frontmatter_field(text, "description", agent)
         agents.append((agent, text))
-    return version, skill_dirs, agents, codex_routing()
+    return version, skill_dirs, agents, codex_routing(models_path)
 
 
 def build() -> Path:
@@ -224,10 +231,18 @@ def build() -> Path:
     skills_out = plugin_root / "skills"
     skills_out.mkdir()
 
-    hooks = SOURCE / "hooks" / "hooks.json"
+    layered = HARNESS.is_dir()
+    runtime = HARNESS / "runtime" if layered else SOURCE
+    hooks = runtime / "hooks" / "hooks.json"
     if hooks.is_file():
         (plugin_root / "hooks").mkdir()
         shutil.copy2(hooks, plugin_root / "hooks" / "hooks.json")
+
+    if layered:
+        shutil.copytree(runtime, plugin_root / "runtime", symlinks=False)
+        handoff = runtime / "handoff.md"
+        if handoff.is_file():
+            shutil.copy2(handoff, plugin_root / "handoff.md")
 
     # Real copies, never links: a symlink out of the plugin root does not survive
     # the install, and one that resolves inside it would be dereferenced anyway.

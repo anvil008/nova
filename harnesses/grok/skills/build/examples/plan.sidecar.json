@@ -1,0 +1,115 @@
+{
+  "planId": "builder-v3-demo",
+  "planName": "Builder v3 wave demo",
+  "repo": "foundry-zero/workcell",
+  "generatedAt": "2026-08-26T12:00:00Z",
+  "summary": "Demonstrate deterministic offline build-wave selection.",
+  "architecture": {
+    "changeSummary": "Move from independent API and UI work to dependency-ordered waves that integrate both surfaces after their shared foundation is complete.",
+    "components": [
+      {
+        "name": "Foundation",
+        "purpose": "Shared primitives."
+      },
+      {
+        "name": "Surfaces",
+        "purpose": "Independent API and UI changes."
+      }
+    ],
+    "diagramsMermaid": {
+      "currentArchitecture": "flowchart LR\n  API[Independent API work]\n  UI[Independent UI work]\n  API -. manual coordination .- UI",
+      "targetArchitecture": "flowchart LR\n  Foundation --> API\n  Foundation --> UI\n  API --> Integration\n  UI --> Integration"
+    }
+  },
+  "issues": [
+    {
+      "key": "Foundation",
+      "title": "Build shared foundation",
+      "body": "Create the shared primitives.",
+      "labels": [
+        "build"
+      ],
+      "dependsOn": [],
+      "ownershipHint": "src/foundation/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {
+          "name": "foundation_primitives_exported",
+          "kind": "unit",
+          "oracle": "shared primitives importable and typed"
+        }
+      ]
+    },
+    {
+      "key": "API",
+      "title": "Build API surface",
+      "body": "Add the API surface.",
+      "labels": [
+        "build"
+      ],
+      "dependsOn": [
+        "Foundation"
+      ],
+      "ownershipHint": "src/api/**",
+      "wave": 2,
+      "acceptanceTests": [
+        {
+          "name": "api_endpoint_contract",
+          "kind": "integration",
+          "oracle": "endpoint returns the documented schema"
+        }
+      ]
+    },
+    {
+      "key": "UI",
+      "title": "Build UI surface",
+      "body": "Add the UI surface.",
+      "labels": [
+        "build"
+      ],
+      "dependsOn": [
+        "Foundation"
+      ],
+      "ownershipHint": "src/ui/**",
+      "wave": 2,
+      "acceptanceTests": [
+        {
+          "name": "ui_renders_surface",
+          "kind": "unit",
+          "oracle": "component mounts without error"
+        }
+      ]
+    },
+    {
+      "key": "Integration",
+      "title": "Integrate surfaces",
+      "body": "Verify API and UI together.",
+      "labels": [
+        "build"
+      ],
+      "dependsOn": [
+        "API",
+        "UI"
+      ],
+      "ownershipHint": "tests/integration/**",
+      "wave": 3,
+      "acceptanceTests": [
+        {
+          "name": "api_ui_end_to_end",
+          "kind": "e2e",
+          "oracle": "API and UI interoperate in one flow"
+        }
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-01",
+      "title": "Waves are parallelised across overlapping ownership",
+      "likelihood": 2,
+      "impact": 3,
+      "owner": "build orchestrator",
+      "mitigation": "Only issues with disjoint ownership hints share a wave; integrate and verify after each wave."
+    }
+  ]
+}

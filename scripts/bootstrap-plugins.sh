@@ -78,6 +78,7 @@ if command -v python3 >/dev/null; then
     # agents/bodies/ + agents/agents.json are the source for every agent definition;
     # this regenerates every harness variant before anything is installed.
     python3 "$ROOT/scripts/sync-agents.py" || die "agent definitions could not be generated"
+    python3 "$ROOT/scripts/sync-skills.py" || die "skill definitions could not be generated"
     # --codex-profiles also writes $CODEX_HOME/workcell-<agent>.config.toml. Codex has no
     # per-agent model surface in a plugin, so a profile (`codex --profile workcell-builder`)
     # is the only place its model and reasoning effort actually take effect. The script

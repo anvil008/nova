@@ -919,7 +919,7 @@ v2=$(jq -r .version "$staged_manifest" 2>/dev/null)
   && ok "restaging with no source change reproduces identical version string" \
   || no "restaging with no source change reproduces identical version string (v1='$v1', v2='$v2')"
 
-skill_to_edit="$ROOT/skills/plan/SKILL.md"
+skill_to_edit="$ROOT/harnesses/codex/skills/plan/SKILL.md"
 skill_backup="$TMP/skill-plan-backup.md"
 cp "$skill_to_edit" "$skill_backup"
 printf '\n' >> "$skill_to_edit"

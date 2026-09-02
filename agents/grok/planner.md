@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Use when investigating one planning goal read-only and producing the plan folio, sidecar, and per-issue acceptance tests for human approval.
-model: inherit
+model: grok-4.6
 ---
 
 # Planner

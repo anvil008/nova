@@ -1,0 +1,10 @@
+{
+  "schema": "anvil.agent-handoff/v1",
+  "agent": "reviewer",
+  "lens": "correctness",
+  "findings": [
+    {"severity": "high", "title": "migration test asserts against an empty table",
+     "detail": "the fixture is created after the migration runs, so the assertion passes vacuously"}
+  ],
+  "disposition": "changes-requested"
+}

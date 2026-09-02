@@ -1,7 +1,7 @@
 ---
 name: integrator
 description: Use when verifying one wave of pull requests as a combined change-set and returning command-linked evidence.
-model: inherit
+model: grok-4.6
 permission_mode: plan
 ---
 
