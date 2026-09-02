@@ -9,14 +9,28 @@ deterministic fixture injection and intentional update mode.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime
 import hashlib
+import http.client
+import io
 import json
+import socket
 import sys
+import time
 import urllib.error
 import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
+
+# Default network timeout limits to prevent indefinite CI hangs.
+DEFAULT_REQUEST_TIMEOUT = 15.0
+DEFAULT_MODEL_DEADLINE = 60.0
+MAX_RESPONSE_BYTES = 10 * 1024 * 1024  # 10 MiB
+MAX_REDIRECTS = 5
+
+# Set process socket default timeout so newly created sockets cannot hang indefinitely.
+socket.setdefaulttimeout(DEFAULT_REQUEST_TIMEOUT)
 
 # Bumped whenever normalization changes what text a digest covers. Digests are
 # only comparable within one extractor version.
@@ -37,6 +51,31 @@ class ExtractionError(Exception):
 
 class FetchError(Exception):
     """Raised when fetching upstream content fails."""
+
+
+class BoundedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Redirect handler that bounds redirect count and closes bodies to prevent hangs."""
+
+    def __init__(self, max_redirections: int = MAX_REDIRECTS) -> None:
+        super().__init__()
+        self.max_redirections = max_redirections
+
+    def http_error_302(self, req, fp, code, msg, headers):
+        if fp is not None:
+            with contextlib.suppress(OSError):
+                fp.close()
+        return super().http_error_302(req, io.BytesIO(), code, msg, headers)
+
+    http_error_301 = http_error_302
+    http_error_303 = http_error_302
+    http_error_307 = http_error_302
+    http_error_308 = http_error_302
+
+
+def create_opener(max_redirects: int = MAX_REDIRECTS) -> urllib.request.OpenerDirector:
+    """Create a urllib OpenerDirector with bounded redirects."""
+    handler = BoundedRedirectHandler(max_redirections=max_redirects)
+    return urllib.request.build_opener(handler)
 
 
 class ArticleExtractor(HTMLParser):
@@ -357,7 +396,14 @@ def extract_passages(markdown_body: str) -> list[str]:
     return passages
 
 
-def fetch_upstream(url: str, fixtures_dir: Path | None = None) -> str:
+def fetch_upstream(
+    url: str,
+    fixtures_dir: Path | None = None,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    deadline: float | None = None,
+    max_bytes: int = MAX_RESPONSE_BYTES,
+    opener: urllib.request.OpenerDirector | None = None,
+) -> str:
     """Fetch content from deterministic fixtures or live network."""
     if fixtures_dir is not None:
         fixtures_file = fixtures_dir / "fixtures.json"
@@ -379,7 +425,25 @@ def fetch_upstream(url: str, fixtures_dir: Path | None = None) -> str:
         if status != 200:
             raise FetchError(f"HTTP status {status} fetch error for URL '{url}'")
 
-        return entry.get("content", "")
+        content = entry.get("content", "")
+        if len(content.encode("utf-8")) > max_bytes:
+            raise FetchError(
+                f"Response size exceeded limit ({max_bytes} bytes) for URL '{url}'"
+            )
+        return content
+
+    now = time.monotonic()
+    if deadline is not None and now >= deadline:
+        raise FetchError(
+            f"Timeout fetching URL '{url}': overall deadline exceeded before request start"
+        )
+
+    effective_timeout = timeout
+    if deadline is not None:
+        remaining = deadline - now
+        if remaining <= 0:
+            raise FetchError(f"Timeout fetching URL '{url}': overall deadline exceeded")
+        effective_timeout = min(timeout, remaining)
 
     req = urllib.request.Request(
         url,
@@ -387,12 +451,49 @@ def fetch_upstream(url: str, fixtures_dir: Path | None = None) -> str:
             "User-Agent": "WorkcellGuideChecker/1.0 (+https://github.com/anvil008/workcell)"
         },
     )
+
+    actual_opener = opener or create_opener()
+
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            status = resp.status
+        with actual_opener.open(req, timeout=effective_timeout) as resp:
+            status = getattr(resp, "status", None) or getattr(resp, "code", 200)
             if status != 200:
                 raise FetchError(f"HTTP status {status} fetch error for URL '{url}'")
-            return resp.read().decode("utf-8", errors="replace")
+
+            chunks: list[bytes] = []
+            total_bytes = 0
+            chunk_size = 64 * 1024
+
+            while True:
+                current_time = time.monotonic()
+                if deadline is not None:
+                    rem = deadline - current_time
+                    if rem <= 0:
+                        raise FetchError(
+                            f"Timeout fetching URL '{url}': overall deadline exceeded during read"
+                        )
+                    with contextlib.suppress(AttributeError, OSError):
+                        sock = getattr(resp, "fp", None)
+                        if (
+                            sock
+                            and hasattr(sock, "raw")
+                            and hasattr(sock.raw, "_sock")
+                            and sock.raw._sock
+                        ):
+                            sock.raw._sock.settimeout(min(effective_timeout, rem))
+
+                read_fn = getattr(resp, "read1", resp.read)
+                chunk = read_fn(chunk_size)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > max_bytes:
+                    raise FetchError(
+                        f"Response size ({total_bytes} bytes) exceeded limit ({max_bytes} bytes) for URL '{url}'"
+                    )
+                chunks.append(chunk)
+
+            return b"".join(chunks).decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
         raise FetchError(
             f"HTTP status {e.code} fetch error for URL '{url}': {e.reason}"
@@ -403,7 +504,7 @@ def fetch_upstream(url: str, fixtures_dir: Path | None = None) -> str:
         ) from e
     except TimeoutError as e:
         raise FetchError(f"Timeout fetching URL '{url}': {e}") from e
-    except OSError as e:
+    except (http.client.HTTPException, OSError) as e:
         raise FetchError(f"Failed to fetch URL '{url}': {e}") from e
 
 
@@ -411,6 +512,10 @@ def check_guide(
     guide_path: Path,
     fixtures_dir: Path | None = None,
     check_only: bool = True,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    model_deadline: float = DEFAULT_MODEL_DEADLINE,
+    max_bytes: int = MAX_RESPONSE_BYTES,
+    opener: urllib.request.OpenerDirector | None = None,
 ) -> dict:
     """Check a single model guide for header validity and upstream freshness."""
     violations: list[str] = []
@@ -457,13 +562,30 @@ def check_guide(
     if not isinstance(stored_digests, dict):
         stored_digests = {}
 
+    start_time = time.monotonic()
+    deadline = start_time + model_deadline
     extracted_articles: dict[str, str] = {}
 
     # 2. Fetch and extract each upstream URL
     for url in urls:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            violations.append(
+                f"Fetch failure for model '{model}', URL '{url}': "
+                f"model deadline ({model_deadline}s) exceeded"
+            )
+            continue
+
         vendor = detect_vendor(url, model)
         try:
-            raw_html = fetch_upstream(url, fixtures_dir=fixtures_dir)
+            raw_html = fetch_upstream(
+                url,
+                fixtures_dir=fixtures_dir,
+                timeout=min(timeout, remaining),
+                deadline=deadline,
+                max_bytes=max_bytes,
+                opener=opener,
+            )
         except FetchError as fe:
             violations.append(f"Fetch failure for model '{model}', URL '{url}': {fe}")
             continue
@@ -485,6 +607,22 @@ def check_guide(
                 f"Upstream content drift detected for model '{model}', URL '{url}': "
                 f"normalized source digest mismatch (stored: {stored_digest}, current: {current_digest})"
             )
+
+    has_fetch_or_extraction_failure = any(
+        v.startswith(
+            (
+                f"Fetch failure for model '{model}'",
+                f"Extraction failure for model '{model}'",
+            )
+        )
+        for v in violations
+    )
+    if has_fetch_or_extraction_failure:
+        return {
+            "ok": False,
+            "violations": violations,
+            "file": str(guide_path),
+        }
 
     # 4. Check selected passages against upstream extracted content
     passages = extract_passages(body)
@@ -510,6 +648,10 @@ def check_guide(
 def update_guide(
     guide_path: Path,
     fixtures_dir: Path | None = None,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    model_deadline: float = DEFAULT_MODEL_DEADLINE,
+    max_bytes: int = MAX_RESPONSE_BYTES,
+    opener: urllib.request.OpenerDirector | None = None,
 ) -> dict:
     """Update a model guide by refetching sources and updating provenance digests."""
     content = guide_path.read_text(encoding="utf-8")
@@ -519,10 +661,24 @@ def update_guide(
     if isinstance(urls, str):
         urls = [urls]
 
+    start_time = time.monotonic()
+    deadline = start_time + model_deadline
     new_digests: dict[str, str] = {}
     for url in urls:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise FetchError(
+                f"Timeout fetching URL '{url}': model deadline ({model_deadline}s) exceeded"
+            )
         vendor = detect_vendor(url, model)
-        raw_html = fetch_upstream(url, fixtures_dir=fixtures_dir)
+        raw_html = fetch_upstream(
+            url,
+            fixtures_dir=fixtures_dir,
+            timeout=min(timeout, remaining),
+            deadline=deadline,
+            max_bytes=max_bytes,
+            opener=opener,
+        )
         article_text = extract(raw_html, vendor=vendor)
         new_digests[url] = sha256_text(article_text)
 
@@ -543,6 +699,10 @@ def scan_guides(
     check_only: bool = True,
     fixtures_dir: Path | None = None,
     update: bool = False,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    model_deadline: float = DEFAULT_MODEL_DEADLINE,
+    max_bytes: int = MAX_RESPONSE_BYTES,
+    opener: urllib.request.OpenerDirector | None = None,
 ) -> int:
     """Scan model guides under root and verify provenance and freshness."""
     if not root.exists():
@@ -576,7 +736,14 @@ def scan_guides(
     for guide_path in guide_paths:
         if update:
             try:
-                update_guide(guide_path, fixtures_dir=fixtures_dir)
+                update_guide(
+                    guide_path,
+                    fixtures_dir=fixtures_dir,
+                    timeout=timeout,
+                    model_deadline=model_deadline,
+                    max_bytes=max_bytes,
+                    opener=opener,
+                )
                 print(f"Updated {guide_path}")
             except (FetchError, ExtractionError, ValueError, OSError) as e:
                 has_failures = True
@@ -586,6 +753,10 @@ def scan_guides(
                 guide_path,
                 fixtures_dir=fixtures_dir,
                 check_only=check_only,
+                timeout=timeout,
+                model_deadline=model_deadline,
+                max_bytes=max_bytes,
+                opener=opener,
             )
             if not result["ok"]:
                 has_failures = True
@@ -633,6 +804,24 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Intentional update mode: refetch and rewrite extracts",
     )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=DEFAULT_REQUEST_TIMEOUT,
+        help=f"Per-request network timeout in seconds (default: {DEFAULT_REQUEST_TIMEOUT})",
+    )
+    parser.add_argument(
+        "--deadline",
+        type=float,
+        default=DEFAULT_MODEL_DEADLINE,
+        help=f"Overall deadline per model in seconds (default: {DEFAULT_MODEL_DEADLINE})",
+    )
+    parser.add_argument(
+        "--max-bytes",
+        type=int,
+        default=MAX_RESPONSE_BYTES,
+        help=f"Maximum allowed response body size in bytes (default: {MAX_RESPONSE_BYTES})",
+    )
     args = parser.parse_args(argv)
     return scan_guides(
         root=args.root or Path("docs/models"),
@@ -640,6 +829,9 @@ def main(argv: list[str] | None = None) -> int:
         check_only=args.check,
         fixtures_dir=args.fixtures_dir,
         update=args.update,
+        timeout=args.timeout,
+        model_deadline=args.deadline,
+        max_bytes=args.max_bytes,
     )
 
 
