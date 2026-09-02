@@ -3,23 +3,32 @@ name: research
 description: Investigate a research question across multiple areas with parallel read-only researcher agents, then merge their findings into one deduplicated evidence packet.
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 # Research
 
 Investigate a goal across several areas at once and return one consolidated evidence packet.
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Invocation: `/workcell:research`
+Prompting Reference: [`docs/models/claude-sonnet-5/prompting.md`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)
+
+You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
 This orchestrator splits the goal into areas, dispatches one read-only `researcher` agent per area, and owns the synthesis and conclusion.
 
-## Area split and fan-out
+## Ordered Gates
+
+Execution proceeds through four strict, ordered gates:
+1. **area briefs**: Decompose research scope into orthogonal area briefs with unambiguous exploration boundaries.
+2. **read-only evidence**: Dispatch parallel read-only `researcher` agents to gather concrete citations and evidence envelopes.
+3. **deduplication**: Merge envelopes, resolve conflicting stances deterministically, and verify area coverage.
+4. **packet**: Produce a unified research evidence packet and optional HTML synthesis report.
+
+## Area Split and Fan-out
 
 Decompose the goal into genuinely distinct, real research areas — by subsystem, by source type (code / docs / runtime / prior-art), or by question. The fan-out count equals the number of real areas, never a fixed N.
 
 Spawn one read-only `researcher` agent per area, in parallel. Each agent is blind to the others and is confined to exactly one area. Agents never edit; they return a strict findings envelope.
 
-## Merge, conflicts, and coverage
+## Merge, Conflicts, and Coverage
 
 Collect the per-area envelopes and merge them without dropping evidence:
 
@@ -44,3 +53,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/render_research.py 
 ```
 
 The renderer rejects a recommendation that cites an unknown finding and a `clean` verdict that carries recommendations. Maintainers follow the [report-rendering contract](references/report-rendering.md).
+
+## Harness Limitations
+
+Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.

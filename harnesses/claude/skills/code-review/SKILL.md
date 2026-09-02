@@ -3,17 +3,26 @@ name: code-review
 description: Run a multi-lens, adversarially verified review of a pull request, diff, or change-set before merge — including a read-only frontend lens that inspects rendered UI across a fixed viewport matrix for responsiveness, accessibility, and visual QA.
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
-# Code review
+# Code Review
 
 Review one pull request, diff, or integrated change-set before merge.
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Invocation: `/workcell:code-review`
+Prompting Reference: [`docs/models/claude-sonnet-5/prompting.md`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)
+
+You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
 This orchestrator selects the lenses, dispatches the reviewers and verifiers, and owns the consolidated verdict.
 
-## Lens selection and fan-out
+## Ordered Gates
+
+Execution proceeds through four strict, ordered gates:
+1. **lens reviews**: Dispatch read-only `reviewer` agents in parallel across applicable assurance lenses.
+2. **adversarial verification**: Independent skeptical verifiers attempt to refute each candidate finding.
+3. **deduplication**: Collate surviving findings, eliminate duplicates, and rank deterministically by severity.
+4. **report**: Produce the final report and verdict, requiring human approval before filing any GitHub issues.
+
+## Lens Selection and Fan-out
 
 Use the change-set's **file list** and diffstat to select lenses from its actual risks:
 
@@ -27,7 +36,7 @@ Use the change-set's **file list** and diffstat to select lenses from its actual
 
 The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-only `reviewer` per selected lens in parallel. Give each reviewer the same change-set and exactly one lens. Reviewers return structured findings and never edit.
 
-### The frontend lens
+### The Frontend Lens
 
 Select `frontend` when the change-set touches rendered UI: `.tsx` / `.jsx` / `.vue` / `.svelte` / `.astro` components, templates (`.html`, `.hbs`, `.ejs`), stylesheets (`.css` / `.scss` / `.less`), Tailwind or design-token config, or static assets those import. A change confined to server code, build config, or tests is not a frontend change — do not select the lens to be thorough, because a lens with nothing to look at produces noise, not coverage.
 
@@ -35,7 +44,7 @@ That reviewer follows [`references/frontend-review.md`](references/frontend-revi
 
 The orchestrator sets `devServer` in the dispatch brief to `none`, a URL, or `start: <command>`; production URLs are never passed. The reviewer never asks. An absent field or `none` means the static pass only, and the reviewer records the runtime gap rather than asserting behaviour it never observed.
 
-## Merge and adversarial verification
+## Merge and Adversarial Verification
 
 1. Collect the per-lens JSON files and deduplicate by `(file, line, claim)`. `skills/code-review/scripts/merge_findings.py --dedupe-only` chooses the representative by highest severity, highest confidence, then lexicographically smallest `(lens, failureScenario)`. This full tie-break is independent of parallel collection order; the helper then ranks candidates deterministically.
 2. Run an independent adversarial verification of every surviving candidate. Use a fresh read-only reviewer that did not originate the candidate, assign its lens and exact claim, and require a skeptic pass that tries to refute it against the code and concrete failure scenario.
@@ -49,7 +58,7 @@ Return the verified findings ranked by severity and the verdict: `block` / `appr
 
 `--verification` emits both `findings` (substantiated) and `dropped` (refuted), each carrying its `verification{refutationAttempt, evidence}`. Refuted candidates are reported rather than discarded: the evidence that killed a plausible finding is what shows the verification pass did work.
 
-### HTML report
+### HTML Report
 
 Render the merged JSON into a self-contained report for a human reviewer:
 
@@ -64,10 +73,9 @@ Only `review.json` and the output path are required; the rest default to honest 
 
 Maintainers of the renderer and templates follow the [report-rendering contract](references/report-rendering.md).
 
-## GitHub issues
+## GitHub Issues
 
-Verified findings become tracked work the same way an approved plan does: an idempotent,
-marker-based reconciliation behind an explicit human gate.
+Verified findings become tracked work the same way an approved plan does: an idempotent, marker-based reconciliation behind an explicit human gate.
 
 ```bash
 # Preview — read-only. Omit --snapshot to query GitHub read-only instead.
@@ -81,53 +89,16 @@ python3 skills/code-review/scripts/reconcile_findings.py review.json \
   --apply --approved-by "<github-login>"
 ```
 
-**Stop for explicit human approval before `--apply`.** Issues are outward-facing and land in a
-shared tracker; approval to review is not approval to file. Do not infer approval from silence or
-from approval of an earlier revision.
+**Stop for explicit human approval before `--apply`.** Issues are outward-facing and land in a shared tracker; approval to review is not approval to file. Do not infer approval from silence or from approval of an earlier revision.
 
-`--approved-by` must equal the login `gh` is authenticated as (`gh api user`). A mismatch exits
-before any write. Apply output records that login as `approvedBy` and the exact approved review
-bytes as `approvedSha256`.
+`--approved-by` must equal the login `gh` is authenticated as (`gh api user`). A mismatch exits before any write. Apply output records that login as `approvedBy` and the exact approved review bytes as `approvedSha256`.
 
-`--review-id` is the durable identity of this review — a stable lowercase slug you keep across
-re-runs (`pr-4821`, not a timestamp). Each issue carries
-`<!-- workcell-review reviewId=<id> finding=<key> severity=<sev> -->`, and that marker is what makes re-running safe.
+`--review-id` is the durable identity of this review — a stable lowercase slug you keep across re-runs (`pr-4821`, not a timestamp). Each issue carries `<!-- workcell-review reviewId=<id> finding=<key> severity=<sev> -->`, and that marker is what makes re-running safe.
 
-Identity comes from the last marker in the body. Marker delimiters in quoted review prose are
-escaped while composing the issue, so an excerpt cannot squat the issue's identity.
+Identity comes from the last marker in the body. Marker delimiters in quoted review prose are escaped while composing the issue, so an excerpt cannot squat the issue's identity.
 
-A finding's key is a hash of **(file, claim)** — deliberately not the line. Line numbers move
-whenever anything above them changes, so keying on them would file a duplicate for the same defect
-after any unrelated edit and strand the original as never-fixed. The line lives in the issue body.
+A finding's key is a hash of **(file, claim)** — deliberately not the line. Line numbers move whenever anything above them changes, so keying on them would file a duplicate for the same defect after any unrelated edit and strand the original as never-fixed. The line lives in the issue body.
 
-Reconciliation therefore converges rather than accumulates:
+## Harness Limitations
 
-| Situation                                                | Action                  |
-| -------------------------------------------------------- | ----------------------- |
-| Finding has no issue                                     | `create_issue`          |
-| Issue exists, content changed                            | `update_issue`          |
-| Finding no longer reported — fixed, or refuted on re-run | `close_resolved_issue`  |
-| Two issues carry the same marker                         | `close_duplicate_issue` |
-| Nothing changed                                          | no actions at all       |
-
-`--min-severity` (default `medium`) sets the filing threshold; `low` and `nit` stay in the report
-rather than becoming tracker noise. An open issue is only closed as resolved when its recorded severity
-(from the marker, or the `severity:<sev>` label) is at or above the current `--min-severity`; a
-stricter threshold filters findings out of the run, it does not fix them, so their issues stay open. Issues are labelled `code-review`, `severity:<sev>`, and
-`lens:<lens>`; add more with `--label`, and attach them to a milestone with `--milestone`.
-
-Each issue body carries the failure scenario and the independent verification — the refutation
-attempt and the evidence — so whoever picks it up sees why it is real without re-reading the diff.
-
-## Offline demonstration
-
-These commands read local fixtures only and have no GitHub or subagent side effects:
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/merge_findings.py --dedupe-only skills/code-review/examples/correctness.json skills/code-review/examples/tests.json skills/code-review/examples/security.json
-PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/merge_findings.py --verification skills/code-review/examples/verification.json skills/code-review/examples/correctness.json skills/code-review/examples/tests.json skills/code-review/examples/security.json
-PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/render_review.py skills/code-review/examples/expected-review.json /tmp/review.html --repo acme/platform --subject "PR #4821" --lenses correctness,tests,security
-PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/reconcile_findings.py skills/code-review/examples/expected-review.json --repo acme/platform --review-id pr-4821 --subject "PR #4821" --snapshot skills/code-review/examples/empty-github-snapshot.json
-```
-
-Never run `--apply` merely to test the skill. Use snapshot preview for validation.
+Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.

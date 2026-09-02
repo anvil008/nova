@@ -3,17 +3,27 @@ name: deploy
 description: Ship a verified change safely — pre-flight checks, versioning, CI/CD, an approved deploy, post-deploy verification, and a rollback path. Human-gated; deployment is outward-facing and hard to reverse.
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 # Deploy
 
 Take verified, merged code to a running environment — safely and reversibly.
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Invocation: `/workcell:deploy`
+Prompting Reference: [`docs/models/claude-sonnet-5/prompting.md`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)
+
+You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
 This orchestrator is the sole release authority and dispatches the `deployer` agent only after approval names the target and commit.
 
-## Human gate
+## Ordered Gates
+
+Execution proceeds through five strict, ordered gates:
+1. **approval**: Human approval explicitly names target environment and release commit.
+2. **preflight**: Pre-deployment environment checks, build verification, and rollback command confirmation pass.
+3. **release**: Tagged release creation, binary/container publishing, and deployment execution.
+4. **verification**: Post-deployment smoke testing, synthetic monitoring, and error-budget verification window.
+5. **rollback readiness**: Verified ability to restore preceding stable version immediately upon any check failure.
+
+## Human Gate
 
 Deployment is outward-facing and hard to reverse. **Never deploy without explicit approval**, and approval for one deploy is not standing. Production deploys always require a fresh, explicit go. Never echo secrets; confirm the target (staging vs prod) before every deploy.
 
@@ -26,6 +36,10 @@ Every step below is a dispatch. You sequence the agents, read their evidence, an
 3. **Pre-flight and deploy.** After explicit human approval naming *this* target and *this* commit, dispatch the `deployer` agent with the target, the commit, the verification window, and the approval. It runs pre-flight, confirms the rollback command, deploys, verifies, and rolls back on any failed check. When the project publishes packages (GitHub Packages, npm, a container registry), that publish is part of this gated deploy — never a separate, unapproved step.
 4. **Read the evidence, not the summary.** The agent returns exact commands with `commandId`s, what it observed in the verification window, and whether it rolled back. A claim that the deploy "looks good" is not verification. A rollback is a successful outcome of the procedure, not a failure of it.
 5. **Record.** Dispatch the `documenter` agent for an ADR on any non-trivial release decision and for the handover entry.
+
+## Harness Limitations
+
+Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.
 
 ## Boundaries
 

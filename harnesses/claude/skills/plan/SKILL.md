@@ -3,19 +3,29 @@ name: plan
 description: Investigate a repository task and produce an offline HTML implementation plan plus a strict JSON sidecar, then—only after explicit human approval—idempotently reconcile the plan into a GitHub milestone and issues. Use for substantial coding work that should be reviewed before GitHub tracking is created; do not use for direct implementation or GitHub Projects.
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 # Planner
 
 Turn a repository change into an evidence-backed, reviewable plan.
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Invocation: `/workcell:plan`
+Prompting Reference: [`docs/models/claude-opus-5/prompting.md`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)
+
+You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
 This orchestrator dispatches the planner agent, relays its open questions to the human, holds approval, and is the only participant that applies the approved plan to GitHub.
 
 The planner agent follows the [artifact and sidecar contract](references/sidecar-contract.md). Renderer maintainers follow the [report-rendering contract](references/report-rendering.md).
 
-## Plan workflow
+## Ordered Gates
+
+Execution proceeds through five strict, ordered gates:
+1. **investigation**: Read-only exploration of repository structure, architecture seams, and dependency constraints.
+2. **offline folio**: Generate self-contained HTML plan document specifying changes, risk analysis, and migration steps.
+3. **strict sidecar**: Construct `plan.sidecar.json` with strict schema validation, disjoint ownership hints, and acceptance test oracles.
+4. **human approval**: Stop and require explicit, active human review and authorization before any tracker writes.
+5. **GitHub reconciliation**: Idempotently reconcile the approved plan into a milestone and tracking issues using `reconcile_github.py`.
+
+## Plan Workflow
 
 1. **Dispatch the `planner` agent** with the goal and any decisions the human has already made. It investigates read-only, defines the architecture delta and dependency-ordered issues, authors each issue's `acceptanceTests`, writes the strict sidecar, renders the folio, and runs the read-only reconciliation preview.
 
@@ -45,13 +55,16 @@ The planner agent follows the [artifact and sidecar contract](references/sidecar
    python3 skills/plan/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<github-login>"
    ```
 
-   `--approved-by` must equal the login `gh` is authenticated as (`gh api user`). Apply output
-   records that login as `approvedBy` and the exact approved sidecar bytes as `approvedSha256`.
+   `--approved-by` must equal the login `gh` is authenticated as (`gh api user`). Apply output records that login as `approvedBy` and the exact approved sidecar bytes as `approvedSha256`.
 
 Do not infer approval from silence, prior approval of another revision, or a request to investigate. If the sidecar changes after approval, present the changed plan and stop for fresh human approval.
 
-## GitHub reconciliation
+## GitHub Reconciliation
 
 Use milestones only; never create or modify a GitHub Project. The reconciliation identity, done-state rules, and exact `gh` command shapes are part of the [sidecar contract](references/sidecar-contract.md).
 
 Never run `--apply` merely to test the skill. Use snapshot preview and local rendering for validation.
+
+## Harness Limitations
+
+Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.
