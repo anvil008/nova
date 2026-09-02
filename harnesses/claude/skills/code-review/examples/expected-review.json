@@ -1,0 +1,50 @@
+{
+  "inputCount": 4,
+  "candidateCount": 3,
+  "verifiedCount": 2,
+  "droppedCount": 1,
+  "findings": [
+    {
+      "file": "src/auth.py",
+      "line": 42,
+      "severity": "high",
+      "lens": "security",
+      "claim": "Empty tokens bypass authentication",
+      "failureScenario": "An empty Authorization token reaches the protected handler as an authenticated request.",
+      "confidence": 0.97,
+      "verification": {
+        "refutationAttempt": "Followed the empty-string branch and tried to prove the handler rejects a falsey token.",
+        "evidence": "The new guard rejects only a missing header; an empty parsed token still reaches the protected handler."
+      }
+    },
+    {
+      "file": "tests/test_auth.py",
+      "line": 27,
+      "severity": "low",
+      "lens": "tests",
+      "claim": "Empty-token behavior is untested",
+      "failureScenario": "The empty-token regression ships because the suite exercises only missing and valid headers.",
+      "confidence": 0.88,
+      "verification": {
+        "refutationAttempt": "Searched parameterized and integration coverage for an empty Authorization token case.",
+        "evidence": "The suite covers absent, malformed, and valid headers but contains no empty-token assertion."
+      }
+    }
+  ],
+  "dropped": [
+    {
+      "file": "src/cache.py",
+      "line": 18,
+      "severity": "medium",
+      "lens": "correctness",
+      "claim": "Cache key omits tenant identity",
+      "failureScenario": "Tenant B requests the same object id as tenant A and receives tenant A's cached value.",
+      "confidence": 0.84,
+      "verification": {
+        "refutationAttempt": "Traced every caller and reconstructed the effective key for two tenants sharing an object id.",
+        "evidence": "The caller prefixes the tenant id before invoking this cache helper, so the alleged collision is unreachable."
+      }
+    }
+  ],
+  "verdict": "block"
+}

@@ -1,0 +1,97 @@
+{
+  "planId": "planner-v3-sample",
+  "planName": "Planner v3 Sample",
+  "repo": "foundry-zero/workcell",
+  "generatedAt": "2026-08-26T12:00:00Z",
+  "summary": "Demonstrate the offline planner folio and approval-gated GitHub reconciliation.",
+  "architecture": {
+    "changeSummary": "Replace an implicit planning handoff with one sidecar that visibly carries investigation through human approval to deterministic GitHub reconciliation.",
+    "components": [
+      {
+        "name": "Plan sidecar",
+        "purpose": "Carries stable architecture and issue data."
+      },
+      {
+        "name": "HTML renderer",
+        "purpose": "Produces the self-contained review folio."
+      },
+      {
+        "name": "GitHub reconciler",
+        "purpose": "Applies only an explicitly approved plan."
+      }
+    ],
+    "diagramsMermaid": {
+      "currentArchitecture": "flowchart LR\n  Research[Read-only investigation] --> Notes[Ad hoc planning notes]\n  Notes --> Manual[Manual GitHub setup]",
+      "targetArchitecture": "flowchart LR\n  Research[Read-only investigation] --> Sidecar[Plan sidecar]\n  Sidecar --> Folio[Offline HTML folio]\n  Sidecar --> Gate{Human approval}\n  Gate --> GitHub[Milestone and issues]"
+    }
+  },
+  "issues": [
+    {
+      "key": "render-folio",
+      "title": "Render the offline plan folio",
+      "body": "Render the fixed publication sections and four Mermaid views without external resources.",
+      "labels": [
+        "planning"
+      ],
+      "dependsOn": [],
+      "ownershipHint": "renderer/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {
+          "name": "four_diagram_svgs",
+          "kind": "unit",
+          "oracle": "rendered HTML contains four inline SVG diagram blocks",
+          "testPath": "renderer/tests/test_folio.py"
+        }
+      ]
+    },
+    {
+      "key": "reconcile-github",
+      "title": "Reconcile the approved GitHub milestone",
+      "body": "Preview changes, stop for human approval, then create, update, close, and deduplicate marked issues.",
+      "labels": [
+        "planning",
+        "automation"
+      ],
+      "dependsOn": [
+        "render-folio"
+      ],
+      "ownershipHint": "reconciler/**",
+      "wave": 2,
+      "acceptanceTests": [
+        {
+          "name": "idempotent_rerun",
+          "kind": "integration",
+          "oracle": "second reconcile against applied state yields zero actions",
+          "testPath": "reconciler/tests/test_reconcile.py"
+        }
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-01",
+      "title": "Renderer and reconciler drift apart",
+      "likelihood": 2,
+      "impact": 3,
+      "owner": "planner",
+      "mitigation": "Both read the same validated sidecar; the renderer rejects unknown fields so a schema change cannot land silently."
+    },
+    {
+      "id": "R-02",
+      "title": "Approval is inferred from silence",
+      "likelihood": 1,
+      "impact": 3,
+      "owner": "human reviewer",
+      "mitigation": "--apply requires an explicit --approved-by identity; a changed sidecar invalidates prior approval."
+    },
+    {
+      "id": "R-03",
+      "title": "Mermaid fails to render offline",
+      "likelihood": 2,
+      "impact": 1,
+      "owner": "planner",
+      "mitigation": "Every diagram ships its source in a details fallback that becomes visible when rendering throws."
+    }
+  ]
+}

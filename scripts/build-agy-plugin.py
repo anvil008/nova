@@ -41,6 +41,7 @@ DIST = ROOT / "dist" / "agy"
 PLUGIN = DIST / "workcell"
 WRAPPER = ROOT / "plugins" / "agy"
 MANIFEST = WRAPPER / "plugin.json"
+HARNESS = ROOT / "harnesses" / "agy"
 
 
 def fail(message: str) -> int:
@@ -77,32 +78,62 @@ def compute_tree_digest(root: Path) -> str:
 
 
 def main() -> int:
+    # MIGRATION FALLBACK (remove with #167): until every harness family is authored
+    # under harnesses/<h>, this stager still builds from the pre-layered
+    # plugins/agy wrapper when that family is absent. #167's
+    # no-fallback-survives gate rejects this branch; it must not outlive it.
+    layered = HARNESS.is_dir()
+    if not layered:
+        print(
+            f"build-agy-plugin.py: warning: {HARNESS.name} has no harness family; "
+            f"building from the pre-layered plugins/agy wrapper (migration fallback, #167)",
+            file=sys.stderr,
+        )
+    source = HARNESS if layered else WRAPPER
+    runtime = source / "runtime" if layered else source
+    manifest = runtime / "plugin.json"
     for required in (
-        WRAPPER,
-        MANIFEST,
-        WRAPPER / "agents",
-        WRAPPER / "skills",
-        WRAPPER / "rules",
-        WRAPPER / "hooks.json",
+        source,
+        manifest,
+        source / "agents",
+        source / "skills",
+        runtime / "rules",
+        runtime / "hooks.json",
     ):
         if not required.exists():
             return fail(f"missing required source: {required.relative_to(ROOT)}")
 
     try:
-        manifest_data = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
         version = manifest_data["version"]
     except (json.JSONDecodeError, KeyError, OSError) as e:
-        return fail(f"could not read manifest {MANIFEST.relative_to(ROOT)}: {e}")
+        return fail(f"could not read manifest {manifest.relative_to(ROOT)}: {e}")
 
     lib_dist.reset_dist(DIST, PLUGIN)
 
-    shutil.copytree(
-        WRAPPER,
-        PLUGIN,
-        symlinks=False,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-        dirs_exist_ok=True,
-    )
+    if layered:
+        shutil.copytree(runtime, PLUGIN / "runtime", symlinks=False)
+        shutil.copy2(manifest, PLUGIN / "plugin.json")
+        shutil.copy2(runtime / "hooks.json", PLUGIN / "hooks.json")
+        shutil.copytree(runtime / "rules", PLUGIN / "rules", symlinks=False)
+        handoff = runtime / "handoff.md"
+        if handoff.is_file():
+            shutil.copy2(handoff, PLUGIN / "handoff.md")
+        shutil.copytree(source / "agents", PLUGIN / "agents", symlinks=False)
+        for agent in (PLUGIN / "agents").glob("*/agent.md"):
+            text = agent.read_text(encoding="utf-8").replace(
+                "](../../runtime/handoff.md)", "](../../handoff.md)"
+            )
+            agent.write_text(text, encoding="utf-8")
+        shutil.copytree(source / "skills", PLUGIN / "skills", symlinks=False)
+    else:
+        shutil.copytree(
+            source,
+            PLUGIN,
+            symlinks=False,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            dirs_exist_ok=True,
+        )
 
     escaping = [p for p in DIST.rglob("*") if p.is_symlink()]
     if escaping:
@@ -117,7 +148,7 @@ def main() -> int:
         "name": "workcell",
         "version": version,
         "builtAt": now,
-        "sourceRoot": str(WRAPPER),
+        "sourceRoot": "harnesses/agy" if layered else "plugins/agy",
         "contentDigest": digest,
     }
     lib_dist.write_json(PLUGIN / ".workcell-stamp.json", stamp)

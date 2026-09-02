@@ -1,7 +1,7 @@
 ---
 name: debugger
 description: Use when reproducing one reported symptom, narrowing it to a root cause by experiment, and returning the diagnosis without fixing it.
-model: inherit
+model: grok-4.6
 ---
 
 # Debugger

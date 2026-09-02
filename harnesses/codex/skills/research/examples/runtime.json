@@ -1,0 +1,9 @@
+{
+  "area": "runtime",
+  "coverage": {"scope": "Observed local execution behavior", "sourcesInspected": ["local fixture trace"]},
+  "findings": [
+    {"source": "trace.json:event-12", "finding": "A failed operation ran three times.", "evidence": "Events 8, 10, and 12 are attempts.", "topic": "observed-attempts", "position": "three"}
+  ],
+  "gaps": ["Only the failure path was captured."],
+  "openQuestions": []
+}

@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Use when reviewing a diff, pull request, or change-set through one assigned assurance lens, returning evidence-backed findings.
-model: inherit
+model: grok-4.6
 permission_mode: plan
 ---
 

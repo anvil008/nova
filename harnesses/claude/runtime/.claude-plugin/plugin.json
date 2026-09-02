@@ -1,0 +1,8 @@
+{
+  "name": "workcell",
+  "version": "0.6.0",
+  "description": "Workcell: multi-agent planning, building, review, and docs for Claude Code.",
+  "author": {
+    "name": "Foundry Zero"
+  }
+}

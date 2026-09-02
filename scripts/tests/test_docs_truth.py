@@ -18,6 +18,39 @@ DOCS_CHECK = ROOT / "skills" / "docs" / "scripts" / "docs_check.py"
 SKILLS = ROOT / "skills"
 EVAL_RUNS = ROOT / "docs" / "eval-runs.md"
 
+
+LAYERED_GENERATION_GATES = {
+    "agent sync --check": lambda step: (
+        "scripts/sync-agents.py" in step and "--check" in step
+    ),
+    "skill sync --check": lambda step: (
+        "scripts/sync-skills.py" in step and "--check" in step
+    ),
+    "contract parity": lambda step: (
+        "contract" in step.lower() and "parity" in step.lower()
+    ),
+    "model-guide freshness": lambda step: (
+        "docs/models/check/check_guides.py" in step and "--check" in step
+    ),
+}
+
+
+def ci_steps(workflow: str) -> list[str]:
+    starts = [match.start() for match in re.finditer(r"(?m)^\s*- name:", workflow)]
+    return [
+        workflow[
+            start : starts[index + 1] if index + 1 < len(starts) else len(workflow)
+        ]
+        for index, start in enumerate(starts)
+    ]
+
+
+def assert_layered_generation_gates(workflow: str) -> None:
+    steps = ci_steps(workflow)
+    for name, predicate in LAYERED_GENERATION_GATES.items():
+        assert any(predicate(step) for step in steps), f"missing CI gate: {name}"
+
+
 # The ADR this milestone records. 0016 is the highest that had landed when the
 # issue was written; if something else lands at 0017 first, the ADR is renumbered
 # and this glob — plus the README and changelog citations — move with it.
@@ -169,6 +202,19 @@ def prose_sentences(text: str) -> list[str]:
 
 
 class DocumentationTruthTests(unittest.TestCase):
+    def test_new_checks_are_gated(self):
+        """new-checks-are-gated (integration)."""
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        assert_layered_generation_gates(workflow)
+
+        steps = ci_steps(workflow)
+        for name, predicate in LAYERED_GENERATION_GATES.items():
+            with self.subTest(deleted=name):
+                matching = next(step for step in steps if predicate(step))
+                mutated = workflow.replace(matching, "", 1)
+                with self.assertRaisesRegex(AssertionError, re.escape(name)):
+                    assert_layered_generation_gates(mutated)
+
     def test_gate_docs_match_wired_codex_events(self):
         config = json.loads(
             (ROOT / "plugins" / "codex" / "hooks" / "hooks.json").read_text()
