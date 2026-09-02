@@ -57,6 +57,46 @@ TABLE_LINK = re.compile(
 
 NOT = r"\bnever\b|\bnot\b|\bno\b|\bneither\b|\bnor\b|\bcannot\b|can't|\bwithout\b"
 
+INSTALL = ROOT / "docs" / "install.md"
+
+# The ADR this milestone records: an install is a self-contained copy on every harness.
+# 0022 is the highest that had landed when the issue was written; if something else lands
+# at 0023 first, the ADR is renumbered and this glob — plus the changelog citation and the
+# docs-gate number below — move with it.
+SELF_CONTAINED_ADR = "0023-*.md"
+SELF_CONTAINED_ADR_NUMBER = 23
+# The changelog entry this milestone records, found by its heading rather than by position.
+SELF_CONTAINED_ENTRY = re.compile(r"(?i)self[- ]contain")
+
+# An Antigravity *install destination* — where a plugin is put, as opposed to the wrapper
+# directory inside this repository. Only a claim about a destination is a claim about how
+# the install works, so `plugins/agy/`'s own per-skill links are deliberately not matched.
+AGY_DEST = (
+    r"~/\.gemini|\.gemini/config/plugins|antigravity-cli"
+    r"|antigravity(?:'s)? (?:install|plugin) (?:path|dir|director)"
+)
+LINK = r"\bsym-?link(?:s|ed|ing)?\b|\blink(?:s|ed|ing)?\b"
+# A denial has to sit next to the word it denies: "not a symlink", "no longer symlinked",
+# "rather than a link", "nothing is linked". A stray negation elsewhere in the sentence is
+# not a denial — "its install paths are not a stable documented contract, so Workcell
+# symlinks the wrapper there instead" is exactly the claim this milestone retires.
+DENIAL = (
+    r"(?:\bnot\b|\bno\b|\bnever\b|\bnothing\b|no longer|rather than|instead of)"
+    r"(?:\s+(?:a|an|any|is|are|be|been|it|its|this|that|the|will|would|does|do|to))*"
+    r"(?:\s+(?:live|longer|real))*\s+(?:sym-?)?link(?:s|ed)?\b"
+)
+# A marketplace whose root is this repository — the layout ADR 0023 retires.
+REPO_ROOTED_MARKETPLACE = (
+    r"repositor(?:y|ies) root|root of (?:the |this )?repositor"
+    r"|rooted at (?:the |this )?repositor|repo root|marketplace root"
+    r"|\.claude-plugin/marketplace\.json|\.agents/plugins/marketplace\.json"
+)
+RETIRED = r"\bnot\b|\bno\b|\bnever\b|no longer|retire|remov|delet|former|previous|used to|instead of|rather than"
+FENCE = re.compile(r"(?ms)^```.*?^```[ \t]*$")
+SENTENCE = re.compile(r"(?<=[.!?;])\s+")
+# The `plugins/agy/` row of the README's repository-layout tree.
+AGY_LAYOUT_LINE = re.compile(r"(?m)^.*──[ \t]*agy/.*$")
+
 
 def find_claim(text: str, *patterns: str) -> str | None:
     """The first paragraph or top-level list item that makes the whole claim."""
@@ -115,6 +155,19 @@ def changelog_entry(pattern: re.Pattern) -> str | None:
     return None
 
 
+def prose_sentences(text: str) -> list[str]:
+    """Every prose sentence, with fenced code blocks removed.
+
+    Paragraphs are reflowed first: these documents wrap at 100 columns, so a claim
+    routinely spans three source lines. Sentence granularity — not paragraph — is what
+    makes "this is no longer a link" distinguishable from a paragraph that happens to
+    contain both a denial about one harness and a live-link claim about another."""
+    out: list[str] = []
+    for unit in statements(FENCE.sub("\n\n", text)):
+        out += [s.strip() for s in SENTENCE.split(unit) if s.strip()]
+    return out
+
+
 class DocumentationTruthTests(unittest.TestCase):
     def test_gate_docs_match_wired_codex_events(self):
         config = json.loads(
@@ -152,17 +205,52 @@ class DocumentationTruthTests(unittest.TestCase):
         self.assertNotIn("no hooks are wired", text)
 
     def test_antigravity_cli_and_symlink_decision_are_documented(self):
+        """ADR 0006 keeps the `agy plugin` decision it made and points at its successor;
+        ADR 0023 and the README describe the owned copy that replaced it.
+
+        Rewritten deliberately for ADR 0023: before this milestone the same test pinned
+        the README to a *live* Antigravity link, which is the claim the milestone
+        retires. ADR 0006's own prose still says what it said — it is history — so the
+        `agy plugin` string and the absence of "no plugin CLI" are unchanged."""
         readme = README.read_text(encoding="utf-8")
-        adr = (ADRS / "0006-plugins-install-through-local-marketplaces.md").read_text(
-            encoding="utf-8"
+        adr_0006_path = ADRS / "0006-plugins-install-through-local-marketplaces.md"
+        adr_0006 = adr_0006_path.read_text(encoding="utf-8")
+
+        self.assertNotIn("no plugin CLI", adr_0006, adr_0006_path)
+        self.assertIn("`agy plugin`", adr_0006, adr_0006_path)
+        self.assertRegex(
+            section(adr_0006, "Status"),
+            r"0023",
+            f"{adr_0006_path.name}: the Status section does not point at ADR 0023",
         )
-        for path, text in (
-            (README, readme),
-            (ADRS / "0006-plugins-install-through-local-marketplaces.md", adr),
-        ):
-            self.assertNotIn("no plugin CLI", text, path)
-            self.assertIn("`agy plugin`", text, path)
-            self.assertRegex(text.lower(), r"symlink|explicit links")
+
+        found = sorted(ADRS.glob(SELF_CONTAINED_ADR))
+        self.assertEqual(
+            len(found),
+            1,
+            f"expected exactly one docs/adr/{SELF_CONTAINED_ADR} to carry the successor "
+            f"decision, found {[p.name for p in found]}",
+        )
+        adr_0023 = found[0].read_text(encoding="utf-8")
+        self.assertIn(
+            "`agy plugin`",
+            adr_0023,
+            f"{found[0].name} never names the `agy plugin` CLI it declines to use",
+        )
+        self.assertIsNotNone(
+            find_claim(
+                adr_0023,
+                r"antigravity|\bagy\b",
+                r"\.gemini/config/plugins",
+                r"cop(?:y|ies|ied)",
+            ),
+            f"{found[0].name} never states that Antigravity gets an owned copy at its "
+            f"documented scan directory",
+        )
+        self.assertIsNotNone(
+            find_claim(readme, r"antigravity|\bagy\b", r"cop(?:y|ies|ied)", r"own"),
+            "README.md never describes the Antigravity install as an owned copy",
+        )
 
     def test_generated_agents_are_in_sync(self):
         body = (ROOT / "agents" / "bodies" / "builder.md").read_text(encoding="utf-8")
@@ -753,6 +841,368 @@ class WikiLayerDocumentationTests(unittest.TestCase):
             entry["ok"], f"{adr.name} is missing sections: {entry['missing']}"
         )
         self.assertEqual(entry["number"], WIKI_ADR_NUMBER)
+
+
+class SelfContainedInstallDocumentationTests(unittest.TestCase):
+    """The repository's own account of full self-containment: ADR 0023, the two ADRs it
+    supersedes and re-grounds, the README and install prose, and the changelog entry.
+
+    Every harness install is now an installer-owned copy — a Claude durable
+    command-source marketplace, a durable Codex marketplace copy, a Grok drop directory,
+    and one Antigravity copy at its documented scan directory — and no runtime consumer
+    resolves through a symlink into this repository any more."""
+
+    def assert_claim(self, text: str, where: str, *patterns: str) -> str:
+        """Fail unless one paragraph or list item makes the whole claim."""
+        unit = find_claim(text, *patterns)
+        if unit is None:
+            self.fail(
+                f"{where}: no single paragraph or list item states all of {list(patterns)}"
+            )
+        return unit
+
+    def self_contained_adr(self) -> tuple[Path, str]:
+        found = sorted(ADRS.glob(SELF_CONTAINED_ADR))
+        self.assertEqual(
+            len(found),
+            1,
+            f"expected exactly one docs/adr/{SELF_CONTAINED_ADR} recording that installs "
+            f"are self-contained copies, found {[p.name for p in found]}",
+        )
+        self.assertRegex(found[0].name, ADR_FILENAME)
+        return found[0], found[0].read_text(encoding="utf-8")
+
+    def adr_section(self, name: str) -> tuple[str, str]:
+        path, text = self.self_contained_adr()
+        body = section(text, name)
+        self.assertTrue(body.strip(), f"{path.name}: the {name} section is empty")
+        return f"{path.name} {name}", body
+
+    def live_link_claims(self, path: Path) -> list[str]:
+        """Sentences in `path` that name an Antigravity install destination together with
+        a linking verb, and do not deny it right next to the word."""
+        text = path.read_text(encoding="utf-8")
+        return [
+            sentence
+            for sentence in prose_sentences(text)
+            if re.search(AGY_DEST, sentence, re.IGNORECASE)
+            and re.search(LINK, sentence, re.IGNORECASE)
+            and not re.search(DENIAL, sentence, re.IGNORECASE)
+        ]
+
+    def repo_rooted_marketplace_claims(self, path: Path) -> list[str]:
+        """Sentences in `path` that still place a marketplace at this repository's root
+        without saying the layout is retired."""
+        text = path.read_text(encoding="utf-8")
+        return [
+            sentence
+            for sentence in prose_sentences(text)
+            if re.search(r"(?i)marketplace", sentence)
+            and re.search(REPO_ROOTED_MARKETPLACE, sentence, re.IGNORECASE)
+            and not re.search(RETIRED, sentence, re.IGNORECASE)
+        ]
+
+    # --- adr_0023_records_the_per_harness_mechanisms ------------------------
+
+    def test_adr_0023_records_the_per_harness_mechanisms(self):
+        path, text = self.self_contained_adr()
+        for name in ("Status", "Context", "Decision", "Consequences"):
+            self.assertRegex(
+                text, rf"(?mi)^#+\s*{name}\b", f"{path.name} has no {name} section"
+            )
+            self.assertTrue(
+                section(text, name).strip(), f"{path.name}: the {name} section is empty"
+            )
+        status = section(text, "Status")
+        self.assertRegex(status, r"(?i)\bAccepted\b")
+        self.assertRegex(
+            status,
+            r"0006",
+            f"{path.name}: the Status section does not name ADR 0006, which it supersedes",
+        )
+
+        where, decision = self.adr_section("Decision")
+        # Claude: a durable command-source marketplace, staged with copy mode.
+        self.assert_claim(
+            decision,
+            where,
+            r"claude",
+            r"command[- ]source|command plugin source|commandPluginSource|command sources",
+            r"mode:\s*`?copy|`copy` mode|copy mode|mode `copy`",
+            r"durable|~/\.local/share/workcell",
+        )
+        # Codex: a durable owned marketplace copy whose version carries a content hash.
+        self.assert_claim(
+            decision,
+            where,
+            r"codex",
+            r"durable",
+            r"marketplace",
+            r"version",
+            r"content[- ]hash|\+codex\.",
+        )
+        # Grok: a drop into the documented plugin directory.
+        self.assert_claim(
+            decision,
+            where,
+            r"grok",
+            r"~/\.grok/plugins",
+            r"drop",
+        )
+        # Antigravity: one copy at the documented scan directory, `agy plugin` unused.
+        self.assert_claim(
+            decision,
+            where,
+            r"antigravity|\bagy\b",
+            r"\.gemini/config/plugins",
+            r"cop(?:y|ies|ied)",
+            r"`agy plugin`",
+            r"unused|not used|never used|declin|not invoked|never invoked|deliberately unused",
+        )
+
+    # --- adr_0023_states_the_refresh_and_drift_story ------------------------
+
+    def test_adr_0023_states_the_refresh_and_drift_story(self):
+        path, text = self.self_contained_adr()
+        where = path.name
+        # Claude restages itself, once per session.
+        self.assert_claim(text, where, r"claude", r"re-?stag", r"session")
+        # The other three freeze until bootstrap runs again.
+        self.assert_claim(
+            text,
+            where,
+            r"codex",
+            r"grok",
+            r"antigravity|\bagy\b",
+            r"free[sz]e|frozen",
+            r"bootstrap",
+        )
+        # Grok and Antigravity need a new session to pick a refreshed copy up.
+        self.assert_claim(
+            text,
+            where,
+            r"grok",
+            r"antigravity|\bagy\b",
+            r"new session|fresh session|next session|restart",
+        )
+        # Drift is surfaced by a version comparison and by the per-copy stamp.
+        self.assert_claim(
+            text,
+            where,
+            r"drift",
+            r"version",
+            r"compar|report",
+            r"\.workcell-stamp\.json",
+        )
+
+    # --- adr_0023_declares_no_remaining_live_symlink ------------------------
+
+    def test_adr_0023_declares_no_remaining_live_symlink(self):
+        path, text = self.self_contained_adr()
+        self.assert_claim(
+            text,
+            path.name,
+            NOT,
+            r"sym-?link",
+            r"repositor",
+            r"hook[- ]wrapper|hook wrappers",
+            r"workcell-ws",
+        )
+
+    # --- adr_0006_and_adr_0021_point_at_their_successor ---------------------
+
+    def test_adr_0006_and_adr_0021_point_at_their_successor(self):
+        """The Status of each superseded ADR names 0023; their history is appended to,
+        never rewritten, so prose that was there before is still there."""
+        history = {
+            "0006-plugins-install-through-local-marketplaces.md": {
+                "Context": [
+                    "neither ever scans its plugin directory for unregistered entries",
+                ],
+                "Decision": [
+                    "The root is the marketplace root deliberately.",
+                    "Antigravity keeps the ADR 0005 symlink.",
+                ],
+                "Consequences": [
+                    "Antigravity skill links are derived, not listed.",
+                ],
+            },
+            "0021-deploys-serve-plugins-from-a-durable-path.md": {
+                "Context": [
+                    "resolve the installed plugin through the",
+                ],
+                "Decision": [
+                    (
+                        "A deploy that installs or updates the plugin runs from a path "
+                        "that outlives the deploy step."
+                    ),
+                ],
+                "Consequences": [
+                    "The next bootstrap from the primary repository will collide, not merge.",
+                    "Grok has no v0.3.0 to roll back to.",
+                ],
+            },
+        }
+        self.assertIn("`agy plugin`", (ADRS / next(iter(history))).read_text("utf-8"))
+        for name, sections in history.items():
+            path = ADRS / name
+            self.assertTrue(path.is_file(), f"{path} does not exist")
+            text = path.read_text(encoding="utf-8")
+            self.assertRegex(
+                section(text, "Status"),
+                r"0023",
+                f"{name}: the Status section does not point at ADR 0023",
+            )
+            for heading, sentences in sections.items():
+                body = re.sub(r"\s+", " ", section(text, heading))
+                self.assertTrue(body.strip(), f"{name}: the {heading} section is empty")
+                for sentence in sentences:
+                    self.assertIn(
+                        sentence,
+                        body,
+                        f"{name}: the {heading} section no longer contains the historical "
+                        f"sentence {sentence!r} — ADR 0023 supersedes this decision, it does "
+                        f"not erase the record of it",
+                    )
+
+    # --- readme_and_install_docs_match_the_new_mechanisms -------------------
+
+    def test_readme_and_install_docs_match_the_new_mechanisms(self):
+        readme = README.read_text(encoding="utf-8")
+        self.assertTrue(INSTALL.is_file(), f"{INSTALL} does not exist")
+        install = INSTALL.read_text(encoding="utf-8")
+
+        for path in (README, INSTALL):
+            stale = self.live_link_claims(path)
+            self.assertEqual(
+                stale,
+                [],
+                f"{path.name} still claims a live link into an Antigravity plugin "
+                f"directory: {stale}",
+            )
+            rooted = self.repo_rooted_marketplace_claims(path)
+            self.assertEqual(
+                rooted,
+                [],
+                f"{path.name} still describes a marketplace rooted at this repository: "
+                f"{rooted}",
+            )
+
+        # The `plugins/agy/` row of the layout tree describes an owned copy.
+        rows = AGY_LAYOUT_LINE.findall(readme)
+        self.assertEqual(
+            len(rows),
+            1,
+            f"expected exactly one `plugins/agy/` row in the README layout tree, "
+            f"found {rows}",
+        )
+        row = rows[0]
+        self.assertRegex(
+            row,
+            r"(?i)cop(?:y|ies|ied)|owned",
+            f"the README `agy/` layout row does not describe an owned copy: {row!r}",
+        )
+        if re.search(LINK, row, re.IGNORECASE):
+            self.assertRegex(
+                row,
+                DENIAL,
+                f"the README `agy/` layout row still describes a link: {row!r}",
+            )
+
+        # tdd-guard installs from a release artifact, with no checkout in sight.
+        self.assert_claim(
+            install,
+            "docs/install.md",
+            r"tdd-guard",
+            r"release",
+            r"artifact|asset|tarball|archive|download",
+            r"without (?:a |the )?(?:checkout|clone|repositor)|no checkout|no clone"
+            r"|without cloning|without checking out",
+        )
+        # Grok and Antigravity only pick a refreshed copy up in a new session.
+        self.assert_claim(
+            install,
+            "docs/install.md",
+            r"grok",
+            r"antigravity|\bagy\b",
+            r"new session|fresh session|next session|restart",
+        )
+
+    # --- changelog_entry_names_the_changes_and_cites_the_adr ---------------
+
+    def test_changelog_entry_names_the_changes_and_cites_the_adr(self):
+        entry = changelog_entry(SELF_CONTAINED_ENTRY)
+        self.assertIsNotNone(
+            entry,
+            f"CHANGELOG.md has no entry whose heading matches "
+            f"{SELF_CONTAINED_ENTRY.pattern!r}",
+        )
+        where = "the CHANGELOG.md self-containment entry"
+        # Claude's durable command-source marketplace.
+        self.assert_claim(
+            entry,
+            where,
+            r"claude",
+            r"command[- ]source|command plugin source|command sources",
+            r"marketplace",
+        )
+        # Antigravity's and Grok's owned copies.
+        self.assert_claim(
+            entry,
+            where,
+            r"antigravity|\bagy\b",
+            r"grok",
+            r"cop(?:y|ies|ied)",
+            r"own",
+        )
+        # The versioned copies of the tools.
+        self.assert_claim(
+            entry,
+            where,
+            r"version",
+            r"cop(?:y|ies|ied)",
+            r"tdd-guard|workcell-ws|wrapper",
+        )
+        # The release artifact CI now builds.
+        self.assert_claim(
+            entry,
+            where,
+            r"\bCI\b|workflow|release job|GitHub Actions",
+            r"release",
+            r"artifact|asset|binary|tarball",
+        )
+        self.assertRegex(entry, r"(?i)ADR[- ]0023", f"{where} does not cite ADR-0023")
+
+    # --- docs_gate_is_green_and_inspects_adr_0023 --------------------------
+
+    def test_docs_gate_is_green_and_inspects_adr_0023(self):
+        result = subprocess.run(
+            [sys.executable, "-B", str(DOCS_CHECK), str(ROOT)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["violations"], [])
+        numbers = [item["number"] for item in report["adrs"]]
+        self.assertNotIn(None, numbers, "the docs gate found a malformed ADR filename")
+        self.assertEqual(
+            len(numbers),
+            len(set(numbers)),
+            f"the docs gate found duplicate ADR numbers: {numbers}",
+        )
+        adr, _ = self.self_contained_adr()
+        entry = next(
+            (item for item in report["adrs"] if item["path"].endswith(adr.name)),
+            None,
+        )
+        self.assertIsNotNone(entry, f"the docs gate did not inspect {adr.name}")
+        self.assertTrue(
+            entry["ok"], f"{adr.name} is missing sections: {entry['missing']}"
+        )
+        self.assertEqual(entry["number"], SELF_CONTAINED_ADR_NUMBER)
 
 
 if __name__ == "__main__":
