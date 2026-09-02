@@ -78,7 +78,17 @@ def compute_tree_digest(root: Path) -> str:
 
 
 def main() -> int:
+    # MIGRATION FALLBACK (remove with #167): until every harness family is authored
+    # under harnesses/<h>, this stager still builds from the pre-layered
+    # plugins/agy wrapper when that family is absent. #167's
+    # no-fallback-survives gate rejects this branch; it must not outlive it.
     layered = HARNESS.is_dir()
+    if not layered:
+        print(
+            f"build-agy-plugin.py: warning: {HARNESS.name} has no harness family; "
+            f"building from the pre-layered plugins/agy wrapper (migration fallback, #167)",
+            file=sys.stderr,
+        )
     source = HARNESS if layered else WRAPPER
     runtime = source / "runtime" if layered else source
     manifest = runtime / "plugin.json"

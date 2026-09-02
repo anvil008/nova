@@ -47,7 +47,17 @@ def fail(message: str) -> int:
 
 
 def main() -> int:
+    # MIGRATION FALLBACK (remove with #167): until every harness family is authored
+    # under harnesses/<h>, this stager still builds from the pre-layered
+    # plugins/grok wrapper when that family is absent. #167's
+    # no-fallback-survives gate rejects this branch; it must not outlive it.
     layered = HARNESS.is_dir()
+    if not layered:
+        print(
+            f"build-grok-plugin.py: warning: {HARNESS.name} has no harness family; "
+            f"building from the pre-layered plugins/grok wrapper (migration fallback, #167)",
+            file=sys.stderr,
+        )
     runtime = HARNESS / "runtime" if layered else ROOT / "plugins" / "grok"
     agents_dir = HARNESS / "agents" if layered else ROOT / "agents" / "grok"
     skills_dir = HARNESS / "skills" if layered else ROOT / "skills"

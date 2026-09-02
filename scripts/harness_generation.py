@@ -64,6 +64,12 @@ EXTERNAL = ("http://", "https://", "mailto:", "#", "<")
 # Skills a harness ships inside one of its agents instead of the globally
 # invocable family must say so in the registry, on every owning agent.
 GLOBAL_SKILL_SURFACE = "global-skill-invocation"
+HARNESS_LABELS = {
+    "claude": "Claude Code",
+    "codex": "Codex",
+    "agy": "Antigravity",
+    "grok": "Grok Build",
+}
 
 
 class GenerationError(Exception):
@@ -260,14 +266,19 @@ def _mode(path: Path) -> int:
     return stat.S_IMODE(path.stat().st_mode)
 
 
+def _same_mode(actual: int, expected: int) -> bool:
+    """Compare only what generation controls: whether the file is executable.
+
+    A tracked file's read/write bits come from the umask of whoever checked the
+    repository out — 664 under 0002, 644 under 0022 — so comparing full modes
+    makes `--check` report drift on a clean checkout of half the machines it runs
+    on. The executable bit is the only mode difference the generator means.
+    """
+    return bool(actual & 0o111) == bool(expected & 0o111)
+
+
 def _generated_notice(text: str, harness: str) -> str:
-    label = {
-        "claude": "Claude Code",
-        "codex": "Codex",
-        "agy": "Antigravity",
-        "grok": "Grok Build",
-    }[harness]
-    marker = f"<!-- generated harness-owned procedure: {label} -->\n"
+    marker = f"<!-- generated harness-owned procedure: {HARNESS_LABELS[harness]} -->\n"
     if not text.startswith("---\n"):
         return marker + text
     end = text.find("\n---\n", 4)
@@ -292,40 +303,57 @@ def _limitations(entry: dict, harness: str) -> str:
     )
 
 
-def _other_harness_body(harness: str) -> str:
-    commands = {
-        "claude": 'claude -p "<task prompt>" --model <model> --effort <effort> --dangerously-skip-permissions',
-        "codex": 'codex exec --cd <dir> -m <model> -c model_reasoning_effort="<effort>" --approve-for-me "<task prompt>"',
-        "agy": 'agy -p "<task prompt>" --model <model> --effort <effort> --dangerously-skip-permissions',
-        "grok": 'grok -p "<task prompt>" -m <model> --effort <effort> --always-approve',
-    }
-    names = {
-        "claude": "Claude Code",
-        "codex": "Codex",
-        "agy": "Antigravity",
-        "grok": "Grok Build",
-    }
-    return f"""---
-name: use-other-harness
-description: Run one explicitly requested foreign-harness leaf task in headless mode.
----
+# How each harness launches a foreign one. The four generated bodies differ here
+# and only here: the catalogue of target commands is the shared skill's, because
+# this skill exists to reach *every* other harness, not the one that owns the copy.
+LAUNCH_FRAMING = {
+    "claude": (
+        "Run the target harness's command below with the Bash tool. For a long job start it in "
+        "the background and read the captured output when the process exits, rather than polling "
+        "it while it runs."
+    ),
+    "codex": (
+        "Run the target harness's command below in the shell. Point it at the working directory "
+        "with its own directory flag instead of changing directory first, and capture the result "
+        "to a file so the output survives the run."
+    ),
+    "agy": (
+        "Run the target harness's command below as a terminal command. It starts a separate "
+        "external process: it is not an Antigravity subagent and nothing in this session manages "
+        "its lifetime, so wait for it and collect its output yourself."
+    ),
+    "grok": (
+        "Run the target harness's command below in the shell. No hook reports a foreign process "
+        "back to this session, so capture its exit status and its output explicitly before you "
+        "report anything about it."
+    ),
+}
 
-# Use another harness from {names[harness]}
 
-Use this leaf capability only for an explicit user request for a different coding harness that
-names the target harness, model, and effort. Never use it as an automatic router or for automatic
-cross-harness routing. Ask for any missing value instead of guessing.
+def _other_harness_body(harness: str, source: str) -> str:
+    """One harness's copy of the shared skill: its framing, the shared catalogue.
 
-Run the target harness's native headless command in the requested workspace. For {names[harness]},
-the compatible launch shape is:
-
-```bash
-{commands[harness]}
-```
-
-The foreign process performs one bounded job and returns its result. It must not orchestrate more
-agents. Capture its exit status and output, then hand both back to the caller.
-"""
+    The frontmatter description is carried through verbatim because it is the
+    explicit-only trigger a harness reads to decide whether to load the skill at
+    all, and the body below it is the shared source's, so an edit to
+    `skills/use-other-harness/SKILL.md` reaches all four copies.
+    """
+    if not source.startswith("---\n"):
+        raise GenerationError("skills/use-other-harness/SKILL.md: no frontmatter")
+    end = source.index("\n---\n", 4)
+    front = source[4:end]
+    body = source[end + len("\n---\n") :].lstrip("\n")
+    # The shared title is replaced by the owning harness's; everything the source
+    # says about the four targets stays as written.
+    lines = body.splitlines(keepends=True)
+    if lines and lines[0].startswith("# "):
+        body = "".join(lines[1:]).lstrip("\n")
+    return (
+        f"---\n{front}\n---\n\n"
+        f"# Use another harness from {HARNESS_LABELS[harness]}\n\n"
+        f"{LAUNCH_FRAMING[harness]}\n\n"
+        f"{body}"
+    )
 
 
 def desired_skills(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
@@ -371,10 +399,12 @@ def desired_skills(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                     )
                     content = resource_text.encode("utf-8")
                 if relative == Path("SKILL.md"):
-                    text = (
-                        _other_harness_body(harness)
+                    decoded = content.decode("utf-8")
+                    text = _generated_notice(
+                        _other_harness_body(harness, decoded)
                         if name == "use-other-harness"
-                        else _generated_notice(content.decode("utf-8"), harness)
+                        else decoded,
+                        harness,
                     )
                     text = text.rstrip() + _limitations(entry, harness)
                     text = text.rstrip() + "\n"
@@ -510,15 +540,29 @@ def _unresolved_links(document: Path) -> list[tuple[int, str]]:
     return broken
 
 
+def _link_key(document: Path, target: str) -> tuple[str, str]:
+    """Identify a document by its path within its skill, so depth does not matter.
+
+    The same file sits at `skills/jj/references/x.md` in the source, deeper again
+    under a staged plugin root, and deeper still under an agent that owns the
+    skill. Everything from the innermost `skills/` component down is identical in
+    all three, which is a far tighter key than the bare file name.
+    """
+    parts = document.parts
+    if "skills" in parts:
+        start = len(parts) - 1 - parts[::-1].index("skills")
+        return ("/".join(parts[start + 1 :]), target)
+    return (document.name, target)
+
+
 def inherited_link_breaks(root: Path) -> set[tuple[str, str]]:
-    """Link breaks the shared sources already carry, keyed by file name and target.
+    """Link breaks the shared sources already carry, keyed by skill-relative path.
 
     Vendored upstream documents (`skills/jj/references/`) cite pages this
     repository does not vendor, and copying them cannot repair a link that was
     never whole. Everything else must resolve inside the harness family, so the
     generated trees are allowed exactly the breaks their sources already had and
-    no others. The file name is the key because the same document is copied to a
-    different depth in every family.
+    no others.
     """
     inherited: set[tuple[str, str]] = set()
     for base in (root / "skills", root / "agents", root / "docs", root / "plugins"):
@@ -531,7 +575,7 @@ def inherited_link_breaks(root: Path) -> set[tuple[str, str]]:
             if "__pycache__" in document.parts or "bodies" in document.parts:
                 continue
             for _, target in _unresolved_links(document):
-                inherited.add((document.name, target))
+                inherited.add(_link_key(document, target))
     return inherited
 
 
@@ -548,7 +592,7 @@ def link_failures(tree: Path, inherited: set[tuple[str, str]]) -> list[str]:
         if "__pycache__" in document.parts:
             continue
         for line, target in _unresolved_links(document):
-            if (document.name, target) in inherited:
+            if _link_key(document, target) in inherited:
                 continue
             failures.append(f"{document}:{line}: unresolved link {target}")
     return failures
@@ -598,7 +642,7 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
             not path.is_file()
             or path.is_symlink()
             or path.read_bytes() != generated.content
-            or _mode(path) != generated.mode
+            or not _same_mode(_mode(path), generated.mode)
         ):
             drifted.append(path)
     orphans = sorted(existing - set(desired))

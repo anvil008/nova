@@ -39,7 +39,17 @@ class BuildError(Exception):
 
 def validate_sources() -> tuple[str, Path, bool]:
     """Ensure all required sources exist and extract the plugin version."""
+    # MIGRATION FALLBACK (remove with #167): until every harness family is authored
+    # under harnesses/<h>, this stager still builds from the pre-layered
+    # plugins/claude wrapper when that family is absent. #167's
+    # no-fallback-survives gate rejects this branch; it must not outlive it.
     layered = HARNESS.is_dir()
+    if not layered:
+        print(
+            f"build-claude-plugin.py: warning: {HARNESS.name} has no harness family; "
+            f"building from the pre-layered plugins/claude wrapper (migration fallback, #167)",
+            file=sys.stderr,
+        )
     source = HARNESS if layered else LEGACY_SOURCE
     if not source.is_dir():
         raise BuildError(f"missing plugin source {source.relative_to(ROOT)}")
@@ -120,7 +130,18 @@ def build() -> Path:
     )
 
     if layered:
-        shutil.copytree(runtime, STAGED / "runtime", symlinks=False)
+        # Only what the staged skills link to. The manifest, hooks and hook scripts
+        # already sit at the plugin root, which is where Claude reads them and where
+        # ${CLAUDE_PLUGIN_ROOT} resolves; copying them again under runtime/ would ship
+        # a second, unread copy of every hook script.
+        shutil.copytree(
+            runtime,
+            STAGED / "runtime",
+            symlinks=False,
+            ignore=shutil.ignore_patterns(
+                ".claude-plugin", "hooks", "scripts", "__pycache__", "*.pyc"
+            ),
+        )
 
     # .workcell-stamp.json
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
