@@ -3,19 +3,36 @@ name: repo-setup
 description: Make a repository ready for agentic development — interview the user about purpose and tooling, then set up AGENTS.md / CLAUDE.md, the build runner, version control, and lint/format gates. Works on an existing repo or a new one.
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
-# Repo setup
+# Repo Setup
 
 Get a repository into the shape where agents can work in it safely: instruction files that say what the project is and how to verify it, a build and test command that actually runs, and gates that catch mistakes mechanically. Works on an established codebase or an empty directory.
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Invocation: `/workcell:repo-setup`
+Prompting Reference: [`docs/models/claude-sonnet-5/prompting.md`](../../runtime/docs/models/claude-sonnet-5/prompting.md)
 
-This orchestrator interviews the human and assigns documentation to `documenter` and code-like configuration to `builder`.
+You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Claude Code's `Agent` tool, hold the human gates, run `git` / `jj` / `gh` and scripts via the `Bash` tool for branch, merge, and issue-state operations, and read gate output and handoff records using the [`anvil.agent-handoff/v1`](../../runtime/handoff.md) schema. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-## Read before you ask
+This orchestrator interviews the human and assigns documentation to `documenter` and code-like configuration to `builder`. Following the Claude Sonnet 5 guide, structure task specifications directly, demand comprehensive reporting, and keep instructions grounded in concrete commands.
 
-Dispatch a `researcher` agent to report what is already there: language and manifests, existing build/test/lint commands, CI workflows, version control (git, or `.jj/`), any current `AGENTS.md` / `CLAUDE.md` / `GEMINI.md`, and the test layout. `scripts/bootstrap-project.sh <dir>` reports the detected stack and tool readiness without installing anything, and is the fastest way to get that picture.
+## Goals and Constraints
+
+- **Goal:** Equip a repository with verified instruction files, reliable build/test commands, and mechanical lint/format gates.
+- **Constraints:** Never overwrite existing instruction files or CI workflows without presenting a diff. Never document commands that do not run.
+- **Success Criteria:** Verified `AGENTS.md` with symbolic links, working verification commands confirmed by an integrator baseline, and wired advisory hooks.
+
+## Ordered Gates
+
+Execution proceeds through five strict, ordered gates:
+
+1. **interview**: Survey repository and interview user about purpose, verification commands, and tooling.
+2. **instruction setup**: Documenter establishes `AGENTS.md` as single source of truth with symlinks.
+3. **build runner**: Configure build and test runners based on repo size and architecture.
+4. **version control**: Adopt colocated jj repo if appropriate, or preserve git worktree compatibility.
+5. **lint and format gates**: Install per-stack linters/formatters and verify documented commands via integrator baseline.
+
+## Read Before You Ask
+
+Dispatch a `researcher` agent via the `Agent` tool to report what is already there: language and manifests, existing build/test/lint commands, CI workflows, version control (git, or `.jj/`), any current `AGENTS.md` / `CLAUDE.md` / `GEMINI.md`, and the test layout. `scripts/bootstrap-project.sh <dir>` reports the detected stack and tool readiness without installing anything, and is the fastest way to get that picture.
 
 Then ask the human what the survey cannot tell you. State what you found so the questions are corrections rather than an interrogation:
 
@@ -30,10 +47,10 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
 
 ## Procedure
 
-1. **Survey** with a `researcher` agent plus `scripts/bootstrap-project.sh <dir>`.
+1. **Survey** with a `researcher` agent via the `Agent` tool plus `scripts/bootstrap-project.sh <dir>`.
 2. **Interview** as above, with your recommendations attached.
-3. **Version control**, if adopting jj: `jj git init --colocate` at the repo root. Colocation keeps `.git/` working, so existing tooling, CI, and `gh` are unaffected.
-4. **Instruction files — one source of truth.** Dispatch the `documenter` agent to write **`AGENTS.md`** as the single real instruction file, covering purpose, layout, the exact verification commands, and the conventions from the interview. Every other harness's instruction file is a symbolic link to it, never a second copy:
+3. **Version control**, if adopting jj: `jj git init --colocate` at the repo root via `Bash`. Colocation keeps `.git/` working, so existing tooling, CI, and `gh` are unaffected.
+4. **Instruction files — one source of truth.** Dispatch the `documenter` agent via the `Agent` tool to write **`AGENTS.md`** as the single real instruction file, covering purpose, layout, the exact verification commands, and the conventions from the interview. Every other harness's instruction file is a symbolic link to it, never a second copy:
 
    ```bash
    ln -sf AGENTS.md CLAUDE.md      # and GEMINI.md where a harness wants its own name
@@ -47,9 +64,13 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
    ```
 
    Everything it writes is added to the repository's `info/exclude`, so none of it shows up in a diff or a commit. Any config that is genuinely code — a CI workflow, a build file, a Bazel target — goes through a `builder` test-first where it is testable, not hand-edited here.
-6. **Prove it.** Dispatch an `integrator` with a brief conforming to [`agents/handoff.md`](../../runtime/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. It runs the documented build, test, and lint commands exactly as written in the instruction files. This is the whole point of the setup: if the commands in `AGENTS.md` do not run, the file is a liability. Fix and re-run until they do.
+6. **Prove it.** Dispatch an `integrator` via the `Agent` tool with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. It runs the documented build, test, and lint commands exactly as written in the instruction files. This is the whole point of the setup: if the commands in `AGENTS.md` do not run, the file is a liability. Fix and re-run until they do.
 7. **Report** what was set up, what was left alone and why, and what the human still has to decide.
 
 ## Boundaries
 
 Never overwrite an existing `AGENTS.md`, `CLAUDE.md`, or CI workflow without showing the human what changes — these encode decisions you were not present for. Never invent a build or test command to fill a section; if none exists, say so and offer to create one. Never adopt jj or Bazel because they are available: both are answers to specific problems, and imposing them on a repo that does not have those problems is a cost with no return. This skill sets a repository up; it does not implement features in it.
+
+## Harness Limitations
+
+Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.

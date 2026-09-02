@@ -13,6 +13,10 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "scripts"))
+import harness_generation
+
 HARNESSES = ("claude", "codex", "agy", "grok")
 EXPECTED_SKILLS = {
     "build",
@@ -162,10 +166,20 @@ def generated_artifact(root: Path, harness: str, kind: str, name: str) -> Path:
         and (path.stem == name or name in path.parts)
     ]
     assert candidates, f"no generated {harness}/{kind}/{name} artifact"
-    skill_md = [path for path in candidates if path.name == "SKILL.md"]
+    generated_candidates = [
+        path
+        for path in candidates
+        if not harness_generation.is_harness_owned_skill_path(path, root)
+    ]
+    skill_md = [
+        path
+        for path in candidates
+        if path.name == "SKILL.md"
+        and not harness_generation.is_harness_owned_skill_path(path, root)
+    ]
     agent_md = [path for path in candidates if path.name in {"agent.md", f"{name}.md"}]
     preferred = skill_md if kind == "skills" else agent_md
-    return min(preferred or candidates)
+    return min(preferred or generated_candidates or candidates)
 
 
 def frontmatter(text: str) -> str:

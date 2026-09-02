@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "contracts" / "harness-contracts.json"
 HARNESSES = ("claude", "codex", "agy", "grok")
+HARNESS_OWNED_SKILLS = frozenset({"claude"})
 KINDS = ("skills", "agents")
 EXPECTED_SKILLS = frozenset(
     {
@@ -233,7 +234,17 @@ def validate_required(root: Path, registry: dict, kind: str) -> None:
             for value in entry["requiredValues"][harness]:
                 if value == "body":
                     if kind == "skills":
-                        path = root / "skills" / name / "SKILL.md"
+                        if harness in HARNESS_OWNED_SKILLS:
+                            path = (
+                                root
+                                / "harnesses"
+                                / harness
+                                / "skills"
+                                / name
+                                / "SKILL.md"
+                            )
+                        else:
+                            path = root / "skills" / name / "SKILL.md"
                     elif harness == "agy":
                         path = root / "agents" / "agy" / name / "agent.md"
                     else:
@@ -399,6 +410,8 @@ def desired_skills(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                     )
                     content = resource_text.encode("utf-8")
                 if relative == Path("SKILL.md"):
+                    if harness in HARNESS_OWNED_SKILLS:
+                        continue
                     decoded = content.decode("utf-8")
                     text = _generated_notice(
                         _other_harness_body(harness, decoded)
@@ -504,7 +517,7 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
         desired[base / "contracts.json"] = GeneratedFile(registry_bytes)
         for source, relative in shared[harness]:
             _add_tree(desired, source, base / relative)
-        for source, relative in (
+        runtime_docs = [
             (
                 root / "docs/adr/0007-primary-agent-is-a-pure-orchestrator.md",
                 Path("docs/adr/0007-primary-agent-is-a-pure-orchestrator.md"),
@@ -514,7 +527,25 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 Path("docs/adr/0010-readme-diagrams-are-generated-svg.md"),
             ),
             (root / "docs/workspaces.md", Path("docs/workspaces.md")),
-        ):
+        ]
+        if harness == "claude":
+            runtime_docs.extend(
+                [
+                    (
+                        root / "docs/models/claude-fable-5-1/prompting.md",
+                        Path("docs/models/claude-fable-5-1/prompting.md"),
+                    ),
+                    (
+                        root / "docs/models/claude-opus-5/prompting.md",
+                        Path("docs/models/claude-opus-5/prompting.md"),
+                    ),
+                    (
+                        root / "docs/models/claude-sonnet-5/prompting.md",
+                        Path("docs/models/claude-sonnet-5/prompting.md"),
+                    ),
+                ]
+            )
+        for source, relative in runtime_docs:
             _add_tree(desired, source, base / relative)
     return desired
 
@@ -638,14 +669,50 @@ HARNESS_OWNED_RUNTIME: dict[str, tuple[Path, ...]] = {
 }
 
 
+def is_harness_owned_skill_path(path: Path, root: Path = ROOT) -> bool:
+    """Whether `path` is a sanctioned harness-owned SKILL.md file (#154).
+
+    Plan09 Wave 5 introduces Claude-owned skill bodies authored directly under
+    harnesses/claude/skills/<name>/SKILL.md as harness-owned sources that
+    generation and sync must never overwrite, prune, or complain about.
+    """
+    if path.is_absolute():
+        try:
+            rel = path.relative_to(root)
+        except ValueError:
+            try:
+                rel = path.resolve().relative_to(root.resolve())
+            except ValueError:
+                return False
+    else:
+        if path.parts and path.parts[0] == "harnesses":
+            rel = path
+        else:
+            try:
+                rel = path.resolve().relative_to(root.resolve())
+            except ValueError:
+                return False
+
+    return (
+        len(rel.parts) == 5
+        and rel.parts[0] == "harnesses"
+        and rel.parts[1] in HARNESS_OWNED_SKILLS
+        and rel.parts[2] == "skills"
+        and rel.parts[4] == "SKILL.md"
+    )
+
+
 def is_harness_owned_path(path: Path, root: Path = ROOT) -> bool:
     """Whether `path` is a sanctioned harness-owned, non-generated file or directory.
 
     Plan09 sanctions:
     - harnesses/<h>/{agents,skills,runtime}/tests/ (and everything beneath it)
     - harness-owned runtime manifests, hooks, and capabilities (#156).
+    - Claude-owned skill bodies authored under harnesses/claude/skills/<name>/SKILL.md (#154).
     """
     if is_harness_test_path(path, root):
+        return True
+    if is_harness_owned_skill_path(path, root):
         return True
 
     if path.is_absolute():
@@ -705,6 +772,7 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
         for path in family.rglob("*")
         if (path.is_file() or path.is_symlink())
         and not is_harness_owned_path(path, root)
+        and not is_harness_owned_skill_path(path, root)
     }
     expected_dirs = set(family_roots)
     for path in desired:
@@ -712,6 +780,14 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
         while parent not in expected_dirs:
             expected_dirs.add(parent)
             parent = parent.parent
+    if kind == "skills":
+        for harness in HARNESS_OWNED_SKILLS:
+            for entry in registry["skills"]:
+                skill_dir = root / "harnesses" / harness / "skills" / entry["name"]
+                parent = skill_dir
+                while parent not in expected_dirs:
+                    expected_dirs.add(parent)
+                    parent = parent.parent
     existing_dirs = {
         path
         for family in family_roots
