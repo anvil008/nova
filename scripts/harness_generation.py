@@ -479,8 +479,6 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
     ).encode("utf-8")
     shared = {
         "claude": (
-            (root / "plugins/claude/.claude-plugin", Path(".claude-plugin")),
-            (root / "plugins/claude/hooks", Path("hooks")),
             (root / "scripts/hooks", Path("scripts")),
             (root / "agents/handoff.md", Path("handoff.md")),
         ),
@@ -631,6 +629,57 @@ def is_harness_test_path(path: Path, root: Path = ROOT) -> bool:
     )
 
 
+HARNESS_OWNED_RUNTIME: dict[str, tuple[Path, ...]] = {
+    "claude": (
+        Path(".claude-plugin"),
+        Path("hooks"),
+        Path("capabilities.json"),
+    ),
+}
+
+
+def is_harness_owned_path(path: Path, root: Path = ROOT) -> bool:
+    """Whether `path` is a sanctioned harness-owned, non-generated file or directory.
+
+    Plan09 sanctions:
+    - harnesses/<h>/{agents,skills,runtime}/tests/ (and everything beneath it)
+    - harness-owned runtime manifests, hooks, and capabilities (#156).
+    """
+    if is_harness_test_path(path, root):
+        return True
+
+    if path.is_absolute():
+        try:
+            rel = path.relative_to(root)
+        except ValueError:
+            try:
+                rel = path.resolve().relative_to(root.resolve())
+            except ValueError:
+                return False
+    else:
+        if path.parts and path.parts[0] == "harnesses":
+            rel = path
+        else:
+            try:
+                rel = path.resolve().relative_to(root.resolve())
+            except ValueError:
+                return False
+
+    if (
+        len(rel.parts) >= 4
+        and rel.parts[0] == "harnesses"
+        and rel.parts[1] in HARNESSES
+        and rel.parts[2] == "runtime"
+    ):
+        harness = rel.parts[1]
+        runtime_rel = Path(*rel.parts[3:])
+        for owned in HARNESS_OWNED_RUNTIME.get(harness, ()):
+            if runtime_rel == owned or owned in runtime_rel.parents:
+                return True
+
+    return False
+
+
 def _family_roots(root: Path, kind: str) -> list[Path]:
     roots = [root / "harnesses" / harness / kind for harness in HARNESSES]
     roots.extend(root / "harnesses" / harness / "runtime" for harness in HARNESSES)
@@ -655,7 +704,7 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
         if family.exists()
         for path in family.rglob("*")
         if (path.is_file() or path.is_symlink())
-        and not is_harness_test_path(path, root)
+        and not is_harness_owned_path(path, root)
     }
     expected_dirs = set(family_roots)
     for path in desired:
@@ -668,7 +717,7 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
         for family in family_roots
         if family.exists()
         for path in family.rglob("*")
-        if path.is_dir() and not is_harness_test_path(path, root)
+        if path.is_dir() and not is_harness_owned_path(path, root)
     }
     drifted: list[Path] = []
     for path, generated in desired.items():
@@ -718,7 +767,7 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
             (
                 path
                 for path in family.rglob("*")
-                if path.is_dir() and not is_harness_test_path(path, root)
+                if path.is_dir() and not is_harness_owned_path(path, root)
             ),
             reverse=True,
         ):
