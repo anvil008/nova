@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
@@ -51,6 +52,47 @@ def render_frontmatter(fields: dict) -> str:
             lines.append(f"{key}: {val}")
     lines.append("---")
     return "\n".join(lines) + "\n"
+
+
+def load_check_guides():
+    """Import check_guides.py as a module for unit-level assertions."""
+    spec = importlib.util.spec_from_file_location("check_guides", CHECK_GUIDES)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+CONSENT_BANNER = """
+    <div id="consent" class="cookie-consent">
+      <h2>Cookie settings</h2>
+      <p>We use cookies to deliver and improve our services.</p>
+      <button>Accept All Cookies</button>
+    </div>
+"""
+
+ARTICLE_HTML = """
+      <main>
+        <article>
+          <h1>Prompting Claude Test 5</h1>
+          <p>Start at the default high effort and evaluate lower settings.</p>
+        </article>
+      </main>
+"""
+
+
+def anthropic_page(banner: str = "") -> str:
+    """An Anthropic docs page: chrome and article inside a "contents" wrapper."""
+    return f"""<!doctype html>
+<html><body>
+  <div class="cds-root text-primary contents">
+{banner}
+    <nav><a href="/docs">Claude Platform Docs</a><a href="/pricing">Pricing</a></nav>
+{ARTICLE_HTML}
+    <footer>Copyright</footer>
+  </div>
+</body></html>
+"""
 
 
 class CheckGuidesAcceptanceTests(unittest.TestCase):
@@ -430,6 +472,106 @@ class CheckGuidesAcceptanceTests(unittest.TestCase):
                 "guides fresh",
                 output.lower(),
                 f"Extraction failure must not report freshness, got:\n{output}",
+            )
+
+
+class ArticleScopingRegressionTests(unittest.TestCase):
+    """Digests cover the article container only, not regional page chrome (#147).
+
+    A cookie-consent banner is served to some regions and withheld from others,
+    so any banner text inside the normalized digest makes the freshness gate
+    fail depending on where it runs. The extractor must prefer the semantic
+    <article>/<main> over the class heuristic, and must match class tokens
+    rather than substrings so a utility class such as "contents" never stands
+    in for "content".
+    """
+
+    def setUp(self):
+        self.check_guides = load_check_guides()
+
+    def test_consent_banner_outside_article_is_excluded(self):
+        text = self.check_guides.extract(
+            anthropic_page(banner=CONSENT_BANNER), vendor="anthropic"
+        )
+        self.assertNotIn("Cookie settings", text)
+        self.assertNotIn("Accept All Cookies", text)
+        self.assertNotIn("Claude Platform Docs", text)
+        self.assertIn("Prompting Claude Test 5", text)
+        self.assertIn(
+            "Start at the default high effort and evaluate lower settings.", text
+        )
+
+    def test_digest_is_identical_with_and_without_the_banner(self):
+        with_banner = self.check_guides.extract(
+            anthropic_page(banner=CONSENT_BANNER), vendor="anthropic"
+        )
+        without_banner = self.check_guides.extract(anthropic_page(), vendor="anthropic")
+        self.assertEqual(
+            self.check_guides.sha256_text(with_banner),
+            self.check_guides.sha256_text(without_banner),
+            "Regional consent banner must not change the normalized digest",
+        )
+
+    def test_contents_utility_class_does_not_match_content(self):
+        parser = self.check_guides.ArticleExtractor(vendor="anthropic")
+        self.assertFalse(
+            parser._is_container_start("div", [("class", "cds-root contents")])
+        )
+        self.assertTrue(parser._is_container_start("div", [("class", "content")]))
+
+    def test_check_passes_against_a_banner_bearing_fixture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            models_dir = root / "models"
+            fixtures_dir = root / "fixtures"
+            (models_dir / "claude-test-5").mkdir(parents=True)
+            fixtures_dir.mkdir(parents=True)
+
+            url = "https://platform.claude.com/docs/en/prompting-claude-test-5"
+            article_text = self.check_guides.extract(
+                anthropic_page(), vendor="anthropic"
+            )
+            fields = {
+                "model": "claude-test-5",
+                "official_source_urls": [url],
+                "fetched_date": "2026-09-02",
+                "extractor_version": "1.0.0",
+                "normalized_source_digests": {
+                    url: self.check_guides.sha256_text(article_text)
+                },
+            }
+            body = (
+                "# Guidance\n\n"
+                "> Start at the default high effort and evaluate lower settings.\n"
+            )
+            (models_dir / "claude-test-5" / "prompting.md").write_text(
+                render_frontmatter(fields) + body, encoding="utf-8"
+            )
+            (fixtures_dir / "fixtures.json").write_text(
+                json.dumps(
+                    {
+                        url: {
+                            "status": 200,
+                            "content": anthropic_page(banner=CONSENT_BANNER),
+                        }
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            res = run_check(
+                "--check",
+                "--root",
+                str(models_dir),
+                "--fixtures-dir",
+                str(fixtures_dir),
+            )
+            output = res.stdout + res.stderr
+            self.assertEqual(
+                res.returncode,
+                0,
+                f"Banner-bearing fixture must not drift, got:\n{output}",
             )
 
 

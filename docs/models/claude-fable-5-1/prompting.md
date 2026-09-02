@@ -5,7 +5,7 @@ official_source_urls:
 fetched_date: 2026-09-02
 extractor_version: 1.0.0
 normalized_source_digests:
-  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1: 08fb81ba73f9c158f8d81aa59b974082ea8f8d162291a1f3f45e298bc9f6044c
+  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1: 819d1477ae3ea1771b615caf4e7dce85621f0ab6a8c38d56a9dd0ea9e10e2b9c
 ---
 # Claude Fable 5.1 prompting extract
 

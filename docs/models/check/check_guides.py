@@ -38,9 +38,12 @@ class FetchError(Exception):
 class ArticleExtractor(HTMLParser):
     """HTML parser to extract text from article/main content containers."""
 
-    def __init__(self, vendor: str | None = None) -> None:
+    def __init__(
+        self, vendor: str | None = None, allow_class_fallback: bool = True
+    ) -> None:
         super().__init__()
         self.vendor = vendor
+        self.allow_class_fallback = allow_class_fallback
         self.found_container = False
         self.container_tag: str | None = None
         self.container_depth = 0
@@ -56,10 +59,20 @@ class ArticleExtractor(HTMLParser):
             return True
         if attr_dict.get("role") == "main":
             return True
+
+        # Class heuristics are a fallback only: a page that carries a semantic
+        # <article>/<main> is scoped to it even when a class-matching wrapper
+        # appears earlier in document order. Classes are matched as
+        # whitespace-separated tokens, never as substrings, so a utility class
+        # such as "contents" cannot stand in for "content" and pull page chrome
+        # (cookie banners, navigation) into the digest.
+        if not self.allow_class_fallback:
+            return False
         class_val = attr_dict.get("class", "").lower()
-        if self.vendor == "openai" and "docs-content" in class_val:
+        class_tokens = set(class_val.split())
+        if self.vendor == "openai" and "docs-content" in class_tokens:
             return True
-        if self.vendor == "anthropic" and "content" in class_val:
+        if self.vendor == "anthropic" and "content" in class_tokens:
             return True
         return bool(self.vendor == "google" and "devsite" in class_val)
 
@@ -170,23 +183,44 @@ def sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+# Vendors whose pages must stay scoped to their class-matched wrapper: on
+# these, the semantic <main>/<article> sits inside the wrapper and excludes
+# body content the published extracts already quote.
+WRAPPER_SCOPED_VENDORS = frozenset({"google"})
+
+
+def _container_passes(vendor: str | None) -> tuple[bool, ...]:
+    """Return the allow_class_fallback settings to try, in priority order."""
+    if vendor in WRAPPER_SCOPED_VENDORS:
+        return (True,)
+    return (False, True)
+
+
 def extract(source_html: str, vendor: str | None = None) -> str:
     """Extract normalized article content from raw vendor HTML."""
     if not source_html or not isinstance(source_html, str):
         raise ExtractionError("Empty or invalid source HTML")
 
-    parser = ArticleExtractor(vendor=vendor)
-    parser.feed(source_html)
-    if not parser.found_container:
+    found_container = False
+    for allow_class_fallback in _container_passes(vendor):
+        parser = ArticleExtractor(
+            vendor=vendor, allow_class_fallback=allow_class_fallback
+        )
+        parser.feed(source_html)
+        if not parser.found_container:
+            continue
+        found_container = True
+        text = parser.get_text()
+        if text:
+            return text
+
+    if not found_container:
         raise ExtractionError(
             "Missing article selector: no article or main content container found in HTML"
         )
-    text = parser.get_text()
-    if not text:
-        raise ExtractionError(
-            "Extraction failure: article content is empty after extraction"
-        )
-    return text
+    raise ExtractionError(
+        "Extraction failure: article content is empty after extraction"
+    )
 
 
 def parse_frontmatter(content: str) -> tuple[dict, str]:

@@ -5,7 +5,7 @@ official_source_urls:
 fetched_date: 2026-09-02
 extractor_version: 1.0.0
 normalized_source_digests:
-  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5: b381c47127253d3c4b0b6e4f8259b277dceb76a0998638492228f15e10fb9a57
+  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5: 72da223e0f4ec660d82190f5fb42e9814c82e78671b5d86f5114bf84a232c478
 ---
 # Claude Sonnet 5 prompting extract
 
