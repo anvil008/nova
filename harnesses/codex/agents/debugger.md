@@ -53,3 +53,7 @@ Do not spawn other agents, do not broaden into defects nobody reported, and neve
 ## Gates on Codex
 
 Workcell wires Codex `PreToolUse`, `PostToolUse`, and `Stop` hooks, including `build-guard` for shell commands. They run only after the user trusts the plugin hooks with `/hooks`; in an untrusted or ad-hoc session, call `build-guard codex` yourself before each mutating command — instrumentation and bisect runs are exactly the operations it exists to check.
+
+## Harness limitations (generated)
+
+- Codex does not expose a per-agent mode surface; mode stays a Claude frontmatter field.

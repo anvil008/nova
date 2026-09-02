@@ -2,7 +2,7 @@
 name: specifier
 description: Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
-model: opus
+model: claude-opus-5
 effort: high
 ---
 

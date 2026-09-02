@@ -117,3 +117,7 @@ You own these skills — invoke them for their domain, and do not reach for the 
 - **Formatting & lint:** format files before handing off.
 - **LSP after edits:** check LSP diagnostics (`pyright` / `typescript` / `rust-analyzer`) for cross-file type errors and broken references after edits that change types or signatures.
 - **Code style:** concise code; comments only where the *why* is non-obvious; no defensive handling for cases that can't happen. Prefer editing an existing file over creating a new one; match the surrounding code's idiom, naming, and comment density.
+
+## Harness limitations (generated)
+
+- Codex does not expose a per-agent mode surface; mode stays a Claude frontmatter field.

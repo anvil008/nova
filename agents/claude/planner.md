@@ -2,7 +2,7 @@
 name: planner
 description: Use when investigating one planning goal read-only and producing the plan folio, sidecar, and per-issue acceptance tests for human approval.
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
-model: opus
+model: claude-opus-5
 effort: xhigh
 ---
 

@@ -2,7 +2,7 @@
 name: deployer
 description: Use when executing one already-approved release against one named target, with verification and rollback.
 tools: Read, Grep, Glob, Bash, Skill
-model: opus
+model: claude-opus-5
 effort: high
 ---
 

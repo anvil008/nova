@@ -2,7 +2,7 @@
 name: profiler
 description: Use when measuring performance against a project benchmark harness and reporting distributions rather than a single number.
 tools: Read, Grep, Glob, Bash, Skill
-model: sonnet
+model: claude-sonnet-5
 effort: medium
 ---
 

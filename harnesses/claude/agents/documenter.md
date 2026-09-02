@@ -2,7 +2,7 @@
 name: documenter
 description: Use when creating, updating, standardizing, or reviewing documentation — READMEs, ADRs, changelogs, and the CLAUDE.md / AGENTS.md instruction files. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
-model: sonnet
+model: claude-sonnet-5
 effort: medium
 ---
 
