@@ -517,7 +517,7 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
         desired[base / "contracts.json"] = GeneratedFile(registry_bytes)
         for source, relative in shared[harness]:
             _add_tree(desired, source, base / relative)
-        for source, relative in (
+        runtime_docs = [
             (
                 root / "docs/adr/0007-primary-agent-is-a-pure-orchestrator.md",
                 Path("docs/adr/0007-primary-agent-is-a-pure-orchestrator.md"),
@@ -527,7 +527,25 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 Path("docs/adr/0010-readme-diagrams-are-generated-svg.md"),
             ),
             (root / "docs/workspaces.md", Path("docs/workspaces.md")),
-        ):
+        ]
+        if harness == "claude":
+            runtime_docs.extend(
+                [
+                    (
+                        root / "docs/models/claude-fable-5-1/prompting.md",
+                        Path("docs/models/claude-fable-5-1/prompting.md"),
+                    ),
+                    (
+                        root / "docs/models/claude-opus-5/prompting.md",
+                        Path("docs/models/claude-opus-5/prompting.md"),
+                    ),
+                    (
+                        root / "docs/models/claude-sonnet-5/prompting.md",
+                        Path("docs/models/claude-sonnet-5/prompting.md"),
+                    ),
+                ]
+            )
+        for source, relative in runtime_docs:
             _add_tree(desired, source, base / relative)
     return desired
 

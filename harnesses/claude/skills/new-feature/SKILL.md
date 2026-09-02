@@ -8,21 +8,28 @@ description: Build a new feature end-to-end, starting with a real interview — 
 Take a feature from a sentence to a merged PR. The difference from running [`plan`](../plan/SKILL.md) directly is the front of it: you interview the human properly *before* anything is planned, because the cheapest place to fix a misunderstanding is before an agent has built on it.
 
 Invocation: `/workcell:new-feature`
-Prompting Reference: [`docs/models/claude-fable-5-1/prompting.md`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)
+Prompting Reference: [`docs/models/claude-fable-5-1/prompting.md`](../../runtime/docs/models/claude-fable-5-1/prompting.md)
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Claude Code's `Agent` tool, hold the human gates, run `git` / `jj` / `gh` and scripts via the `Bash` tool for branch, merge, and issue-state operations, and read gate output and handoff records using the [`anvil.agent-handoff/v1`](../../runtime/handoff.md) schema. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-This orchestrator runs the interview and carries the human's answers into every later dispatch.
+This orchestrator runs the interview and carries the human's answers into every later dispatch. Primary implementation agents follow the Claude Fable 5.1 guide: state goals and boundaries directly up front, demand evidence before state transitions, and avoid redundant conversational scaffolding.
+
+## Goals and Constraints
+
+- **Goal:** Deliver a well-scoped new feature end-to-end through clarifying interview, approved plan, test-first execution, and a single PR to `main`.
+- **Constraints:** Ask at least five clarifying questions before planning unless the user explicitly skips. Never dispatch a builder without a specifier RED seal. Never touch sealed tests.
+- **Success Criteria:** Clarified requirements, approved plan and sidecar, sealed acceptance tests, verified green implementation, passing multi-lens reviews, and clean single PR to `main`.
 
 ## Ordered Gates
 
 Execution proceeds through six strict, ordered gates:
-1. **interview**: Conduct a structured interview with at least five clarifying questions to pin down requirements and boundaries.
-2. **approved plan**: The planner investigates read-only and produces an offline HTML plan folio and sidecar, approved explicitly by human.
-3. **sealed tests**: A `specifier` agent encodes acceptance criteria into real failing tests and establishes a `tdd-guard seal`.
-4. **implementation**: A `builder` agent implements the feature in an isolated workspace against the sealed tests.
-5. **review**: Multi-lens review verifies code quality, test coverage, and specification compliance.
-6. **pull request**: A single pull request to `main` is opened from the integration branch with complete verification evidence.
+
+1. **interview**: Conduct clarifying interview (at least 5 questions) before planning.
+2. **approved plan**: Planner returns folio, sidecar, and acceptance tests; human approves before issue creation.
+3. **sealed tests**: Specifier authors failing acceptance tests and establishes a `tdd-guard seal`.
+4. **implementation**: Builder implements feature against sealed tests in an isolated workspace without editing tests.
+5. **review**: Multi-lens review verifies code quality and behavioral correctness.
+6. **pull request**: Single clean PR to `main` incorporates feature implementation, documentation, and closed issues.
 
 ## The Interview
 
@@ -37,23 +44,29 @@ Ask about what would change the build if answered differently. Ground every ques
 - **Failure behaviour** — what should happen on bad input, a timeout, or a downstream outage? Silence here becomes an agent's guess.
 - **Constraints** — deadline, compatibility promises, data or privacy limits, anything that rules an approach out.
 
-Do not ask what the repository can tell you. Before the interview, dispatch a `researcher` agent for a repository picture — manifests, architecture seams, and existing conventions — then state what its evidence suggests and ask the human to correct it.
+Do not ask what the repository can tell you. Before the interview, dispatch a `researcher` agent via the `Agent` tool for a repository picture — manifests, architecture seams, and existing conventions — then state what its evidence suggests and ask the human to correct it. "The survey reports a Postgres schema and a REST layer, so I assume this is a new endpoint rather than a job — right?" is worth three abstract questions.
 
 Batch the questions in one pass rather than interrogating one at a time, mark which are blocking, and offer your recommendation for each so a busy human can answer "yes to all".
 
 ## Procedure
 
 1. **Interview** as above. Write the answers down; they are the planner's brief.
-2. **Plan.** Dispatch the `planner` with the goal *and the answers*. It investigates read-only and returns the folio, sidecar, and per-issue `acceptanceTests`. If it returns `needs-decision`, that is a question the interview missed: put it to the human and re-dispatch rather than answering on their behalf.
-3. **Approve.** Present the folio and stop for explicit human approval, then write the milestone and issues yourself.
+2. **Plan.** Dispatch the `planner` via the `Agent` tool with the goal *and the answers*. It investigates read-only and returns the folio, sidecar, and per-issue `acceptanceTests`. If it returns `needs-decision`, that is a question the interview missed: put it to the human and re-dispatch rather than answering on their behalf.
+3. **Approve.** Present the folio and stop for explicit human approval, then write the milestone and issues yourself via `Bash`.
 4. **Execute** [`build`](../build/SKILL.md) in **single-PR mode**, both phases per issue: a `specifier` writes the acceptance tests, proves honest RED, and seals; the `builder` implements against tests it cannot edit; `reviewer` agents fan out by lens before any intermediate PR exists.
 5. **Integrate and document at the same time.** For each wave, dispatch an `integrator` over it **and** a `documenter` for whatever the feature changed about how the project is used, on the same base, each in its own workspace (`workcell-ws add <name>`) — feature issues take `feature/<issue-key>` and the documenter's own workspace takes `doc/<slug>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Doc authoring needs nothing but the changed-file and PR list, and that exists the moment the builders finish, so it does not wait behind the merge.
+
+   The documenter's brief carries that changed-file and PR list and a docs-only `ownership` glob ([`agents/handoff.md`](../../runtime/handoff.md)). Reading a file list or diffstat to choose a dispatch is orchestration under [ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md); reading a file's contents to judge it is not. That `ownership` must be disjoint from every code issue's `ownershipHint`, so the docs branch can never collide with a builder's.
+
+   Documentation never lands on its own authority: the docs branch merges only inside a combined GREEN that includes it. If the documenter returns before the integrator's serial merge begins, its branch joins that round and one combined run covers everything; if it returns later, dispatch one more `integrator` round over the docs branch on the merged base, and that round is also the docs gate: the `documenter` reports `skills/docs/scripts/docs_check.py` — plus `render-diagrams.py --check` ([ADR 0010](../../runtime/docs/adr/0010-readme-diagrams-are-generated-svg.md)) where the README's visuals are generated — and the `integrator` reports the combined suite.
+
+   Nothing else moves: the wave's intermediate code PRs still merge to the integration branch on the integrator's evidence.
 6. **Open the final PR to `main`** from the integration branch. Its body describes the feature, the questions that shaped it, and the acceptance tests that define it as done, and repeats every per-issue `Closes #<n>` line.
-
-## Harness Limitations
-
-Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.
 
 ## Boundaries
 
 Never start planning on an unanswered blocking question, and never encode an unresolved decision into the plan — the sidecar has nowhere to put it by design. Never expand past what the interview agreed: a feature that grows during the build is a feature nobody approved. If the answers reveal the request is really a bug fix or a cleanup, say so and route it to [`code-analysis`](../code-analysis/SKILL.md) or [`code-refactor`](../code-refactor/SKILL.md) instead of building the wrong thing well.
+
+## Harness Limitations
+
+Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.

@@ -11,16 +11,25 @@ metadata:
 Jujutsu is a Git-compatible VCS with mutable commits, automatic change tracking, and an operation log that makes every action undoable.
 
 Invocation: `/workcell:jj`
-Prompting Reference: [`docs/models/claude-sonnet-5/prompting.md`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)
+Prompting Reference: [`docs/models/claude-sonnet-5/prompting.md`](../../runtime/docs/models/claude-sonnet-5/prompting.md)
 
-Handoff records and state operations conform to [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
+**Target version: jj 0.36+**
+
+In Claude Code, execute all `jj` operations via the `Bash` tool. State goals, constraints, and target changesets explicitly.
+
+## Goals and Constraints
+
+- **Goal:** Execute clean, traceable VCS operations leveraging Jujutsu's first-class conflict handling, automatic snapshotting, and immutable change IDs.
+- **Constraints:** Never run interactive commands (always provide `-m` or file paths), never omit quotes around revset expressions, and verify state via `jj st` after mutations.
+- **Success Criteria:** Mutations reflect cleanly in the working copy and log, bookmarks are updated before push, and recovery paths remain intact via `jj op log`.
 
 ## Ordered Gates
 
 Execution proceeds through three strict, ordered gates:
-1. **inspect state**: Inspect current working copy, bookmark, revset, and operation log via `jj st`, `jj log`, and `jj op log`.
-2. **mutate with message**: Apply required mutation explicitly with non-interactive flags and messages (`jj describe -m`, `jj commit -m`, `jj squash -m`).
-3. **verify state**: Verify resulting repository and workspace state via `jj st` to ensure no unintended conflicts or broken revisions exist.
+
+1. **inspect state**: Inspect current working copy and log status (`jj st`, `jj log`) before planning mutations.
+2. **mutate with message**: Apply changes or VCS operations using non-interactive commands with explicit messages (`-m`).
+3. **verify state**: Verify resulting repository and working copy status (`jj st`) to confirm expected tree state and lack of unintended conflicts.
 
 ## Topics
 
@@ -51,7 +60,7 @@ Execution proceeds through three strict, ordered gates:
 
 ## Agent Rules
 
-Non-negotiable when operating as an automated agent:
+Non-negotiable when operating as an automated agent in Claude Code:
 
 1. **Always use `-m` for messages.** Never invoke a command that opens an editor. Commands that need `-m`: `jj new`, `jj describe`, `jj commit`, `jj squash`.
 2. **Never use interactive commands.** `jj split` (without file paths), `jj squash -i`, `jj resolve` — all hang. Use file-path args or `jj restore` workflows.
@@ -108,7 +117,94 @@ jj edit <bugfix-change-id>
 
 # Return to original work
 jj log -r 'heads(trunk()..)'
+jj edit <feature-change-id>
 ```
+
+**Agent rule:** Before creating a new commit, decide if it depends on the current chain. If not, branch off trunk and flag the divergence to the user.
+
+### Pushing Changes
+
+```bash
+jj bookmark set feat -r @
+jj git push -b feat
+```
+
+Bookmarks must be set before pushing — they don't auto-advance.
+→ Deep dive: [bookmarks.md](references/bookmarks.md)
+
+## Essential Commands
+
+| Task | Command |
+|------|---------|
+| Check status | `jj st` |
+| View diff / log | `jj diff` / `jj log` |
+| Describe current commit | `jj describe -m "message"` |
+| Start new work | `jj new -m "task description"` |
+| Edit an older commit | `jj edit <change-id>` |
+| Squash into parent | `jj squash` |
+| Auto-distribute changes | `jj absorb` |
+| Abandon a commit | `jj abandon <change-id>` |
+| Undo last operation | `jj undo` |
+| View operation history | `jj op log` |
+| Restore to earlier state | `jj op restore <op-id>` |
+| Create/move bookmark | `jj bookmark create <n> -r @` / `jj bookmark set <n> -r @` |
+| Push / fetch | `jj git push -b <bookmark>` / `jj git fetch` |
+
+For Git translations: [references/git-to-jj.md](references/git-to-jj.md)
+
+## Recovery
+
+```bash
+jj undo                      # undo last op; repeatable
+jj op log                    # full operation history
+jj op restore <op-id>        # jump to any past state
+jj evolog -r <change-id>     # see how a change evolved
+```
+
+## Detecting a jj Repo
+
+`.jj/` directory = jj repo. Both `.jj/` and `.git/` = colocated repo. Always use `jj` commands. Git's "detached HEAD" is normal in colocated repos — use `jj log` for real state.
+
+## Common Mistakes
+
+| Mistake | Fix |
+|---------|-----|
+| Omitting `-m` on commands | Always pass `-m` — editor hangs agents |
+| Using `jj split` without file paths | Provide paths or use the `jj restore` workflow |
+| Forgetting to set bookmark before push | `jj bookmark set <name> -r @` first |
+| Using commit IDs instead of change IDs | Change IDs (letters k–z) survive rewrites |
+| Unquoted revset expressions | Always single-quote: `'mine() & ::@'` |
+| Confusing `::` vs `..` operators | `::` = ancestry path, `..` = range (see [revsets.md](references/revsets.md)) |
+| Creating workspaces as subdirectories | Must be sibling dirs, not children |
+
+## Reference Index
+
+**Git Interop:**
+- [references/git-to-jj.md](references/git-to-jj.md) — Git-to-jj command mapping
+- [references/git-experts.md](references/git-experts.md) — Why jj improves on Git
+- [references/git-compatibility.md](references/git-compatibility.md) — Git interop and colocated repos
+
+**Commands:**
+- [references/command-gotchas.md](references/command-gotchas.md) — Flag semantics, quoting, deprecated flags
+
+**Revsets & Templates:**
+- [references/revsets.md](references/revsets.md) — Complete revset language spec
+- [references/filesets.md](references/filesets.md) — Complete fileset language spec
+- [references/templates.md](references/templates.md) — Complete template language spec
+
+**Sharing:**
+- [references/bookmarks.md](references/bookmarks.md) — Complete bookmarks reference
+- [references/github.md](references/github.md) — GitHub/GitLab workflow details
+
+**History:**
+- [references/conflicts.md](references/conflicts.md) — Conflict handling and marker formats
+- [references/divergence.md](references/divergence.md) — Divergent changes guide
+
+**Config:**
+- [references/config-reference.md](references/config-reference.md) — Full configuration reference
+
+**Workspaces:**
+- [references/parallel-agents.md](references/parallel-agents.md) — Parallel agent setup guide
 
 ## Harness Limitations
 
