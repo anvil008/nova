@@ -104,7 +104,12 @@ def build() -> Path:
     shutil.copytree(runtime / "hooks", STAGED / "hooks", symlinks=False)
 
     # agents (dereferencing symlinks)
-    shutil.copytree(source / "agents", STAGED / "agents", symlinks=False)
+    shutil.copytree(
+        source / "agents",
+        STAGED / "agents",
+        symlinks=False,
+        ignore=lib_dist.ignore_root_tests(source / "agents"),
+    )
     if layered:
         shutil.copy2(runtime / "handoff.md", STAGED / "handoff.md")
         for agent in (STAGED / "agents").glob("*.md"):
@@ -118,7 +123,7 @@ def build() -> Path:
         source / "skills",
         STAGED / "skills",
         symlinks=False,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        ignore=lib_dist.ignore_root_tests(source / "skills"),
     )
 
     # scripts (dereferencing symlinks, ignoring python cache files)
@@ -138,8 +143,8 @@ def build() -> Path:
             runtime,
             STAGED / "runtime",
             symlinks=False,
-            ignore=shutil.ignore_patterns(
-                ".claude-plugin", "hooks", "scripts", "__pycache__", "*.pyc"
+            ignore=lib_dist.ignore_root_tests(
+                runtime, ".claude-plugin", "hooks", "scripts"
             ),
         )
 

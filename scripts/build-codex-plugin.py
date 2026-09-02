@@ -219,7 +219,9 @@ def validate_sources() -> tuple[
         "version", "0.6.0"
     )
 
-    skill_dirs = sorted(path for path in skills_root.iterdir() if path.is_dir())
+    skill_dirs = sorted(
+        path for path in skills_root.iterdir() if path.is_dir() and path.name != "tests"
+    )
     for skill_dir in skill_dirs:
         if not (skill_dir / "SKILL.md").is_file():
             raise BuildError(f"{skill_dir.relative_to(ROOT)}: no SKILL.md")
@@ -249,7 +251,12 @@ def build() -> Path:
         shutil.copy2(hooks, plugin_root / "hooks" / "hooks.json")
 
     if layered:
-        shutil.copytree(runtime, plugin_root / "runtime", symlinks=False)
+        shutil.copytree(
+            runtime,
+            plugin_root / "runtime",
+            symlinks=False,
+            ignore=lib_dist.ignore_root_tests(runtime),
+        )
         handoff = runtime / "handoff.md"
         if handoff.is_file():
             shutil.copy2(handoff, plugin_root / "handoff.md")

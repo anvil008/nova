@@ -112,20 +112,35 @@ def main() -> int:
     lib_dist.reset_dist(DIST, PLUGIN)
 
     if layered:
-        shutil.copytree(runtime, PLUGIN / "runtime", symlinks=False)
+        shutil.copytree(
+            runtime,
+            PLUGIN / "runtime",
+            symlinks=False,
+            ignore=lib_dist.ignore_root_tests(runtime),
+        )
         shutil.copy2(manifest, PLUGIN / "plugin.json")
         shutil.copy2(runtime / "hooks.json", PLUGIN / "hooks.json")
         shutil.copytree(runtime / "rules", PLUGIN / "rules", symlinks=False)
         handoff = runtime / "handoff.md"
         if handoff.is_file():
             shutil.copy2(handoff, PLUGIN / "handoff.md")
-        shutil.copytree(source / "agents", PLUGIN / "agents", symlinks=False)
+        shutil.copytree(
+            source / "agents",
+            PLUGIN / "agents",
+            symlinks=False,
+            ignore=lib_dist.ignore_root_tests(source / "agents"),
+        )
         for agent in (PLUGIN / "agents").glob("*/agent.md"):
             text = agent.read_text(encoding="utf-8").replace(
                 "](../../runtime/handoff.md)", "](../../handoff.md)"
             )
             agent.write_text(text, encoding="utf-8")
-        shutil.copytree(source / "skills", PLUGIN / "skills", symlinks=False)
+        shutil.copytree(
+            source / "skills",
+            PLUGIN / "skills",
+            symlinks=False,
+            ignore=lib_dist.ignore_root_tests(source / "skills"),
+        )
     else:
         shutil.copytree(
             source,
