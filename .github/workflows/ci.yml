@@ -63,6 +63,7 @@ jobs:
       - name: Agent models in sync
         run: python3 scripts/sync-agent-models.py --check
       - name: Model-guide freshness
+        timeout-minutes: 10
         run: python3 docs/models/check/check_guides.py --check
       - name: Guard release carrier agreement
         run: python3 scripts/build-guard-release.py --check
