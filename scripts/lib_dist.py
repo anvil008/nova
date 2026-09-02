@@ -63,3 +63,20 @@ def compute_tree_digest(root: Path) -> str:
 
     stream = "".join(lines).encode("utf-8")
     return hashlib.sha256(stream).hexdigest()
+
+
+def ignore_root_tests(root_dir: Path, *extra_patterns: str):
+    """Ignore a `tests/` directory located directly under `root_dir` and python caches."""
+    import fnmatch
+
+    def _ignore(directory: str, files: list[str]) -> list[str]:
+        ignored: list[str] = []
+        if Path(directory).resolve() == root_dir.resolve() and "tests" in files:
+            ignored.append("tests")
+        for pattern in ("__pycache__", "*.pyc") + extra_patterns:
+            for f in files:
+                if fnmatch.fnmatch(f, pattern) and f not in ignored:
+                    ignored.append(f)
+        return ignored
+
+    return _ignore

@@ -598,6 +598,39 @@ def link_failures(tree: Path, inherited: set[tuple[str, str]]) -> list[str]:
     return failures
 
 
+def is_harness_test_path(path: Path, root: Path = ROOT) -> bool:
+    """Whether `path` sits inside a sanctioned harness-owned tests/ directory.
+
+    Plan09 sanctions harnesses/<h>/{agents,skills,runtime}/tests/ (and everything
+    beneath it) directly under each family root as harness-owned, non-generated
+    content.
+    """
+    if path.is_absolute():
+        try:
+            rel = path.relative_to(root)
+        except ValueError:
+            try:
+                rel = path.resolve().relative_to(root.resolve())
+            except ValueError:
+                return False
+    else:
+        if path.parts and path.parts[0] == "harnesses":
+            rel = path
+        else:
+            try:
+                rel = path.resolve().relative_to(root.resolve())
+            except ValueError:
+                return False
+
+    return (
+        len(rel.parts) >= 4
+        and rel.parts[0] == "harnesses"
+        and rel.parts[1] in HARNESSES
+        and rel.parts[2] in ("agents", "skills", "runtime")
+        and rel.parts[3] == "tests"
+    )
+
+
 def _family_roots(root: Path, kind: str) -> list[Path]:
     roots = [root / "harnesses" / harness / kind for harness in HARNESSES]
     roots.extend(root / "harnesses" / harness / "runtime" for harness in HARNESSES)
@@ -621,7 +654,8 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
         for family in family_roots
         if family.exists()
         for path in family.rglob("*")
-        if path.is_file() or path.is_symlink()
+        if (path.is_file() or path.is_symlink())
+        and not is_harness_test_path(path, root)
     }
     expected_dirs = set(family_roots)
     for path in desired:
@@ -634,7 +668,7 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
         for family in family_roots
         if family.exists()
         for path in family.rglob("*")
-        if path.is_dir()
+        if path.is_dir() and not is_harness_test_path(path, root)
     }
     drifted: list[Path] = []
     for path, generated in desired.items():
@@ -681,7 +715,12 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
         family.mkdir(parents=True, exist_ok=True)
     for family in family_roots:
         for directory in sorted(
-            (path for path in family.rglob("*") if path.is_dir()), reverse=True
+            (
+                path
+                for path in family.rglob("*")
+                if path.is_dir() and not is_harness_test_path(path, root)
+            ),
+            reverse=True,
         ):
             if not any(directory.iterdir()):
                 directory.rmdir()
