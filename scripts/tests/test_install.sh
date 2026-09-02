@@ -166,7 +166,7 @@ out=$("$BROKEN/scripts/bootstrap-plugins.sh" --install 2>&1); rc=$?
 # --- manifest-schema-validity --------------------------------------------------------------------
 bad_json=0
 for manifest in "$ROOT"/plugins/agy/plugin.json "$ROOT"/plugins/claude/.claude-plugin/plugin.json \
-                "$ROOT"/plugins/codex/.codex-plugin/plugin.json "$ROOT"/.claude-plugin/marketplace.json; do
+                "$ROOT"/plugins/codex/.codex-plugin/plugin.json; do
   if ! jq . "$manifest" >/dev/null 2>&1; then
     bad_json=1
     echo "Invalid JSON or missing: $manifest"
@@ -178,8 +178,6 @@ bad_schema=0
 jq -e '.name == "workcell" and .version and .description and .capabilities' "$ROOT/plugins/agy/plugin.json" >/dev/null 2>&1 || bad_schema=1
 jq -e '.name == "workcell" and .version and .description' "$ROOT/plugins/claude/.claude-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
 jq -e '.name == "workcell" and .version and .description' "$ROOT/plugins/codex/.codex-plugin/plugin.json" >/dev/null 2>&1 || bad_schema=1
-# Claude's marketplace is rooted at the repository and follows the wrapper's links.
-jq -e '.name == "workcell" and (.plugins[0].source == "./plugins/claude")' "$ROOT/.claude-plugin/marketplace.json" >/dev/null 2>&1 || bad_schema=1
 # Codex's is generated into dist/, because Codex copies a plugin and drops escaping symlinks.
 python3 "$ROOT/scripts/build-codex-plugin.py" >/dev/null 2>&1 || bad_schema=1
 jq -e '.name == "workcell" and (.plugins[0].source.path == "./plugins/workcell")' "$ROOT/dist/codex/.agents/plugins/marketplace.json" >/dev/null 2>&1 || bad_schema=1
@@ -343,19 +341,16 @@ sed -n '1,30p' "$INSTALL" | grep -q '/hooks' && sed -n '1,30p' "$INSTALL" | grep
   && ok "installer header documents both hook trust choices" || no "installer header lacks hook trust instructions"
 call_line(){ grep -n -F -- "$2" "$1" 2>/dev/null | head -1 | cut -d: -f1; }
 
-for harness in claude codex; do
-  fresh_home "refresh_$harness"
-  stubs="$TMP/stubs-$harness"; log="$TMP/$harness-calls.log"
-  stub_cli "$harness" "$stubs" "$log"
-  out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness "$harness" 2>&1); rc=$?
-  [[ $rc -eq 0 ]] || no "$harness refresh install exits zero (rc=$rc): $out"
-  if [[ $harness == claude ]]; then add=install; del=uninstall; else add=add; del=remove; fi
-  add_at=$(call_line "$log" "plugin $add workcell@workcell")
-  del_at=$(call_line "$log" "plugin $del workcell@workcell")
-  [[ -n $add_at && -n $del_at && $del_at -lt $add_at ]] \
-    && ok "$harness removes its cached plugin before adding it" \
-    || no "$harness cache refresh order (remove=${del_at:-none} add=${add_at:-none})"
-done
+fresh_home refresh_codex
+stubs="$TMP/stubs-codex"; log="$TMP/codex-calls.log"
+stub_cli codex "$stubs" "$log"
+out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness codex 2>&1); rc=$?
+[[ $rc -eq 0 ]] || no "codex refresh install exits zero (rc=$rc): $out"
+add_at=$(call_line "$log" "plugin add workcell@workcell")
+del_at=$(call_line "$log" "plugin remove workcell@workcell")
+[[ -n $add_at && -n $del_at && $del_at -lt $add_at ]] \
+  && ok "codex removes its cached plugin before adding it" \
+  || no "codex cache refresh order (remove=${del_at:-none} add=${add_at:-none})"
 
 # shellcheck source=../lib.sh
 . "$ROOT/scripts/lib.sh"
@@ -1039,5 +1034,159 @@ fi
 grep -q 'plugin marketplace remove workcell' "$log" \
   && ok "uninstall retires the codex marketplace registration" \
   || no "uninstall retires the codex marketplace registration"
+
+# --- durable-claude-marketplace-and-shim (#134) --------------------------------------------------
+
+# root-claude-marketplace-manifest-is-retired
+repo_manifest_gone=0
+scripts_clean=0
+validity_clean=0
+
+[[ ! -e "$ROOT/.claude-plugin/marketplace.json" ]] && repo_manifest_gone=1
+script_refs=$(grep -rn '\.claude-plugin/marketplace\.json' "$ROOT/scripts" | grep -v 'test_install\.sh' || true)
+[[ -z $script_refs ]] && scripts_clean=1
+
+validity_manifests=$(grep -F '"$ROOT"/.claude-plugin/marketplace.json' "$HERE/test_install.sh" | grep -v 'validity_manifests' || true)
+[[ -z $validity_manifests ]] && validity_clean=1
+
+[[ $repo_manifest_gone -eq 1 && $scripts_clean -eq 1 && $validity_clean -eq 1 ]] \
+  && ok "root-claude-marketplace-manifest-is-retired" \
+  || no "root-claude-marketplace-manifest-is-retired (repo_gone=$repo_manifest_gone, scripts_clean=$scripts_clean, validity_clean=$validity_clean)"
+
+# bootstrap-registers-the-share-path-and-installs-with-yes
+fresh_home claude_bootstrap_args
+stubs="$TMP/stubs-claude-args"; log="$TMP/claude-args-calls.log"
+stub_cli claude "$stubs" "$log"
+out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness claude 2>&1); rc=$?
+[[ $rc -eq 0 ]] || no "bootstrap-registers-the-share-path-and-installs-with-yes (install failed rc=$rc: $out)"
+
+has_share_add=0
+has_install_yes=0
+has_no_root_add=0
+
+grep -qxF "plugin marketplace add $HOME/.local/share/workcell/claude" "$log" && has_share_add=1
+grep -qE "^plugin install .*workcell@workcell.*--yes|^plugin install .*--yes.*workcell@workcell" "$log" && has_install_yes=1
+! grep -qF "plugin marketplace add $ROOT" "$log" && has_no_root_add=1
+
+[[ $rc -eq 0 && $has_share_add -eq 1 && $has_install_yes -eq 1 && $has_no_root_add -eq 1 ]] \
+  && ok "bootstrap-registers-the-share-path-and-installs-with-yes" \
+  || no "bootstrap-registers-the-share-path-and-installs-with-yes (share_add=$has_share_add, install_yes=$has_install_yes, no_root=$has_no_root_add, log: $(cat "$log" 2>/dev/null))"
+
+# durable-marketplace-declares-a-command-source-in-copy-mode
+# and shim-prints-one-durable-path-and-restages-when-the-repo-exists
+fresh_home claude_durable
+stubs="$TMP/stubs-claude-dur"; log="$TMP/claude-dur-calls.log"
+stub_cli claude "$stubs" "$log"
+out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness claude 2>&1); rc=$?
+[[ $rc -eq 0 ]] || no "claude durable marketplace install exits zero (rc=$rc): $out"
+
+CLAUDE_SHARE="$HOME/.local/share/workcell/claude"
+SHIM="$CLAUDE_SHARE/stage-workcell"
+SHARE_TREE="$CLAUDE_SHARE/workcell"
+MKT_JSON="$CLAUDE_SHARE/.claude-plugin/marketplace.json"
+
+if [[ -f $MKT_JSON ]] && jq -e . "$MKT_JSON" >/dev/null 2>&1; then
+  jq -e --arg shim "$SHIM" '
+    .name == "workcell" and
+    (.plugins | length == 1) and
+    .plugins[0].name == "workcell" and
+    .plugins[0].source.source == "command" and
+    (.plugins[0].source.mode == "copy" or .plugins[0].mode == "copy") and
+    (.plugins[0].source.command | type == "string" and (. == $shim or startswith($shim + " ")))
+  ' "$MKT_JSON" >/dev/null 2>&1 \
+    && ok "durable-marketplace-declares-a-command-source-in-copy-mode" \
+    || no "durable-marketplace-declares-a-command-source-in-copy-mode (schema mismatch in $MKT_JSON)"
+else
+  no "durable-marketplace-declares-a-command-source-in-copy-mode ($MKT_JSON missing or invalid JSON)"
+fi
+
+if [[ -x $SHIM && -d $SHARE_TREE ]]; then
+  shim_out=$("$SHIM" 2>/dev/null); shim_rc=$?
+  line_count=$(printf '%s\n' "$shim_out" | grep -c .)
+  if [[ $shim_rc -eq 0 && $line_count -eq 1 && "$shim_out" == "$SHARE_TREE" ]]; then
+    DRIFT_TARGET="$SHARE_TREE/.claude-plugin/plugin.json"
+    if [[ -f $DRIFT_TARGET ]]; then
+      echo "appended-drift-bytes" >> "$DRIFT_TARGET"
+      restage_out=$("$SHIM" 2>/dev/null); restage_rc=$?
+      [[ $restage_rc -eq 0 && "$restage_out" == "$SHARE_TREE" && -f $ROOT/dist/claude/workcell/.claude-plugin/plugin.json ]] \
+        && cmp -s "$ROOT/dist/claude/workcell/.claude-plugin/plugin.json" "$DRIFT_TARGET" \
+        && ok "shim-prints-one-durable-path-and-restages-when-the-repo-exists" \
+        || no "shim-prints-one-durable-path-and-restages-when-the-repo-exists (failed to restore drifted share tree from dist/claude, rc=$restage_rc, out='$restage_out')"
+    else
+      no "shim-prints-one-durable-path-and-restages-when-the-repo-exists ($DRIFT_TARGET missing)"
+    fi
+  else
+    no "shim-prints-one-durable-path-and-restages-when-the-repo-exists (rc=$shim_rc, lines=$line_count, out='$shim_out')"
+  fi
+else
+  no "shim-prints-one-durable-path-and-restages-when-the-repo-exists ($SHIM or $SHARE_TREE missing)"
+fi
+
+# shim-replays-the-last-staged-tree-when-the-repo-is-gone
+fresh_home claude_shim_repo_gone
+REPO_COPY="$TMP/repo-copy"
+mkdir -p "$REPO_COPY"
+cp -R "$ROOT/agents" "$ROOT/skills" "$ROOT/plugins" "$ROOT/scripts" "$ROOT/guard" "$REPO_COPY/"
+stubs="$TMP/stubs-claude-gone"; log="$TMP/claude-gone-calls.log"
+stub_cli claude "$stubs" "$log"
+PATH="$stubs:$PATH" "$REPO_COPY/scripts/bootstrap-plugins.sh" --install --harness claude >/dev/null 2>&1
+rm -rf "$REPO_COPY"
+
+GONE_SHARE="$HOME/.local/share/workcell/claude"
+GONE_SHIM="$GONE_SHARE/stage-workcell"
+GONE_TREE="$GONE_SHARE/workcell"
+
+if [[ -x $GONE_SHIM && -d $GONE_TREE ]]; then
+  tree_before=$(_digest_path "$GONE_TREE" 2>/dev/null || true)
+  gone_out=$("$GONE_SHIM" 2>/dev/null); gone_rc=$?
+  gone_lines=$(printf '%s\n' "$gone_out" | grep -c .)
+  tree_after=$(_digest_path "$GONE_TREE" 2>/dev/null || true)
+  [[ $gone_rc -eq 0 && $gone_lines -eq 1 && "$gone_out" == "$GONE_TREE" && "$tree_before" == "$tree_after" ]] \
+    && ok "shim-replays-the-last-staged-tree-when-the-repo-is-gone" \
+    || no "shim-replays-the-last-staged-tree-when-the-repo-is-gone (rc=$gone_rc, lines=$gone_lines, out='$gone_out')"
+else
+  no "shim-replays-the-last-staged-tree-when-the-repo-is-gone ($GONE_SHIM or $GONE_TREE missing)"
+fi
+
+# uninstall-removes-the-share-pieces-and-retires-the-registration
+fresh_home claude_uninstall
+stubs="$TMP/stubs-claude-un"; log="$TMP/claude-un-calls.log"
+stub_cli claude "$stubs" "$log"
+PATH="$stubs:$PATH" "$INSTALL" --install --harness claude >/dev/null 2>&1
+
+UN_SHARE="$HOME/.local/share/workcell/claude"
+UN_SHIM="$UN_SHARE/stage-workcell"
+UN_TREE="$UN_SHARE/workcell"
+UN_MKT="$UN_SHARE/.claude-plugin/marketplace.json"
+
+had_pieces=0
+[[ -x $UN_SHIM && -f $UN_MKT && -d $UN_TREE ]] && had_pieces=1
+
+had_rcpts=0
+installed_rcpts=$(for t in "$UN_SHIM" "$UN_MKT" "$UN_TREE"; do receipts_for "$t"; done)
+[[ -n $installed_rcpts ]] && had_rcpts=1
+
+uout=$(PATH="$stubs:$PATH" "$INSTALL" --uninstall --harness claude 2>&1); urc=$?
+[[ $urc -eq 0 ]] || no "claude uninstall exits zero (rc=$urc): $uout"
+
+shim_gone=0
+mkt_gone=0
+tree_gone=0
+receipts_gone=0
+cli_removed=0
+
+[[ ! -e $UN_SHIM && ! -L $UN_SHIM ]] && shim_gone=1
+[[ ! -e $UN_MKT && ! -L $UN_MKT ]] && mkt_gone=1
+[[ ! -e $UN_TREE && ! -L $UN_TREE ]] && tree_gone=1
+
+remaining_rcpts=$(for t in "$UN_SHIM" "$UN_MKT" "$UN_TREE"; do receipts_for "$t"; done)
+[[ -z $remaining_rcpts ]] && receipts_gone=1
+
+grep -qxF "plugin marketplace remove workcell" "$log" && cli_removed=1
+
+[[ $had_pieces -eq 1 && $had_rcpts -eq 1 && $urc -eq 0 && $shim_gone -eq 1 && $mkt_gone -eq 1 && $tree_gone -eq 1 && $receipts_gone -eq 1 && $cli_removed -eq 1 ]] \
+  && ok "uninstall-removes-the-share-pieces-and-retires-the-registration" \
+  || no "uninstall-removes-the-share-pieces-and-retires-the-registration (had_pieces=$had_pieces, had_rcpts=$had_rcpts, urc=$urc, shim_gone=$shim_gone, mkt_gone=$mkt_gone, tree_gone=$tree_gone, receipts_gone=$receipts_gone, cli_removed=$cli_removed)"
+
 printf "\n%d passed, %d failed\n" "$pass" "$fail"
 [[ $fail -eq 0 ]]

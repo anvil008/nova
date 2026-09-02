@@ -84,7 +84,7 @@ if ((install)); then
   version=$(_json_field "$ROOT/plugins/agy/plugin.json" version)
   install_owned "$ROOT/dist/agy/workcell" "$PWD/.agents/plugins/workcell" "${version:-$semver}" \
     && echo "  installed the Antigravity plugin into .agents/plugins"
-  # Claude installs from the marketplace at the repository root; Codex installs from its durable share tree.
+  # Claude installs from its durable share marketplace; Codex installs from its durable share tree.
   # Local scope keeps the declaration in .claude/settings.local.json / .codex, never a tracked file.
   for cli in claude codex; do
     if command -v "$cli" >/dev/null; then
@@ -98,8 +98,13 @@ if ((install)); then
         || "$cli" plugin "$del" swarm-coder@swarm-coder-local >/dev/null 2>&1 || true
       "$cli" plugin marketplace remove swarm-coder-local --scope local >/dev/null 2>&1 \
         || "$cli" plugin marketplace remove swarm-coder-local >/dev/null 2>&1 || true
-      mkt_src="$ROOT"
-      if [[ $cli == codex ]]; then
+      if [[ $cli == claude ]]; then
+        claude_share="$(workcell_share_dir)/claude"
+        "$cli" plugin marketplace add "$claude_share" --scope local >/dev/null 2>&1 \
+          || "$cli" plugin marketplace add "$claude_share" >/dev/null 2>&1 || true
+        "$cli" plugin install workcell@workcell --yes --scope local >/dev/null 2>&1 \
+          || "$cli" plugin install workcell@workcell --yes >/dev/null 2>&1 || true
+      else
         share_codex="$(workcell_share_dir)/codex"
         if [[ ! -d $share_codex ]]; then
           if command -v python3 >/dev/null; then
@@ -107,12 +112,11 @@ if ((install)); then
             install_owned "$ROOT/dist/codex" "$share_codex" "$(repo_semver)" >/dev/null 2>&1 || true
           fi
         fi
-        mkt_src="$share_codex"
+        "$cli" plugin marketplace add "$share_codex" --scope local >/dev/null 2>&1 \
+          || "$cli" plugin marketplace add "$share_codex" >/dev/null
+        "$cli" plugin "$add" workcell@workcell --scope local >/dev/null 2>&1 \
+          || "$cli" plugin "$add" workcell@workcell >/dev/null
       fi
-      "$cli" plugin marketplace add "$mkt_src" --scope local >/dev/null 2>&1 \
-        || "$cli" plugin marketplace add "$mkt_src" >/dev/null
-      "$cli" plugin "$add" workcell@workcell --scope local >/dev/null 2>&1 \
-        || "$cli" plugin "$add" workcell@workcell >/dev/null
       echo "  installed the $cli plugin from the local workcell marketplace"
     else
       echo "  skipped $cli plugin registration ($cli CLI not found)"
