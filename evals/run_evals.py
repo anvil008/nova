@@ -79,7 +79,9 @@ def _expand_agent_description(
     return re.sub(r"{{([A-Za-z][A-Za-z0-9]*)}}", replace, description)
 
 
-def load_documents(root: Path) -> tuple[dict[str, Document], list[str]]:
+def load_documents(
+    root: Path, harness: str = "claude"
+) -> tuple[dict[str, Document], list[str]]:
     documents: dict[str, Document] = {}
     errors: list[str] = []
     skills_dir = root / "skills"
@@ -172,8 +174,9 @@ def _nonempty_prompt(entry: Any) -> bool:
 
 def structural_errors(
     root: Path,
+    harness: str = "claude",
 ) -> tuple[list[str], dict[str, Document], dict[str, Case]]:
-    documents, errors = load_documents(root)
+    documents, errors = load_documents(root, harness)
     cases, case_errors = load_cases(root)
     errors.extend(case_errors)
     missing = sorted(set(documents) - set(cases))
@@ -673,16 +676,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--min-rank1", type=float, default=0.0, metavar="PCT")
     parser.add_argument("--behavioral", metavar="CASE")
-    parser.add_argument("--harness", choices=("claude", "codex"), default="claude")
+    parser.add_argument(
+        "--harness",
+        choices=("claude", "codex", "agy", "grok"),
+        default="claude",
+        help="target harness family",
+    )
+    parser.add_argument(
+        "--contract-parity",
+        action="store_true",
+        help="verify contract parity across all harness-owned instructions",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--root", type=Path, default=REPO_ROOT, help=argparse.SUPPRESS)
     return parser
 
 
+def check_contract_parity(root: Path = REPO_ROOT, out: TextIO = sys.stdout) -> int:
+    """Verify contract parity across all harness-owned instructions."""
+    print("ERROR contract parity checking is not implemented yet", file=out)
+    return 1
+
+
 def main(argv: list[str] | None = None, out: TextIO = sys.stdout) -> int:
     args = build_parser().parse_args(argv)
     root = args.root.resolve()
-    errors, documents, cases = structural_errors(root)
+    if args.contract_parity:
+        return check_contract_parity(root, out)
+    errors, documents, cases = structural_errors(root, args.harness)
     if errors:
         for error in errors:
             print(f"ERROR {error}", file=out)
