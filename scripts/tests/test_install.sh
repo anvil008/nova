@@ -1126,7 +1126,8 @@ fi
 fresh_home claude_shim_repo_gone
 REPO_COPY="$TMP/repo-copy"
 mkdir -p "$REPO_COPY"
-cp -R "$ROOT/agents" "$ROOT/skills" "$ROOT/plugins" "$ROOT/scripts" "$ROOT/guard" "$REPO_COPY/"
+cp -R "$ROOT/agents" "$ROOT/contracts" "$ROOT/docs" "$ROOT/harnesses" "$ROOT/skills" \
+  "$ROOT/plugins" "$ROOT/scripts" "$ROOT/guard" "$REPO_COPY/"
 stubs="$TMP/stubs-claude-gone"; log="$TMP/claude-gone-calls.log"
 stub_cli claude "$stubs" "$log"
 PATH="$stubs:$PATH" "$REPO_COPY/scripts/bootstrap-plugins.sh" --install --harness claude >/dev/null 2>&1
