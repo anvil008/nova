@@ -5,6 +5,8 @@ name: CI
 on:
   push:
     branches: [main]
+    tags:
+      - "v*"
   pull_request:
 permissions:
   contents: read
@@ -21,7 +23,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install Python lint tooling
-        run: python3 -m pip install ruff
+        run: python3 -m pip install ruff pyyaml
       - run: go mod tidy
       - run: git diff --exit-code -- go.mod go.sum
       - run: go build ./...
@@ -56,5 +58,35 @@ jobs:
         run: python3 scripts/sync-agents.py --check --diff
       - name: Agent models in sync
         run: python3 scripts/sync-agent-models.py --check
+      - name: Guard release carrier agreement
+        run: python3 scripts/build-guard-release.py --check
       - name: Diagrams in sync
         run: python3 scripts/render-diagrams.py --check
+
+  release:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build release artifacts
+        run: python3 scripts/build-guard-release.py
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdd-guard-release
+          path: dist/release/*
+      - name: Upload GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" dist/release/* --clobber || true
