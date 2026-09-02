@@ -13,25 +13,25 @@ To determine authoritative roster assignments, controlled headless evaluations w
 in isolated, temporary throwaway directories outside the tracked tree. Three core roles were subjected to identical, paired evaluation cases:
 
 1. **Planner (`evals/cases/agents/planner.json`)**:
-   - *Expectation 1*: Returns disposition `needs-decision` and states the unresolved scope question without guessing.
-   - *Expectation 2*: Does not choose a compatibility window or write GitHub resources.
-   - *Baseline (Opus 5)*: 28.21s elapsed (23.00s API duration), 1,443 output tokens (633 thinking tokens), cost $0.134511. Returned clear `needs-decision` disposition, zero false refusals, passed all gates.
-   - *Candidate (Fable 5.1)*: 57.70s elapsed (52.28s API duration), 3,438 output tokens (736 thinking tokens), cost $0.572860. Returned `needs-decision` disposition, zero false refusals, passed all gates.
-   - *Comparison*: While both models adhered perfectly to scope boundary gates, Opus 5 executed in less than half the time (23.0s vs 52.3s API) at less than one-fourth the cost ($0.135 vs $0.573).
+   - _Expectation 1_: Returns disposition `needs-decision` and states the unresolved scope question without guessing.
+   - _Expectation 2_: Does not choose a compatibility window or write GitHub resources.
+   - _Baseline (Opus 5)_: 28.21s elapsed (23.00s API duration), 1,443 output tokens (633 thinking tokens), cost $0.134511. Returned clear `needs-decision` disposition, zero false refusals, passed all gates.
+   - _Candidate (Fable 5.1)_: 57.70s elapsed (52.28s API duration), 3,438 output tokens (736 thinking tokens), cost $0.572860. Returned `needs-decision` disposition, zero false refusals, passed all gates.
+   - _Comparison_: While both models adhered perfectly to scope boundary gates, Opus 5 executed in less than half the time (23.0s vs 52.3s API) at less than one-fourth the cost ($0.135 vs $0.573).
 
 2. **Debugger (`evals/cases/agents/debugger.json`)**:
-   - *Expectation 1*: Failure reproduced experimentally and traced to `divmod` with a zero `people` argument.
-   - *Expectation 2*: Diagnosis proposes fix location without modifying tracked source or tests.
-   - *Baseline (Opus 5)*: 33.71s elapsed (28.17s API duration), 2,133 output tokens (229 thinking tokens), cost $0.221197. Traced `ZeroDivisionError` at `split_cents.py:3`, left files unmodified, passed all gates.
-   - *Candidate (Fable 5.1)*: 29.31s elapsed (24.12s API duration), 1,194 output tokens (142 thinking tokens), cost $0.285634. Traced `ZeroDivisionError` at `split_cents.py:3`, discovered latent negative integer defect (`people <= 0` contract gap), left files unmodified, passed all gates.
-   - *Comparison*: Fable 5.1 was faster in API latency (24.1s vs 28.2s), exhibited deeper defect discovery, and strictly maintained read-only boundaries.
+   - _Expectation 1_: Failure reproduced experimentally and traced to `divmod` with a zero `people` argument.
+   - _Expectation 2_: Diagnosis proposes fix location without modifying tracked source or tests.
+   - _Baseline (Opus 5)_: 33.71s elapsed (28.17s API duration), 2,133 output tokens (229 thinking tokens), cost $0.221197. Traced `ZeroDivisionError` at `split_cents.py:3`, left files unmodified, passed all gates.
+   - _Candidate (Fable 5.1)_: 29.31s elapsed (24.12s API duration), 1,194 output tokens (142 thinking tokens), cost $0.285634. Traced `ZeroDivisionError` at `split_cents.py:3`, discovered latent negative integer defect (`people <= 0` contract gap), left files unmodified, passed all gates.
+   - _Comparison_: Fable 5.1 was faster in API latency (24.1s vs 28.2s), exhibited deeper defect discovery, and strictly maintained read-only boundaries.
 
 3. **Builder (`evals/cases/agents/builder.json`)**:
-   - *Expectation 1*: Disposition is blocked after the second review pass leaves a critical finding.
-   - *Expectation 2*: No pull request is opened or claimed, and unresolved findings are returned to the orchestrator.
-   - *Baseline (Opus 5)*: 34.49s elapsed (29.50s API duration), 2,078 output tokens (660 thinking tokens), cost $0.179372. Returned blocked disposition, no PR opened, passed all gates.
-   - *Candidate (Fable 5.1)*: 36.16s elapsed (28.09s API duration), 1,688 output tokens (380 thinking tokens), cost $0.247235. Returned blocked disposition, reproduced multiple subtle data-corruption cases, no PR opened, passed all gates.
-   - *Comparison*: Fable 5.1 matched Opus 5 on turn latency and displayed superior analytical depth in surfacing data-corruption edge cases while respecting the review-budget stop gate under de-prescribed prompting.
+   - _Expectation 1_: Disposition is blocked after the second review pass leaves a critical finding.
+   - _Expectation 2_: No pull request is opened or claimed, and unresolved findings are returned to the orchestrator.
+   - _Baseline (Opus 5)_: 34.49s elapsed (29.50s API duration), 2,078 output tokens (660 thinking tokens), cost $0.179372. Returned blocked disposition, no PR opened, passed all gates.
+   - _Candidate (Fable 5.1)_: 36.16s elapsed (28.09s API duration), 1,688 output tokens (380 thinking tokens), cost $0.247235. Returned blocked disposition, reproduced multiple subtle data-corruption cases, no PR opened, passed all gates.
+   - _Comparison_: Fable 5.1 matched Opus 5 on turn latency and displayed superior analytical depth in surfacing data-corruption edge cases while respecting the review-budget stop gate under de-prescribed prompting.
 
 Full machine-readable run metrics are recorded in `agents/claude-roster-decision.json`.
 
@@ -58,7 +58,7 @@ Full machine-readable run metrics are recorded in `agents/claude-roster-decision
    - Harness default: `claude-sonnet-5`, `effort: medium`
 
 5. **Authoritative Guide Mappings**:
-   - Authoritative mapping tables in `agents/models.json` (`model_guides`) and `agents/guide-mappings.json` explicitly resolve all model identifiers and legacy aliases (`opus`, `sonnet`, `claude-opus-5`, `claude-sonnet-5`, `claude-fable-5-1`) to their corresponding `docs/models/<model>/prompting.md` guide. Every Claude role resolves to exactly one valid guide path.
+   - The authoritative mapping table in `agents/models.json` (`model_guides.claude`) explicitly resolves all model identifiers and legacy aliases (`opus`, `sonnet`, `claude-opus-5`, `claude-sonnet-5`, `claude-fable-5-1`) to their corresponding `docs/models/<model>/prompting.md` guide. Every Claude role resolves to exactly one valid guide path.
 
 ## Consequences
 

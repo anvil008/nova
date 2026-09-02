@@ -2,15 +2,32 @@
 
 from __future__ import annotations
 
+import atexit
 import json
 import re
+import shutil
+import sys
 from pathlib import Path
 from typing import Any
+
+# Prevent bytecode generation in agents/ directory during imports
+sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parent.parent
 AGENTS_DIR = ROOT / "agents"
 MODELS_FILE = AGENTS_DIR / "models.json"
 MODELS_DOCS_DIR = ROOT / "docs" / "models"
+
+
+def _cleanup_pycache() -> None:
+    """Ensure no __pycache__ directory or bytecode remains in agents/."""
+    pycache = AGENTS_DIR / "__pycache__"
+    if pycache.is_dir():
+        shutil.rmtree(pycache, ignore_errors=True)
+
+
+_cleanup_pycache()
+atexit.register(_cleanup_pycache)
 
 CLAUDE_ROLES = (
     "planner",
@@ -35,8 +52,7 @@ VALID_CLAUDE_GUIDES = {
 def get_model_guide_mappings() -> dict[str, str]:
     """Return explicit mappings from model names or aliases to guide names.
 
-    Checks agents/models.json ('model_guides', 'guides', 'role_guides', 'mappings')
-    or an explicit agents/guide-mappings.json / agents/mappings.json.
+    Reads agents/models.json ('model_guides') as the sole authoritative source of truth.
     """
     mappings: dict[str, str] = {}
     if MODELS_FILE.is_file():
@@ -55,24 +71,8 @@ def get_model_guide_mappings() -> dict[str, str]:
                         mappings.update(section["claude"])
                     else:
                         mappings.update(section)
-        except Exception:
+        except (OSError, json.JSONDecodeError, TypeError):
             pass
-
-    for candidate in (
-        AGENTS_DIR / "guide-mappings.json",
-        AGENTS_DIR / "mappings.json",
-        AGENTS_DIR / "claude-guides.json",
-    ):
-        if candidate.is_file():
-            try:
-                data = json.loads(candidate.read_text(encoding="utf-8"))
-                if isinstance(data, dict):
-                    if "claude" in data and isinstance(data["claude"], dict):
-                        mappings.update(data["claude"])
-                    else:
-                        mappings.update(data)
-            except Exception:
-                pass
 
     return mappings
 
@@ -87,7 +87,7 @@ def resolve_claude_role(role: str) -> dict[str, Any]:
 
     try:
         data = json.loads(MODELS_FILE.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, json.JSONDecodeError, TypeError):
         return {}
 
     defaults = data.get("defaults", {}).get("claude", {})
@@ -158,7 +158,7 @@ def _extract_json_block(text: str) -> dict[str, Any] | None:
         data = json.loads(text.strip())
         if isinstance(data, dict):
             return data
-    except Exception:
+    except (json.JSONDecodeError, TypeError):
         pass
 
     match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
@@ -167,7 +167,7 @@ def _extract_json_block(text: str) -> dict[str, Any] | None:
             data = json.loads(match.group(1).strip())
             if isinstance(data, dict):
                 return data
-        except Exception:
+        except (json.JSONDecodeError, TypeError):
             pass
     return None
 
@@ -191,9 +191,9 @@ def load_decision_record() -> dict[str, Any] | None:
     if adr_dir.is_dir():
         for path in sorted(adr_dir.glob("*.md")):
             name = path.name.lower()
-            if any(term in name for term in ("fable", "roster", "claude")):
-                candidate_paths.append(path)
-            elif path.name.startswith("0024"):
+            if any(
+                term in name for term in ("fable", "roster", "claude")
+            ) or path.name.startswith("0024"):
                 candidate_paths.append(path)
 
     results_dir = ROOT / "evals" / "results"
@@ -222,7 +222,10 @@ def load_decision_record() -> dict[str, Any] | None:
                     or "planner" in extracted
                 ):
                     return extracted
-        except Exception:
+        except (OSError, json.JSONDecodeError, TypeError):
             continue
 
     return None
+
+
+_cleanup_pycache()

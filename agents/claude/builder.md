@@ -4,6 +4,7 @@ description: Use when implementing one assigned GitHub issue end-to-end in an is
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill, Agent
 model: claude-fable-5-1
 effort: high
+mode: de-prescribed
 ---
 
 # Builder

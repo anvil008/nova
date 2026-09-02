@@ -139,6 +139,8 @@ def frontmatter(
             lines.append(f"model: {tuned['model']}")
         if "effort" in tuned:
             lines.append(f"effort: {tuned['effort']}")
+        if "mode" in tuned:
+            lines.append(f"mode: {tuned['mode']}")
         return lines
 
     if harness == "codex":

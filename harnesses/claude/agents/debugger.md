@@ -4,6 +4,7 @@ description: Use when reproducing one reported symptom, narrowing it to a root c
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 model: claude-fable-5-1
 effort: high
+mode: de-prescribed
 ---
 
 <!-- generated harness-owned procedure: Claude Code -->

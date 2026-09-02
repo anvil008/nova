@@ -61,9 +61,18 @@ class AgentCapabilityTests(unittest.TestCase):
             files = path.rglob("*") if path.is_dir() else (path,)
             for candidate in files:
                 if candidate.is_file():
+                    if "__pycache__" in candidate.parts or candidate.suffix in {
+                        ".pyc",
+                        ".pyo",
+                    }:
+                        continue
                     with self.subTest(path=candidate.relative_to(ROOT)):
-                        self.assertNotIn("sandbox_mode", candidate.read_text(encoding="utf-8"))
-        comments = "\n".join(json.loads((AGENTS / "models.json").read_text())["_comment"])
+                        self.assertNotIn(
+                            "sandbox_mode", candidate.read_text(encoding="utf-8")
+                        )
+        comments = "\n".join(
+            json.loads((AGENTS / "models.json").read_text())["_comment"]
+        )
         self.assertIn("codex exec", comments)
         self.assertIn("-s read-only", comments)
         self.assertIn("workcell-<agent> profile", comments)

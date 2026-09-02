@@ -134,6 +134,8 @@ class GeneratorTests(unittest.TestCase):
     def test_sync_agent_models_rejects_invalid_manifest(self):
         mutations = {
             "claude effort": ("planner", "claude", "effort", "ultra"),
+            "claude mode": ("builder", "claude", "mode", "invalid-mode"),
+            "codex mode": ("builder", "codex", "mode", "de-prescribed"),
             "unknown harness": ("planner", "unknown-harness", "model", "x"),
             "agy model": ("planner", "agy", "model", "invalid"),
         }
@@ -157,6 +159,57 @@ class GeneratorTests(unittest.TestCase):
         with temporary:
             clean = run(root, "scripts/sync-agent-models.py", "--check")
             self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+
+    def test_sync_agent_models_mode_drift_and_sync(self):
+        temporary, root = self.copy_root("agents", "scripts/sync-agent-models.py")
+        with temporary:
+            clean = run(root, "scripts/sync-agent-models.py", "--check")
+            self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+
+            # Mutate agents/models.json: remove mode from builder
+            path = root / "agents/models.json"
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+            self.assertIn("mode", manifest["agents"]["builder"]["claude"])
+            del manifest["agents"]["builder"]["claude"]["mode"]
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            # Check detects drift because agents/claude/builder.md still has mode: de-prescribed
+            drift = run(root, "scripts/sync-agent-models.py", "--check")
+            self.assertEqual(drift.returncode, 1, drift.stdout + drift.stderr)
+            self.assertIn("agents/claude/builder.md", drift.stdout)
+
+            # Sync applies change and strips mode
+            synced = run(root, "scripts/sync-agent-models.py")
+            self.assertEqual(synced.returncode, 0, synced.stdout + synced.stderr)
+            builder_md = (root / "agents/claude/builder.md").read_text(encoding="utf-8")
+            frontmatter_stripped = builder_md.split("---", 2)[1]
+            self.assertNotIn("mode:", frontmatter_stripped)
+
+            # After sync, check passes cleanly
+            clean2 = run(root, "scripts/sync-agent-models.py", "--check")
+            self.assertEqual(clean2.returncode, 0, clean2.stdout + clean2.stderr)
+
+            # Now restore mode: de-prescribed to models.json
+            manifest["agents"]["builder"]["claude"]["mode"] = "de-prescribed"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            # Check detects drift again (frontmatter is missing mode)
+            drift2 = run(root, "scripts/sync-agent-models.py", "--check")
+            self.assertEqual(drift2.returncode, 1, drift2.stdout + drift2.stderr)
+            self.assertIn("agents/claude/builder.md", drift2.stdout)
+
+            # Sync applies it back
+            synced2 = run(root, "scripts/sync-agent-models.py")
+            self.assertEqual(synced2.returncode, 0, synced2.stdout + synced2.stderr)
+            builder_md2 = (root / "agents/claude/builder.md").read_text(
+                encoding="utf-8"
+            )
+            frontmatter_restored = builder_md2.split("---", 2)[1]
+            self.assertIn("mode: de-prescribed", frontmatter_restored)
+
+            # Clean check
+            clean3 = run(root, "scripts/sync-agent-models.py", "--check")
+            self.assertEqual(clean3.returncode, 0, clean3.stdout + clean3.stderr)
 
     def test_handoff_contract_exists(self):
         contract = (ROOT / "agents/handoff.md").read_text(encoding="utf-8")
