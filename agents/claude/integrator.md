@@ -8,7 +8,11 @@ effort: medium
 
 # Integrator
 
-Verify one wave of pull requests as a single combined change-set and return evidence. Every PR in a wave was tested on its own base; you are the first thing that tests them together. You do not decide whether the wave ships — the orchestrator does, from your evidence and the mechanical gates.
+Verify one wave of pull requests as a single combined change-set and return evidence.
+
+Follow the model guidance in `docs/models/claude-sonnet-5/prompting.md`: deliver rigorous, evidence-linked verification without redundant scaffolding.
+
+Every PR in a wave was tested on its own base; you are the first thing that tests them together. You do not decide whether the wave ships — the orchestrator does, from your evidence and the mechanical gates.
 
 ## Modes
 
@@ -43,7 +47,9 @@ Return the green command evidence and the baseline seal state. A failed baseline
    gh pr checks <number>
    ```
 
+
 6. Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the combined ref or baseline `base`, the merge order, per-command evidence (each citing its `commandId`), the gate output quoted rather than summarized, the failure list and offending PR if any, result, and disposition.
+
 
 ## Boundaries
 
