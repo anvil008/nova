@@ -433,5 +433,48 @@ class CheckGuidesAcceptanceTests(unittest.TestCase):
             )
 
 
+class ConsentBannerNormalizationTests(unittest.TestCase):
+    """A geo-conditioned cookie banner must not reach the normalized digest."""
+
+    ARTICLE = (
+        "<main><h1>Prompting</h1><p>Start at high effort.</p></main>"
+    )
+    BANNER = (
+        '<div data-testid="consent-banner"><h3>Cookie settings</h3>'
+        "<p>We use cookies to deliver and improve our services.</p>"
+        "<div><button>Reject All Cookies</button></div></div>"
+    )
+
+    def _extract(self, html: str) -> str:
+        sys.path.insert(0, str(CHECK_GUIDES.parent))
+        try:
+            import check_guides
+        finally:
+            sys.path.pop(0)
+        return check_guides.extract(html, vendor="anthropic")
+
+    def test_banner_presence_does_not_change_extract(self):
+        """The same page served with and without the banner must normalize alike.
+
+        platform.claude.com renders the banner server-side for some IP
+        countries and omits it for others, so without this the digest depends
+        on where the checker runs.
+        """
+        with_banner = f'<body><div class="contents">{self.BANNER}{self.ARTICLE}</div></body>'
+        without_banner = f'<body><div class="contents">{self.ARTICLE}</div></body>'
+        self.assertEqual(
+            self._extract(with_banner),
+            self._extract(without_banner),
+            "Consent banner leaked into the normalized extract",
+        )
+
+    def test_banner_text_is_absent_from_extract(self):
+        html = f'<body><div class="contents">{self.BANNER}{self.ARTICLE}</div></body>'
+        text = self._extract(html)
+        self.assertNotIn("Cookie settings", text)
+        self.assertNotIn("Reject All Cookies", text)
+        self.assertIn("Start at high effort.", text)
+
+
 if __name__ == "__main__":
     unittest.main()
