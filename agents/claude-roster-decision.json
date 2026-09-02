@@ -147,7 +147,7 @@
         "action": "retain",
         "selected_model": "claude-opus-5",
         "selected_effort": "xhigh",
-        "rationale": "Opus 5 demonstrated identical quality with substantially lower latency (23.0s vs 52.3s API duration) and cost (bash.13 vs bash.57). Planning decomposition ceilings justify retaining Opus 5."
+        "rationale": "Opus 5 demonstrated identical quality with substantially lower latency (23.0s vs 52.3s API duration) and cost ($0.135 vs $0.573). Planning decomposition ceilings justify retaining Opus 5."
       }
     },
     "debugger": {
