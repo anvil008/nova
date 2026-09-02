@@ -3,9 +3,9 @@ model: claude-opus-5
 official_source_urls:
   - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
 fetched_date: 2026-09-02
-extractor_version: 1.0.0
+extractor_version: 1.1.0
 normalized_source_digests:
-  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5: 55f1366cfd61051a63f2030a209521960ca6e161bce35cac451c0917d80189e0
+  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5: cf3fdadb5bb97cf7d687f521adcf6a4bcf404260db9035c842c736b0be5ef589
 ---
 # Claude Opus 5 prompting extract
 

@@ -8,7 +8,7 @@ official_source_urls:
   - https://docs.x.ai/build/settings
   - https://docs.x.ai/developers/grok-4-6
 fetched_date: 2026-09-02
-extractor_version: 1.0.0
+extractor_version: 1.1.0
 normalized_source_digests:
   https://docs.x.ai/build/overview: 6528ca7fccab57dd0ad4f3c0ca5cbcd1eaae799231aedd6ae7eb97d972d9431f
   https://docs.x.ai/build/features/skills-plugins-marketplaces: 09153d9abc2ec9d3d41a68176d16860a2594480cfbfdb0c7490cc0ba3a861e7e
