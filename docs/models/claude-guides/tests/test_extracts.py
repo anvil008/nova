@@ -125,7 +125,7 @@ class ClaudeGuideAcceptanceTests(unittest.TestCase):
                     dt.datetime.now(dt.timezone.utc).date(),
                     "The provenance date cannot be in the future.",
                 )
-                self.assertEqual(fields.get("extractor_version"), "1.0.0")
+                self.assertEqual(fields.get("extractor_version"), "1.1.0")
 
                 digests = fields.get("normalized_source_digests")
                 self.assertIsInstance(digests, dict)

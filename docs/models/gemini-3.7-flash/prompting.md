@@ -3,8 +3,8 @@ model: gemini-3.7-flash
 official_source_urls:
   - https://ai.google.dev/gemini-api/docs/latest-model
   - https://ai.google.dev/gemini-api/docs/prompting-strategies
-fetched_date: 2026-09-01
-extractor_version: 1.0.0
+fetched_date: 2026-09-02
+extractor_version: 1.1.0
 normalized_source_digests:
   https://ai.google.dev/gemini-api/docs/latest-model: dbb76e1f88f6d663612ef62899516cfb07d2aeab8744d0cdaaf45f486422229e
   https://ai.google.dev/gemini-api/docs/prompting-strategies: c5d82ca4ce880ff44eff13981c2c5b71b9b4e66633f5a360f673775309d642fc

@@ -18,6 +18,10 @@ import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 
+# Bumped whenever normalization changes what text a digest covers. Digests are
+# only comparable within one extractor version.
+EXTRACTOR_VERSION = "1.1.0"
+
 REQUIRED_PROVENANCE_FIELDS = (
     "model",
     "official_source_urls",
@@ -46,7 +50,35 @@ class ArticleExtractor(HTMLParser):
         self.container_depth = 0
         self.ignored_tags = {"script", "style", "noscript", "svg", "head"}
         self.current_ignored_depth = 0
+        self.skipped_tag: str | None = None
+        self.skipped_depth = 0
         self.text_chunks: list[str] = []
+
+    def _is_consent_chrome(self, attrs: list[tuple[str, str | None]]) -> bool:
+        """Detect a cookie/consent banner subtree.
+
+        Vendors render these banners server-side and condition them on the
+        requester's IP country, so a banner caught by the container selector
+        would make the normalized digest depend on where the checker runs.
+        The banner is site chrome, never guidance, so it is dropped outright.
+        """
+        haystack = " ".join(
+            (v or "").lower()
+            for k, v in attrs
+            if k.lower() in ("class", "id", "data-testid")
+        )
+        return any(
+            marker in haystack
+            for marker in (
+                "consent-banner",
+                "consentbanner",
+                "cookie-banner",
+                "cookiebanner",
+                "cookie-consent",
+                "cookieconsent",
+                "onetrust",
+            )
+        )
 
     def _is_container_start(
         self, tag: str, attrs: list[tuple[str, str | None]]
@@ -67,6 +99,16 @@ class ArticleExtractor(HTMLParser):
         tag = tag.lower()
         if tag in self.ignored_tags:
             self.current_ignored_depth += 1
+            return
+
+        if self.skipped_tag is not None:
+            if tag == self.skipped_tag:
+                self.skipped_depth += 1
+            return
+
+        if self._is_consent_chrome(attrs):
+            self.skipped_tag = tag
+            self.skipped_depth = 1
             return
 
         if not self.found_container:
@@ -105,6 +147,14 @@ class ArticleExtractor(HTMLParser):
                 self.current_ignored_depth -= 1
             return
 
+        if self.skipped_tag is not None:
+            if tag == self.skipped_tag:
+                self.skipped_depth -= 1
+                if self.skipped_depth <= 0:
+                    self.skipped_tag = None
+                    self.skipped_depth = 0
+            return
+
         if self.found_container:
             if (
                 tag
@@ -133,6 +183,7 @@ class ArticleExtractor(HTMLParser):
             self.found_container
             and self.container_depth > 0
             and self.current_ignored_depth == 0
+            and self.skipped_tag is None
         ):
             self.text_chunks.append(data)
 
@@ -478,7 +529,7 @@ def update_guide(
     fields["fetched_date"] = (
         datetime.datetime.now(tz=datetime.timezone.utc).date().isoformat()
     )
-    fields["extractor_version"] = "1.0.0"
+    fields["extractor_version"] = EXTRACTOR_VERSION
     fields["normalized_source_digests"] = new_digests
 
     updated_content = render_frontmatter(fields) + body
