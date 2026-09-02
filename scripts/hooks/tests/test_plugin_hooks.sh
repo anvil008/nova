@@ -45,6 +45,8 @@ name="manifest no longer names the ignored hook snippet"; check sh -c '! grep -q
 name="generated Claude agents have no top-level hooks key"
 check sh -c '! grep -l "^hooks:" "$1"/*.md >/dev/null' _ "$ROOT/agents/claude"
 name="agent definitions match the generator"; check python3 "$ROOT/scripts/sync-agents.py" --check
+name="skill definitions match the generator"; check python3 "$ROOT/scripts/sync-skills.py" --check
+name="every harness carries the same contracts"; check python3 "$ROOT/scripts/check-contract-parity.py"
 
 name="Codex uses the documented top-level hook shape"
 check jq -e 'has("hooks") and (.hooks | type == "object") and ((keys - ["description", "hooks"]) | length == 0)' "$CODEX/hooks/hooks.json" >/dev/null

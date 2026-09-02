@@ -232,6 +232,13 @@ DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 TARGET="\$DIR/workcell"
 
 if [[ -d "\$REPO_ROOT" ]] && command -v python3 >/dev/null 2>&1; then
+  # The staged tree is cut from harnesses/claude, not from skills/ and agents/bodies/
+  # directly, so a shared-source edit that nobody synced would refresh into a stale
+  # plugin. Say so rather than serve it silently; regenerating is bootstrap's job.
+  for generator in sync-agents sync-skills; do
+    python3 "\$REPO_ROOT/scripts/\$generator.py" --check >/dev/null 2>&1 ||
+      echo "stage-workcell: warning: \$generator drift — re-run scripts/bootstrap-plugins.sh" >&2
+  done
   if python3 "\$REPO_ROOT/scripts/build-claude-plugin.py" >&2; then
     src="\$REPO_ROOT/dist/claude/workcell"
     if [[ -d "\$src" ]]; then

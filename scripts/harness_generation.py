@@ -59,6 +59,11 @@ ENTRY_KEYS = {
 TOP_KEYS = {"schemaVersion", "harnesses", "skills", "agents"}
 OPTIONAL_KEYS = {"harness", "name", "supported", "limitationNote"}
 NAME = re.compile(r"^[a-z][a-z0-9-]*$")
+LINK = re.compile(r"\]\(([^)\s]+?)(?:\s+\"[^\"]*\")?\)")
+EXTERNAL = ("http://", "https://", "mailto:", "#", "<")
+# Skills a harness ships inside one of its agents instead of the globally
+# invocable family must say so in the registry, on every owning agent.
+GLOBAL_SKILL_SURFACE = "global-skill-invocation"
 
 
 class GenerationError(Exception):
@@ -486,6 +491,69 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
     return desired
 
 
+def _unresolved_links(document: Path) -> list[tuple[int, str]]:
+    """Relative Markdown links in one document whose target does not exist."""
+    try:
+        text = document.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    broken: list[tuple[int, str]] = []
+    for match in LINK.finditer(text):
+        target = match.group(1)
+        if target.startswith(EXTERNAL):
+            continue
+        path = target.split("#", 1)[0]
+        if not path:
+            continue
+        if not (document.parent / path).exists():
+            broken.append((text.count("\n", 0, match.start()) + 1, target))
+    return broken
+
+
+def inherited_link_breaks(root: Path) -> set[tuple[str, str]]:
+    """Link breaks the shared sources already carry, keyed by file name and target.
+
+    Vendored upstream documents (`skills/jj/references/`) cite pages this
+    repository does not vendor, and copying them cannot repair a link that was
+    never whole. Everything else must resolve inside the harness family, so the
+    generated trees are allowed exactly the breaks their sources already had and
+    no others. The file name is the key because the same document is copied to a
+    different depth in every family.
+    """
+    inherited: set[tuple[str, str]] = set()
+    for base in (root / "skills", root / "agents", root / "docs", root / "plugins"):
+        if not base.is_dir():
+            continue
+        for document in base.rglob("*.md"):
+            # agents/bodies/ holds generator templates, never a shipped document:
+            # their links are written for the position sync-agents.py expands them
+            # into, so a break there is not one a staged tree may inherit.
+            if "__pycache__" in document.parts or "bodies" in document.parts:
+                continue
+            for _, target in _unresolved_links(document):
+                inherited.add((document.name, target))
+    return inherited
+
+
+def link_failures(tree: Path, inherited: set[tuple[str, str]]) -> list[str]:
+    """Every link in `tree` that neither resolves nor was broken at the source.
+
+    Run this against a *staged* tree. The generated family under `harnesses/<h>`
+    is an intermediate: Codex ships each agent as a `skills/agent-<name>/` skill,
+    one level deeper than `harnesses/codex/agents/`, so its agent links only reach
+    their targets once the stager has placed them.
+    """
+    failures: list[str] = []
+    for document in sorted(tree.rglob("*.md")):
+        if "__pycache__" in document.parts:
+            continue
+        for line, target in _unresolved_links(document):
+            if (document.name, target) in inherited:
+                continue
+            failures.append(f"{document}:{line}: unresolved link {target}")
+    return failures
+
+
 def _family_roots(root: Path, kind: str) -> list[Path]:
     roots = [root / "harnesses" / harness / kind for harness in HARNESSES]
     roots.extend(root / "harnesses" / harness / "runtime" for harness in HARNESSES)
@@ -577,30 +645,78 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
     return 0
 
 
+def _scoped_owners(root: Path, registry: dict, harness: str, skill: str) -> list[str]:
+    """Agents of `harness` that carry `skill` inside themselves instead of globally."""
+    return [
+        entry["name"]
+        for entry in registry["agents"]
+        if (
+            root
+            / "harnesses"
+            / harness
+            / "agents"
+            / entry["name"]
+            / "skills"
+            / skill
+            / "SKILL.md"
+        ).is_file()
+    ]
+
+
+def _declares_agent_scope(registry: dict, agent: str, harness: str) -> bool:
+    entry = next(item for item in registry["agents"] if item["name"] == agent)
+    return any(
+        surface["harness"] == harness
+        and surface["name"] == GLOBAL_SKILL_SURFACE
+        and surface["supported"] is False
+        for surface in entry["optionalSurfaces"]
+    )
+
+
 def check_parity(root: Path = ROOT) -> int:
     registry = load_registry(root)
     expected = (
         json.dumps({"contract": registry}, indent=2, ensure_ascii=False) + "\n"
     ).encode("utf-8")
     errors: list[str] = []
+    counts: list[str] = []
     for harness in HARNESSES:
         carrier = root / "harnesses" / harness / "runtime" / "contracts.json"
         if not carrier.is_file() or carrier.read_bytes() != expected:
             errors.append(str(carrier.relative_to(root)))
+        globally_invocable = 0
+        scoped: list[str] = []
         for entry in registry["skills"]:
-            globally_owned = harness == "agy" and any(
-                (
-                    root / "agents" / "agy" / agent["name"] / "skills" / entry["name"]
-                ).exists()
-                for agent in registry["agents"]
-            )
-            if (
-                not globally_owned
-                and not (
-                    root / "harnesses" / harness / "skills" / entry["name"] / "SKILL.md"
-                ).is_file()
-            ):
-                errors.append(f"{harness}/skills/{entry['name']}")
+            name = entry["name"]
+            owners = _scoped_owners(root, registry, harness, name)
+            staged_globally = (
+                root / "harnesses" / harness / "skills" / name / "SKILL.md"
+            ).is_file()
+            if staged_globally and owners:
+                errors.append(
+                    f"{harness}/skills/{name}: offered globally and owned by "
+                    f"{', '.join(owners)}; a skill is one or the other"
+                )
+            elif staged_globally:
+                globally_invocable += 1
+            elif not owners:
+                errors.append(f"{harness}/skills/{name}")
+            else:
+                # A skill counted but not staged is the lie this check exists to
+                # prevent: every owning agent has to declare the missing global
+                # surface in the registry, note and all.
+                undeclared = [
+                    owner
+                    for owner in owners
+                    if not _declares_agent_scope(registry, owner, harness)
+                ]
+                if undeclared:
+                    errors.append(
+                        f"{harness}/skills/{name}: owned by {', '.join(undeclared)} "
+                        f"without an unsupported {GLOBAL_SKILL_SURFACE} surface in "
+                        "the registry"
+                    )
+                scoped.append(f"{name} is agent-owned by {', '.join(sorted(owners))}")
         for entry in registry["agents"]:
             path = (
                 root / "harnesses" / harness / "agents" / entry["name"] / "agent.md"
@@ -609,6 +725,11 @@ def check_parity(root: Path = ROOT) -> int:
             )
             if not path.is_file():
                 errors.append(str(path.relative_to(root)))
+        summary = (
+            f"- {harness}: {globally_invocable} globally invocable skills, "
+            f"{len(registry['agents'])} agents"
+        )
+        counts.append(summary + (f"; {'; '.join(scoped)}" if scoped else ""))
     if errors:
         print("contract parity drift:")
         for error in sorted(errors):
@@ -619,4 +740,6 @@ def check_parity(root: Path = ROOT) -> int:
         f"{len(registry['skills'])} skills and {len(registry['agents'])} agents "
         f"across {len(HARNESSES)} harnesses"
     )
+    for summary in counts:
+        print(summary)
     return 0

@@ -123,3 +123,7 @@ You own these skills — invoke them for their domain, and do not reach for the 
 - **Gates are hooks too:** `build-guard agy` screens every `run_command`, `build-hooks agy PreToolUse` / `PostToolUse` guard the sealed tests around each edit and command, and `build-hooks agy Stop` runs the TDD verify gate when the execution loop terminates — a hand-off with no GREEN evidence postdating the seal is refused.
 - **LSP after edits:** the automatic lint is single-file only, so after an edit that changes types, signatures, or symbol names, still check LSP diagnostics (`pyright` / `typescript` / `rust-analyzer`) for *cross-file* type errors and broken references. Routine edits don't need a diagnostics pass of their own.
 - **Code style:** concise code; comments only where the *why* is non-obvious; no defensive handling for cases that can't happen. Prefer editing an existing file over creating a new one; match the surrounding code's idiom, naming, and comment density.
+
+## Harness limitations (generated)
+
+- Antigravity ships the jj skill inside this agent rather than in the globally invocable skill family, so /workcell:jj is not offered as a global skill on Antigravity; every other harness offers it globally.
