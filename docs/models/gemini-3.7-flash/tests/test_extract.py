@@ -19,9 +19,11 @@ MODEL = "gemini-3.7-flash"
 GUIDE = ROOT / "docs" / "models" / MODEL / "prompting.md"
 CHECK_GUIDES = ROOT / "docs" / "models" / "check" / "check_guides.py"
 
-LATEST_MODEL_URL = "https://ai.google.dev/gemini-api/docs/latest-model"
+# The "latest model" page is unversioned: Google rewrote it for Gemini 3.8 Flash,
+# so this guide's pinned 3.7 source is the versioned model page instead (#150).
+MODEL_PAGE_URL = "https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash"
 PROMPT_STRATEGIES_URL = "https://ai.google.dev/gemini-api/docs/prompting-strategies"
-OFFICIAL_URLS = (LATEST_MODEL_URL, PROMPT_STRATEGIES_URL)
+OFFICIAL_URLS = (MODEL_PAGE_URL, PROMPT_STRATEGIES_URL)
 
 
 def load_checker():
@@ -142,7 +144,7 @@ class GeminiGuideAcceptanceTests(unittest.TestCase):
             ),
             (
                 ("thinking", "level"),
-                LATEST_MODEL_URL,
+                MODEL_PAGE_URL,
                 (r"\blow\b", r"\bmedium\b", r"\bhigh\b"),
             ),
             (
