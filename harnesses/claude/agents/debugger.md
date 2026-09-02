@@ -2,8 +2,8 @@
 name: debugger
 description: Use when reproducing one reported symptom, narrowing it to a root cause by experiment, and returning the diagnosis without fixing it.
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
-model: opus
-effort: xhigh
+model: claude-fable-5-1
+effort: high
 ---
 
 <!-- generated harness-owned procedure: Claude Code -->

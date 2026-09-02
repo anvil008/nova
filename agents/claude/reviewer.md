@@ -4,7 +4,7 @@ description: Use when reviewing a diff, pull request, or change-set through one 
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Edit, Write, NotebookEdit, Task
 maxTurns: 30
-model: sonnet
+model: claude-sonnet-5
 effort: medium
 ---
 

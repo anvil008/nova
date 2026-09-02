@@ -2,7 +2,7 @@
 name: builder
 description: Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill, Agent
-model: opus
+model: claude-fable-5-1
 effort: high
 ---
 
