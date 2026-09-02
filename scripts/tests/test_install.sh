@@ -919,7 +919,7 @@ v2=$(jq -r .version "$staged_manifest" 2>/dev/null)
   && ok "restaging with no source change reproduces identical version string" \
   || no "restaging with no source change reproduces identical version string (v1='$v1', v2='$v2')"
 
-skill_to_edit="$ROOT/skills/plan/SKILL.md"
+skill_to_edit="$ROOT/harnesses/codex/skills/plan/SKILL.md"
 skill_backup="$TMP/skill-plan-backup.md"
 cp "$skill_to_edit" "$skill_backup"
 printf '\n' >> "$skill_to_edit"
@@ -1126,7 +1126,8 @@ fi
 fresh_home claude_shim_repo_gone
 REPO_COPY="$TMP/repo-copy"
 mkdir -p "$REPO_COPY"
-cp -R "$ROOT/agents" "$ROOT/skills" "$ROOT/plugins" "$ROOT/scripts" "$ROOT/guard" "$REPO_COPY/"
+cp -R "$ROOT/agents" "$ROOT/contracts" "$ROOT/docs" "$ROOT/harnesses" "$ROOT/skills" \
+  "$ROOT/plugins" "$ROOT/scripts" "$ROOT/guard" "$REPO_COPY/"
 stubs="$TMP/stubs-claude-gone"; log="$TMP/claude-gone-calls.log"
 stub_cli claude "$stubs" "$log"
 PATH="$stubs:$PATH" "$REPO_COPY/scripts/bootstrap-plugins.sh" --install --harness claude >/dev/null 2>&1

@@ -1,0 +1,17 @@
+{
+  "planId": "builder-v3-demo",
+  "planName": "Builder v3 wave demo",
+  "milestone": "Builder v3 wave demo",
+  "waves": [
+    {"wave": 1, "issues": ["Foundation"]},
+    {"wave": 2, "issues": ["API", "UI"]},
+    {"wave": 3, "issues": ["Integration"]}
+  ],
+  "currentWave": 2,
+  "unblocked": [
+    {"key": "API", "number": 102, "ownershipHint": "src/api/**", "wave": 2, "pulledForward": false},
+    {"key": "UI", "number": 103, "ownershipHint": "src/ui/**", "wave": 2, "pulledForward": false}
+  ],
+  "deferred": [],
+  "done": ["Foundation"]
+}

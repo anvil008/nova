@@ -1,7 +1,7 @@
 ---
 name: researcher
 description: Use when investigating exactly one assigned research area and returning a structured, evidence-backed findings envelope.
-model: inherit
+model: grok-4.6
 permission_mode: plan
 ---
 

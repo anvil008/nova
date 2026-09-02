@@ -1,0 +1,12 @@
+{
+  "id": "2026-08-31-review-pass-2",
+  "kind": "review-pass",
+  "recordedAt": "2026-08-31T18:15:02Z",
+  "summary": "second review pass on the migration change-set",
+  "files": [
+    {
+      "path": "files/review-findings.json",
+      "sha256": "648bd85d62ca47d7a8353b3177e89ecfbc95fc602771eefcc829efd10f7665f9"
+    }
+  ]
+}

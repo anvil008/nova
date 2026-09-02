@@ -1,7 +1,7 @@
 ---
 name: builder
 description: Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.
-model: inherit
+model: grok-4.6
 ---
 
 # Builder

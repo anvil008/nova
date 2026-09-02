@@ -1,0 +1,20 @@
+{
+  "name": "workcell",
+  "version": "0.6.0",
+  "description": "Foundry Zero Workcell Plugin",
+  "author": {
+    "name": "Foundry Zero"
+  },
+  "interface": {
+    "displayName": "Workcell",
+    "shortDescription": "Multi-agent software delivery workflows",
+    "longDescription": "Plan, build, review, document, and deploy software with coordinated specialist agents and mechanical gates.",
+    "developerName": "Foundry Zero",
+    "category": "Developer Tools",
+    "capabilities": ["Planning", "Coding", "Review"],
+    "defaultPrompt": [
+      "Plan and implement this change with Workcell.",
+      "Review this repository with Workcell."
+    ]
+  }
+}

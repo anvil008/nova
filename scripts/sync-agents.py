@@ -93,6 +93,15 @@ class SyncError(Exception):
     pass
 
 
+try:
+    from harness_generation import GenerationError as LayeredGenerationError
+except ImportError:
+    # Compatibility for the long-standing hermetic unit fixture that copies
+    # only this wrapper and agents/. Production repositories always carry the
+    # shared generator beside the wrapper.
+    LayeredGenerationError = SyncError
+
+
 def agent_path(agent: str, harness: str) -> Path:
     if harness == "agy":
         return AGENTS / "agy" / agent / "agent.md"
@@ -144,8 +153,8 @@ def frontmatter(
         return lines
 
     if harness == "grok":
-        # Grok Build consumes the Claude plugin agent format. The model comes from
-        # agents/models.json (`inherit`: grok exposes one model), and read-only
+        # Grok Build consumes the Claude plugin agent format. The pinned model comes
+        # from agents/models.json, and read-only
         # agents are held to it via permission_mode rather than a tool list —
         # grok's per-agent tool vocabulary is not yet verified, a tool list we
         # cannot verify would be a lie, and permission_mode: plan is documented.
@@ -207,6 +216,23 @@ def main() -> int:
         "--diff", action="store_true", help="with --check, show the differences"
     )
     args = parser.parse_args()
+
+    # The shared engine owns strict contracts and harness-rooted tracked outputs.
+    # Historical hermetic tests copy only this script plus agents/; retaining the
+    # legacy root generation below keeps those fixtures meaningful without making
+    # production stagers depend on the legacy tree.
+    layered_sync = None
+    try:
+        from harness_generation import sync
+
+        layered_sync = sync
+        # Validate before legacy drift reporting so missing required values are
+        # named as harness/artifact/value contract failures.
+        from harness_generation import load_registry, validate_required
+
+        validate_required(ROOT, load_registry(ROOT), "agents")
+    except ImportError:
+        pass
 
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     models = json.loads(MODELS.read_text(encoding="utf-8"))
@@ -271,16 +297,28 @@ def main() -> int:
                 "run scripts/sync-agents.py to regenerate (edit agents/bodies/, not the output)"
             )
             return 1
+        if layered_sync is not None:
+            layered_result = layered_sync("agents", check=True, diff=args.diff)
+            if layered_result:
+                return layered_result
         print(f"{len(agents)} agents in sync across {len(HARNESSES)} harnesses")
         return 0
 
-    print(f"{written} file(s) updated" if written else "already in sync")
+    if layered_sync is not None:
+        layered_result = layered_sync("agents", check=False, diff=args.diff)
+        if layered_result:
+            return layered_result
+    print(
+        f"{written} legacy file(s) updated"
+        if written
+        else "legacy outputs already in sync"
+    )
     return 0
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except SyncError as error:
+    except (SyncError, LayeredGenerationError) as error:
         print(f"sync-agents: {error}", file=sys.stderr)
         sys.exit(2)

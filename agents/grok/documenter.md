@@ -1,7 +1,7 @@
 ---
 name: documenter
 description: Use when creating, updating, standardizing, or reviewing documentation — READMEs, ADRs, changelogs, and instruction files. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.
-model: inherit
+model: grok-4.6
 ---
 
 # Documenter

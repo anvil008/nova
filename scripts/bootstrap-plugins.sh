@@ -78,6 +78,7 @@ if command -v python3 >/dev/null; then
     # agents/bodies/ + agents/agents.json are the source for every agent definition;
     # this regenerates every harness variant before anything is installed.
     python3 "$ROOT/scripts/sync-agents.py" || die "agent definitions could not be generated"
+    python3 "$ROOT/scripts/sync-skills.py" || die "skill definitions could not be generated"
     # --codex-profiles also writes $CODEX_HOME/workcell-<agent>.config.toml. Codex has no
     # per-agent model surface in a plugin, so a profile (`codex --profile workcell-builder`)
     # is the only place its model and reasoning effort actually take effect. The script
@@ -231,6 +232,13 @@ DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 TARGET="\$DIR/workcell"
 
 if [[ -d "\$REPO_ROOT" ]] && command -v python3 >/dev/null 2>&1; then
+  # The staged tree is cut from harnesses/claude, not from skills/ and agents/bodies/
+  # directly, so a shared-source edit that nobody synced would refresh into a stale
+  # plugin. Say so rather than serve it silently; regenerating is bootstrap's job.
+  for generator in sync-agents sync-skills; do
+    python3 "\$REPO_ROOT/scripts/\$generator.py" --check >/dev/null 2>&1 ||
+      echo "stage-workcell: warning: \$generator drift — re-run scripts/bootstrap-plugins.sh" >&2
+  done
   if python3 "\$REPO_ROOT/scripts/build-claude-plugin.py" >&2; then
     src="\$REPO_ROOT/dist/claude/workcell"
     if [[ -d "\$src" ]]; then

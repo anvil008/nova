@@ -1,7 +1,7 @@
 ---
 name: specifier
 description: Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.
-model: inherit
+model: grok-4.6
 ---
 
 # Specifier

@@ -1,0 +1,229 @@
+/* Planner folio — additions on top of report.css. */
+
+/* Wave palette. Consumed as var() by the generated diagram SVGs, so dependency
+   nodes follow the active theme instead of a baked-in hex. */
+:root, [data-theme="dark"] {
+  --wave-1: oklch(0.345 0.085 255);
+  --wave-2: oklch(0.345 0.085 305);
+  --wave-3: oklch(0.345 0.080 155);
+  --wave-4: oklch(0.345 0.080 62);
+  --wave-5: oklch(0.345 0.020 250);
+  --wave-stroke: oklch(0.600 0.090 255);
+  --wave-text: oklch(0.945 0.006 250);
+}
+[data-theme="light"] {
+  --wave-1: oklch(0.930 0.035 255);
+  --wave-2: oklch(0.930 0.035 300);
+  --wave-3: oklch(0.930 0.035 155);
+  --wave-4: oklch(0.935 0.040 62);
+  --wave-5: oklch(0.935 0.008 250);
+  --wave-stroke: oklch(0.640 0.080 255);
+  --wave-text: oklch(0.245 0.014 250);
+}
+
+/* ── Generated diagrams ───────────────────────── */
+
+/* render_plan.py draws every diagram as inline SVG at build time and names the
+   paint rather than baking it, so a diagram follows the theme toggle with the
+   rest of the page. Node kind is carried by shape, not by colour alone. */
+
+svg.diagram text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+svg.diagram .d-shape { fill: var(--bg-3); stroke: var(--line-2); stroke-width: 1.6; }
+svg.diagram .d-inner { fill: none; stroke-width: 1; }
+svg.diagram .d-label { font-size: 13px; font-weight: 600; fill: var(--txt); text-anchor: middle; }
+svg.diagram .d-sub { font-size: 11px; font-style: italic; fill: var(--txt-2); text-anchor: middle; }
+svg.diagram .d-edge { fill: none; stroke: var(--txt-3); stroke-width: 1.6; }
+svg.diagram .d-dashed { stroke-dasharray: 6 4; }
+svg.diagram .d-thick { stroke-width: 3; }
+svg.diagram .d-arrowhead { fill: var(--txt-3); }
+svg.diagram .d-chip { fill: var(--bg-2); stroke: var(--line); stroke-width: 1; }
+svg.diagram .d-edgelabel { font-size: 11px; fill: var(--txt-2); }
+/* Dotted, so a subgraph frame never reads as one of the dashed edges. */
+svg.diagram .d-frame { fill: none; stroke: var(--acc); stroke-width: 1.4; stroke-dasharray: 1 4; stroke-linecap: round; }
+svg.diagram .d-frametext { font-size: 11px; font-weight: 600; fill: var(--acc); }
+svg.diagram .d-plate { fill: var(--bg-2); }
+
+svg.diagram .neutral .d-shape { fill: transparent; stroke: var(--mut); }
+svg.diagram .neutral .d-label, svg.diagram .neutral .d-sub { fill: var(--mut); }
+svg.diagram .wave1 .d-shape { fill: var(--wave-1); stroke: var(--wave-stroke); }
+svg.diagram .wave2 .d-shape { fill: var(--wave-2); stroke: var(--wave-stroke); }
+svg.diagram .wave3 .d-shape { fill: var(--wave-3); stroke: var(--wave-stroke); }
+svg.diagram .wave4 .d-shape { fill: var(--wave-4); stroke: var(--wave-stroke); }
+svg.diagram .wave5 .d-shape { fill: var(--wave-5); stroke: var(--wave-stroke); }
+svg.diagram [class*="wave"] .d-label, svg.diagram [class*="wave"] .d-sub { fill: var(--wave-text); }
+
+/* ── Approval gate ─────────────────────────────────────────────── */
+
+.gate-proposed { background: var(--sev-medium-bg); }
+.gate-proposed .verdict-dot { background: var(--sev-medium); }
+.gate-approved { background: var(--ok-bg); }
+.gate-approved .verdict-dot { background: var(--ok); }
+.gate-applied { background: var(--acc-bg); }
+.gate-applied .verdict-dot { background: var(--acc); }
+
+.gate-steps {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.gate-steps .step { padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); background: var(--bg-3); }
+.gate-steps .step.now { border-color: var(--acc); color: var(--acc); background: var(--acc-bg); }
+.gate-steps .step.done { color: var(--ok); border-color: var(--line-2); }
+
+/* ── Architecture comparison ──────────────────────────────────── */
+
+.architecture-delta {
+  margin: 16px 0 12px; padding: 13px 15px; border-left: 3px solid var(--acc);
+  border-radius: 0 9px 9px 0; background: var(--acc-bg);
+}
+.architecture-delta .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--acc);
+}
+.architecture-delta p { margin: 4px 0 0; max-width: 74ch; color: var(--txt-2); }
+.architecture-comparison {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.architecture-state {
+  min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2);
+}
+.architecture-state h3 { margin-top: 0; }
+.architecture-state.current h3 { color: var(--txt-2); }
+.architecture-state.proposed { border-color: var(--acc); }
+.architecture-state.proposed h3 { color: var(--acc); }
+
+/* ── Waves ─────────────────────────────────────────────────────── */
+
+.waves { display: flex; flex-direction: column; gap: 10px; }
+.wave {
+  display: grid; grid-template-columns: 132px minmax(0, 1fr);
+  gap: 14px; align-items: start;
+  padding: 13px 15px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.wave-label { min-width: 0; }
+.wave-label .n {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.wave-label .t { font-weight: 600; font-size: 14.5px; }
+.wave-label .c {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.wave-items { display: flex; gap: 7px; flex-wrap: wrap; }
+.wave-item {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  padding: 5px 10px; border-radius: 7px;
+  background: var(--bg-3); border: 1px solid var(--line); font-size: 13px;
+}
+.wave-item .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; color: var(--acc);
+}
+.wave.ungrouped { border-style: dashed; }
+.wave.ungrouped .wave-label .t { color: var(--txt-3); }
+
+/* ── Issues ────────────────────────────────────────────────────── */
+
+.issue-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--acc);
+}
+.issue-body { white-space: pre-wrap; margin: 10px 0 0; color: var(--txt-2); font-size: 13.8px; max-width: 74ch; }
+.issue-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 18px; margin-top: 12px;
+}
+.issue-facts .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.issue-facts .v {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; color: var(--txt-2); overflow-wrap: anywhere;
+}
+
+/* ── Risk matrix ───────────────────────────────────────────────── */
+
+.risk-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; align-items: start; }
+
+.matrix {
+  padding: 16px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.matrix-grid { display: grid; grid-template-columns: 30px repeat(3, 1fr); gap: 6px; }
+.matrix-y {
+  display: grid; place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+  writing-mode: vertical-rl; transform: rotate(180deg);
+}
+.cell {
+  min-height: 62px; border-radius: 8px; border: 1px solid var(--line);
+  padding: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
+}
+.cell.s1 { background: var(--sev-low-bg); }
+.cell.s2 { background: var(--sev-low-bg); }
+.cell.s3 { background: var(--sev-medium-bg); }
+.cell.s4 { background: var(--sev-high-bg); }
+.cell.s6 { background: var(--sev-high-bg); }
+.cell.s9 { background: var(--sev-critical-bg); }
+.cell .pin {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+  background: var(--bg-2); border: 1px solid var(--line-2); color: var(--txt);
+  align-self: flex-start;
+}
+.matrix-x {
+  display: grid; grid-template-columns: 30px repeat(3, 1fr); gap: 6px; margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.matrix-x span { text-align: center; }
+.matrix-axis {
+  margin-top: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; color: var(--txt-3);
+}
+
+.risk-list { display: flex; flex-direction: column; gap: 9px; }
+.risk {
+  padding: 13px 15px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.risk-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 6px; }
+.risk-head .id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--txt-2);
+}
+.risk-head strong { font-weight: 600; font-size: 14.5px; flex: 1; }
+.risk-head .owner {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.risk p { margin: 0; font-size: 13.5px; color: var(--txt-2); max-width: 74ch; }
+.risk p .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+  margin-right: 6px;
+}
+
+.empty {
+  padding: 26px; text-align: center; border-radius: 10px;
+  border: 1px dashed var(--line-2); color: var(--txt-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
+}
+
+@media (max-width: 900px) {
+  .architecture-comparison { grid-template-columns: minmax(0, 1fr); }
+  .risk-layout { grid-template-columns: minmax(0, 1fr); }
+  .wave { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+
+/* Rendered prose blocks: the lede and issue bodies carry real paragraphs. */
+.lede p { margin: 0 0 0.85em; }
+.lede p:last-child { margin-bottom: 0; }
+.issue-body p { margin: 0 0 0.7em; }
+.issue-body p:last-child { margin-bottom: 0; }

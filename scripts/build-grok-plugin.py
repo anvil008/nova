@@ -38,6 +38,7 @@ import lib_dist
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist" / "grok"
 PLUGIN = DIST / "plugins" / "workcell"
+HARNESS = ROOT / "harnesses" / "grok"
 
 
 def fail(message: str) -> int:
@@ -46,10 +47,22 @@ def fail(message: str) -> int:
 
 
 def main() -> int:
-    agents_dir = ROOT / "agents" / "grok"
-    skills_dir = ROOT / "skills"
-    manifest = ROOT / "plugins" / "grok" / ".claude-plugin" / "plugin.json"
-    handoff = ROOT / "agents" / "handoff.md"
+    # MIGRATION FALLBACK (remove with #167): until every harness family is authored
+    # under harnesses/<h>, this stager still builds from the pre-layered
+    # plugins/grok wrapper when that family is absent. #167's
+    # no-fallback-survives gate rejects this branch; it must not outlive it.
+    layered = HARNESS.is_dir()
+    if not layered:
+        print(
+            f"build-grok-plugin.py: warning: {HARNESS.name} has no harness family; "
+            f"building from the pre-layered plugins/grok wrapper (migration fallback, #167)",
+            file=sys.stderr,
+        )
+    runtime = HARNESS / "runtime" if layered else ROOT / "plugins" / "grok"
+    agents_dir = HARNESS / "agents" if layered else ROOT / "agents" / "grok"
+    skills_dir = HARNESS / "skills" if layered else ROOT / "skills"
+    manifest = runtime / ".claude-plugin" / "plugin.json"
+    handoff = runtime / "handoff.md" if layered else ROOT / "agents" / "handoff.md"
     for required in (agents_dir, skills_dir, manifest, handoff):
         if not required.exists():
             return fail(
@@ -81,12 +94,17 @@ def main() -> int:
     shutil.copy2(manifest, PLUGIN / ".claude-plugin" / "plugin.json")
     shutil.copy2(handoff, PLUGIN / "handoff.md")
 
+    if layered:
+        shutil.copytree(runtime, PLUGIN / "runtime", symlinks=False)
+
     staged_agents = PLUGIN / "agents"
     staged_agents.mkdir()
     for source in sorted(agents_dir.glob("*.md")):
-        text = source.read_text(encoding="utf-8").replace(
-            "](../../skills/", "](../skills/"
-        )
+        text = source.read_text(encoding="utf-8")
+        if layered:
+            text = text.replace("](../runtime/handoff.md)", "](../handoff.md)")
+        else:
+            text = text.replace("](../../skills/", "](../skills/")
         (staged_agents / source.name).write_text(text, encoding="utf-8")
 
     shutil.copytree(
@@ -107,7 +125,7 @@ def main() -> int:
             "name": "workcell",
             "version": version,
             "builtAt": now,
-            "sourceRoot": str(ROOT),
+            "sourceRoot": "harnesses/grok" if layered else "plugins/grok",
             "contentDigest": digest,
         },
     )

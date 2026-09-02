@@ -1,0 +1,34 @@
+{
+  "repo": "foundry-zero/workcell",
+  "milestone": "Builder v3 wave demo",
+  "issues": [
+    {
+      "number": 101,
+      "body": "Create the shared primitives.\n\n<!-- workcell-planner planId=builder-v3-demo issue=Foundation -->",
+      "labels": ["build"],
+      "state": "closed",
+      "state_reason": "completed"
+    },
+    {
+      "number": 102,
+      "body": "Add the API surface.\n\n<!-- workcell-planner planId=builder-v3-demo issue=API -->",
+      "labels": ["build"],
+      "state": "open",
+      "state_reason": null
+    },
+    {
+      "number": 103,
+      "body": "Add the UI surface.\n\n<!-- workcell-planner planId=builder-v3-demo issue=UI -->",
+      "labels": ["build"],
+      "state": "open",
+      "state_reason": null
+    },
+    {
+      "number": 104,
+      "body": "Verify API and UI together.\n\n<!-- workcell-planner planId=builder-v3-demo issue=Integration -->",
+      "labels": ["build"],
+      "state": "open",
+      "state_reason": null
+    }
+  ]
+}
