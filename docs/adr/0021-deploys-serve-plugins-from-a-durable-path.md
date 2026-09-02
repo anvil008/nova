@@ -4,6 +4,12 @@
 
 Accepted
 
+Re-grounded by [ADR 0023](0023-installs-are-self-contained-copies.md): the durable paths this ADR
+requires are now installer-owned directories under `~/.local/share/workcell` rather than a
+checkout a human has to keep, and the Codex consequence below — that a manifest version cannot
+confirm a release — is resolved there, so a Codex deploy no longer needs a content diff as its
+confirmation step. The rest of this record stands.
+
 ## Context
 
 The v0.4.0 deploy ran the plugin build and install from a temporary worktree,
