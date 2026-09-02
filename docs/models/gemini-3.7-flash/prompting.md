@@ -1,13 +1,13 @@
 ---
 model: gemini-3.7-flash
 official_source_urls:
-  - https://ai.google.dev/gemini-api/docs/latest-model
+  - https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash
   - https://ai.google.dev/gemini-api/docs/prompting-strategies
 fetched_date: 2026-09-02
 extractor_version: 1.1.0
 normalized_source_digests:
-  https://ai.google.dev/gemini-api/docs/latest-model: dbb76e1f88f6d663612ef62899516cfb07d2aeab8744d0cdaaf45f486422229e
-  https://ai.google.dev/gemini-api/docs/prompting-strategies: c5d82ca4ce880ff44eff13981c2c5b71b9b4e66633f5a360f673775309d642fc
+  https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash: 73fded168648a58631322b845b307afdd2eec8acec8649881094085bfec9e207
+  https://ai.google.dev/gemini-api/docs/prompting-strategies: 02a91196f2be4df7c133e739fd2d8c60395b303f56330821e1f00864ff691124
 ---
 # Gemini 3.7 Flash prompting guide
 
@@ -61,13 +61,21 @@ Request the desired verbosity instead of assuming the model will infer it.
 
 ## Thinking levels
 
-Source: https://ai.google.dev/gemini-api/docs/latest-model
+Source: https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash
 
-> Gemini 3.7 Flash supports a 1M token context window, 64k max output tokens, tunable thinking levels (low, medium, high), and the same suite of built-in tools as 3.6 Flash.
+Quoted as spec-table fragments, verbatim and in the order they appear in the
+versioned model page's property table:
+
+> Input token limit 1,048,576 Output token limit 65,536
+
+> Thinking Supported (low, medium, high)
+
+> Note: minimal is not supported and returns an error.
 
 Use low for latency-sensitive tasks, medium as the default balance, and high
 for difficult reasoning, coding, or tool-heavy work where additional cost and
-latency are acceptable.
+latency are acceptable. Unlike some other Gemini 3 models, `minimal` is not a
+valid level here.
 
 ## Grounding and tools
 
