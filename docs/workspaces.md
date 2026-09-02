@@ -1,9 +1,10 @@
 # Workspaces
 
 Every unit of agent work happens in its own working copy, and there is exactly one way to make
-one, name one, and get rid of one — `scripts/workcell-ws`, linked to `~/.local/bin/workcell-ws`
-by `bootstrap-tools.sh --install`. All four harnesses call it through the shell, so the standard
-is identical on Claude, Codex, Antigravity, and Grok Build.
+one, name one, and get rid of one — `scripts/workcell-ws`, installed as a versioned copy at
+`~/.local/bin/workcell-ws` by `bootstrap-tools.sh --install`, never a link, so editing the script
+in a checkout changes nothing until the next `--install`. All four harnesses call it through the
+shell, so the standard is identical on Claude, Codex, Antigravity, and Grok Build.
 
 ## The standard
 

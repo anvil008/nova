@@ -66,9 +66,10 @@ scripts/bootstrap-plugins.sh --harness claude   # one harness only (claude | cod
 scripts/bootstrap-plugins.sh --uninstall        # remove everything it installed
 ```
 
-It never overwrites something it does not own — a real file or directory where a link should go
-is refused by name. Model/effort configuration, a per-project install, and upgrading from an
-earlier install are covered in **[docs/install.md](docs/install.md)**.
+It never overwrites something it does not own — a destination that is not its own copy is refused
+by name, and an uninstall leaves anything you have since edited in place and says so. Model/effort
+configuration, a per-project install, and upgrading from an earlier install are covered in
+**[docs/install.md](docs/install.md)**.
 
 ## All 16 skills
 
@@ -175,11 +176,11 @@ workcell/
 ├── agents/            generated per harness — edit agents/bodies/ + agents.json, then sync-agents.py
 ├── skills/             16 shared workflows: plan, build, code-review, docs, deploy, …
 ├── plugins/            one thin wrapper per harness — no content of its own
-│   ├── claude/          .claude-plugin/plugin.json, hooks/hooks.json
-│   ├── codex/           .codex-plugin/plugin.json, hooks.json — staged into dist/codex/, not symlinked
-│   ├── agy/             plugin.json, rules/, hooks.json — symlinked, since Antigravity's install paths aren't a stable contract
-│   └── grok/            .grok-plugin/plugin.json — staged into dist/grok/, not symlinked; no hooks
-├── scripts/            scripts/bootstrap.sh (one command) over bootstrap-tools.sh / bootstrap-plugins.sh / bootstrap-project.sh, the hook scripts they install, workcell-ws
+│   ├── claude/          .claude-plugin/plugin.json, hooks/hooks.json — staged, then copied to ~/.local/share/workcell/claude
+│   ├── codex/           .codex-plugin/plugin.json, hooks/hooks.json — staged, then copied to ~/.local/share/workcell/codex
+│   ├── agy/             plugin.json, rules/, hooks.json — staged, then copied to ~/.gemini/config/plugins/workcell; never linked
+│   └── grok/            .claude-plugin/plugin.json — staged, then copied to ~/.grok/plugins/workcell; no hooks
+├── scripts/            scripts/bootstrap.sh (one command) over bootstrap-tools.sh / bootstrap-plugins.sh / bootstrap-project.sh, the four build-*-plugin.py stagers, build-guard-release.py, the hook scripts they install, workcell-ws
 ├── cmd/tdd-guard/      the gate binary binding RED, GREEN, and review evidence to one diff
 ├── docs/adr/           architecture decisions and their consequences
 ├── docs/workspaces.md  the one isolation standard: workcell-ws, sibling paths, the sweep
@@ -188,19 +189,30 @@ workcell/
 ```
 
 `plugins/claude/`, `plugins/codex/`, `plugins/agy/`, and `plugins/grok/` are one thin wrapper per
-harness — a manifest, hooks, and symlinks back to `agents/` and `skills/`, with no content of their
-own (Grok ships no hooks of its own — see [docs/gates.md](docs/gates.md)). Claude
-and Codex link `skills/` whole; the Antigravity wrapper's per-skill links regenerate on every
-install from `skills/` minus the skills owned by one of its agents. Codex and Grok both copy a
-plugin into their own cache and drop any symlink pointing outside the plugin root, so
-`scripts/build-codex-plugin.py` and `scripts/build-grok-plugin.py` each stage a real tree instead of
-relying on links; [the Codex installation details](docs/install.md#choosing-models-and-thinking-levels)
-explain how its agents and shared skills are packaged and named. Antigravity provides an
-`agy plugin` CLI, but its install paths (`~/.gemini/antigravity-cli/plugins/`) are not a stable
-documented contract, so Workcell symlinks the `plugins/agy/` wrapper there instead. Grok reads
-`.claude-plugin/`-style manifests directly and aliases `CLAUDE_PLUGIN_ROOT` for hooks
+harness — a manifest, hooks, and, where the harness's layout needs them, references back to
+`agents/` and `skills/`, with no content of their own (Grok ships no hooks of its own — see
+[docs/gates.md](docs/gates.md)). The Antigravity
+wrapper's per-skill entries regenerate on every install from `skills/` minus the skills owned by
+one of its agents. Grok reads `.claude-plugin/`-style manifests directly and aliases
+`CLAUDE_PLUGIN_ROOT` for hooks
 ([ADR 0020](docs/adr/0020-apm-is-a-peer-tool-not-the-distribution-layer.md)), so adding it cost one
 staging script and a bootstrap section, not a new plugin format.
+
+Every harness install is an installer-owned copy of a staged tree; no harness loads code out of
+this checkout. `scripts/build-claude-plugin.py`, `build-codex-plugin.py`, `build-agy-plugin.py`,
+and `build-grok-plugin.py` each stage a tree with no links escaping it, and
+`scripts/bootstrap-plugins.sh` copies that tree to a path it owns. Claude and Codex resolve
+theirs through a durable marketplace under `~/.local/share/workcell/`; Antigravity and Grok
+register nothing, because each already scans its own plugin directory, so they get one owned copy
+at `~/.gemini/config/plugins/workcell` and one at `~/.grok/plugins/workcell` — a real directory
+each, not a link. The `~/.gemini/antigravity-cli/plugins/` location earlier versions also wrote
+to is retired and never recreated, so Antigravity has one loadable copy rather than two. The
+`.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` manifests that used to
+sit at the repository root are retired.
+[ADR 0023](docs/adr/0023-installs-are-self-contained-copies.md) records the decision,
+[docs/install.md](docs/install.md) the refresh story that comes with it, and
+[the Codex installation details](docs/install.md#choosing-models-and-thinking-levels) how its
+agents and shared skills are packaged and named.
 
 ## Evals
 

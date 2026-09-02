@@ -2,6 +2,51 @@
 
 All notable changes to Workcell will be documented in this file.
 
+## [Unreleased — installs are self-contained copies on every harness]
+
+Every harness install is now an installer-owned copy at a path the installer owns, and so are the
+tools on `PATH`. No runtime consumer resolves through a symlink into this repository any more, and
+no marketplace is registered from the repository root. The evidence, the per-harness mechanism,
+and the refresh story this costs are recorded in
+[ADR-0023](docs/adr/0023-installs-are-self-contained-copies.md); ADR 0006 and ADR 0021 point at it
+from their Status sections.
+
+### Changed
+
+- **Claude Code installs through a durable command-source marketplace.** The marketplace lives at
+  `~/.local/share/workcell/claude` and its plugin entry is a `command` source in `copy` mode whose
+  command is `stage-workcell`, a shim that re-stages from the repository when the repository is
+  there and replays the last staged tree when it is not. Claude versions the copy by content, so
+  manual version bumps and the destructive uninstall-then-reinstall refresh are both gone.
+- **Codex resolves its marketplace from a durable owned copy** under
+  `~/.local/share/workcell/codex`, not from the gitignored build directory, and its staged manifest
+  carries `<semver>+codex.<content hash>` so a content change is always a version change.
+- **Antigravity and Grok load one owned copy each, and register nothing.** Antigravity's sits at
+  `~/.gemini/config/plugins/workcell` and Grok's at `~/.grok/plugins/workcell`, both directories
+  the harness documents as auto-scanned. The Antigravity symlinks are retired and the
+  `antigravity-cli` location is not recreated; Grok's marketplace registration is retired. Both
+  need a new session to pick up a refreshed copy.
+- **`tdd-guard`, the four `build-*` hook wrappers and `workcell-ws` install into `~/.local/bin` as
+  versioned copies**, not symlinks, so a hook that fires on every tool call no longer resolves
+  through a working tree. `scripts/bootstrap-tools.sh` without `--install` reports one `stale` line
+  per drifted destination.
+- **Copy ownership is receipt-backed.** `install_owned` / `uninstall_owned` in `scripts/lib.sh`
+  record a receipt under `~/.local/state/workcell/receipts/` and stamp every staged tree with
+  `.workcell-stamp.json`; an uninstall removes only what still matches, and names anything it
+  leaves behind.
+- **CI publishes release artifacts and gates version agreement.** `scripts/build-guard-release.py`
+  cross-compiles stamped `tdd-guard` binaries for linux and macOS on amd64 and arm64 with a
+  `SHA256SUMS`; a tag-gated release job uploads them as workflow artifacts and attaches them to
+  the tag's GitHub release. `--check` runs on every CI run and fails when the four plugin
+  manifests and `guard.Version` disagree.
+- **The Claude and Codex marketplace manifests at the repository root are retired.**
+  `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` are deleted; nothing
+  registers them.
+- **The installer test suites were deliberately rewritten, not relaxed.**
+  `scripts/tests/test_install.sh` now asserts copies, receipts and stamps where it asserted links,
+  and the docs-truth test that pinned the README to a live Antigravity link now pins it to an
+  owned copy.
+
 ## [v0.6.0 — The wiki opts in with one question in-session] - 2026-09-01
 
 Backward-compatible feature, so the bump is a minor.
