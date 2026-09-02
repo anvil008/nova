@@ -95,7 +95,12 @@ def main() -> int:
     shutil.copy2(handoff, PLUGIN / "handoff.md")
 
     if layered:
-        shutil.copytree(runtime, PLUGIN / "runtime", symlinks=False)
+        shutil.copytree(
+            runtime,
+            PLUGIN / "runtime",
+            symlinks=False,
+            ignore=lib_dist.ignore_root_tests(runtime),
+        )
 
     staged_agents = PLUGIN / "agents"
     staged_agents.mkdir()
@@ -111,7 +116,7 @@ def main() -> int:
         skills_dir,
         PLUGIN / "skills",
         symlinks=False,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        ignore=lib_dist.ignore_root_tests(skills_dir),
     )
 
     manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
