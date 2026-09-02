@@ -4,7 +4,7 @@ description: Use when investigating exactly one assigned research area and retur
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Edit, Write, NotebookEdit, Task
 maxTurns: 30
-model: sonnet
+model: claude-sonnet-5
 effort: low
 ---
 

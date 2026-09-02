@@ -127,3 +127,4 @@ You own these skills — invoke them for their domain, and do not reach for the 
 ## Harness limitations (generated)
 
 - Antigravity ships the jj skill inside this agent rather than in the globally invocable skill family, so /workcell:jj is not offered as a global skill on Antigravity; every other harness offers it globally.
+- Antigravity does not expose a per-agent mode surface; mode stays a Claude frontmatter field.

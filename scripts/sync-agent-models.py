@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "agents" / "models.json"
 
 CLAUDE_EFFORT = ("low", "medium", "high", "xhigh")
+CLAUDE_MODES = ("de-prescribed",)
 CODEX_EFFORT = ("low", "medium", "high", "xhigh", "max")
 AGY_MODELS = ("pro", "flash", "inherit")
 HARNESSES = frozenset({"claude", "codex", "agy", "grok"})
@@ -36,7 +37,7 @@ LEGACY_CODEX_PROFILE_MARKER = "# managed by workcell: scripts/sync-agent-models.
 # Per harness: the frontmatter key each knob is written under, and the key an
 # inserted block is placed after. Harnesses that lack a knob simply omit it.
 HARNESS_KEYS = {
-    "claude": {"model": "model", "effort": "effort"},
+    "claude": {"model": "model", "effort": "effort", "mode": "mode"},
     "codex": {"model": "model", "effort": "model_reasoning_effort"},
     "agy": {"model": "model"},
     "grok": {"model": "model"},
@@ -45,7 +46,7 @@ HARNESS_KEYS = {
 # Where a missing key is inserted, most specific anchor first. The frontmatter
 # stays readable instead of accumulating keys at the end.
 ANCHORS = {
-    "claude": ("tools", "description", "name"),
+    "claude": ("effort", "model", "disallowedTools", "tools", "description", "name"),
     "codex": ("description", "name"),
     "agy": ("commandExecutionPolicy", "subagent", "mainAgent", "description", "name"),
     "grok": ("description", "name"),
@@ -150,11 +151,11 @@ def resolve(defaults: dict, spec: dict, harness: str) -> dict:
     merged.update(
         {k: v for k, v in spec.get(harness, {}).items() if not k.startswith("_")}
     )
-    return {key: merged[key] for key in ("model", "effort") if key in merged}
+    return {key: merged[key] for key in ("model", "effort", "mode") if key in merged}
 
 
 def validate(agent: str, harness: str, values: dict) -> None:
-    model, effort = values.get("model"), values.get("effort")
+    model, effort, mode = values.get("model"), values.get("effort"), values.get("mode")
     if harness == "agy" and model not in AGY_MODELS:
         raise SyncError(
             f"{agent}/{harness}: model {model!r} must be one of {AGY_MODELS}"
@@ -163,6 +164,12 @@ def validate(agent: str, harness: str, values: dict) -> None:
         raise SyncError(
             f"{agent}/{harness}: effort {effort!r} must be one of {CLAUDE_EFFORT}"
         )
+    if harness == "claude" and mode is not None and mode not in CLAUDE_MODES:
+        raise SyncError(
+            f"{agent}/{harness}: mode {mode!r} must be one of {CLAUDE_MODES}"
+        )
+    if harness != "claude" and mode is not None:
+        raise SyncError(f"{agent}/{harness}: mode is not supported on {harness}")
     if harness == "codex" and effort is not None and effort not in CODEX_EFFORT:
         raise SyncError(
             f"{agent}/{harness}: effort {effort!r} must be one of {CODEX_EFFORT}"
@@ -189,7 +196,7 @@ def apply(lines: list[str], harness: str, values: dict) -> list[str]:
     keys = HARNESS_KEYS[harness]
     desired = {
         keys[knob]: values[knob]
-        for knob in ("model", "effort")
+        for knob in ("model", "effort", "mode")
         if knob in keys and knob in values
     }
     managed = set(keys.values())
@@ -231,7 +238,11 @@ def apply(lines: list[str], harness: str, values: dict) -> list[str]:
     if index is None:
         index = len(result)
 
-    ordered = [k for k in (keys.get("model"), keys.get("effort")) if k in missing]
+    ordered = [
+        k
+        for k in (keys.get("model"), keys.get("effort"), keys.get("mode"))
+        if k in missing and k is not None
+    ]
     return result[:index] + [f"{k}: {desired[k]}" for k in ordered] + result[index:]
 
 

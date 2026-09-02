@@ -2,7 +2,7 @@
 name: integrator
 description: Use when verifying one wave of pull requests as a combined change-set and returning command-linked evidence.
 tools: Read, Grep, Glob, Bash, Skill
-model: sonnet
+model: claude-sonnet-5
 effort: medium
 ---
 
