@@ -6,13 +6,30 @@ metadata:
   version: "1.0.0"
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 # Jujutsu (jj) Version Control
 
 Jujutsu is a Git-compatible VCS with mutable commits, automatic change tracking, and an operation log that makes every action undoable.
 
+Invocation: `/workcell:jj`
+Prompting Reference: [`docs/models/claude-sonnet-5/prompting.md`](../../runtime/docs/models/claude-sonnet-5/prompting.md)
+
 **Target version: jj 0.36+**
+
+In Claude Code, execute all `jj` operations via the `Bash` tool. State goals, constraints, and target changesets explicitly.
+
+## Goals and Constraints
+
+- **Goal:** Execute clean, traceable VCS operations leveraging Jujutsu's first-class conflict handling, automatic snapshotting, and immutable change IDs.
+- **Constraints:** Never run interactive commands (always provide `-m` or file paths), never omit quotes around revset expressions, and verify state via `jj st` after mutations.
+- **Success Criteria:** Mutations reflect cleanly in the working copy and log, bookmarks are updated before push, and recovery paths remain intact via `jj op log`.
+
+## Ordered Gates
+
+Execution proceeds through three strict, ordered gates:
+
+1. **inspect state**: Inspect current working copy and log status (`jj st`, `jj log`) before planning mutations.
+2. **mutate with message**: Apply changes or VCS operations using non-interactive commands with explicit messages (`-m`).
+3. **verify state**: Verify resulting repository and working copy status (`jj st`) to confirm expected tree state and lack of unintended conflicts.
 
 ## Topics
 
@@ -43,7 +60,7 @@ Jujutsu is a Git-compatible VCS with mutable commits, automatic change tracking,
 
 ## Agent Rules
 
-Non-negotiable when operating as an automated agent:
+Non-negotiable when operating as an automated agent in Claude Code:
 
 1. **Always use `-m` for messages.** Never invoke a command that opens an editor. Commands that need `-m`: `jj new`, `jj describe`, `jj commit`, `jj squash`.
 2. **Never use interactive commands.** `jj split` (without file paths), `jj squash -i`, `jj resolve` — all hang. Use file-path args or `jj restore` workflows.
@@ -188,3 +205,7 @@ jj evolog -r <change-id>     # see how a change evolved
 
 **Workspaces:**
 - [references/parallel-agents.md](references/parallel-agents.md) — Parallel agent setup guide
+
+## Harness Limitations
+
+Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.
