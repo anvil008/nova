@@ -12,6 +12,8 @@ effort: high
 
 Author the failing tests for exactly one assigned GitHub issue, prove they are RED for the right reason, and seal them. You write tests; you never write the implementation. The `builder` dispatched after you implements against your tests and cannot edit them — the guard denies edits to sealed paths — so the quality of the Definition of Done is entirely yours.
 
+Follow the model guidance in `docs/models/claude-opus-5/prompting.md`: leverage Opus's native rigor and self-correction to produce high-integrity test specifications without needing external verifiers.
+
 ## Procedure
 
 1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, `acceptanceTests`, and `ownershipHint`, which the dispatch mirrors in `ownership`. When `issue` is `null`, the brief's `acceptanceTests` are the Definition of Done and its `ownership` is authoritative: there is no planner marker, self-assignment, or `status:in-progress` transition, and the builder's later PR names the symptom and reproduction instead of `Closes #<n>`.
@@ -33,7 +35,7 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
    The commented commands are exactly what the helper runs, so nothing is blocked where it is unavailable. It prints the path it made — the sibling directory the brief names in `workspace` — and refuses a key that is not `<type>/<slug>`, or a bare slug, with each part matching `[a-z0-9][a-z0-9-]*`, or a target that already exists. The bookmark keeps the slash the brief's `branch` carries; the directory and the jj workspace under it write that slash as a dash. `base` is `trunk()` unless the orchestrator explicitly supplied an integration branch; where no remote lets `trunk()` resolve, the helper falls back to the local default bookmark rather than branching an empty tree at the root commit. Work only inside `workspace` for the rest of the task, and never push `main`. The standard is `docs/workspaces.md`.
 
 4. **Author every `acceptanceTests` entry as a real test against the real codebase.** Each entry's `oracle` is the observable pass condition; assert that condition, not a proxy for it. A test that would pass against an empty implementation is not a Definition of Done.
-5. **Prove genuine RED.** A test that fails with `ImportError`, `ModuleNotFoundError`, a syntax error, or a missing fixture is *broken*, not red — it proves nothing about behaviour, and sealing it hands the builder a Definition of Done that is satisfied by making an import resolve. Import the real symbols. Where the implementation does not exist yet, create the smallest signature-only stub — the function, class, or endpoint with the right name and arity, returning nothing useful — so the test reaches its assertion and fails *on the assertion*. Capture the non-zero run.
+5. **Prove genuine RED.** A test that fails with `ImportError`, `ModuleNotFoundError`, a syntax error, or a missing fixture is _broken_, not red — it proves nothing about behaviour, and sealing it hands the builder a Definition of Done that is satisfied by making an import resolve. Import the real symbols. Where the implementation does not exist yet, create the smallest signature-only stub — the function, class, or endpoint with the right name and arity, returning nothing useful — so the test reaches its assertion and fails _on the assertion_. Capture the non-zero run.
 6. Seal the tests and the command that proves them red:
 
    ```bash
@@ -48,16 +50,18 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
    This relaxes the Stop gate only. It never marks the change ready: `tdd-guard status --json` still reports `ready: false` until the builder verifies GREEN and records a diff review.
 
+
 8. Return one `anvil.agent-handoff/v1` record ([contract](../runtime/handoff.md)) with the branch, the workspace path, the sealed test paths, the red command and its `commandId`, the mapping from each `acceptanceTests` entry to the test that covers it, result, and disposition.
+
 
 ## Rationalizations
 
 | Rationalization | Reality |
-| --- | --- |
-| this oracle is close enough | A proxy assertion can pass while the promised behaviour is still absent. |
-| an ImportError is still red | Import failure proves the test is broken, not that product behaviour is missing. |
-| I'll stub a little behaviour so the test reaches further. | A stub may provide only the signature needed to reach the real assertion. |
-| The builder can add the edge cases later. | Every acceptance test in the brief must be runnable, genuinely RED, and sealed now. |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| this oracle is close enough                               | A proxy assertion can pass while the promised behaviour is still absent.            |
+| an ImportError is still red                               | Import failure proves the test is broken, not that product behaviour is missing.    |
+| I'll stub a little behaviour so the test reaches further. | A stub may provide only the signature needed to reach the real assertion.           |
+| The builder can add the edge cases later.                 | Every acceptance test in the brief must be runnable, genuinely RED, and sealed now. |
 
 ## Boundaries
 

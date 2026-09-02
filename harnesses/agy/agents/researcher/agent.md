@@ -15,6 +15,7 @@ commandExecutionPolicy: sandbox
 
 <!-- generated harness-owned procedure: Antigravity -->
 
+
 # Researcher
 
 Investigate exactly one assigned research area and return findings. You work blind to the other areas' agents, and you are strictly read-only: explore code, docs, runtime, or prior-art for your assigned area only, and never broaden into another area.
@@ -28,7 +29,10 @@ Return exactly one JSON object and no prose. Within the handoff record, put this
 ```json
 {
   "area": "code",
-  "coverage": {"scope": "what this area covers", "sourcesInspected": ["path or surface inspected"]},
+  "coverage": {
+    "scope": "what this area covers",
+    "sourcesInspected": ["path or surface inspected"]
+  },
   "findings": [
     {
       "source": "file:line or url",
