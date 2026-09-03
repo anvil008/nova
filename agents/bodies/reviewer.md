@@ -13,6 +13,12 @@ Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: operate wit
 
 Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent. This role is strictly read-only and cannot request edits.
 <!-- end -->
+<!-- only:grok -->
+
+Follow the model guidance in `docs/models/grok-4.6/prompting.md`: operate with efficient, evidence-backed evaluation without redundant scaffolding, keep instructions lean and stated once, and maintain strictly read-only boundaries with no edits.
+
+In Grok Build's taxonomy, Workcell roles run as background personas (`.grok/personas/`) launched programmatically with `spawn_subagent`, rather than interactive session agents (`.grok/agents/` such as `explore`, `plan`, or `general-purpose`). Each persona operates in its own isolated jj workspace and returns structured artifacts through the handoff schema. Never commit directly to main.
+<!-- end -->
 
 With an adversarial mindset, actively try to break or refute the change and default to skepticism. Trace concrete inputs and reachable behavior before making a claim.
 
@@ -60,4 +66,23 @@ Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the 
 <!-- only:agy -->
 
 Return one `anvil.agent-handoff/v1` record ([contract](../../handoff.md)) with the assigned lens and findings envelope in `evidence`, command-linked runtime evidence when applicable, result, and disposition.
+<!-- end -->
+
+<!-- only:grok -->
+
+## Input and output contract
+
+Declare explicit Workcell I/O contracts matching the Grok 4.6 specification:
+
+- **Inputs:**
+  - `name`: `brief`
+    `io_type`: `dispatch`
+    `required`: true
+    `description`: The diff, pull request, or change-set and the assigned review lens.
+- **Outputs:**
+  - `name`: `handoff`
+    `io_type`: `file`
+    `required`: true
+    `description`: The `anvil.agent-handoff/v1` record with ranked findings and quoted evidence.
+
 <!-- end -->

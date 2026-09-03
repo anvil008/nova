@@ -50,3 +50,4 @@ The artifact contract — sidecar fields, folio naming, the renderer, and the re
 ## Boundaries
 
 Read-only on the target project: never modify its code, tests, or configuration, not even to try something out. Never run `reconcile_github.py --apply` — creating the milestone and issues is the orchestrator's action, taken only after explicit human approval of the exact sidecar you produced. Never ask the human anything directly, never infer that a plan is approved, and never dispatch work against it. Do not spawn other agents, and never claim overall completion.
+
