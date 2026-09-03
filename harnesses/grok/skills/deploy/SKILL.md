@@ -28,6 +28,10 @@ Execution proceeds through five strict, ordered gates:
 4. **verification**: Post-deploy health checks run within the verification window.
 5. **rollback readiness**: Tested rollback command confirmed ready and executed immediately if checks fail.
 
+## Human gate
+
+Deployment is outward-facing and hard to reverse. **Never deploy without explicit approval**, and approval for one deploy is not standing. Production deploys always require a fresh, explicit go. Never echo secrets; confirm the target (staging vs prod) before every deploy.
+
 ## Procedure
 
 1. **Version and changelog.** Dispatch a `documenter` via `spawn_subagent` to bump semantic version, update `CHANGELOG`, and generate release notes. Tag the release and publish the GitHub release with `gh release create vX.Y.Z --title "<project> vX.Y.Z" --notes-file <notes>`.
@@ -36,6 +40,10 @@ Execution proceeds through five strict, ordered gates:
 4. **Preflight and release.** Dispatch a `deployer` via `spawn_subagent` with target, commit, and approval details. The deployer verifies target state, executes the release, and confirms rollback command readiness.
 5. **Post-deploy verification.** Run health checks throughout the verification window. If any verification step fails, trigger the immediate rollback procedure.
 6. **Record handover.** Dispatch a `documenter` via `spawn_subagent` to record architectural decision records (ADRs) for non-trivial release events.
+
+## Boundaries
+
+The orchestrator never infers approval, never deploys secrets, and never treats a green pre-flight as permission to deploy. Deploy targets, credentials, and rollback steps come from the project — never invented.
 
 ## Harness Limitations
 

@@ -66,6 +66,17 @@ Only execute when the user explicitly names the harness, model, and reasoning ef
   grok -p "<task prompt>" -m <model> --effort <low|medium|high> --always-approve
   ```
 
+## Notes
+
+- Each command auto-approves tools inside a workspace sandbox (`--approve-for-me` /
+  `--dangerously-skip-permissions` / `--always-approve`), so scope it to one repo/dir and review the diff after.
+- For long runs, launch in the background and wait for the process to exit rather than
+  polling; then read the captured output (`-o` file or stdout) and summarize it.
+- Structured result: Codex `-o <file>`; `agy --json-schema <schema>`; Claude
+  `--output-format json`; Grok `--output-format json` (long briefs via `--prompt-file`).
+- This is a leaf capability. The spawned agent does one bounded job and returns its output;
+  it does not orchestrate, and you own integrating whatever it produced.
+
 ## Harness Limitations
 
 Skill frontmatter fields `allowed-tools`, `model`, `effort`, `license`, and `compatibility` are unsupported for capability enforcement or routing under Grok Build; execution relies on native CLI flags (`--tools`, `--disallowed-tools`), agent definitions, capability modes, and specialist dispatch. API-only model controls and programmatic tool calling are unsupported in skill prompts.

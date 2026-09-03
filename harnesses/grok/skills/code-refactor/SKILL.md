@@ -45,6 +45,20 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
   - **Inputs:** Refactoring task assignment with `mode: refactor`, baseline seal, and isolated workspace.
   - **Outputs:** Verified simplifications, `tdd-guard verify` GREEN evidence, two review passes recorded via `tdd-guard diff-review record`, and diff touching no test files.
 
+## The one invariant
+
+**Behaviour does not change, and neither do the tests.** That is what separates a refactor from a rewrite, and it is checkable rather than promised:
+
+- the full suite is green _before_ the first change, and identical-green after;
+- **no test file is modified, added, or deleted** — a refactor that edits its own tests has stopped being one, because the thing that was supposed to hold still moved;
+- no new dependency, no new feature, no bug fix. A bug found on the way is written down and routed to [`code-analysis`](../code-analysis/SKILL.md), never fixed here — a fix inside a refactor is a behaviour change hiding in a diff nobody is reading for behaviour.
+
+## The same gate, with a green requirement
+
+Ordinary feature work records a `kind: red` seal after its command fails. A refactor records a `kind: baseline` seal after its command passes. Both kinds digest and protect the same test paths, bind the same command argv, and require post-seal GREEN plus a real diff review.
+
+The gate is the same `tdd-guard` state machine with the RED requirement replaced by a GREEN one, so the Stop hook and `status --json` work unchanged. Do not dispatch a `specifier`, and do not let a builder invent a failing test.
+
 ## Procedure
 
 1. **Baseline.** Dispatch an `integrator` via `spawn_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) carrying `mode: baseline`: verify the untouched tree at `base`, return command-linked evidence, and perform no merge. If the suite is not green before starting, stop immediately.
@@ -52,6 +66,10 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
 3. **Plan.** Dispatch a `planner` via `spawn_subagent` with survey findings and behaviour-preservation constraints. Each issue represents one independently landable simplification with disjoint `ownershipHint` globs. `acceptanceTests` specify existing tests that must remain green. Stop for human approval before creating GitHub tracking.
 4. **Execute.** Run [`build`](../build/SKILL.md) in single-PR mode omitting the specifier phase. For each issue, create a workspace with `workcell-ws add refactor/<issue-key> --base <integration-base>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch an `integrator` via `spawn_subagent` with `mode: baseline` to establish a `kind: baseline` seal and hand off with `tdd-guard handoff --to builder`. Dispatch the `builder` via `spawn_subagent` in the same workspace with `mode: refactor`. The builder must never edit a test file; it runs the bound command through `tdd-guard verify --green-command`, retains GREEN evidence postdating the baseline seal, and records `tdd-guard diff-review record`. Reject any change-set whose diff touches a test file, and send it back.
 5. **Review and PR.** Dispatch multi-lens `reviewer` agents via `spawn_subagent` to confirm behaviour preservation and verify no test files were touched. Merge intermediate PRs into the integration branch upon green evidence and open the final PR to `main`.
+
+## Boundaries
+
+Never fix a bug, add a feature, change a public contract without saying so plainly in the PR, or upgrade a dependency. Never accept "the tests needed updating" as part of a refactor: that sentence means the behaviour changed, and it belongs in a different skill with a different gate. If simplification is impossible without changing behaviour, stop and return the trade-off to the human rather than quietly taking it.
 
 ## Harness Limitations
 

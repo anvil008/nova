@@ -46,6 +46,12 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
   - **Inputs:** Defect fix diff and original symptom scenario.
   - **Outputs:** Multi-lens assurance findings and regression checks.
 
+## Reproduction is the gate
+
+**No reproduction, no fix.** A `debugger` that cannot make the failure happen on demand returns what it tried and what it could not establish, and the run stops there. Do not route an unreproduced report to a builder: a change to code nobody has seen fail is a guess that will be believed because it shipped.
+
+If the report is too thin to reproduce, the missing information is the finding — go back to whoever reported it with the specific gap, rather than inventing a plausible scenario and fixing that instead.
+
 ## Procedure
 
 1. **Diagnose.** Dispatch a `debugger` via `spawn_subagent` with the reported failure. The debugger reproduces the symptom, isolates the minimal failing scenario, refutes hypotheses, and returns root cause `file:line` evidence and reproduction command. For flaky failures, it measures and reports the failure rate. It modifies no production code.
@@ -53,6 +59,10 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
 3. **Fix test-first.** In single-PR mode, create integration branch `<planId>-integration` from `trunk()`. Create defect workspace via `workcell-ws add bug/<symptom-slug> --base <integration-base>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch a `specifier` via `spawn_subagent` against the reproduction command to write the acceptance test, verify honest RED, and seal it with `tdd-guard seal`.
 4. **Implement.** Dispatch a `builder` via `spawn_subagent` in the same workspace. The builder implements the fix, verifies GREEN with `tdd-guard verify --green-command`, performs self-reviews, and records evidence without touching sealed tests.
 5. **Review and integrate.** Dispatch multi-lens `reviewer` agents via `spawn_subagent`. Dispatch an `integrator` via `spawn_subagent` over the wave on the integration branch. Merge intermediate PRs on green evidence and open the final PR to `main`.
+
+## Boundaries
+
+Never ship a fix whose test did not fail first — that is the whole gate, and "the test passes now" is not evidence when it also passed before. Never fix code the diagnosis did not implicate, and never clean up while you are in there: an unrelated change in a fix diff is how a revert takes something else with it. Never close a flaky-test report by re-running until it passes. If the root cause turns out to be a design problem rather than a defect, say so and route it to [`new-feature`](../new-feature/SKILL.md) or [`code-refactor`](../code-refactor/SKILL.md) instead of patching around it.
 
 ## Harness Limitations
 

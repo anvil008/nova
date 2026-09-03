@@ -45,6 +45,20 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
   - **Inputs:** Assigned issue, sealed test command, and isolated workspace path.
   - **Outputs:** Verified passing fix, `tdd-guard verify` GREEN evidence, and review pass records.
 
+## What counts as a finding
+
+A defect needs a **concrete failure scenario**: inputs or state that produce a wrong result, a crash, corruption, a leak, or a security hole. "This could be clearer", "this lacks a null check nothing can reach", and "this is not how I would write it" are not defects — the first belongs to [`code-refactor`](../code-refactor/SKILL.md) and the rest belong nowhere.
+
+Candidates that do not qualify:
+
+- stylistic differences, renamings, or reformatting;
+- theoretical edge cases where the inputs are internally generated and already validated upstream;
+- "missing tests" on working code — write tests for things you break or fix, not as a separate chore;
+- performance improvements without a measured regression — route those to [`perf`](../perf/SKILL.md);
+- architectural changes or cleanups — route those to [`code-refactor`](../code-refactor/SKILL.md).
+
+Every finding that survives carries a reproduction: an input, an invocation, and the observable wrong outcome.
+
 ## Procedure
 
 1. **Baseline.** Dispatch an `integrator` via `spawn_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) carrying `mode: baseline`: run documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. A pre-existing failing suite maps existing defects rather than blocking progress.
@@ -53,6 +67,10 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
 4. **Plan.** Dispatch a `planner` via `spawn_subagent` with surviving findings. One issue per defect, ordered by severity, with disjoint `ownershipHint` globs and acceptance tests derived from the reproduction scenarios. Stop for human approval before creating GitHub tracking.
 5. **Execute.** Run [`build`](../build/SKILL.md) in single-PR mode. For each issue, a `specifier` seals an honest failing test via `tdd-guard seal`, and a `builder` implements the fix in an isolated workspace without modifying the test.
 6. **Integrate and open PR.** Dispatch an `integrator` via `spawn_subagent` to confirm all sealed tests pass and no regressions occurred. Open one final PR to `main` referencing closed issues and including all reproduction and test evidence.
+
+## Boundaries
+
+Never refactor for taste, rename for consistency, or reformat while you are in there — an unrelated change in a bug-fix diff is how a fix gets reverted along with something else six months later; route it to [`code-refactor`](../code-refactor/SKILL.md). Never fix a defect you could not reproduce as a failing test: if the test cannot be written, the finding is not understood yet, and shipping a change to code you do not understand is how the next defect gets made. Never claim a clean bill of health from a partial sweep — say which areas and lenses were actually covered.
 
 ## Harness Limitations
 

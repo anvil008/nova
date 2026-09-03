@@ -27,11 +27,11 @@ Execution proceeds through four strict, ordered gates:
 3. **docs check**: Execute `docs_check.py` to enforce line budgets, ADR numbering, and skill references.
 4. **review**: Review pass confirms documentation clarity and absence of stale claims.
 
-## Procedure
+## Pass
 
-1. **Truth audit.** Dispatch a `documenter` via `spawn_subagent` with a brief carrying the documentation goal, changed-file list, and repository root. The documenter audits existing docs against actual code behaviour, reporting stale, missing, or misplaced content.
-2. **Documentation update.** Create a workspace on branch `doc/<slug>` via `workcell-ws add doc/<slug>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch the `documenter` via `spawn_subagent` to update documents in place, explaining what the repository does, relocating role-specific material out of global instruction files, and recording ADRs under `docs/adr/NNNN-title.md`. Refer to [examples/visual-readme.md](examples/visual-readme.md) and [`ADR 0010`](../../runtime/docs/adr/0010-readme-diagrams-are-generated-svg.md) for README contracts.
-3. **Mechanical verification.** Execute `python3 skills/docs/scripts/docs_check.py <repo-root>` to enforce instruction-file line budgets and ADR numbering standards.
+1. **Dispatch the inventory.** Send one `documenter` agent via `spawn_subagent` a brief carrying the documentation goal, changed-file list, repository root, and documentation standards. The documenter audits existing docs against actual code behaviour, reporting stale, duplicate, missing, or misplaced content.
+2. **Dispatch the update.** Create a workspace on branch `doc/<slug>` via `workcell-ws add doc/<slug>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch the `documenter` via `spawn_subagent` to update documents in place, explaining what the repository does, relocating role-specific material out of global instruction files, and recording ADRs under `docs/adr/NNNN-title.md`. Refer to [examples/visual-readme.md](examples/visual-readme.md) for the reference shape.
+3. **Gate the result.** The `documenter` agent runs `python3 -B skills/docs/scripts/docs_check.py <repo-root>` — and, where the repository generates its README visuals, its `python3 scripts/render-diagrams.py --check` ([`ADR 0010`](../../runtime/docs/adr/0010-readme-diagrams-are-generated-svg.md)) — and returns the exact command, exit code, summary, and changed files. The gate is GREEN only when `docs_check` exits zero and the handoff shows every requested doc area covered; otherwise re-dispatch the failed area. The orchestrator reads this evidence and never judges the document contents itself.
 4. **Review.** Conduct review pass to ensure updated docs are clear, accurate, and aligned with shipped behavior.
 
 ## Offline Demonstration

@@ -42,7 +42,7 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
   - **Inputs:** Approved `plan.sidecar.json`, target repository name, and human sign-off login.
   - **Outputs:** Idempotently created or updated GitHub milestone and issue URLs.
 
-## Procedure
+## Plan workflow
 
 1. **Investigation.** Dispatch a `planner` via `spawn_subagent` with the target goal and human requirements. The planner investigates the repository read-only, determines architecture deltas, specifies dependency-ordered issues with disjoint `ownershipHint` globs, and writes `plan.sidecar.json` conforming to [`references/sidecar-contract.md`](references/sidecar-contract.md).
 2. **Offline folio rendering.** Render the HTML plan folio:
@@ -52,6 +52,7 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
    ```
 
    Renderer contracts conform to [`references/report-rendering.md`](references/report-rendering.md).
+
 3. **Reconciliation preview.** Run a read-only reconciliation preview:
 
    ```bash
@@ -64,6 +65,16 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
    ```bash
    python3 skills/plan/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<login>"
    ```
+
+   `--approved-by` must equal the login `gh` is authenticated as (`gh api user`). Apply output records that login as `approvedBy` and the exact approved sidecar bytes as `approvedSha256`.
+
+   Do not infer approval from silence, prior approval of another revision, or a request to investigate. If the sidecar changes after approval, present the changed plan and stop for fresh human approval.
+
+## GitHub reconciliation
+
+Use milestones only; never create or modify a GitHub Project. The reconciliation identity, done-state rules, and exact `gh` command shapes are part of the [`references/sidecar-contract.md`](references/sidecar-contract.md).
+
+Never run `--apply` merely to test the skill. Use snapshot preview and local rendering for validation.
 
 ## Offline Demonstration
 

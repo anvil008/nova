@@ -41,28 +41,37 @@ Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for
   - **Inputs:** Merged findings packet and report template configuration.
   - **Outputs:** Consolidated evidence packet JSON and self-contained HTML report.
 
-## Procedure
+## Area split and fan-out
 
-1. **Decompose into area briefs.** Break the research goal into non-overlapping domains (e.g., code structure, documentation, runtime behavior, or ecosystem prior art).
-2. **Parallel investigation.** Dispatch one read-only `researcher` agent per area via `spawn_subagent` with `background: true`. Monitor progress and collect envelopes via `get_command_or_subagent_output`. Each researcher investigates independently within its assigned domain and returns a structured findings envelope with `file:line` or citation evidence without modifying code.
-3. **Deduplication and conflict detection.** Merge envelopes deterministically using `skills/research/scripts/merge_research.py`:
+Decompose the goal into genuinely distinct, real research areas — by subsystem, by source type (code / docs / runtime / prior-art), or by question. The fan-out count equals the number of real areas, never a fixed N.
 
-   ```bash
-   python3 skills/research/scripts/merge_research.py areas.json area1.json area2.json area3.json
-   ```
+Spawn one read-only `researcher` agent per area via `spawn_subagent` (with `background: true` tracked via `get_command_or_subagent_output`), in parallel. Each agent is blind to the others and is confined to exactly one area. Agents never edit; they return a strict findings envelope conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
 
-   Findings are deduplicated by `(area, source, finding)`. Explicit conflicts (opposing stances on the same topic) are preserved and surfaced.
-4. **Packet synthesis and rendering.** Consolidate findings, gaps, and open questions into the final evidence packet. Render the synthesis into an HTML report conforming to [`references/report-rendering.md`](references/report-rendering.md):
+## Merge, conflicts, and coverage
 
-   ```bash
-   python3 skills/research/scripts/render_research.py packet.json report.html --synthesis synthesis.json --title "Research Report" --repo owner/name
-   ```
+Collect the per-area envelopes and merge them without dropping evidence:
 
-## Offline Demonstration
+1. Deduplicate findings by `(area, source, finding)`; group the survivors by area.
+2. Surface conflicts: a finding may carry an optional `stance` of `supports`, `contradicts`, or `neutral` (the default) toward its `topic`. A topic is a conflict only when at least one of its findings is `contradicts`; distinct wording of a `position` is not disagreement. Report the conflict with every position on that topic **without dropping** any finding.
+3. Assess coverage: report any declared area with no report as a missing area, roll up each area's gaps and open questions, and mark the packet incomplete when an area is missing.
+
+`skills/research/scripts/merge_research.py` performs this deterministically over captured per-area fixtures:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 skills/research/scripts/merge_research.py skills/research/examples/areas.json skills/research/examples/code.json skills/research/examples/docs.json skills/research/examples/runtime.json
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/merge_research.py skills/research/examples/areas.json skills/research/examples/code.json skills/research/examples/docs.json skills/research/examples/runtime.json
 ```
+
+## Report
+
+Return the consolidated packet: per-area findings with evidence, the conflicts, the coverage summary, the gaps, and the open questions. The orchestrator owns synthesis and decides what the evidence means — deciding is orchestration; gathering is not.
+
+When a shareable report is wanted, write the synthesis as JSON — `{"verdict": "clean|advisory|action-needed", "summary": "...", "recommendations": [{"priority": "high|medium|low", "title", "detail", "refs": ["F1-01"]}]}` — where each `ref` is a finding id (`F<area index>-<finding index>`) from the packet, and render both into a self-contained HTML page in the shared Foundry Zero report style (`docs/research/research<NN>-<YYYYMMDD>-<title>.html`):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/render_research.py packet.json docs/research/research01-20260101-sample.html --synthesis synthesis.json --title "Sample" --repo owner/name --subject "what was researched"
+```
+
+The renderer rejects a recommendation that cites an unknown finding and a `clean` verdict that carries recommendations. Maintainers follow the [`references/report-rendering.md`](references/report-rendering.md).
 
 ## Harness Limitations
 

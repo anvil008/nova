@@ -27,14 +27,30 @@ Execution proceeds through four strict, ordered gates:
 3. **benchmark comparison**: Measure optimized code on identical hardware; comparison report proves gain is outside noise.
 4. **review**: Multi-lens review verifies performance improvements and correctness preservation.
 
+## No harness, no run
+
+**If the project has no benchmark harness, stop and say so.** Do not let an agent invent a timing script and call it a baseline — that measures the script. Offer to build a harness first, as its own [`new-feature`](../new-feature/SKILL.md) run, and come back.
+
+This is the honest failure mode of this skill, and taking it is cheaper than the alternative: a run that produces confident numbers nobody can reproduce next week.
+
+## What counts as an improvement
+
+A change is faster when the difference is **outside the baseline's spread**, measured the same way on the same machine, with the run count stated. Anything inside the noise is _no measurable difference_ — a real result, and one to report plainly rather than dress up. A codebase gets slower one unmeasurable "improvement" at a time, each of which looked positive in isolation.
+
+Correctness is not negotiable for speed: a faster wrong answer is a regression. The suite stays green on every measured revision.
+
 ## Procedure
 
 1. **Benchmark baseline.** Dispatch a `profiler` via `spawn_subagent` to locate the project's benchmark harness, describe the test environment, and measure baseline median and spread across repeated runs. If the project lacks a benchmark harness, stop immediately and offer to create one first.
 2. **Correctness baseline.** Dispatch an `integrator` via `spawn_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) carrying `mode: baseline` on the untouched tree at `base`. Verification must be completely green before proceeding.
 3. **Profile and plan.** Dispatch a `debugger` via `spawn_subagent` to profile hotspots, then dispatch a `planner` via `spawn_subagent` with the profile and baselines. Each planned optimization has disjoint `ownershipHint` globs and specifies existing tests that must remain green. Stop for human approval.
-4. **Optimize under baseline seal.** Run [`build`](../build/SKILL.md) in single-PR mode omitting the specifier. Create a workspace with `workcell-ws add perf/<issue-key> --base <integration-base>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch an `integrator` via `spawn_subagent` with `mode: baseline` to establish a `kind: baseline` seal. Dispatch the `builder` via `spawn_subagent` with `mode: refactor` to implement optimizations without altering test files.
+4. **Optimize under baseline seal.** Run [`build`](../build/SKILL.md) in single-PR mode omitting the specifier. Create a workspace with `workcell-ws add perf/<issue-key> --base <integration-base>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch an `integrator` via `spawn_subagent` with `mode: baseline` to establish a `kind: baseline` seal and hand off with `tdd-guard handoff --to builder`. Dispatch the `builder` via `spawn_subagent` with `mode: refactor` to implement optimizations without altering test files.
 5. **Benchmark comparison.** Dispatch the `profiler` via `spawn_subagent` over the optimized code on identical hardware. Confirm that improvements exceed baseline spread and variance. Drop changes whose performance differences fall within noise.
 6. **Integrate and PR.** Dispatch multi-lens `reviewer` agents via `spawn_subagent`. Dispatch an `integrator` via `spawn_subagent` over the wave. Open the single final PR to `main` including before/after distributions, environment specifications, and test proofs.
+
+## Boundaries
+
+Never accept a single run as evidence, never quote a mean without a spread, and never report an improvement you cannot distinguish from noise. Never let a benchmark be "fixed" to produce a better number — the `profiler` has no write tools for exactly this reason. Never trade correctness for speed without stating the trade explicitly and getting the human to take it. Never extrapolate a microbenchmark to end-to-end behaviour: say what was measured, and say what was not.
 
 ## Harness Limitations
 
