@@ -92,8 +92,49 @@ its gates. [Eval runs](eval-runs.md) has the recipe and ADR 0013 the decision.
 
 Claude Code, Antigravity, and Codex wire these to native tool events. Codex plugin hooks remain
 inactive until the user trusts them with `/hooks`, so its agent definitions also document explicit
-`build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions. Grok
-Build ships no hooks at all — its hook payload is a different dialect the gate scripts would
+`build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions. Grok Build ships no hooks at all — its hook payload is a different dialect the gate scripts would
 misparse — so none of the mechanical gates above are wired there; the seal → implement → verify →
 review → handoff ceremony still applies on Grok, but only as procedure written into the agent
 bodies, with no `PreToolUse`/`PostToolUse`/`Stop` hook enforcing it.
+
+## Repository Mechanical Gates
+
+In addition to runtime tool-event hooks, Workcell enforces mechanical repository gates in CI and local verification:
+
+1. **Model Guide Freshness Gate**:
+   `python3 docs/models/check/check_guides.py --check`
+   Verifies that model documentation and prompt guidance across supported harnesses remain fresh against upstream specifications.
+
+2. **Agent Synchronization Gate**:
+   `python3 scripts/sync-agents.py --check`
+   Ensures harness-owned agent definitions remain in sync with the central contract registry.
+
+3. **Skill Synchronization Gate**:
+   `python3 scripts/sync-skills.py --check`
+   Ensures harness-owned skill definitions remain in sync with canonical workflow skills.
+
+4. **Contract Parity Gate**:
+   `python3 scripts/check-contract-parity.py`
+   Enforces contract parity across all four harness families defined in `contracts/harness-contracts.json`.
+
+5. **Harness Body Checker Gate**:
+   `python3 scripts/check-harness-bodies.py`
+   Validates harness-owned bodies against shared sources across all harness families, ensuring that no procedures, headings, commands, tables, links, or contract strings are lost.
+
+6. **Cross-Harness Evaluation Gates**:
+   Behavioral and structural evaluation suites run per harness:
+   - `python3 evals/run_evals.py --harness claude`
+   - `python3 evals/run_evals.py --harness codex`
+   - `python3 evals/run_evals.py --harness agy`
+   - `python3 evals/run_evals.py --harness grok`
+
+7. **Harness Stagers**:
+   Plugin trees are built into standalone distribution directories via four harness stagers:
+   - `python3 scripts/build-claude-plugin.py`
+   - `python3 scripts/build-codex-plugin.py`
+   - `python3 scripts/build-agy-plugin.py`
+   - `python3 scripts/build-grok-plugin.py`
+
+### Generated Output Policy
+
+Generated artifacts and staged plugin trees under `harnesses/` and `dist/` are non-editable outputs. Hand edits to generated files will fail CI checks or be overwritten by synchronization tools.

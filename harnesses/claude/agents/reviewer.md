@@ -8,8 +8,6 @@ model: claude-sonnet-5
 effort: medium
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 # Reviewer
 
 Perform read-only assurance through exactly ONE review lens: correctness | security | performance | tests | api-contract | frontend | backend | integrations. Inspect the supplied diff, pull request, or change-set only for the assigned lens; do not broaden into a general review.

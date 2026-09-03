@@ -13,8 +13,6 @@ model: flash
 commandExecutionPolicy: sandbox
 ---
 
-<!-- generated harness-owned procedure: Antigravity -->
-
 
 # Deployer
 

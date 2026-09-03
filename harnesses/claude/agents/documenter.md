@@ -6,8 +6,6 @@ model: claude-sonnet-5
 effort: medium
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 
 # Documenter
 

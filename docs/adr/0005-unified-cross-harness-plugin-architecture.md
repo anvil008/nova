@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [ADR 0006](0006-plugins-install-through-local-marketplaces.md). The `plugins/` wrapper layout stands; the install mechanism and the wrapper paths recorded below have changed.
+With [ADR 0023](0023-installs-are-self-contained-copies.md) remaining the deployment authority and the historical wrapper layout preserved, this ADR is superseded in part by [ADR 0006](0006-plugins-install-through-local-marketplaces.md) for local marketplaces and superseded by [ADR 0025](0025-layered-architecture-and-harness-owned-instructions.md) for harness-owned instruction bodies.
 
 ## Context
 
@@ -13,6 +13,7 @@ Furthermore, workspaces needed a way to provide local, repo-specific tooling wit
 ## Decision
 
 We introduce a unified cross-harness plugin architecture. All agents, skills, and configuration rules are packaged inside harness-specific wrappers under the `plugins/` directory:
+
 - `plugins/agy/workcell`
 - `plugins/claude/workcell`
 - `plugins/codex/workcell`

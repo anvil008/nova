@@ -171,16 +171,25 @@ evidence is fresh — otherwise it sends the builder back. The full gate-by-gate
 
 ## How the repository is laid out
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/layered-architecture-dark.svg">
+  <img alt="Workcell root architecture showing four harness families (Claude, Codex, Antigravity, and Grok) each with their own Agents, Skills, and Scripts, beside shared Scripts, Tools, and everything else." src="docs/diagrams/layered-architecture-light.svg" width="100%">
+</picture>
+
+In words: the Workcell root defines shared contracts feeding four harness families—Claude, Codex, Antigravity (agy), and Grok—where each family owns its native Agents, Skills, and Scripts, operating alongside shared Scripts, Tools, and everything else.
+
 ```
 workcell/
-├── agents/            generated per harness — edit agents/bodies/ + agents.json, then sync-agents.py
-├── skills/             16 shared workflows: plan, build, code-review, docs, deploy, …
-├── plugins/            one thin wrapper per harness — no content of its own
-│   ├── claude/          .claude-plugin/plugin.json, hooks/hooks.json — staged, then copied to ~/.local/share/workcell/claude
-│   ├── codex/           .codex-plugin/plugin.json, hooks/hooks.json — staged, then copied to ~/.local/share/workcell/codex
-│   ├── agy/             plugin.json, rules/, hooks.json — staged, then copied to ~/.gemini/config/plugins/workcell; never linked
-│   └── grok/            .claude-plugin/plugin.json — staged, then copied to ~/.grok/plugins/workcell; no hooks
-├── scripts/            scripts/bootstrap.sh (one command) over bootstrap-tools.sh / bootstrap-plugins.sh / bootstrap-project.sh, the four build-*-plugin.py stagers, build-guard-release.py, the hook scripts they install, workcell-ws
+├── contracts/          harness-contracts.json declaring cross-harness requirements for 10 agents and 16 skills
+├── harnesses/          four harness-owned families: claude/, codex/, agy/, grok/
+│   ├── claude/         harness-native agents, skills, and runtime (.claude-plugin/plugin.json, hooks/)
+│   ├── codex/          harness-native agents, skills, and runtime (.codex-plugin/plugin.json, models.json)
+│   ├── agy/            harness-native agents, skills, and runtime (plugin.json, rules/) — staged, then copied as an owned copy to ~/.gemini/config/plugins/workcell; never linked
+│   └── grok/           harness-native agents, skills, and runtime (.claude-plugin/plugin.json, models.json)
+├── agents/             agent source definitions and metadata synced to harnesses via sync-agents.py
+├── skills/             canonical workflow definitions synced to harnesses via sync-skills.py
+├── plugins/            thin distribution wrappers
+├── scripts/            stagers (build-claude-plugin.py, build-codex-plugin.py, build-agy-plugin.py, build-grok-plugin.py), synchronization, and validators
 ├── cmd/tdd-guard/      the gate binary binding RED, GREEN, and review evidence to one diff
 ├── docs/adr/           architecture decisions and their consequences
 ├── docs/workspaces.md  the one isolation standard: workcell-ws, sibling paths, the sweep
@@ -254,7 +263,10 @@ python3 evals/run_evals.py --min-rank1 77
 python3 -m unittest discover -s evals/tests -p 'test_*.py'
 python3 skills/docs/scripts/docs_check.py .
 python3 scripts/sync-agents.py --check --diff
+python3 scripts/sync-skills.py --check --diff
+python3 scripts/check-contract-parity.py
 python3 scripts/sync-agent-models.py --check
+python3 docs/models/check/check_guides.py --check
 python3 scripts/render-diagrams.py --check
 python3 scripts/check-harness-bodies.py
 ```
@@ -264,18 +276,39 @@ Architecture decisions live in [`docs/adr/`](docs/adr/); notable changes are sum
 
 ## Contributing
 
-**Adding an agent.** An agent exists three times — `agents/claude/<n>.md`, `agents/codex/<n>.md`,
-`agents/agy/<n>/agent.md` — written once and derived:
+Workcell uses a layered architecture across four harness families: Claude Code, Codex, Antigravity (`agy`), and Grok Build ([ADR 0025](docs/adr/0025-layered-architecture-and-harness-owned-instructions.md)). Shared contracts in [`contracts/harness-contracts.json`](contracts/harness-contracts.json) define machine-readable requirements, while each harness family owns native instruction bodies and runtime adapters under `harnesses/<harness>/{agents,skills,runtime}`.
 
-```sh
-$EDITOR agents/bodies/<name>.md      # the shared body
-$EDITOR agents/agents.json           # description, tools, sandbox per harness
-$EDITOR agents/models.json           # model and thinking level per harness
-scripts/sync-agents.py               # writes all three variants
-```
+**Adding or modifying an agent:**
 
-Where harnesses genuinely differ, the body uses `{{token}}` substitutions and
-`<!-- only:codex -->…<!-- end -->` blocks rather than three diverging copies. CI runs `--check`, so
-a hand-edit to a generated file fails the build instead of being silently overwritten.
+- Update shared interface contracts in `contracts/harness-contracts.json` if required interfaces or surfaces change.
+- Author harness-native instruction bodies under `harnesses/<harness>/agents/` tailored to each model's prompting style.
+- Keep definitions in sync using `scripts/sync-agents.py` and models using `scripts/sync-agent-models.py`.
 
-**Adding a skill.** Add a directory under `skills/` — no manifest edit needed.
+**Adding or modifying a skill:**
+
+- Define shared tool requirements and interface entries in `contracts/harness-contracts.json`.
+- Author canonical workflow instructions under `skills/<name>/SKILL.md` and harness-owned variants under `harnesses/<harness>/skills/`.
+- Synchronize workflow definitions across harnesses with `scripts/sync-skills.py`.
+
+**Mechanical gates and staging:**
+
+- Validate that harness bodies preserve all procedures, commands, tables, links, and contract strings with the body checker:
+  ```sh
+  python3 scripts/check-harness-bodies.py
+  ```
+- Verify contract parity and synchronization before committing:
+  ```sh
+  python3 scripts/check-contract-parity.py
+  python3 scripts/sync-agents.py --check --diff
+  python3 scripts/sync-skills.py --check --diff
+  ```
+- Stage standalone distribution plugin trees for each harness via the four stagers:
+  ```sh
+  python3 scripts/build-claude-plugin.py
+  python3 scripts/build-codex-plugin.py
+  python3 scripts/build-agy-plugin.py
+  python3 scripts/build-grok-plugin.py
+  ```
+
+**Generated output policy:**
+Generated outputs (`dist/`, `harnesses/<harness>/runtime/contracts.json`, staged plugin trees, etc.) are non-editable outputs. Hand edits will fail CI checks (`--check`) or be overwritten by synchronization tools and stagers.

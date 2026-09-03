@@ -1,0 +1,54 @@
+{
+  "title": "Layered architecture of Workcell",
+  "description": "Workcell root defines shared contracts feeding four harness-owned families alongside shared scripts, tools, and repository tooling.",
+  "direction": "TB",
+  "width": 880,
+  "nodes": [
+    {
+      "id": "workcell-root",
+      "kind": "orchestrator",
+      "label": "Workcell root",
+      "sub": "shared contracts and registry"
+    },
+    {
+      "id": "claude",
+      "kind": "agent",
+      "label": "Claude Code",
+      "sub": "Agents · Skills · Scripts"
+    },
+    {
+      "id": "codex",
+      "kind": "agent",
+      "label": "Codex",
+      "sub": "Agents · Skills · Scripts"
+    },
+    {
+      "id": "agy",
+      "kind": "agent",
+      "label": "Antigravity (agy)",
+      "sub": "Agents · Skills · Scripts"
+    },
+    {
+      "id": "grok",
+      "kind": "agent",
+      "label": "Grok Build",
+      "sub": "Agents · Skills · Scripts"
+    },
+    {
+      "id": "shared",
+      "kind": "artifact",
+      "label": "Scripts, Tools, and everything else",
+      "sub": "shared runner, validators, and repository tooling"
+    }
+  ],
+  "edges": [
+    { "from": "workcell-root", "to": "claude" },
+    { "from": "workcell-root", "to": "codex" },
+    { "from": "workcell-root", "to": "agy" },
+    { "from": "workcell-root", "to": "grok" },
+    { "from": "claude", "to": "shared" },
+    { "from": "codex", "to": "shared" },
+    { "from": "agy", "to": "shared" },
+    { "from": "grok", "to": "shared" }
+  ]
+}

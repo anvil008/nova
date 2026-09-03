@@ -353,29 +353,28 @@ class GeneratorTests(unittest.TestCase):
         for case in ("missing skill", "no frontmatter", "missing name"):
             with self.subTest(case=case):
                 temporary, root = self.copy_root(
-                    "agents/codex",
-                    "plugins/codex",
-                    "skills",
+                    "contracts",
+                    "harnesses/codex",
                     "scripts/build-codex-plugin.py",
                     "scripts/lib_dist.py",
                 )
                 with temporary:
                     if case == "missing skill":
-                        (root / "skills/broken").mkdir()
-                        expected = "skills/broken"
+                        (root / "harnesses/codex/skills/broken").mkdir()
+                        expected = "harnesses/codex/skills/broken"
                     else:
-                        path = root / "agents/codex/builder.md"
+                        path = root / "harnesses/codex/agents/builder.md"
                         text = path.read_text(encoding="utf-8")
                         if case == "no frontmatter":
                             path.write_text(
                                 text.split("---\n", 2)[-1], encoding="utf-8"
                             )
-                            expected = "agents/codex/builder.md"
+                            expected = "harnesses/codex/agents/builder.md"
                         else:
                             path.write_text(
                                 text.replace("name: builder\n", "", 1), encoding="utf-8"
                             )
-                            expected = "agents/codex/builder.md"
+                            expected = "harnesses/codex/agents/builder.md"
                     result = run(root, "scripts/build-codex-plugin.py")
                     self.assertNotEqual(
                         result.returncode, 0, result.stdout + result.stderr
@@ -385,15 +384,13 @@ class GeneratorTests(unittest.TestCase):
 
     def test_codex_plugin_embeds_model_and_effort_routes(self):
         temporary, root = self.copy_root(
-            "agents/codex",
-            "agents/models.json",
-            "plugins/codex",
-            "skills",
+            "contracts",
+            "harnesses/codex",
             "scripts/build-codex-plugin.py",
             "scripts/lib_dist.py",
         )
         with temporary:
-            manifest_path = root / "agents/models.json"
+            manifest_path = root / "harnesses/codex/runtime/models.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             manifest["agents"]["builder"]["codex"] = {
                 "model": "gpt-test-builder",
@@ -416,15 +413,13 @@ class GeneratorTests(unittest.TestCase):
 
     def test_codex_plugin_rejects_invalid_runtime_effort(self):
         temporary, root = self.copy_root(
-            "agents/codex",
-            "agents/models.json",
-            "plugins/codex",
-            "skills",
+            "contracts",
+            "harnesses/codex",
             "scripts/build-codex-plugin.py",
             "scripts/lib_dist.py",
         )
         with temporary:
-            manifest_path = root / "agents/models.json"
+            manifest_path = root / "harnesses/codex/runtime/models.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             manifest["agents"]["builder"].setdefault("codex", {})["effort"] = "ultra"
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")

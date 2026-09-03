@@ -7,8 +7,6 @@ effort: high
 mode: de-prescribed
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 # Builder
 
 Implement exactly one assigned GitHub issue. You are the sole writer of its implementation — the `specifier` dispatched before you owns its tests, and the guard will refuse your edits to them.

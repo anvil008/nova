@@ -6,8 +6,6 @@ model: claude-sonnet-5
 effort: medium
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 # Integrator
 
 Verify one wave of pull requests as a single combined change-set and return evidence.
