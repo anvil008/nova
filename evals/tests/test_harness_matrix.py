@@ -160,13 +160,13 @@ class NativeBehavioralDryRunTests(unittest.TestCase):
 
     def test_behavioral_dry_run_unknown_harness_fails(self) -> None:
         """Unknown harness fails for behavioral dry runs."""
-        status, output = run_main(
+        status, _output = run_main(
             "--root", str(ROOT), "--behavioral", "build", "--harness", "unknown-harness", "--dry-run"
         )
         self.assertNotEqual(status, 0, "unknown harness must fail")
 
         # Calling _behavioral_commands directly with unknown harness must raise ValueError
-        errors, documents, cases = run_evals.structural_errors(ROOT)
+        _errors, _documents, cases = run_evals.structural_errors(ROOT)
         case = cases["skill:build"]
         eval_item = case.data["evals"][0]
         with self.assertRaises(ValueError):
