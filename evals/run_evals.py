@@ -84,10 +84,137 @@ def load_documents(
 ) -> tuple[dict[str, Document], list[str]]:
     documents: dict[str, Document] = {}
     errors: list[str] = []
+
+    harness_dir = root / "harnesses" / harness
+    if harness_dir.is_dir():
+        skills_dir = harness_dir / "skills"
+        if not skills_dir.is_dir():
+            errors.append(f"{skills_dir}: missing skills directory")
+        else:
+            for directory in sorted(
+                path for path in skills_dir.iterdir() if path.is_dir()
+            ):
+                skill_file = directory / "SKILL.md"
+                if not skill_file.is_file():
+                    continue
+                try:
+                    fields = _frontmatter(skill_file)
+                except (OSError, ValueError) as error:
+                    errors.append(f"{skill_file}: {error}")
+                    continue
+                name = fields.get("name", "")
+                description = fields.get("description", "")
+                if name != directory.name:
+                    errors.append(
+                        f"{skill_file}: frontmatter name {name!r} does not equal directory "
+                        f"{directory.name!r}"
+                    )
+                if not description:
+                    errors.append(f"{skill_file}: description is empty")
+                elif len(description) > 1024:
+                    errors.append(f"{skill_file}: description exceeds 1024 characters")
+                if name:
+                    doc_id = f"skill:{name}"
+                    documents[doc_id] = Document(doc_id, name, "skill", description)
+
+        agents_dir = harness_dir / "agents"
+        if not agents_dir.is_dir():
+            errors.append(f"{agents_dir}: missing agents directory")
+        else:
+            if harness == "agy":
+                for directory in sorted(
+                    path for path in agents_dir.iterdir() if path.is_dir()
+                ):
+                    agent_file = directory / "agent.md"
+                    if not agent_file.is_file():
+                        errors.append(f"{agent_file}: missing agent.md")
+                        continue
+                    try:
+                        fields = _frontmatter(agent_file)
+                    except (OSError, ValueError) as error:
+                        errors.append(f"{agent_file}: {error}")
+                        continue
+                    name = fields.get("name", directory.name)
+                    description = fields.get("description", "")
+                    if name != directory.name:
+                        errors.append(
+                            f"{agent_file}: frontmatter name {name!r} does not equal directory "
+                            f"{directory.name!r}"
+                        )
+                    if not description:
+                        errors.append(f"{agent_file}: description is empty")
+                    elif len(description) > 1024:
+                        errors.append(
+                            f"{agent_file}: description exceeds 1024 characters"
+                        )
+                    if name:
+                        doc_id = f"agent:{name}"
+                        documents[doc_id] = Document(doc_id, name, "agent", description)
+
+                    sub_skills = directory / "skills"
+                    if sub_skills.is_dir():
+                        for s_dir in sorted(
+                            path for path in sub_skills.iterdir() if path.is_dir()
+                        ):
+                            s_file = s_dir / "SKILL.md"
+                            if (
+                                s_file.is_file()
+                                and f"skill:{s_dir.name}" not in documents
+                            ):
+                                try:
+                                    s_fields = _frontmatter(s_file)
+                                except (OSError, ValueError) as error:
+                                    errors.append(f"{s_file}: {error}")
+                                    continue
+                                s_name = s_fields.get("name", s_dir.name)
+                                s_desc = s_fields.get("description", "")
+                                if s_name != s_dir.name:
+                                    errors.append(
+                                        f"{s_file}: frontmatter name {s_name!r} does not equal directory "
+                                        f"{s_dir.name!r}"
+                                    )
+                                if not s_desc:
+                                    errors.append(f"{s_file}: description is empty")
+                                elif len(s_desc) > 1024:
+                                    errors.append(
+                                        f"{s_file}: description exceeds 1024 characters"
+                                    )
+                                if s_name:
+                                    documents[f"skill:{s_name}"] = Document(
+                                        f"skill:{s_name}", s_name, "skill", s_desc
+                                    )
+            else:
+                for agent_file in sorted(
+                    path
+                    for path in agents_dir.iterdir()
+                    if path.is_file() and path.suffix == ".md"
+                ):
+                    try:
+                        fields = _frontmatter(agent_file)
+                    except (OSError, ValueError) as error:
+                        errors.append(f"{agent_file}: {error}")
+                        continue
+                    name = fields.get("name", agent_file.stem)
+                    description = fields.get("description", "")
+                    if name != agent_file.stem:
+                        errors.append(
+                            f"{agent_file}: frontmatter name {name!r} does not equal stem "
+                            f"{agent_file.stem!r}"
+                        )
+                    if not description:
+                        errors.append(f"{agent_file}: description is empty")
+                    elif len(description) > 1024:
+                        errors.append(
+                            f"{agent_file}: description exceeds 1024 characters"
+                        )
+                    if name:
+                        doc_id = f"agent:{name}"
+                        documents[doc_id] = Document(doc_id, name, "agent", description)
+        return documents, errors
+
     skills_dir = root / "skills"
-    if not skills_dir.is_dir():
-        errors.append(f"{skills_dir}: missing skills directory")
-    else:
+    agents_path = root / "agents" / "agents.json"
+    if skills_dir.is_dir() and agents_path.is_file():
         for directory in sorted(path for path in skills_dir.iterdir() if path.is_dir()):
             skill_file = directory / "SKILL.md"
             if not skill_file.is_file():
@@ -112,29 +239,33 @@ def load_documents(
                 doc_id = f"skill:{name}"
                 documents[doc_id] = Document(doc_id, name, "skill", description)
 
-    agents_path = root / "agents" / "agents.json"
-    try:
-        agents_data = json.loads(agents_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        errors.append(f"{agents_path}: {error}")
-        return documents, errors
-    agents = agents_data.get("agents")
-    if not isinstance(agents, dict):
-        errors.append(f"{agents_path}: `agents` must be an object")
-        return documents, errors
-    variables = agents_data.get("vars", {})
-    for name, config in sorted(agents.items()):
-        description = config.get("description") if isinstance(config, dict) else None
-        if not isinstance(description, str) or not description.strip():
-            errors.append(f"{agents_path}: agent {name!r} has an empty description")
-            continue
-        description = _expand_agent_description(description, variables)
-        if len(description) > 1024:
-            errors.append(
-                f"{agents_path}: agent {name!r} description exceeds 1024 characters"
+        try:
+            agents_data = json.loads(agents_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"{agents_path}: {error}")
+            return documents, errors
+        agents = agents_data.get("agents")
+        if not isinstance(agents, dict):
+            errors.append(f"{agents_path}: `agents` must be an object")
+            return documents, errors
+        variables = agents_data.get("vars", {})
+        for name, config in sorted(agents.items()):
+            description = (
+                config.get("description") if isinstance(config, dict) else None
             )
-        doc_id = f"agent:{name}"
-        documents[doc_id] = Document(doc_id, name, "agent", description)
+            if not isinstance(description, str) or not description.strip():
+                errors.append(f"{agents_path}: agent {name!r} has an empty description")
+                continue
+            description = _expand_agent_description(description, variables, harness)
+            if len(description) > 1024:
+                errors.append(
+                    f"{agents_path}: agent {name!r} description exceeds 1024 characters"
+                )
+            doc_id = f"agent:{name}"
+            documents[doc_id] = Document(doc_id, name, "agent", description)
+        return documents, errors
+
+    errors.append(f"{harness_dir}: missing harness directory")
     return documents, errors
 
 
@@ -403,6 +534,8 @@ def evaluate_routing(
     rank1 = 0
     positive_count = 0
     for case_id, case in sorted(cases.items()):
+        if case_id not in documents:
+            continue
         trigger = case.data["trigger"]
         for entry in trigger["positive"]:
             scores = index.scores(entry["prompt"])
@@ -483,7 +616,7 @@ def _behavioral_commands(
             "--permission-mode",
             "acceptEdits",
         ]
-    else:
+    elif harness == "codex":
         executor = [
             "codex",
             "exec",
@@ -493,6 +626,31 @@ def _behavioral_commands(
             trace_path,
             evaluation["prompt"],
         ]
+    elif harness == "agy":
+        executor = [
+            "agy",
+            "-p",
+            evaluation["prompt"],
+            "--dangerously-skip-permissions",
+            "--add-dir",
+            workspace,
+            "--log-file",
+            trace_path,
+        ]
+    elif harness == "grok":
+        executor = [
+            "grok",
+            "--no-auto-update",
+            "-p",
+            evaluation["prompt"],
+            "--always-approve",
+            "--cwd",
+            workspace,
+            "--debug-file",
+            trace_path,
+        ]
+    else:
+        raise ValueError(f"unknown harness: {harness}")
     grader = ["claude", "-p", _grader_prompt(case, evaluation)]
     return executor, grader
 
@@ -594,7 +752,9 @@ def run_behavioral_eval(
         if executor_result.returncode:
             print(f"ERROR executor exited {executor_result.returncode}", file=out)
             return 1
-        if harness == "codex" and trace_path.exists():
+        if (harness in ("codex", "agy", "grok") and trace_path.exists()) or (
+            trace_path.exists() and not executor_result.stdout
+        ):
             trace = trace_path.read_text(encoding="utf-8")
         else:
             trace = executor_result.stdout
@@ -694,12 +854,207 @@ def build_parser() -> argparse.ArgumentParser:
 
 def check_contract_parity(root: Path = REPO_ROOT, out: TextIO = sys.stdout) -> int:
     """Verify contract parity across all harness-owned instructions."""
-    print("ERROR contract parity checking is not implemented yet", file=out)
-    return 1
+    contracts_path = root / "contracts" / "harness-contracts.json"
+    if not contracts_path.is_file():
+        print(f"ERROR missing contracts registry: {contracts_path}", file=out)
+        return 1
+    try:
+        registry = json.loads(contracts_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        print(f"ERROR failed to parse {contracts_path}: {error}", file=out)
+        return 1
+
+    errors: list[str] = []
+    harnesses = ("claude", "codex", "agy", "grok")
+
+    for harness in harnesses:
+        carrier = root / "harnesses" / harness / "runtime" / "contracts.json"
+        if not carrier.is_file():
+            errors.append(f"harness {harness}: missing contracts carrier: {carrier}")
+        else:
+            try:
+                carrier_data = json.loads(carrier.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as error:
+                errors.append(
+                    f"harness {harness}: invalid carrier JSON {carrier}: {error}"
+                )
+                carrier_data = {}
+            carrier_contract = carrier_data.get("contract", {})
+
+            for reg_skill in registry.get("skills", []):
+                s_name = reg_skill["name"]
+                car_skill = next(
+                    (
+                        s
+                        for s in carrier_contract.get("skills", [])
+                        if s.get("name") == s_name
+                    ),
+                    None,
+                )
+                if car_skill is None:
+                    errors.append(
+                        f"harness {harness}: artifact {s_name}: missing from carrier"
+                    )
+                else:
+                    exp_oracle = reg_skill.get("acceptanceOracle")
+                    act_oracle = car_skill.get("acceptanceOracle")
+                    if exp_oracle and act_oracle != exp_oracle:
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field oracle drift - "
+                            f"expected {exp_oracle!r}, got {act_oracle!r}"
+                        )
+                    exp_handoff = reg_skill.get("handoffSchema")
+                    act_handoff = car_skill.get("handoffSchema")
+                    if exp_handoff and act_handoff != exp_handoff:
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field handoff drift - "
+                            f"expected {exp_handoff!r}, got {act_handoff!r}"
+                        )
+
+            for reg_agent in registry.get("agents", []):
+                a_name = reg_agent["name"]
+                car_agent = next(
+                    (
+                        a
+                        for a in carrier_contract.get("agents", [])
+                        if a.get("name") == a_name
+                    ),
+                    None,
+                )
+                if car_agent is None:
+                    errors.append(
+                        f"harness {harness}: artifact {a_name}: missing from carrier"
+                    )
+                else:
+                    exp_oracle = reg_agent.get("acceptanceOracle")
+                    act_oracle = car_agent.get("acceptanceOracle")
+                    if exp_oracle and act_oracle != exp_oracle:
+                        errors.append(
+                            f"harness {harness}: artifact {a_name}: field oracle drift - "
+                            f"expected {exp_oracle!r}, got {act_oracle!r}"
+                        )
+                    exp_handoff = reg_agent.get("handoffSchema")
+                    act_handoff = car_agent.get("handoffSchema")
+                    if exp_handoff and act_handoff != exp_handoff:
+                        errors.append(
+                            f"harness {harness}: artifact {a_name}: field handoff drift - "
+                            f"expected {exp_handoff!r}, got {act_handoff!r}"
+                        )
+
+        for reg_skill in registry.get("skills", []):
+            s_name = reg_skill["name"]
+            skill_doc = root / "harnesses" / harness / "skills" / s_name / "SKILL.md"
+            if not skill_doc.is_file() and harness == "agy":
+                skill_doc = (
+                    root
+                    / "harnesses"
+                    / "agy"
+                    / "agents"
+                    / "builder"
+                    / "skills"
+                    / s_name
+                    / "SKILL.md"
+                )
+            if skill_doc.is_file():
+                content = skill_doc.read_text(encoding="utf-8")
+                exp_inv = reg_skill.get("invocation")
+                m_inv = re.search(r"Invocation:\s*`?([^`\n\r]+)`?", content)
+                if m_inv and exp_inv:
+                    act_inv = m_inv.group(1).strip()
+                    if act_inv != exp_inv.strip():
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field invocation drift - "
+                            f"expected {exp_inv!r}, got {act_inv!r}"
+                        )
+                exp_gates = reg_skill.get("orderedGates", [])
+                if "## Ordered Gates" in content and exp_gates:
+                    section = content.split("## Ordered Gates", 1)[1].split("\n## ", 1)[
+                        0
+                    ]
+                    doc_gates = re.findall(
+                        r"^\s*\d+\.\s*\*\*([^*]+)\*\*", section, re.MULTILINE
+                    )
+                    if doc_gates and doc_gates[: len(exp_gates)] != exp_gates:
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field gate order drift - "
+                            f"expected {exp_gates!r}, got {doc_gates!r}"
+                        )
+                exp_handoff = reg_skill.get("handoffSchema")
+                m_handoff = re.search(r"anvil\.agent-handoff/[a-zA-Z0-9_.-]+", content)
+                if m_handoff and exp_handoff:
+                    act_handoff = m_handoff.group(0)
+                    if act_handoff != exp_handoff:
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field handoff drift - "
+                            f"expected {exp_handoff!r}, got {act_handoff!r}"
+                        )
+                if s_name == "use-other-harness":
+                    normalized = re.sub(r"\s+", " ", content)
+                    if (
+                        "Do not guess a model or effort, and do not pick a harness on the user's behalf."
+                        not in normalized
+                    ):
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field fallback drift - "
+                            "missing mandatory prohibition against guessing model/effort"
+                        )
+                    if "silently fall back" in normalized.lower():
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field fallback drift - "
+                            "silent fallback is strictly prohibited"
+                        )
+
+        for reg_agent in registry.get("agents", []):
+            a_name = reg_agent["name"]
+            agent_doc = (
+                root / "harnesses" / "agy" / "agents" / a_name / "agent.md"
+                if harness == "agy"
+                else root / "harnesses" / harness / "agents" / f"{a_name}.md"
+            )
+            if agent_doc.is_file():
+                content = agent_doc.read_text(encoding="utf-8")
+                exp_handoff = reg_agent.get("handoffSchema")
+                m_handoff = re.search(r"anvil\.agent-handoff/[a-zA-Z0-9_.-]+", content)
+                if m_handoff and exp_handoff:
+                    act_handoff = m_handoff.group(0)
+                    if act_handoff != exp_handoff:
+                        errors.append(
+                            f"harness {harness}: artifact {a_name}: field handoff drift - "
+                            f"expected {exp_handoff!r}, got {act_handoff!r}"
+                        )
+                exp_gates = reg_agent.get("orderedGates", [])
+                if "## Ordered Gates" in content and exp_gates:
+                    section = content.split("## Ordered Gates", 1)[1].split("\n## ", 1)[
+                        0
+                    ]
+                    doc_gates = re.findall(
+                        r"^\s*\d+\.\s*\*\*([^*]+)\*\*", section, re.MULTILINE
+                    )
+                    if doc_gates and doc_gates[: len(exp_gates)] != exp_gates:
+                        errors.append(
+                            f"harness {harness}: artifact {a_name}: field gate order drift - "
+                            f"expected {exp_gates!r}, got {doc_gates!r}"
+                        )
+
+    if errors:
+        print("Contract parity drift detected:", file=out)
+        for err in errors:
+            print(f"- {err}", file=out)
+        return 1
+
+    print(
+        f"Contract parity holds for {len(registry.get('skills', []))} skills and "
+        f"{len(registry.get('agents', []))} agents across {len(harnesses)} harnesses",
+        file=out,
+    )
+    return 0
 
 
 def main(argv: list[str] | None = None, out: TextIO = sys.stdout) -> int:
-    args = build_parser().parse_args(argv)
+    try:
+        args = build_parser().parse_args(argv)
+    except SystemExit as error:
+        return int(error.code) if isinstance(error.code, int) else 2
     root = args.root.resolve()
     if args.contract_parity:
         return check_contract_parity(root, out)
@@ -710,7 +1065,7 @@ def main(argv: list[str] | None = None, out: TextIO = sys.stdout) -> int:
         return 1
     if args.structural:
         print(
-            f"Structural evals passed: {len(documents)} descriptions, {len(cases)} cases",
+            f"Structural evals passed ({args.harness}): {len(documents)} descriptions, {len(cases)} cases",
             file=out,
         )
         return 0
@@ -724,6 +1079,10 @@ def main(argv: list[str] | None = None, out: TextIO = sys.stdout) -> int:
     if not 0 <= args.min_rank1 <= 100:
         print("ERROR --min-rank1 must be between 0 and 100", file=out)
         return 1
+    print(
+        f"Harness: {args.harness} ({len(documents)} descriptions, {len(cases)} cases)",
+        file=out,
+    )
     return evaluate_routing(documents, cases, args.min_rank1, out)
 
 
