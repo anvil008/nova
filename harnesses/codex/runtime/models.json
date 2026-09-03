@@ -62,6 +62,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "specifier": {
@@ -76,6 +79,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "builder": {
@@ -91,6 +97,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "reviewer": {
@@ -105,6 +114,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "integrator": {
@@ -119,6 +131,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "researcher": {
@@ -133,6 +148,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "documenter": {
@@ -147,6 +165,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "deployer": {
@@ -161,6 +182,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "debugger": {
@@ -176,6 +200,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     },
     "profiler": {
@@ -190,6 +217,9 @@
       },
       "agy": {
         "model": "flash"
+      },
+      "grok": {
+        "model": "grok-4.6"
       }
     }
   },
@@ -200,6 +230,9 @@
       "claude-opus-5": "claude-opus-5",
       "claude-sonnet-5": "claude-sonnet-5",
       "claude-fable-5-1": "claude-fable-5-1"
+    },
+    "grok": {
+      "grok-4.6": "grok-4.6"
     }
   }
 }

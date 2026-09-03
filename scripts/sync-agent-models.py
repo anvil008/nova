@@ -286,7 +286,7 @@ def main() -> int:
     written = 0
 
     for agent, spec in sorted(agents.items()):
-        for harness in ("claude", "codex", "agy"):
+        for harness in ("claude", "codex", "agy", "grok"):
             path = agent_path(agent, harness)
             if not path.exists():
                 raise SyncError(f"{agent}: {path.relative_to(ROOT)} is missing")

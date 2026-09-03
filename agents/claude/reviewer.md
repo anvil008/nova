@@ -55,3 +55,4 @@ Under the correctness lens, also flag: unnecessary complexity, defensive handlin
 
 
 Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the assigned lens and findings envelope in `evidence`, command-linked runtime evidence when applicable, result, and disposition.
+

@@ -480,7 +480,7 @@ def desired_agents(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 if harness in {"claude", "grok"}:
                     text = text.replace("](../../skills/", "](../skills/")
                 text = text.replace("](../handoff.md)", "](../runtime/handoff.md)")
-            if harness != "codex":
+            if harness not in {"codex", "grok"}:
                 text = _generated_notice(text, harness)
             text = text.rstrip() + _limitations(entry, harness)
             desired[target] = GeneratedFile(text.encode("utf-8"), _mode(source))
@@ -591,6 +591,13 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                         Path("docs/models/gemini-3.7-flash/prompting.md"),
                     ),
                 ]
+            )
+        elif harness == "grok":
+            runtime_docs.append(
+                (
+                    root / "docs/models/grok-4.6/prompting.md",
+                    Path("docs/models/grok-4.6/prompting.md"),
+                )
             )
         for source, relative in runtime_docs:
             _add_tree(desired, source, base / relative)

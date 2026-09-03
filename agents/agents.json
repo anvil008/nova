@@ -46,7 +46,25 @@
       "codex": {
         "gates": "codex-builder"
       },
-      "grok": {},
+      "grok": {
+        "capability_mode": "all",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The builder task brief with issue or goal, acceptance tests, and workspace path."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record citing PR, commits, tests, and review passes."
+          }
+        ]
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -69,7 +87,25 @@
       "codex": {
         "gates": "codex-debugger"
       },
-      "grok": {},
+      "grok": {
+        "capability_mode": "all",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The reported symptom, reproduction hints, and target workspace."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record containing root cause diagnosis and reproducer evidence."
+          }
+        ]
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -90,7 +126,23 @@
       },
       "codex": {},
       "grok": {
-        "permission_mode": "plan"
+        "capability_mode": "execute",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The approved release brief with target, version, and pre-flight criteria."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record with release verification evidence and rollback status."
+          }
+        ]
       },
       "agy": {
         "tools": [
@@ -104,12 +156,30 @@
       }
     },
     "documenter": {
-      "description": "Use when creating, updating, standardizing, or reviewing documentation \u2014 READMEs, ADRs, changelogs, and {{instructionFilesPlain}}. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.",
+      "description": "Use when creating, updating, standardizing, or reviewing documentation — READMEs, ADRs, changelogs, and {{instructionFilesPlain}}. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.",
       "claude": {
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
       },
       "codex": {},
-      "grok": {},
+      "grok": {
+        "capability_mode": "all",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The documentation scope, stale docs list, or instruction files to update."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record with doc updates and docs_check validation evidence."
+          }
+        ]
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -132,7 +202,23 @@
         "gates": "codex-integrator"
       },
       "grok": {
-        "permission_mode": "plan"
+        "capability_mode": "execute",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The wave brief naming pull requests to combine, verify, and merge."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record with wave integration verification evidence."
+          }
+        ]
       },
       "agy": {
         "tools": [
@@ -151,7 +237,25 @@
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
       },
       "codex": {},
-      "grok": {},
+      "grok": {
+        "capability_mode": "all",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The planning goal, repository context, and requirements."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record with plan folio, strict sidecar, and per-issue acceptance tests."
+          }
+        ]
+      },
       "agy": {
         "tools": [
           "view_file",
@@ -172,7 +276,23 @@
       },
       "codex": {},
       "grok": {
-        "permission_mode": "plan"
+        "capability_mode": "execute",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The benchmark harness target, baseline parameters, and measurement command."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record with benchmark measurement distributions and comparison evidence."
+          }
+        ]
       },
       "agy": {
         "tools": [
@@ -194,7 +314,24 @@
       },
       "codex": {},
       "grok": {
-        "permission_mode": "plan"
+        "permission_mode": "plan",
+        "capability_mode": "read-only",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The assigned research area, investigation question, and search boundaries."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record with structured evidence envelope and findings."
+          }
+        ]
       },
       "agy": {
         "tools": [
@@ -216,7 +353,24 @@
       },
       "codex": {},
       "grok": {
-        "permission_mode": "plan"
+        "permission_mode": "plan",
+        "capability_mode": "read-only",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The diff, pull request, or change-set and the assigned review lens."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record with ranked findings and quoted evidence."
+          }
+        ]
       },
       "agy": {
         "tools": [
@@ -237,7 +391,25 @@
       "codex": {
         "gates": "codex-specifier"
       },
-      "grok": {},
+      "grok": {
+        "capability_mode": "all",
+        "inputs": [
+          {
+            "name": "brief",
+            "io_type": "dispatch",
+            "required": true,
+            "description": "The assigned GitHub issue number and acceptance criteria requirements."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "handoff",
+            "io_type": "file",
+            "required": true,
+            "description": "The anvil.agent-handoff/v1 record with sealed failing test suite and RED proof."
+          }
+        ]
+      },
       "agy": {
         "tools": [
           "view_file",
