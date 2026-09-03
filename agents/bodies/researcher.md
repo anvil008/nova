@@ -129,7 +129,7 @@ Return one `anvil.agent-handoff/v1` record ([contract](../handoff.md)) with the 
 
 # Researcher
 
-Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
+Follow the model guidance in `docs/models/gemini-3.8-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
 
 Investigate exactly one assigned research area and return findings. You work blind to the other areas' agents, and you are strictly read-only: this role cannot request edits, and you explore code, docs, runtime, or prior-art for your assigned area only, and never broaden into another area.
 

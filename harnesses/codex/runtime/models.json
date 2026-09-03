@@ -21,7 +21,7 @@
     "            Read-only isolation is owned by the launching process: use `codex exec",
     "            -s read-only` or a workcell-<agent> profile, and re-verify this per release.",
     "",
-    "  agy    -> model: pro | flash | inherit             (no per-agent effort)",
+    "  agy    -> model: gemini-3.8-flash | pro | flash | inherit (no per-agent effort)",
     "            `model` is real agent frontmatter, defaulting to `inherit` (the",
     "            parent's model). Antigravity does have reasoning effort, but only",
     "            session-wide, via the `/effort` command or the `--effort` launch flag \u2014",
@@ -43,7 +43,7 @@
       "effort": "medium"
     },
     "agy": {
-      "model": "flash"
+      "model": "gemini-3.8-flash"
     },
     "grok": {
       "model": "grok-4.6"
@@ -61,7 +61,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -78,7 +78,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -96,7 +96,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -113,7 +113,7 @@
         "effort": "medium"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -130,7 +130,7 @@
         "effort": "medium"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -147,7 +147,7 @@
         "effort": "low"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -164,7 +164,7 @@
         "effort": "medium"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -181,7 +181,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -199,7 +199,7 @@
         "effort": "high"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -216,7 +216,7 @@
         "effort": "medium"
       },
       "agy": {
-        "model": "flash"
+        "model": "gemini-3.8-flash"
       },
       "grok": {
         "model": "grok-4.6"
@@ -230,6 +230,9 @@
       "claude-opus-5": "claude-opus-5",
       "claude-sonnet-5": "claude-sonnet-5",
       "claude-fable-5-1": "claude-fable-5-1"
+    },
+    "agy": {
+      "gemini-3.8-flash": "docs/models/gemini-3.8-flash/prompting.md"
     },
     "grok": {
       "grok-4.6": "grok-4.6"

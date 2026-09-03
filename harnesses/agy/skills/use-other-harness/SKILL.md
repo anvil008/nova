@@ -8,9 +8,9 @@ description: ONLY when the user explicitly asks to run a subagent in a DIFFERENT
 Spin up a one-shot subagent in another harness by calling its headless CLI directly.
 
 Invocation: `/workcell:use-other-harness`
-Prompting Reference: [`docs/models/gemini-3.7-flash/prompting.md`](../../runtime/docs/models/gemini-3.7-flash/prompting.md)
+Prompting Reference: [`docs/models/gemini-3.8-flash/prompting.md`](../../runtime/docs/models/gemini-3.8-flash/prompting.md)
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you hold the human gates, run headless processes via `run_command`, and read handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never invoke this skill automatically as a router; it is solely an explicit user escape hatch. Per the Gemini 3.7 Flash guide, execute instructions literally, enforce strict parameter checks, and avoid speculative routing.
+You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you hold the human gates, run headless processes via `run_command`, and read handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never invoke this skill automatically as a router; it is solely an explicit user escape hatch. Per the Gemini 3.8 Flash guide, execute instructions literally, enforce strict parameter checks, and avoid speculative routing.
 
 ## Critical Constraints
 

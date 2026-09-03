@@ -259,7 +259,9 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
             )
 
         # 3. Missing or unavailable routes fail rather than inherit
-        with self.assertRaises(KeyError, msg="Missing role must fail rather than inherit"):
+        with self.assertRaises(
+            KeyError, msg="Missing role must fail rather than inherit"
+        ):
             resolve_codex_role("nonexistent-role", models_data)
 
         # Missing model fails rather than inherits
@@ -267,15 +269,23 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
             "defaults": {"codex": {"model": "", "effort": "medium"}},
             "agents": {"builder": {"codex": {"effort": "high"}}},
         }
-        with self.assertRaises(ValueError, msg="Missing model must fail rather than inherit"):
+        with self.assertRaises(
+            ValueError, msg="Missing model must fail rather than inherit"
+        ):
             resolve_codex_role("builder", bad_manifest_missing_model)
 
         # Unavailable/invalid effort fails rather than inherits
         bad_manifest_bad_effort = {
-            "defaults": {"codex": {"model": "gpt-5.6-sol", "effort": "unsupported-effort"}},
-            "agents": {"builder": {"codex": {"model": "gpt-5.6-sol", "effort": "turbo"}}},
+            "defaults": {
+                "codex": {"model": "gpt-5.6-sol", "effort": "unsupported-effort"}
+            },
+            "agents": {
+                "builder": {"codex": {"model": "gpt-5.6-sol", "effort": "turbo"}}
+            },
         }
-        with self.assertRaises(ValueError, msg="Unavailable effort must fail rather than inherit"):
+        with self.assertRaises(
+            ValueError, msg="Unavailable effort must fail rather than inherit"
+        ):
             resolve_codex_role("builder", bad_manifest_bad_effort)
 
         # Build-codex-plugin codex_routing verification
@@ -283,14 +293,20 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
         codex_routing = getattr(build_codex_mod, "codex_routing")
         BuildError = getattr(build_codex_mod, "BuildError")
         with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
-            f.write(json.dumps({"defaults": {}, "agents": {"builder": {"codex": {"model": ""}}}}))
+            f.write(
+                json.dumps(
+                    {"defaults": {}, "agents": {"builder": {"codex": {"model": ""}}}}
+                )
+            )
             f.flush()
             with self.assertRaises(BuildError):
                 codex_routing(Path(f.name))
 
         # 4. Contracts from harness-contracts.json
         contracts_data = json.loads(CONTRACTS_PATH.read_text(encoding="utf-8"))
-        agent_contracts = {entry["name"]: entry for entry in contracts_data.get("agents", [])}
+        agent_contracts = {
+            entry["name"]: entry for entry in contracts_data.get("agents", [])
+        }
         for role in CODEX_ROLES:
             contract = agent_contracts.get(role)
             self.assertIsNotNone(contract, f"Missing contract for role {role}")
@@ -299,7 +315,9 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
             # Required values for codex: ["body", "model", "effort"]
             for req in contract.get("requiredValues", {}).get("codex", []):
                 if req == "body":
-                    self.assertTrue(bool(body.strip()), f"Role {role} body must be non-empty")
+                    self.assertTrue(
+                        bool(body.strip()), f"Role {role} body must be non-empty"
+                    )
                 elif req == "model":
                     self.assertEqual(meta.get("model"), "gpt-5.6-sol")
                 elif req == "effort":
@@ -332,6 +350,7 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
             self.assertNotIn("claude-fable", body.lower())
             self.assertNotIn("claude-opus", body.lower())
             self.assertNotIn("claude-sonnet", body.lower())
+            self.assertNotIn("gemini-3.8-flash", body.lower())
             self.assertNotIn("gemini-3.7-flash", body.lower())
             self.assertNotIn("grok-4.6", body.lower())
 
@@ -380,7 +399,9 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
             # Verify every profile exists, parses with tomllib, and agrees with models.json & frontmatter
             for role in CODEX_ROLES:
                 profile_path = codex_home / f"workcell-{role}.config.toml"
-                self.assertTrue(profile_path.is_file(), f"Missing profile {profile_path}")
+                self.assertTrue(
+                    profile_path.is_file(), f"Missing profile {profile_path}"
+                )
 
                 profile_text = profile_path.read_text(encoding="utf-8")
                 parsed = tomllib.loads(profile_text)
@@ -394,8 +415,13 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
                 self.assertEqual(parsed.get("model"), meta.get("model"))
 
                 # Agreement on effort
-                self.assertEqual(parsed.get("model_reasoning_effort"), expected_route["effort"])
-                self.assertEqual(parsed.get("model_reasoning_effort"), meta.get("model_reasoning_effort"))
+                self.assertEqual(
+                    parsed.get("model_reasoning_effort"), expected_route["effort"]
+                )
+                self.assertEqual(
+                    parsed.get("model_reasoning_effort"),
+                    meta.get("model_reasoning_effort"),
+                )
 
                 # Agreement on capability / read-only isolation
                 if role in READ_ONLY_ROLES:
@@ -404,7 +430,11 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
                         f"Read-only role {role} must assert read-only boundary in body",
                     )
                     self.assertTrue(
-                        bool(re.search(r"no edits|never mutate|never edit", body, re.IGNORECASE)),
+                        bool(
+                            re.search(
+                                r"no edits|never mutate|never edit", body, re.IGNORECASE
+                            )
+                        ),
                         f"Read-only role {role} must declare no-edits/never-mutate in body",
                     )
                     if "sandbox" in parsed:
@@ -422,7 +452,10 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
                 if role in CODEX_ROLES:
                     expected_route = resolve_codex_role(role, models_data)
                     self.assertEqual(toml_data.get("model"), expected_route["model"])
-                    self.assertEqual(toml_data.get("model_reasoning_effort"), expected_route["effort"])
+                    self.assertEqual(
+                        toml_data.get("model_reasoning_effort"),
+                        expected_route["effort"],
+                    )
 
             # 2. Verify drift check passes initially
             check_proc = subprocess.run(
@@ -574,7 +607,11 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
             "Builder dispatch instructions must require setting fork_turns",
         )
         self.assertTrue(
-            bool(re.search(r"fork_turns.*(?:none|smallest|\d+)", builder_body, re.IGNORECASE)),
+            bool(
+                re.search(
+                    r"fork_turns.*(?:none|smallest|\d+)", builder_body, re.IGNORECASE
+                )
+            ),
             "Builder dispatch instructions must specify fork_turns as none or smallest bounded integer",
         )
 

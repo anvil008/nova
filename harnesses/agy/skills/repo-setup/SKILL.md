@@ -8,11 +8,11 @@ description: Make a repository ready for agentic development — interview the u
 Get a repository into the shape where agents can work in it safely: instruction files that say what the project is and how to verify it, a build and test command that actually runs, and gates that catch mistakes mechanically.
 
 Invocation: `/workcell:repo-setup`
-Prompting Reference: [`docs/models/gemini-3.7-flash/prompting.md`](../../runtime/docs/models/gemini-3.7-flash/prompting.md)
+Prompting Reference: [`docs/models/gemini-3.8-flash/prompting.md`](../../runtime/docs/models/gemini-3.8-flash/prompting.md)
 
 You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Antigravity's `invoke_subagent`, hold the human gates, run `git` / `jj` / `gh` and scripts via `run_command` for branch, merge, and issue-state operations, and read gate output and handoff records using the [`anvil.agent-handoff/v1`](../../runtime/handoff.md) schema. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-This orchestrator surveys the repository, interviews the human, and coordinates setup agents. Per the Gemini 3.7 Flash guide, place critical constraints first, demand verified execution commands, and keep instruction files lean.
+This orchestrator surveys the repository, interviews the human, and coordinates setup agents. Per the Gemini 3.8 Flash guide, place critical constraints first, demand verified execution commands, and keep instruction files lean.
 
 ## Critical Constraints
 

@@ -56,6 +56,7 @@ FORBIDDEN_TOOL_KEYS = {"tools", "allowed-tools", "disallowedTools", "disallowed-
 
 INAPPLICABLE_GUIDES = {
     "gpt-5.6-sol",
+    "gemini-3.8-flash",
     "gemini-3.7-flash",
     "claude-fable-5-1",
     "claude-opus-5",
@@ -116,7 +117,9 @@ def parse_frontmatter(path_or_text: Path | str) -> tuple[dict[str, Any], str]:
     return meta, body
 
 
-def resolve_grok_role(role: str, manifest: dict[str, Any] | None = None) -> dict[str, str]:
+def resolve_grok_role(
+    role: str, manifest: dict[str, Any] | None = None
+) -> dict[str, str]:
     """Resolve authoritative model for a Grok role.
 
     Reads agents/models.json (or passed manifest dict).
@@ -253,9 +256,15 @@ def _check_io_contract(meta: dict[str, Any], body: str) -> tuple[bool, str]:
                     return False, f"Frontmatter {kind} item must be a mapping: {item}"
                 for field in ("name", "io_type", "required", "description"):
                     if field not in item:
-                        return False, f"Frontmatter {kind} item missing required field {field!r}: {item}"
+                        return (
+                            False,
+                            f"Frontmatter {kind} item missing required field {field!r}: {item}",
+                        )
                 if not isinstance(item["required"], bool):
-                    return False, f"Frontmatter {kind} item 'required' must be boolean: {item}"
+                    return (
+                        False,
+                        f"Frontmatter {kind} item 'required' must be boolean: {item}",
+                    )
         return True, "Valid frontmatter I/O contract"
 
     # 2. Body section check
@@ -277,7 +286,10 @@ def _check_io_contract(meta: dict[str, Any], body: str) -> tuple[bool, str]:
         if has_tokens:
             return True, "Valid markdown body I/O contract"
 
-    return False, "Missing Workcell I/O contract declaration (expected inputs and outputs with name, io_type, required, and description)"
+    return (
+        False,
+        "Missing Workcell I/O contract declaration (expected inputs and outputs with name, io_type, required, and description)",
+    )
 
 
 class GrokAgentsAcceptanceTests(unittest.TestCase):
@@ -336,13 +348,23 @@ class GrokAgentsAcceptanceTests(unittest.TestCase):
 
         # Hard error verification on synthetic manifests
         with self.assertRaises(ValueError, msg="Empty model must raise ValueError"):
-            resolve_grok_role("builder", {"agents": {"builder": {"grok": {"model": ""}}}})
+            resolve_grok_role(
+                "builder", {"agents": {"builder": {"grok": {"model": ""}}}}
+            )
 
-        with self.assertRaises(ValueError, msg="Unresolved inherited model must be a hard error"):
-            resolve_grok_role("builder", {"agents": {"builder": {"grok": {"model": "inherit"}}}})
+        with self.assertRaises(
+            ValueError, msg="Unresolved inherited model must be a hard error"
+        ):
+            resolve_grok_role(
+                "builder", {"agents": {"builder": {"grok": {"model": "inherit"}}}}
+            )
 
-        with self.assertRaises(ValueError, msg="Unapproved model must raise ValueError"):
-            resolve_grok_role("builder", {"agents": {"builder": {"grok": {"model": "grok-3"}}}})
+        with self.assertRaises(
+            ValueError, msg="Unapproved model must raise ValueError"
+        ):
+            resolve_grok_role(
+                "builder", {"agents": {"builder": {"grok": {"model": "grok-3"}}}}
+            )
 
         with self.assertRaises(KeyError, msg="Unknown role must raise KeyError"):
             resolve_grok_role("unknown_role", models_data)
@@ -429,9 +451,7 @@ class GrokAgentsAcceptanceTests(unittest.TestCase):
             self.assertIsInstance(
                 desc, str, f"Role {role!r} description must be a string"
             )
-            self.assertTrue(
-                bool(desc), f"Role {role!r} description must not be empty"
-            )
+            self.assertTrue(bool(desc), f"Role {role!r} description must not be empty")
 
             # Understands Grok's distinction between session agents, roles and personas
             has_agent_persona_concept = bool(

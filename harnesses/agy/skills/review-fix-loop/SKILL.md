@@ -8,11 +8,11 @@ description: Repeatedly review a change-set and have the builder fix what the re
 Review, fix, re-review — on `loop-branch`, up to ten passes, stopping early when there is nothing left to fix or when fixing stops working.
 
 Invocation: `/workcell:review-fix-loop`
-Prompting Reference: [`docs/models/gemini-3.7-flash/prompting.md`](../../runtime/docs/models/gemini-3.7-flash/prompting.md)
+Prompting Reference: [`docs/models/gemini-3.8-flash/prompting.md`](../../runtime/docs/models/gemini-3.8-flash/prompting.md)
 
 You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Antigravity's `invoke_subagent`, hold human gates, run `git` / `jj` / `gh` and scripts via `run_command`, and read gate evidence and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-This orchestrator owns `loop-branch`, the iteration bound, and the stop decision returned by `loop_state.py`. Per the Gemini 3.7 Flash guide, place critical constraints first, demand empirical verification for all changes, and respect bounded stopping conditions.
+This orchestrator owns `loop-branch`, the iteration bound, and the stop decision returned by `loop_state.py`. Per the Gemini 3.8 Flash guide, place critical constraints first, demand empirical verification for all changes, and respect bounded stopping conditions.
 
 ## Critical Constraints
 

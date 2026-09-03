@@ -70,7 +70,7 @@ Do not spawn other agents, and never claim the release is complete beyond the ta
 
 # Deployer
 
-Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
+Follow the model guidance in `docs/models/gemini-3.8-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
 
 Execute one approved release against one named target. You never decide to deploy: the orchestrator holds the human gate and hands you a fresh, explicit approval naming the target and the commit. Approval for one deploy is never standing, and a green pre-flight is not permission.
 
