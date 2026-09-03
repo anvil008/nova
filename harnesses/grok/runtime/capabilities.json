@@ -1,0 +1,63 @@
+{
+  "harness": "grok",
+  "headless_command": [
+    "grok",
+    "--no-auto-update",
+    "-p",
+    "--model",
+    "grok-4.6",
+    "--cwd",
+    ".",
+    "--output-format",
+    "json",
+    "--max-turns",
+    "50"
+  ],
+  "features": {
+    "skill_isolation": {
+      "supported": true,
+      "headless": true,
+      "limitation_note": "Skills are staged into the self-contained plugin tree; skill-level isolation relies on repository and workspace boundaries since Grok Build loads plugin skills into the active session context."
+    },
+    "forks": {
+      "supported": false,
+      "headless": false,
+      "note": "In headless automation, combine --fork-session with --resume or --continue to branch an existing conversation into a new session ID when shared history is needed; interactive /fork is omitted."
+    },
+    "subagents": {
+      "supported": true,
+      "headless": true,
+      "note": "Custom subagents are dispatched with spawn_subagent and background: true; nesting is limited to one level so a subagent cannot spawn another child."
+    },
+    "workflows": {
+      "supported": false,
+      "headless": false,
+      "limitation_note": "Interactive workflow creation via /create-workflow is omitted in headless automation; workflows must be pre-authored under .grok/workflows/ as Rhai files."
+    },
+    "personas": {
+      "supported": true,
+      "headless": true,
+      "note": "Personas are behavioral overlays in .grok/personas/ defining task focus and input/output contracts (name, io_type, required, description) for subagents."
+    },
+    "command_hooks": {
+      "supported": true,
+      "headless": true,
+      "note": "Grok Build enforces execution boundaries through deny rules, hooks, and shell-command ask rules paired with reviewed boundaries."
+    },
+    "effort": {
+      "supported": false,
+      "headless": false,
+      "limitation_note": "The effort field in skill/agent frontmatter is accepted by Grok Build but not applied or enforced per official documentation; effort is unsupported for routing."
+    },
+    "mode": {
+      "supported": false,
+      "headless": false,
+      "limitation_note": "Capability mode comes from the selected agent type or role definition, not a spawn_subagent argument; dynamic mode switching is unsupported."
+    },
+    "allowed_tools": {
+      "supported": false,
+      "headless": false,
+      "limitation_note": "The allowed-tools field in frontmatter is accepted by Grok Build but does not grant or restrict tools under official documentation; per-agent tool filtering is unsupported."
+    }
+  }
+}
