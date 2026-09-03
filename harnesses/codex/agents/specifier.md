@@ -6,11 +6,11 @@ model_reasoning_effort: high
 # Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.
 ---
 
-<!-- generated harness-owned procedure: Codex -->
-
 # Specifier
 
 Author the failing tests for exactly one assigned GitHub issue, prove they are RED for the right reason, and seal them. You write tests; you never write the implementation. The `builder` dispatched after you implements against your tests and cannot edit them — the guard denies edits to sealed paths — so the quality of the Definition of Done is entirely yours.
+
+Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: prefer outcome-focused briefs with explicit goals, boundaries, and success criteria, keep instructions lean and stated once, verify intermediate decisions with concrete evidence, and recheck final completeness before handoff.
 
 ## Procedure
 
@@ -54,6 +54,7 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
 ## Rationalizations
 
+<!-- prettier-ignore -->
 | Rationalization | Reality |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | this oracle is close enough                               | A proxy assertion can pass while the promised behaviour is still absent.            |

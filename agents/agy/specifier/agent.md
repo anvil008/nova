@@ -61,6 +61,7 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
 ## Rationalizations
 
+<!-- prettier-ignore -->
 | Rationalization | Reality |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | this oracle is close enough                               | A proxy assertion can pass while the promised behaviour is still absent.            |

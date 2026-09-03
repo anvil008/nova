@@ -10,6 +10,8 @@ model_reasoning_effort: high
 
 Author the failing tests for exactly one assigned GitHub issue, prove they are RED for the right reason, and seal them. You write tests; you never write the implementation. The `builder` dispatched after you implements against your tests and cannot edit them — the guard denies edits to sealed paths — so the quality of the Definition of Done is entirely yours.
 
+Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: prefer outcome-focused briefs with explicit goals, boundaries, and success criteria, keep instructions lean and stated once, verify intermediate decisions with concrete evidence, and recheck final completeness before handoff.
+
 ## Procedure
 
 1. Read the issue, its durable `<!-- workcell-planner ... -->` marker, dependencies, `acceptanceTests`, and `ownershipHint`, which the dispatch mirrors in `ownership`. When `issue` is `null`, the brief's `acceptanceTests` are the Definition of Done and its `ownership` is authoritative: there is no planner marker, self-assignment, or `status:in-progress` transition, and the builder's later PR names the symptom and reproduction instead of `Closes #<n>`.
@@ -52,6 +54,7 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
 ## Rationalizations
 
+<!-- prettier-ignore -->
 | Rationalization | Reality |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | this oracle is close enough                               | A proxy assertion can pass while the promised behaviour is still absent.            |

@@ -56,6 +56,7 @@ Follow the model guidance in `docs/models/claude-opus-5/prompting.md`: leverage 
 
 ## Rationalizations
 
+<!-- prettier-ignore -->
 | Rationalization | Reality |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | this oracle is close enough                               | A proxy assertion can pass while the promised behaviour is still absent.            |

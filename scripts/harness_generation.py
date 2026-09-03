@@ -448,9 +448,9 @@ def desired_agents(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 if harness in {"claude", "grok"}:
                     text = text.replace("](../../skills/", "](../skills/")
                 text = text.replace("](../handoff.md)", "](../runtime/handoff.md)")
-            text = _generated_notice(text, harness).rstrip() + _limitations(
-                entry, harness
-            )
+            if harness != "codex":
+                text = _generated_notice(text, harness)
+            text = text.rstrip() + _limitations(entry, harness)
             desired[target] = GeneratedFile(text.encode("utf-8"), _mode(source))
             if harness == "agy":
                 owned_root = root / "agents" / "agy" / name / "skills"

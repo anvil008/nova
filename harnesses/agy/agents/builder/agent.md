@@ -99,6 +99,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
 ## Rationalizations
 
+<!-- prettier-ignore -->
 | Rationalization | Reality |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | the reseal is just a wording fix                    | A reseal changes another agent's Definition of Done and requires proof that the original oracle was wrong. |
