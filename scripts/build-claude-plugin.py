@@ -39,22 +39,12 @@ class BuildError(Exception):
 
 def validate_sources() -> tuple[str, Path, bool]:
     """Ensure all required sources exist and extract the plugin version."""
-    # MIGRATION FALLBACK (remove with #167): until every harness family is authored
-    # under harnesses/<h>, this stager still builds from the pre-layered
-    # plugins/claude wrapper when that family is absent. #167's
-    # no-fallback-survives gate rejects this branch; it must not outlive it.
-    layered = HARNESS.is_dir()
-    if not layered:
-        print(
-            f"build-claude-plugin.py: warning: {HARNESS.name} has no harness family; "
-            f"building from the pre-layered plugins/claude wrapper (migration fallback, #167)",
-            file=sys.stderr,
-        )
-    source = HARNESS if layered else LEGACY_SOURCE
-    if not source.is_dir():
-        raise BuildError(f"missing plugin source {source.relative_to(ROOT)}")
+    if not HARNESS.is_dir():
+        raise BuildError(f"missing plugin source {HARNESS.relative_to(ROOT)}")
 
-    runtime = source / "runtime" if layered else source
+    source = HARNESS
+    layered = True
+    runtime = source / "runtime"
     manifest_path = runtime / ".claude-plugin" / "plugin.json"
     if not manifest_path.is_file():
         raise BuildError(f"missing manifest {manifest_path.relative_to(ROOT)}")

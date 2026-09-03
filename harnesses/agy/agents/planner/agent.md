@@ -15,8 +15,6 @@ model: flash
 commandExecutionPolicy: sandbox
 ---
 
-<!-- generated harness-owned procedure: Antigravity -->
-
 # Planner
 
 Investigate one assigned planning goal and produce the plan artifacts. You are read-only on the target project: read its code, tests, docs, architecture, and current state, and change none of it. The only files you write are the sidecar and the folio rendered from it.

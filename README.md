@@ -171,16 +171,25 @@ evidence is fresh — otherwise it sends the builder back. The full gate-by-gate
 
 ## How the repository is laid out
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/layered-architecture-dark.svg">
+  <img alt="Workcell root architecture showing four harness families (Claude, Codex, Antigravity, and Grok) each with their own Agents, Skills, and Scripts, beside shared Scripts, Tools, and everything else." src="docs/diagrams/layered-architecture-light.svg" width="100%">
+</picture>
+
+The Workcell root defines shared contracts feeding four harness families—Claude, Codex, Antigravity (agy), and Grok—where each family owns its native Agents, Skills, and Scripts, operating alongside shared Scripts, Tools, and everything else.
+
 ```
 workcell/
-├── agents/            generated per harness — edit agents/bodies/ + agents.json, then sync-agents.py
-├── skills/             16 shared workflows: plan, build, code-review, docs, deploy, …
-├── plugins/            one thin wrapper per harness — no content of its own
-│   ├── claude/          .claude-plugin/plugin.json, hooks/hooks.json — staged, then copied to ~/.local/share/workcell/claude
-│   ├── codex/           .codex-plugin/plugin.json, hooks/hooks.json — staged, then copied to ~/.local/share/workcell/codex
-│   ├── agy/             plugin.json, rules/, hooks.json — staged, then copied to ~/.gemini/config/plugins/workcell; never linked
-│   └── grok/            .claude-plugin/plugin.json — staged, then copied to ~/.grok/plugins/workcell; no hooks
-├── scripts/            scripts/bootstrap.sh (one command) over bootstrap-tools.sh / bootstrap-plugins.sh / bootstrap-project.sh, the four build-*-plugin.py stagers, build-guard-release.py, the hook scripts they install, workcell-ws
+├── contracts/          harness-contracts.json declaring cross-harness requirements for 10 agents and 16 skills
+├── harnesses/          four harness-owned families: claude/, codex/, agy/, grok/
+│   ├── claude/         harness-native agents, skills, and runtime (.claude-plugin/plugin.json, hooks/)
+│   ├── codex/          harness-native agents, skills, and runtime (.codex-plugin/plugin.json, models.json)
+│   ├── agy/            harness-native agents, skills, and runtime (plugin.json, rules/) — staged, then copied as an owned copy to ~/.gemini/config/plugins/workcell; never linked
+│   └── grok/           harness-native agents, skills, and runtime (.claude-plugin/plugin.json, models.json)
+├── agents/             agent source definitions and metadata synced to harnesses via sync-agents.py
+├── skills/             canonical workflow definitions synced to harnesses via sync-skills.py
+├── plugins/            thin distribution wrappers
+├── scripts/            stagers (build-claude-plugin.py, build-codex-plugin.py, build-agy-plugin.py, build-grok-plugin.py), synchronization, and validators
 ├── cmd/tdd-guard/      the gate binary binding RED, GREEN, and review evidence to one diff
 ├── docs/adr/           architecture decisions and their consequences
 ├── docs/workspaces.md  the one isolation standard: workcell-ws, sibling paths, the sweep

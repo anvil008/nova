@@ -200,21 +200,12 @@ def validate_sources() -> tuple[
     str, list[Path], list[tuple[Path, str]], dict[str, dict[str, str]]
 ]:
     """Validate every source before replacing OUT, so failures leave no partial tree."""
-    # MIGRATION FALLBACK (remove with #167): until every harness family is authored
-    # under harnesses/<h>, this stager still builds from the pre-layered
-    # plugins/codex wrapper when that family is absent. #167's
-    # no-fallback-survives gate rejects this branch; it must not outlive it.
-    layered = HARNESS.is_dir()
-    if not layered:
-        print(
-            f"build-codex-plugin.py: warning: {HARNESS.name} has no harness family; "
-            "building from the pre-layered plugins/codex wrapper (migration fallback, #167)",
-            file=sys.stderr,
-        )
-    source = HARNESS / "runtime" if layered else SOURCE
-    skills_root = HARNESS / "skills" if layered else SKILLS
-    agents_root = HARNESS / "agents" if layered else AGENTS
-    models_path = source / "models.json" if layered else MODELS
+    if not HARNESS.is_dir():
+        raise BuildError(f"missing harness directory {HARNESS.relative_to(ROOT)}")
+    source = HARNESS / "runtime"
+    skills_root = HARNESS / "skills"
+    agents_root = HARNESS / "agents"
+    models_path = source / "models.json"
     if not source.is_dir():
         raise BuildError(f"missing plugin source {source.relative_to(ROOT)}")
     manifest_path = source / ".codex-plugin" / "plugin.json"
@@ -246,8 +237,8 @@ def build() -> Path:
     skills_out = plugin_root / "skills"
     skills_out.mkdir()
 
-    layered = HARNESS.is_dir()  # same migration fallback validate_sources() marks
-    runtime = HARNESS / "runtime" if layered else SOURCE
+    layered = True
+    runtime = HARNESS / "runtime"
     hooks = runtime / "hooks" / "hooks.json"
     if hooks.is_file():
         (plugin_root / "hooks").mkdir()

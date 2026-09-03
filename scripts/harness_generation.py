@@ -320,17 +320,6 @@ def _same_mode(actual: int, expected: int) -> bool:
     return bool(actual & 0o111) == bool(expected & 0o111)
 
 
-def _generated_notice(text: str, harness: str) -> str:
-    marker = f"<!-- generated harness-owned procedure: {HARNESS_LABELS[harness]} -->\n"
-    if not text.startswith("---\n"):
-        return marker + text
-    end = text.find("\n---\n", 4)
-    if end < 0:
-        return marker + text
-    split = end + len("\n---\n")
-    return text[:split] + "\n" + marker + text[split:]
-
-
 def _limitations(entry: dict, harness: str) -> str:
     notes = [
         surface["limitationNote"]
@@ -445,11 +434,10 @@ def desired_skills(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                     if harness in HARNESS_OWNED_SKILLS:
                         continue
                     decoded = content.decode("utf-8")
-                    text = _generated_notice(
+                    text = (
                         _other_harness_body(harness, decoded)
                         if name == "use-other-harness"
-                        else decoded,
-                        harness,
+                        else decoded
                     )
                     text = text.rstrip() + _limitations(entry, harness)
                     text = text.rstrip() + "\n"
@@ -480,8 +468,6 @@ def desired_agents(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 if harness in {"claude", "codex", "grok"}:
                     text = text.replace("](../../skills/", "](../skills/")
                 text = text.replace("](../handoff.md)", "](../runtime/handoff.md)")
-            if harness not in {"codex", "grok"}:
-                text = _generated_notice(text, harness)
             text = text.rstrip() + _limitations(entry, harness)
             desired[target] = GeneratedFile(text.encode("utf-8"), _mode(source))
             if harness == "agy":
