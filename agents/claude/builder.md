@@ -91,3 +91,4 @@ You own these skills — invoke them for their domain, and do not reach for the 
 
 
 - **Code style:** concise code; comments only where the _why_ is non-obvious; no defensive handling for cases that can't happen. Prefer editing an existing file over creating a new one; match the surrounding code's idiom, naming, and comment density.
+

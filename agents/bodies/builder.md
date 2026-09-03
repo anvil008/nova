@@ -13,6 +13,12 @@ Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: operate wit
 
 Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured instructions, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
 <!-- end -->
+<!-- only:grok -->
+
+Follow the model guidance in `docs/models/grok-4.6/prompting.md`: operate with high autonomy under clear goals and boundaries rather than rigid step-by-step procedures, keep instructions lean and stated once, calibrate effort intentionally, verify intermediate decisions with concrete evidence, and recheck final completeness before handoff.
+
+In Grok Build's taxonomy, Workcell roles run as background personas (`.grok/personas/`) launched programmatically with `spawn_subagent`, rather than interactive session agents (`.grok/agents/` such as `explore`, `plan`, or `general-purpose`). Each persona operates in its own isolated jj workspace and returns structured artifacts through the handoff schema.
+<!-- end -->
 
 Never commit to `main` or claim overall completion.
 
@@ -72,11 +78,12 @@ Work in the existing working copy on the branch named in the brief. Do not creat
    Work only inside that directory for the rest of the task, and never push `main`. Do not create a second workspace or re-branch: the base was fixed when the workspace was made, and moving it now invalidates the provenance of whatever was sealed against it. If the workspace is missing, stop and return `blocked` rather than starting one of your own — a workspace you picked yourself is on a base nobody agreed to.
 
 3. **Implement against the sealed tests.** They are your Definition of Done and you did not write them:
-   - before each shell command that mutates the repo, make sure the Workcell hooks are trusted with `/hooks`; otherwise run `build-guard codex` on it yourself as the fallback;
+   - before each shell command that mutates the repo, make sure the Workcell hooks are trusted with `/hooks`; otherwise run `build-guard codex` on it yourself;
    - implement without touching sealed tests;
-   - amend a sealed test only through `tdd-guard reseal --reason <text>`, after proving the amended test fails for the intended reason. These are another agent's tests: a reseal changes someone else's Definition of Done, so the reason must name why the original oracle was **wrong**, never merely inconvenient to satisfy;
-   - run `tdd-guard verify --green-command <argv...>` and retain GREEN evidence that postdates the seal;
-   - inspect the real `git diff HEAD` and untracked files, then run `tdd-guard diff-review record --findings <file>`.
+
+- amend a sealed test only through `tdd-guard reseal --reason <text>`, after proving the amended test fails for the intended reason. These are another agent's tests: a reseal changes someone else's Definition of Done, so the reason must name why the original oracle was **wrong**, never merely inconvenient to satisfy;
+- run `tdd-guard verify --green-command <argv...>` and retain GREEN evidence that postdates the seal;
+- inspect the real `git diff HEAD` and untracked files, then run `tdd-guard diff-review record --findings <file>`.
 
 4. **Prove it runs, not just passes.** A GREEN suite is evidence about the tests, not evidence that the change runs. Identify the runnable surface the issue changed and exercise it for real. The brief's `runtime` hint says how: `launch` is the command that starts the surface, `url` is where it answers, and `healthPath` is the path a service reports health on. When the hint is absent, discover the run command from the repo — and never point at a production URL, whichever way you found it:
 
@@ -239,3 +246,22 @@ You own these skills — invoke them for their domain, and do not reach for the 
 <!-- end -->
 
 - **Code style:** concise code; comments only where the _why_ is non-obvious; no defensive handling for cases that can't happen. Prefer editing an existing file over creating a new one; match the surrounding code's idiom, naming, and comment density.
+
+<!-- only:grok -->
+
+## Input and output contract
+
+Declare explicit Workcell I/O contracts matching the Grok 4.6 specification:
+
+- **Inputs:**
+  - `name`: `brief`
+    `io_type`: `dispatch`
+    `required`: true
+    `description`: The builder task brief with issue or goal, acceptance tests, and workspace path.
+- **Outputs:**
+  - `name`: `handoff`
+    `io_type`: `file`
+    `required`: true
+    `description`: The `anvil.agent-handoff/v1` record citing pull request, commits, tests, and review passes.
+
+<!-- end -->

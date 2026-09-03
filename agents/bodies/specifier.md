@@ -13,6 +13,12 @@ Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: prefer outc
 
 Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
 <!-- end -->
+<!-- only:grok -->
+
+Follow the model guidance in `docs/models/grok-4.6/prompting.md`: prefer outcome-focused briefs with explicit goals, boundaries, and success criteria, keep instructions lean and stated once, verify intermediate decisions with concrete evidence, and recheck final completeness before handoff.
+
+In Grok Build's taxonomy, Workcell roles run as background personas (`.grok/personas/`) launched programmatically with `spawn_subagent`, rather than interactive session agents (`.grok/agents/` such as `explore`, `plan`, or `general-purpose`). Each persona operates in its own isolated jj workspace and returns structured artifacts through the handoff schema. Never commit directly to main.
+<!-- end -->
 
 ## Procedure
 
@@ -84,3 +90,22 @@ Do not spawn other agents, never broaden the issue, and never claim overall comp
 You own these skills — invoke them for their domain, and do not reach for the orchestration skills (plan / build / research / code-review):
 
 - **`jj`** — your version control, always. Workspace creation, bookmarks, commits, and recovery all go through `jj`; plain `git` is for read-only inspection only. Always-in-force safety: pass `-m` on every mutation, never run interactive `jj` (no bare `jj split`, `jj resolve`, `jj squash -i`), recover with `jj undo` / `jj op log` (never destructive git), and never hand-edit `.jj/`. A detached git HEAD is normal in a colocated repo — trust `jj log`, not `git status`.
+
+<!-- only:grok -->
+
+## Input and output contract
+
+Declare explicit Workcell I/O contracts matching the Grok 4.6 specification:
+
+- **Inputs:**
+  - `name`: `brief`
+    `io_type`: `dispatch`
+    `required`: true
+    `description`: The assigned GitHub issue number and acceptance criteria requirements.
+- **Outputs:**
+  - `name`: `handoff`
+    `io_type`: `file`
+    `required`: true
+    `description`: The `anvil.agent-handoff/v1` record with sealed failing test suite and RED proof.
+
+<!-- end -->

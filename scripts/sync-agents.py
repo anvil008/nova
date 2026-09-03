@@ -164,6 +164,22 @@ def frontmatter(
             lines.append(f"model: {tuned['model']}")
         if entry["grok"].get("permission_mode"):
             lines.append(f"permission_mode: {entry['grok']['permission_mode']}")
+        if entry["grok"].get("capability_mode"):
+            lines.append(f"capability_mode: {entry['grok']['capability_mode']}")
+        if entry["grok"].get("inputs"):
+            lines.append("inputs:")
+            for item in entry["grok"]["inputs"]:
+                lines.append(f"  - name: {item['name']}")
+                lines.append(f"    io_type: {item['io_type']}")
+                lines.append(f"    required: {'true' if item['required'] else 'false'}")
+                lines.append(f"    description: {item['description']}")
+        if entry["grok"].get("outputs"):
+            lines.append("outputs:")
+            for item in entry["grok"]["outputs"]:
+                lines.append(f"  - name: {item['name']}")
+                lines.append(f"    io_type: {item['io_type']}")
+                lines.append(f"    required: {'true' if item['required'] else 'false'}")
+                lines.append(f"    description: {item['description']}")
         return lines
 
     lines.append("tools:")

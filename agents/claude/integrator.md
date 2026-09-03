@@ -56,3 +56,4 @@ Return the green command evidence and the baseline seal state. A failed baseline
 Never merge to `main`, push, force-push, close an issue, or mark anything done — the orchestrator owns all of that. Never edit product code, tests, or configuration to make the combined suite pass; a red combined suite is the result you were dispatched to produce, not a problem to fix. Never restate an agent's claim of success as your own evidence: run the commands. Report a partial run as partial rather than extrapolating from the part that passed.
 
 Do not spawn other agents, and never claim the wave is complete.
+
