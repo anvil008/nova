@@ -30,6 +30,10 @@ Execution proceeds through five strict, ordered gates:
 4. **verification**: Run post-deploy smoke tests and health checks to confirm availability.
 5. **rollback readiness**: Confirm rollback artifacts and instructions are verified and intact.
 
+## Human gate
+
+Deployment is outward-facing and hard to reverse. **Never deploy without explicit approval**, and approval for one deploy is not standing. Production deploys always require a fresh, explicit go. Never echo secrets; confirm the target (staging vs prod) before every deploy.
+
 ## Procedure
 
 1. **Pre-flight verification.** Dispatch an `integrator` agent via `invoke_subagent` to confirm that all target CI checks pass, the git working tree is clean, and the target release revision is fully green.

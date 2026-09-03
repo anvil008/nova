@@ -20,7 +20,15 @@ This orchestrator owns `loop-branch`, the iteration bound, and the stop decision
 - **Constraints:** Never run on `main`, never merge `loop-branch`, never push without explicit user request, and never alter `--max-iterations` to bypass a stall.
 - **Success Criteria:** Verified fix commit for each productive iteration, clean termination via `loop_state.py`, and lessons consolidated into the project wiki.
 
-The harness `/loop` provides repetition in Claude Code (`/loop <interval> <prompt>`); drive it manually when running without a native `/loop` command. This skill provides what one iteration does and, more importantly, when the loop must stop. Loop state lives on disk in `.workcell/review-fix-loop.json` rather than in-session context, because `/loop` re-invokes with a fresh context each tick.
+## Harness requirement
+
+This skill requires a harness with a `/loop` driver that re-invokes a prompt on a schedule.
+Today that is Claude Code (`/loop <interval> <prompt>`). Codex and Antigravity have no equivalent,
+so on those harnesses there is no automatic repetition: drive the loop manually by running the
+"Every tick" section below as one complete iteration per invocation, and re-invoke it yourself
+until `loop_state.py record` reports a stop. The state file makes this safe — every iteration
+reads the pass count from disk, so a manual driver gets the same bound and the same stop
+conditions as `/loop` does.
 
 ## Ordered Gates
 
@@ -31,7 +39,9 @@ Execution proceeds through four strict, ordered gates:
 3. **verify**: Execute the project verification suite to ensure fixes are passing and cause no regressions.
 4. **bounded stop**: Evaluate loop convergence state via `loop_state.py` to stop upon convergence, stalling, or pass exhaustion.
 
-## Procedure — First Tick Setup
+## Procedure
+
+## First tick — set up
 
 Do this once, then never again for the life of the loop:
 

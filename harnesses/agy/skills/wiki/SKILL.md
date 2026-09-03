@@ -29,7 +29,9 @@ Execution proceeds through four strict, ordered gates:
 3. **append-only pattern**: Documenter appends observed patterns citing raw trace evidence via `wiki.py pattern`.
 4. **catalog update**: Verify catalog and links mechanically with `wiki.py check`.
 
-## Procedure — 1. Ask Whether the Project Opted In
+## Procedure
+
+## 1. Ask whether the project opted in
 
 ```bash
 python3 -B skills/wiki/scripts/wiki.py status --repo .

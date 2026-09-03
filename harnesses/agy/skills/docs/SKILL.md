@@ -42,6 +42,8 @@ Every README must answer:
 
 ## Procedure
 
+## Pass
+
 1. **Audit documentation truth.** Dispatch a `researcher` agent via `invoke_subagent` to compare documented commands, workflows, and configurations against actual repository scripts and code.
 2. **Update documentation.** A documentation pass works on its own branch, `doc/<slug>`, and the workspace beneath it writes that slash as a dash ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch the `documenter` agent via `invoke_subagent` with an explicit docs-only `ownership` glob to update in place, relocate role-specific material out of global instruction files, record required ADRs at the repository root (`docs/adr/NNNN-title.md`), and append the changelog or handover entry. See [examples/visual-readme.md](examples/visual-readme.md) and [`ADR 0010`](../../runtime/docs/adr/0010-readme-diagrams-are-generated-svg.md) for README contracts. Split only genuinely independent doc areas.
 3. **Run docs check.** The `documenter` agent runs:
