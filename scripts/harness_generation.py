@@ -477,7 +477,7 @@ def desired_agents(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 source = root / "agents" / harness / f"{name}.md"
                 target = base / f"{name}.md"
                 text = source.read_text(encoding="utf-8")
-                if harness in {"claude", "grok"}:
+                if harness in {"claude", "codex", "grok"}:
                     text = text.replace("](../../skills/", "](../skills/")
                 text = text.replace("](../handoff.md)", "](../runtime/handoff.md)")
             if harness not in {"codex", "grok"}:
