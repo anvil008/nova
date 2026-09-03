@@ -2,10 +2,10 @@
 model: gpt-5.6-sol
 official_source_urls:
   - https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6
-fetched_date: 2026-09-02
+fetched_date: 2026-09-03
 extractor_version: 1.1.0
 normalized_source_digests:
-  https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6: 8e594db98107ac144d6afdbc07438ea053ebe58c797f95eac06f610f40ae4ccb
+  https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6: 6005ec0311d2d8d23f2ae7ad93a910fb57cf4147b8e6f0fa0a50e6a8ae9aebda
 ---
 # GPT-5.6 Sol prompting guidance
 
