@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "contracts" / "harness-contracts.json"
 HARNESSES = ("claude", "codex", "agy", "grok")
-HARNESS_OWNED_SKILLS = frozenset({"claude", "codex", "agy"})
+HARNESS_OWNED_SKILLS = frozenset({"claude", "codex", "agy", "grok"})
 KINDS = ("skills", "agents")
 EXPECTED_SKILLS = frozenset(
     {

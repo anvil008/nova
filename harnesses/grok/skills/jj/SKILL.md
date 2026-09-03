@@ -6,30 +6,48 @@ metadata:
   version: "1.0.0"
 ---
 
-<!-- generated harness-owned procedure: Grok Build -->
-
 # Jujutsu (jj) Version Control
 
 Jujutsu is a Git-compatible VCS with mutable commits, automatic change tracking, and an operation log that makes every action undoable.
 
+Invocation: `/workcell:jj`
+Prompting Reference: [`docs/models/grok-4.6/prompting.md`](../../runtime/docs/models/grok-4.6/prompting.md)
+
 **Target version: jj 0.36+**
+
+Execute all `jj` operations via non-interactive shell commands. State goals, constraints, and target changesets explicitly. Handoff records conform to [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
+
+## Outcome, Constraints, and Success Criteria
+
+- **Outcome:** Execute clean, traceable VCS operations leveraging Jujutsu's first-class conflict handling, automatic snapshotting, and immutable change IDs.
+- **Constraints and Boundaries:** Never run interactive commands (always provide `-m` or file paths), never omit quotes around revset expressions, and verify state via `jj st` after mutations.
+- **Success Criteria:** Mutations reflect cleanly in the working copy and log, bookmarks are updated before push, and recovery paths remain intact via `jj op log`.
+
+## Ordered Gates
+
+Execution proceeds through three strict, ordered gates:
+
+1. **inspect state**: Inspect current working copy and log status (`jj st`, `jj log`) before planning mutations.
+2. **mutate with message**: Apply changes or VCS operations using non-interactive commands with explicit messages (`-m`).
+3. **verify state**: Verify resulting repository and working copy status (`jj st`) to confirm expected tree state and lack of unintended conflicts.
 
 ## Topics
 
-| I need to... | Deep dive |
-|--------------|-----------|
+| I need to...                                                  | Deep dive                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------- |
 | Understand how jj relates to Git, or use raw git in a jj repo | [git-compatibility.md](references/git-compatibility.md) |
-| Write revset, fileset, or template expressions | [revsets.md](references/revsets.md) |
-| Push, pull, manage bookmarks, or work with GitHub | [bookmarks.md](references/bookmarks.md) |
-| Split, rebase, squash, or resolve conflicts | [conflicts.md](references/conflicts.md) |
-| Run parallel agents with isolated working copies | [parallel-agents.md](references/parallel-agents.md) |
-| Configure jj, set up aliases, or customize diffs | [config-reference.md](references/config-reference.md) |
+| Write revset, fileset, or template expressions                | [revsets.md](references/revsets.md)                     |
+| Push, pull, manage bookmarks, or work with GitHub             | [bookmarks.md](references/bookmarks.md)                 |
+| Split, rebase, squash, or resolve conflicts                   | [conflicts.md](references/conflicts.md)                 |
+| Run parallel agents with isolated working copies              | [parallel-agents.md](references/parallel-agents.md)     |
+| Configure jj, set up aliases, or customize diffs              | [config-reference.md](references/config-reference.md)   |
 
 ## Mental Model
 
 **The working copy is a commit.** No staging area. Every file change is auto-snapshotted into `@` when you run any `jj` command. Instead of "stage → commit," just code and describe.
 
 **Change IDs are stable. Commit IDs are not.** Every commit has two identifiers:
+
 - **Change ID** — Stable across rewrites. Letters k–z (e.g., `tqpwlqmp`). Prefer these.
 - **Commit ID** — Content hash, changes on any rewrite. Hex digits. This is the Git commit ID in colocated repos.
 
@@ -86,6 +104,7 @@ jj squash -m "feat: final clean message"   # fold working copy into parent
 jj absorb                                   # auto-distribute hunks to right ancestor
 jj abandon @                               # drop a failed experiment
 ```
+
 → Deep dive: [command-gotchas.md](references/command-gotchas.md)
 
 ### Non-Linear Work
@@ -117,21 +136,21 @@ Bookmarks must be set before pushing — they don't auto-advance.
 
 ## Essential Commands
 
-| Task | Command |
-|------|---------|
-| Check status | `jj st` |
-| View diff / log | `jj diff` / `jj log` |
-| Describe current commit | `jj describe -m "message"` |
-| Start new work | `jj new -m "task description"` |
-| Edit an older commit | `jj edit <change-id>` |
-| Squash into parent | `jj squash` |
-| Auto-distribute changes | `jj absorb` |
-| Abandon a commit | `jj abandon <change-id>` |
-| Undo last operation | `jj undo` |
-| View operation history | `jj op log` |
-| Restore to earlier state | `jj op restore <op-id>` |
-| Create/move bookmark | `jj bookmark create <n> -r @` / `jj bookmark set <n> -r @` |
-| Push / fetch | `jj git push -b <bookmark>` / `jj git fetch` |
+| Task                     | Command                                                    |
+| ------------------------ | ---------------------------------------------------------- |
+| Check status             | `jj st`                                                    |
+| View diff / log          | `jj diff` / `jj log`                                       |
+| Describe current commit  | `jj describe -m "message"`                                 |
+| Start new work           | `jj new -m "task description"`                             |
+| Edit an older commit     | `jj edit <change-id>`                                      |
+| Squash into parent       | `jj squash`                                                |
+| Auto-distribute changes  | `jj absorb`                                                |
+| Abandon a commit         | `jj abandon <change-id>`                                   |
+| Undo last operation      | `jj undo`                                                  |
+| View operation history   | `jj op log`                                                |
+| Restore to earlier state | `jj op restore <op-id>`                                    |
+| Create/move bookmark     | `jj bookmark create <n> -r @` / `jj bookmark set <n> -r @` |
+| Push / fetch             | `jj git push -b <bookmark>` / `jj git fetch`               |
 
 For Git translations: [references/git-to-jj.md](references/git-to-jj.md)
 
@@ -150,41 +169,52 @@ jj evolog -r <change-id>     # see how a change evolved
 
 ## Common Mistakes
 
-| Mistake | Fix |
-|---------|-----|
-| Omitting `-m` on commands | Always pass `-m` — editor hangs agents |
-| Using `jj split` without file paths | Provide paths or use the `jj restore` workflow |
-| Forgetting to set bookmark before push | `jj bookmark set <name> -r @` first |
-| Using commit IDs instead of change IDs | Change IDs (letters k–z) survive rewrites |
-| Unquoted revset expressions | Always single-quote: `'mine() & ::@'` |
-| Confusing `::` vs `..` operators | `::` = ancestry path, `..` = range (see [revsets.md](references/revsets.md)) |
-| Creating workspaces as subdirectories | Must be sibling dirs, not children |
+| Mistake                                | Fix                                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| Omitting `-m` on commands              | Always pass `-m` — editor hangs agents                                       |
+| Using `jj split` without file paths    | Provide paths or use the `jj restore` workflow                               |
+| Forgetting to set bookmark before push | `jj bookmark set <name> -r @` first                                          |
+| Using commit IDs instead of change IDs | Change IDs (letters k–z) survive rewrites                                    |
+| Unquoted revset expressions            | Always single-quote: `'mine() & ::@'`                                        |
+| Confusing `::` vs `..` operators       | `::` = ancestry path, `..` = range (see [revsets.md](references/revsets.md)) |
+| Creating workspaces as subdirectories  | Must be sibling dirs, not children                                           |
 
 ## Reference Index
 
 **Git Interop:**
+
 - [references/git-to-jj.md](references/git-to-jj.md) — Git-to-jj command mapping
 - [references/git-experts.md](references/git-experts.md) — Why jj improves on Git
 - [references/git-compatibility.md](references/git-compatibility.md) — Git interop and colocated repos
 
 **Commands:**
+
 - [references/command-gotchas.md](references/command-gotchas.md) — Flag semantics, quoting, deprecated flags
 
 **Revsets & Templates:**
+
 - [references/revsets.md](references/revsets.md) — Complete revset language spec
 - [references/filesets.md](references/filesets.md) — Complete fileset language spec
 - [references/templates.md](references/templates.md) — Complete template language spec
 
 **Sharing:**
+
 - [references/bookmarks.md](references/bookmarks.md) — Complete bookmarks reference
 - [references/github.md](references/github.md) — GitHub/GitLab workflow details
 
 **History:**
+
 - [references/conflicts.md](references/conflicts.md) — Conflict handling and marker formats
 - [references/divergence.md](references/divergence.md) — Divergent changes guide
 
 **Config:**
+
 - [references/config-reference.md](references/config-reference.md) — Full configuration reference
 
 **Workspaces:**
+
 - [references/parallel-agents.md](references/parallel-agents.md) — Parallel agent setup guide
+
+## Harness Limitations
+
+Skill frontmatter fields `allowed-tools`, `model`, `effort`, `license`, and `compatibility` are unsupported for capability enforcement or routing under Grok Build; execution relies on native CLI flags (`--tools`, `--disallowed-tools`), agent definitions, capability modes, and specialist dispatch. API-only model controls and programmatic tool calling are unsupported in skill prompts.

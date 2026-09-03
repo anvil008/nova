@@ -3,15 +3,29 @@ name: perf
 description: Make something measurably faster — establish a baseline with the project's benchmark harness, optimize against it, and prove the gain is outside the noise. Refuses to proceed without a harness.
 ---
 
-<!-- generated harness-owned procedure: Grok Build -->
-
 # Perf
 
-Speed up code and prove it. Every other workflow's oracle is a boolean; this one's is a distribution, which changes how the whole thing is gated. One PR to `main`.
+Speed up code and prove it. While boolean suites test correctness, performance is evaluated against empirical distributions. One PR to `main` at the end.
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Invocation: `/workcell:perf`
+Prompting Reference: [`docs/models/grok-4.6/prompting.md`](../../runtime/docs/models/grok-4.6/prompting.md)
 
-This orchestrator holds the benchmark gate and decides whether a measured gain is outside the noise.
+You are the orchestrator ([`ADR 0007`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch specialists using `spawn_subagent` (running in foreground or with `background: true` tracked via `get_command_or_subagent_output`, or coordinated via `/workflow`), hold human gates, run VCS and workspace operations using shell execution, and read gate evidence and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code directly. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+
+## Outcome, Constraints, and Success Criteria
+
+- **Outcome:** Achieve measurable performance improvements demonstrated against established benchmarks with statistical confidence outside the noise.
+- **Constraints and Boundaries:** No harness, no run: refuse to invent ad-hoc timing scripts. Never sacrifice correctness: all existing tests must remain identically green under a baseline seal.
+- **Success Criteria:** Baseline and comparison distributions recorded with spread and run counts, green correctness baseline intact, and clean PR to `main` with distribution proofs.
+
+## Ordered Gates
+
+Execution proceeds through four strict, ordered gates:
+
+1. **benchmark baseline**: Establish baseline median and spread over repeated runs on the project benchmark harness.
+2. **optimization**: Implement targeted performance optimizations under a green baseline seal.
+3. **benchmark comparison**: Measure optimized code on identical hardware; comparison report proves gain is outside noise.
+4. **review**: Multi-lens review verifies performance improvements and correctness preservation.
 
 ## No harness, no run
 
@@ -21,22 +35,23 @@ This is the honest failure mode of this skill, and taking it is cheaper than the
 
 ## What counts as an improvement
 
-A change is faster when the difference is **outside the baseline's spread**, measured the same way on the same machine, with the run count stated. Anything inside the noise is *no measurable difference* — a real result, and one to report plainly rather than dress up. A codebase gets slower one unmeasurable "improvement" at a time, each of which looked positive in isolation.
+A change is faster when the difference is **outside the baseline's spread**, measured the same way on the same machine, with the run count stated. Anything inside the noise is _no measurable difference_ — a real result, and one to report plainly rather than dress up. A codebase gets slower one unmeasurable "improvement" at a time, each of which looked positive in isolation.
 
 Correctness is not negotiable for speed: a faster wrong answer is a regression. The suite stays green on every measured revision.
 
 ## Procedure
 
-1. **Baseline.** Dispatch a `profiler` to find the project's harness, state the measurement environment, and report median and spread with the run count. If it returns `blocked` for a missing harness, stop here.
-2. **Correctness baseline.** Dispatch an `integrator` with a brief conforming to [`agents/handoff.md`](../../runtime/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. Stop unless that baseline is green.
-3. **Locate and plan the cost.** Dispatch a `debugger` to profile and find where the time actually goes, then dispatch the `planner` with the profile and both baselines. Each issue is one independently measurable, behaviour-preserving optimization with a disjoint `ownershipHint`; its `acceptanceTests` name the existing tests whose outcomes must remain unchanged.
-4. **Optimize against a green baseline seal.** Run [`build`](../build/SKILL.md) in **single-PR mode** with no `specifier`. For each optimization, the orchestrator creates the workspace and branch on the integration base with `workcell-ws add perf/<issue-key> --base <integration-base>` — optimization branches take the `perf/` type ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)) — then dispatches an `integrator` with a brief conforming to [`agents/handoff.md`](../../runtime/handoff.md) carrying `mode: baseline`, that `workspace`, the existing correctness tests as `sealedTests`, and their exact suite argv as `baselineCommand`. It returns green evidence plus a `kind: baseline` seal and hands the seal to the builder with `tdd-guard handoff --to builder`. Only then dispatch the `builder` in that workspace with `mode: refactor`.
-
-   This is the same `tdd-guard` state machine with the RED requirement replaced by a GREEN one: sealed tests stay byte-identical, `verify --green-command` records a post-seal run, diff review binds the implementation diff, and the Stop hook and `status --json` work unchanged. The full gate is the profiler baseline plus that correctness state. Any optimization that changes observable behaviour is an ordinary planner issue and uses the normal `specifier` phase; it is not part of this behaviour-preserving path.
-5. **Measure again, the same way.** Dispatch the `profiler` over the change, with the same harness, machine, and run count as the baseline. It reports the comparison with its uncertainty and never decides whether the change is worth shipping — that is yours.
-6. **Keep only what paid.** An optimization inside the noise gets dropped, not merged: it bought nothing and cost readability. Say so in the PR — a documented negative result stops the next person from trying it again.
-7. **Integrate and open the final PR.** Dispatch an `integrator` over each wave and merge intermediate PRs to the integration branch only when the correctness gate and benchmark evidence are green. The final PR from that branch to `main` carries the before and after distributions, run counts, environment, correctness evidence, and every per-issue `Closes #<n>` line.
+1. **Benchmark baseline.** Dispatch a `profiler` via `spawn_subagent` to locate the project's benchmark harness, describe the test environment, and measure baseline median and spread across repeated runs. If the project lacks a benchmark harness, stop immediately and offer to create one first.
+2. **Correctness baseline.** Dispatch an `integrator` via `spawn_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) carrying `mode: baseline` on the untouched tree at `base`. Verification must be completely green before proceeding.
+3. **Profile and plan.** Dispatch a `debugger` via `spawn_subagent` to profile hotspots, then dispatch a `planner` via `spawn_subagent` with the profile and baselines. Each planned optimization has disjoint `ownershipHint` globs and specifies existing tests that must remain green. Stop for human approval.
+4. **Optimize under baseline seal.** Run [`build`](../build/SKILL.md) in single-PR mode omitting the specifier. Create a workspace with `workcell-ws add perf/<issue-key> --base <integration-base>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch an `integrator` via `spawn_subagent` with `mode: baseline` to establish a `kind: baseline` seal and hand off with `tdd-guard handoff --to builder`. Dispatch the `builder` via `spawn_subagent` with `mode: refactor` to implement optimizations without altering test files.
+5. **Benchmark comparison.** Dispatch the `profiler` via `spawn_subagent` over the optimized code on identical hardware. Confirm that improvements exceed baseline spread and variance. Drop changes whose performance differences fall within noise.
+6. **Integrate and PR.** Dispatch multi-lens `reviewer` agents via `spawn_subagent`. Dispatch an `integrator` via `spawn_subagent` over the wave. Open the single final PR to `main` including before/after distributions, environment specifications, and test proofs.
 
 ## Boundaries
 
 Never accept a single run as evidence, never quote a mean without a spread, and never report an improvement you cannot distinguish from noise. Never let a benchmark be "fixed" to produce a better number — the `profiler` has no write tools for exactly this reason. Never trade correctness for speed without stating the trade explicitly and getting the human to take it. Never extrapolate a microbenchmark to end-to-end behaviour: say what was measured, and say what was not.
+
+## Harness Limitations
+
+Skill frontmatter fields `allowed-tools`, `model`, `effort`, `license`, and `compatibility` are unsupported for capability enforcement or routing under Grok Build; execution relies on native CLI flags (`--tools`, `--disallowed-tools`), agent definitions, capability modes, and specialist dispatch. API-only model controls and programmatic tool calling are unsupported in skill prompts.

@@ -3,26 +3,48 @@ name: review-fix-loop
 description: Repeatedly review a change-set and have the builder fix what the review finds, on a dedicated loop-branch, bounded to a fixed number of passes. Drive it with the harness `/loop`; this skill is the body of one iteration and owns the stop conditions.
 ---
 
-<!-- generated harness-owned procedure: Grok Build -->
+# Review-Fix Loop
 
-# Review-fix loop
+Review, fix, re-review — on `loop-branch`, up to ten passes, stopping early when there is nothing left to fix or when fixing stops working.
 
-Review, fix, re-review — on `loop-branch`, up to ten passes, stopping early when there is nothing
-left to fix or when fixing stops working.
+Invocation: `/workcell:review-fix-loop`
+Prompting Reference: [`docs/models/grok-4.6/prompting.md`](../../runtime/docs/models/grok-4.6/prompting.md)
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+You are the orchestrator ([`ADR 0007`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch specialists using `spawn_subagent` (running in foreground or with `background: true` tracked via `get_command_or_subagent_output`, or coordinated via `/workflow`), hold human gates, run VCS and shell operations, and read gate evidence and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code directly. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-This orchestrator owns `loop-branch`, the iteration bound, and the stop decision returned by `loop_state.py`.
+## Outcome, Constraints, and Success Criteria
 
-The harness `/loop` provides the repetition. This skill provides what one iteration _does_ and,
-more importantly, when the loop must stop. Loop state lives in a file rather than in the session,
-because `/loop` re-invokes with a fresh context each tick and an agent that cannot remember which
-pass it is on will happily run forever.
+- **Outcome:** Iterate through review, fix, and verification cycles on `loop-branch` until findings at or above `--min-severity` are eliminated (`converged`) or honest termination is reached (`stalled` or `exhausted`).
+- **Constraints and Boundaries:** Never run on `main`, never merge `loop-branch`, never push without explicit user request, and never alter `--max-iterations` to bypass a stall.
+- **Success Criteria:** Verified fix commit for each productive iteration, clean termination via `loop_state.py`, and lessons consolidated into the project wiki.
+
+## Ordered Gates
+
+Execution proceeds through four strict, ordered gates:
+
+1. **review**: Run multi-lens review over current changes on `loop-branch` and adversarially verify all candidate findings.
+2. **fix**: Dispatch a builder to resolve substantiated findings at or above minimum severity.
+3. **verify**: Execute the project verification suite to ensure fixes are passing and cause no regressions.
+4. **bounded stop**: Evaluate loop convergence state via `loop_state.py` to stop upon convergence, stalling, or pass exhaustion.
+
+## Input and Output Contracts
+
+Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for parallel tasks, polled via `get_command_or_subagent_output`) or multi-step `/workflow` routines. Each dispatch exchanges structured handoff payloads conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
+
+- **Loop Reviewer Inputs and Outputs:**
+  - **Inputs:** `loop-branch` diff against base, target files, and review lenses.
+  - **Outputs:** Deduplicated, substantiated findings JSON with file, line, and severity rankings.
+- **Builder Fix Inputs and Outputs:**
+  - **Inputs:** Active findings list at or above minimum severity, `loop-branch` workspace, and verification command.
+  - **Outputs:** Verified code changes addressing findings, clean test execution logs, and commit record.
+- **Loop State Evaluator Inputs and Outputs:**
+  - **Inputs:** Previous loop iteration state JSON and newly generated review findings.
+  - **Outputs:** Updated loop state JSON and termination directive (`continue`, `converged`, `stalled`, or `exhausted`).
 
 ## Harness requirement
 
 This skill requires a harness with a `/loop` driver that re-invokes a prompt on a schedule.
-Today that is Claude Code (`/loop <interval> <prompt>`). Codex and Antigravity have no equivalent,
+Today that is Claude Code (`/loop <interval> <prompt>`). Codex, Antigravity, and Grok have no equivalent,
 so on those harnesses there is no automatic repetition: drive the loop manually by running the
 "Every tick" section below as one complete iteration per invocation, and re-invoke it yourself
 until `loop_state.py record` reports a stop. The state file makes this safe — every iteration
@@ -62,7 +84,7 @@ Do this once, then never again for the life of the loop.
 
 1. **Review.** Run the [`code-review`](../code-review/SKILL.md) skill over the diff between
    `loop-branch` and its base: select lenses from the change, fan out one read-only
-   `reviewer` per lens, then run the independent adversarial verification. Merge to a single
+   `reviewer` per lens via `spawn_subagent`, then run the independent adversarial verification. Merge to a single
    review JSON with `merge_findings.py --verification`. Do not skip verification to save a pass —
    an unverified finding sends the builder chasing something that is not there.
 
@@ -84,13 +106,13 @@ Do this once, then never again for the life of the loop.
    | `stalled`   | Two consecutive passes reported an _identical_ set of findings at or above `--min-severity` — the fixer is not moving. Clearing only lower findings does not count as movement. |
    | `exhausted` | Hit the iteration bound.                                                                                                                                                        |
 
-3. **Fix — only if `continue` is true.** Dispatch the `builder` to fix the reported findings,
+3. **Fix — only if `continue` is true.** Dispatch the `builder` via `spawn_subagent` to fix the reported findings,
    ranked by severity, `critical` and `high` first. Findings below `--min-severity` are optional
-   for the builder; fixing them is welcome but not what the loop is waiting on. Its dispatch brief conforms to [`agents/handoff.md`](../../runtime/handoff.md) and carries `mode: loop`: use the existing working copy on `loop-branch`, open no PR, and run no self-review passes. The `mode: loop` brief carries the findings, the implicated ownership, the documented verification command, and any sealed-test paths — and never the wiki or a namespace path, because the store sits outside every repository and the brief is the only way it could reach the fixer. Everything else holds, including `tdd-guard reseal --reason <text>` for a justified sealed-test amendment.
+   for the builder; fixing them is welcome but not what the loop is waiting on. Its dispatch brief conforms to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) and carries `mode: loop`: use the existing working copy on `loop-branch`, open no PR, and run no self-review passes. The `mode: loop` brief carries the findings, the implicated ownership, the documented verification command, and any sealed-test paths — and never the wiki or a namespace path, because the store sits outside every repository and the brief is the only way it could reach the fixer. Everything else holds, including `tdd-guard reseal --reason <text>` for a justified sealed-test amendment.
 
 4. **Verify and commit.** Read the builder's command-linked verification evidence. A red suite ends the iteration — commit nothing, and let the next pass see the same findings, which is exactly the signal `stalled` is designed to catch. On green, commit the iteration with the pass number in the message.
 
-5. Stop when `record` says stop. Report the ending status, the pass count, and the findings that
+5. **Stop when `record` says stop.** Report the ending status, the pass count, and the findings that
    remain.
 
 ## Stopping well
@@ -146,8 +168,8 @@ for it; it is the only place in this skill that touches the [`wiki`](../wiki/SKI
    agent dispatched in step 3, through this same CLI. `record` prints the raw id it wrote, and the
    dispatch below cites that printed id rather than a path.
 
-3. **Dispatch the consolidation.** Exactly one `documenter` dispatch, conforming to
-   [`agents/handoff.md`](../../runtime/handoff.md); a fan-out would race on the same append-only
+3. **Dispatch the consolidation.** Exactly one `documenter` dispatch via `spawn_subagent`, conforming to
+   [`anvil.agent-handoff/v1`](../../runtime/handoff.md); a fan-out would race on the same append-only
    pages. Its `ownership` is the namespace path that `status` printed —
    `~/.workcell/wiki/<project-key>/**` — resolved at dispatch time rather than written here as a
    literal. The brief carries that ownership, the raw id, the ending status and the pass count,
@@ -161,7 +183,7 @@ for it; it is the only place in this skill that touches the [`wiki`](../wiki/SKI
 4. **Read the gate.** The exit step is done when `wiki.py check` exits zero, having re-hashed
    every recorded file against its manifest and re-linked every citation. The orchestrator never
    reads the pattern pages to judge them; it sends each offender `check` names back to the same
-   agent instead of repairing a namespace itself.
+   agent instead of repairing a namespace yourself.
 
 ## Boundaries
 
@@ -179,3 +201,7 @@ python3 skills/review-fix-loop/scripts/loop_state.py --state .workcell/demo/loop
 python3 skills/review-fix-loop/scripts/loop_state.py --state .workcell/demo/loop.json record skills/code-review/examples/expected-review.json
 python3 skills/review-fix-loop/scripts/loop_state.py --state .workcell/demo/loop.json status
 ```
+
+## Harness Limitations
+
+Skill frontmatter fields `allowed-tools`, `model`, `effort`, `license`, and `compatibility` are unsupported for capability enforcement or routing under Grok Build; execution relies on native CLI flags (`--tools`, `--disallowed-tools`), agent definitions, capability modes, and specialist dispatch. API-only model controls and programmatic tool calling are unsupported in skill prompts.
