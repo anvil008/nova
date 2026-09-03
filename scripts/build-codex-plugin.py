@@ -162,6 +162,7 @@ def agent_skill(
     description = frontmatter_field(text, "description", path)
     body = FRONTMATTER.sub("", text).lstrip("\n")
     body = body.replace("](../runtime/handoff.md)", "](../../handoff.md)")
+    body = body.replace("](../skills/", "](../../skills/")
     skill = (
         f"---\nname: {AGENT_PREFIX}{name}\ndescription: {description}\n---\n\n"
         f"{body.rstrip()}\n{dispatch_contract}"
@@ -264,6 +265,10 @@ def build() -> Path:
         handoff = runtime / "handoff.md"
         if handoff.is_file():
             shutil.copy2(handoff, plugin_root / "handoff.md")
+        agents_out = plugin_root / "agents"
+        agents_out.mkdir(parents=True, exist_ok=True)
+        for agent, _ in agent_sources:
+            shutil.copy2(agent, agents_out / agent.name)
 
     # Real copies, never links: a symlink out of the plugin root does not survive
     # the install, and one that resolves inside it would be dereferenced anyway.
