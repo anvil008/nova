@@ -48,9 +48,9 @@ jobs:
       - name: Shell tests
         timeout-minutes: 10
         run: |
-          for test_script in scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh; do
-            bash "$test_script"
-          done
+          # Discovered suites: scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh
+          # (formerly serial: bash "$test_script")
+          bash scripts/run-tests.sh
 
   test:
     runs-on: ubuntu-latest
