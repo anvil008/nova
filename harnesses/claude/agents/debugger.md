@@ -7,8 +7,6 @@ effort: high
 mode: de-prescribed
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 
 # Debugger
 

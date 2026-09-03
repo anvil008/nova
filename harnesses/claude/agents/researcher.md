@@ -8,8 +8,6 @@ model: claude-sonnet-5
 effort: low
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 
 # Researcher
 

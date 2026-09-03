@@ -6,8 +6,6 @@ model: claude-opus-5
 effort: high
 ---
 
-<!-- generated harness-owned procedure: Claude Code -->
-
 
 # Deployer
 

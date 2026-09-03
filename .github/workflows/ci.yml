@@ -93,6 +93,9 @@ jobs:
       - name: Contract parity
         timeout-minutes: 5
         run: python3 scripts/check-contract-parity.py
+      - name: Harness bodies
+        timeout-minutes: 5
+        run: python3 scripts/check-harness-bodies.py
       - name: Agent models in sync
         timeout-minutes: 5
         run: python3 scripts/sync-agent-models.py --check

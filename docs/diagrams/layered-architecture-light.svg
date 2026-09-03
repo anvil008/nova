@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 292" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title diagram-desc">
+  <title id="diagram-title">Layered architecture of Workcell</title>
+  <desc id="diagram-desc">Workcell root defines shared contracts feeding four harness-owned families alongside shared scripts, tools, and repository tooling.</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#4b5563"/></marker><marker id="arrow-muted" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#7b8494"/></marker></defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
+    .label{font-size:14px;font-weight:600;fill:#111827;text-anchor:middle}
+    .sub{font-size:11.5px;font-style:italic;fill:#3d4657;text-anchor:middle}
+    .title{font-size:16px;font-weight:700;fill:#111827}
+    .legend{font-size:11.5px;fill:#3d4657}
+    .edgelabel{font-size:11.5px;fill:#3d4657}
+    .chip{fill:#ffffff;stroke:#d7dce3;stroke-width:1}
+    .plate{fill:#ffffff}
+    .edge{fill:none;stroke:#4b5563;stroke-width:1.6}
+    .edge.dashed{stroke:#7b8494;stroke-dasharray:6 4}
+    .frame{fill:none;stroke:#8a76d6;stroke-width:1.4;stroke-dasharray:1 4;stroke-linecap:round}
+    .frametext{font-size:11.5px;font-weight:600;fill:#4c3a94}
+    .crease{fill:none}
+    .inner{fill:none;stroke-width:1}
+    .k-agent{fill:#e7edfb;stroke:#2b53a8;stroke-width:1.6}
+    .k-gate{fill:#fdf0d5;stroke:#a2701a;stroke-width:1.6}
+    .k-human{fill:#e6f4ea;stroke:#1f7a45;stroke-width:1.6}
+    .k-artifact{fill:#f1f2f5;stroke:#5a6272;stroke-width:1.6}
+    .k-orchestrator{fill:#ece6fb;stroke:#5b3fbf;stroke-width:1.6}
+  </style>
+  <text class="title" x="20" y="32">Layered architecture of Workcell</text>
+  <rect class="k-agent" x="20" y="41" width="28" height="14" rx="3.92"/><text class="legend" text-anchor="start" x="52" y="52">agent</text><path class="k-artifact" d="M 103.21 41 L 126.31 41 L 131.21 45.9 L 131.21 55 L 103.21 55 Z"/><path class="k-artifact crease" d="M 126.31 41 L 126.31 45.9 L 131.21 45.9"/><text class="legend" text-anchor="start" x="135.21" y="52">artifact</text><rect class="k-orchestrator" x="195.74" y="41" width="28" height="14" rx="3.92"/><rect class="k-orchestrator inner" x="197.98" y="43.24" width="23.52" height="9.52" rx="1.68"/><text class="legend" text-anchor="start" x="227.74" y="52">orchestrator</text>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 129 Q 440 136 433 136 L 144 136 Q 137 136 137 143 L 137 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 129 Q 440 136 433 136 L 346 136 Q 339 136 339 143 L 339 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 129 Q 440 136 447 136 L 534 136 Q 541 136 541 143 L 541 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 129 Q 440 136 447 136 L 736 136 Q 743 136 743 143 L 743 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 137 198 L 137 205 Q 137 212 144 212 L 433 212 Q 440 212 440 219 L 440 226"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 339 198 L 339 205 Q 339 212 346 212 L 433 212 Q 440 212 440 219 L 440 226"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 541 198 L 541 205 Q 541 212 534 212 L 447 212 Q 440 212 440 219 L 440 226"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 743 198 L 743 205 Q 743 212 736 212 L 447 212 Q 440 212 440 219 L 440 226"/>
+  <rect class="k-orchestrator" x="338" y="74" width="204" height="48" rx="10"/><rect class="k-orchestrator inner" x="342" y="78" width="196" height="40" rx="6"/><text class="label" x="440" y="94.5">Workcell root</text><text class="sub" x="440" y="110">shared contracts and registry</text>
+  <rect class="k-agent" x="51" y="150" width="172" height="48" rx="10"/><text class="label" x="137" y="170.5">Claude Code</text><text class="sub" x="137" y="186">Agents · Skills · Scripts</text>
+  <rect class="k-agent" x="253" y="150" width="172" height="48" rx="10"/><text class="label" x="339" y="170.5">Codex</text><text class="sub" x="339" y="186">Agents · Skills · Scripts</text>
+  <rect class="k-agent" x="455" y="150" width="172" height="48" rx="10"/><text class="label" x="541" y="170.5">Antigravity (agy)</text><text class="sub" x="541" y="186">Agents · Skills · Scripts</text>
+  <rect class="k-agent" x="657" y="150" width="172" height="48" rx="10"/><text class="label" x="743" y="170.5">Grok Build</text><text class="sub" x="743" y="186">Agents · Skills · Scripts</text>
+  <path class="k-artifact" d="M 284 226 L 582 226 L 596 240 L 596 274 L 284 274 Z"/><path class="k-artifact crease" d="M 582 226 L 582 240 L 596 240"/><text class="label" x="440" y="246.5">Scripts, Tools, and everything else</text><text class="sub" x="440" y="262">shared runner, validators, and repository tooling</text>
+  
+  
+  
+  
+  
+  
+  
+  
+</svg>

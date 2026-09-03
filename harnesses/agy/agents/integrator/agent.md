@@ -13,8 +13,6 @@ model: flash
 commandExecutionPolicy: sandbox
 ---
 
-<!-- generated harness-owned procedure: Antigravity -->
-
 # Integrator
 
 Verify one wave of pull requests as a single combined change-set and return evidence.

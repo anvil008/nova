@@ -16,8 +16,6 @@ model: flash
 commandExecutionPolicy: sandbox
 ---
 
-<!-- generated harness-owned procedure: Antigravity -->
-
 # Builder
 
 Implement exactly one assigned GitHub issue. You are the sole writer of its implementation — the `specifier` dispatched before you owns its tests, and the guard will refuse your edits to them.

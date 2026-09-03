@@ -1251,5 +1251,798 @@ class SelfContainedInstallDocumentationTests(unittest.TestCase):
         self.assertEqual(entry["number"], SELF_CONTAINED_ADR_NUMBER)
 
 
+# The ADR this milestone records: layered architecture and harness-owned instructions.
+# 0024 was allocated to the Claude Fable roster decision; 0025 is the expected next free
+# ADR number recording the layered architecture.
+LAYERED_ARCH_ADR = "0025-*.md"
+LAYERED_ARCH_ADR_NUMBER = 25
+
+FALLBACK_MARKERS = (
+    "<!-- generated harness-owned procedure:",
+    "legacy-shared-body",
+    "MIGRATION FALLBACK",
+)
+
+HARNESS_SKILL_NAMES = (
+    "build",
+    "code-analysis",
+    "code-refactor",
+    "code-review",
+    "debug",
+    "deploy",
+    "docs",
+    "jj",
+    "new-feature",
+    "perf",
+    "plan",
+    "repo-setup",
+    "research",
+    "review-fix-loop",
+    "use-other-harness",
+    "wiki",
+)
+
+HARNESS_AGENT_NAMES = (
+    "builder",
+    "debugger",
+    "deployer",
+    "documenter",
+    "integrator",
+    "planner",
+    "profiler",
+    "researcher",
+    "reviewer",
+    "specifier",
+)
+
+
+def _scan_content_for_fallbacks(rel_path: str, content: str) -> list[str]:
+    violations = []
+    for marker in FALLBACK_MARKERS:
+        if marker in content:
+            violations.append(
+                f"artifact '{rel_path}' contains fallback marker '{marker}'"
+            )
+    return violations
+
+
+def _check_required_artifacts(
+    root: Path, required_map: dict[str, tuple[tuple[str, str], ...]]
+) -> list[str]:
+    violations = []
+    for harness, items in required_map.items():
+        for kind, name in items:
+            if kind == "skills":
+                expected = root / "harnesses" / harness / "skills" / name / "SKILL.md"
+            else:
+                expected = root / "harnesses" / harness / "agents" / f"{name}.md"
+            if not expected.is_file():
+                violations.append(
+                    f"missing required {kind[:-1]} artifact '{expected.relative_to(root)}'"
+                )
+    return violations
+
+
+def check_no_fallback_markers_and_sources(root: Path = ROOT) -> list[str]:
+    violations: list[str] = []
+
+    # 1. Check all 16 skills exist across four harnesses
+    for harness in ("claude", "codex", "grok"):
+        for skill in HARNESS_SKILL_NAMES:
+            skill_file = root / "harnesses" / harness / "skills" / skill / "SKILL.md"
+            if not skill_file.is_file():
+                violations.append(
+                    f"missing required skill artifact '{skill_file.relative_to(root)}'"
+                )
+
+    for skill in HARNESS_SKILL_NAMES:
+        if skill == "jj":
+            builder_jj = (
+                root
+                / "harnesses"
+                / "agy"
+                / "agents"
+                / "builder"
+                / "skills"
+                / "jj"
+                / "SKILL.md"
+            )
+            specifier_jj = (
+                root
+                / "harnesses"
+                / "agy"
+                / "agents"
+                / "specifier"
+                / "skills"
+                / "jj"
+                / "SKILL.md"
+            )
+            if (
+                not builder_jj.is_file()
+                and not (
+                    root / "harnesses" / "agy" / "skills" / "jj" / "SKILL.md"
+                ).is_file()
+            ):
+                violations.append(
+                    f"missing required skill artifact '{builder_jj.relative_to(root)}'"
+                )
+            if (
+                not specifier_jj.is_file()
+                and not (
+                    root / "harnesses" / "agy" / "skills" / "jj" / "SKILL.md"
+                ).is_file()
+            ):
+                violations.append(
+                    f"missing required skill artifact '{specifier_jj.relative_to(root)}'"
+                )
+        else:
+            skill_file = root / "harnesses" / "agy" / "skills" / skill / "SKILL.md"
+            if not skill_file.is_file():
+                violations.append(
+                    f"missing required skill artifact '{skill_file.relative_to(root)}'"
+                )
+
+    # 2. Check all 10 agents exist across four harnesses
+    for harness in ("claude", "codex", "grok"):
+        for agent in HARNESS_AGENT_NAMES:
+            agent_file = root / "harnesses" / harness / "agents" / f"{agent}.md"
+            if not agent_file.is_file():
+                violations.append(
+                    f"missing required agent artifact '{agent_file.relative_to(root)}'"
+                )
+
+    for agent in HARNESS_AGENT_NAMES:
+        agent_file = root / "harnesses" / "agy" / "agents" / agent / "agent.md"
+        if not agent_file.is_file():
+            violations.append(
+                f"missing required agent artifact '{agent_file.relative_to(root)}'"
+            )
+
+    # 3. Check for forbidden fallback markers in harnesses/ (excluding tests and pycache)
+    for harness in ("claude", "codex", "agy", "grok"):
+        h_dir = root / "harnesses" / harness
+        if not h_dir.is_dir():
+            continue
+        for p in h_dir.rglob("*"):
+            if not p.is_file():
+                continue
+            if "tests" in p.parts or "__pycache__" in p.parts:
+                continue
+            if p.suffix not in (".md", ".py", ".sh", ".json"):
+                continue
+            text = p.read_text(encoding="utf-8", errors="ignore")
+            for marker in FALLBACK_MARKERS:
+                if marker in text:
+                    violations.append(
+                        f"artifact '{p.relative_to(root)}' contains fallback marker '{marker}'"
+                    )
+
+    # 4. Check build scripts for MIGRATION FALLBACK
+    for script_name in (
+        "build-claude-plugin.py",
+        "build-codex-plugin.py",
+        "build-agy-plugin.py",
+        "build-grok-plugin.py",
+    ):
+        script_path = root / "scripts" / script_name
+        if script_path.is_file():
+            text = script_path.read_text(encoding="utf-8")
+            if "MIGRATION FALLBACK" in text:
+                violations.append(
+                    f"artifact '{script_path.relative_to(root)}' contains fallback marker 'MIGRATION FALLBACK'"
+                )
+
+    return violations
+
+
+class LayeredArchitectureDocumentationTests(unittest.TestCase):
+    """The repository's record of the layered architecture (plan09 wave 10, #167):
+    ADR 0025, ADR 0005 Status amendment, README architecture diagram, docs gate publication,
+    absence of fallback markers, and milestone definition-of-done verification."""
+
+    def assert_claim(self, text: str, where: str, *patterns: str) -> str:
+        """Fail unless one paragraph or list item makes the whole claim."""
+        unit = find_claim(text, *patterns)
+        if unit is None:
+            self.fail(
+                f"{where}: no single paragraph or list item states all of {list(patterns)}"
+            )
+        return unit
+
+    def layered_adr(self) -> tuple[Path, str]:
+        # Search for 0025-*.md, or any ADR titled layered architecture (number >= 24)
+        found = sorted(ADRS.glob(LAYERED_ARCH_ADR))
+        if not found:
+            found = [
+                p
+                for p in sorted(ADRS.glob("*.md"))
+                if int(p.name[:4]) >= 24
+                and any(
+                    k in p.name.lower()
+                    for k in ("layered", "architecture", "instruction")
+                )
+                and "fable" not in p.name.lower()
+            ]
+        self.assertEqual(
+            len(found),
+            1,
+            f"expected exactly one layered-architecture ADR (expected docs/adr/{LAYERED_ARCH_ADR}), "
+            f"found {[p.name for p in found]}",
+        )
+        self.assertRegex(found[0].name, ADR_FILENAME)
+        return found[0], found[0].read_text(encoding="utf-8")
+
+    def layered_adr_section(self, name: str) -> tuple[str, str]:
+        path, text = self.layered_adr()
+        body = section(text, name)
+        self.assertTrue(body.strip(), f"{path.name}: the {name} section is empty")
+        return f"{path.name} {name}", body
+
+    # --- 1. adr-0024-records-the-decision (unit) -----------------------------
+
+    def test_adr_0024_records_the_decision(self):
+        """adr-0024-records-the-decision (unit).
+
+        Oracle: Exactly one ADR 0024 [interpreted as next free ADR number, 0025,
+        per numbering fact] has required headings and records ADR 0005/0023, contracts,
+        four families, guides, omission rule, evals, standalone dist, and final roster choices.
+        """
+        path, text = self.layered_adr()
+        for name in ("Status", "Context", "Decision", "Consequences"):
+            self.assertRegex(
+                text, rf"(?mi)^#+\s*{name}\b", f"{path.name} has no {name} section"
+            )
+        self.assertRegex(section(text, "Status"), r"(?i)\bAccepted\b")
+        for name in ("Context", "Decision", "Consequences"):
+            self.assertTrue(
+                section(text, name).strip(), f"{path.name}: the {name} section is empty"
+            )
+
+        where, decision = self.layered_adr_section("Decision")
+        # Records ADR 0005 and ADR 0023
+        self.assert_claim(
+            text,
+            f"{path.name}",
+            r"0005",
+            r"0023",
+        )
+        # Shared contracts registry
+        self.assert_claim(
+            decision,
+            where,
+            r"contract",
+            r"harness-contracts\.json|contracts/",
+        )
+        # Four harness families owning instructions/runtime
+        self.assert_claim(
+            decision,
+            where,
+            r"claude",
+            r"codex",
+            r"antigravity|\bagy\b",
+            r"grok",
+        )
+        # Model guides and freshness check
+        self.assert_claim(
+            text,
+            f"{path.name}",
+            r"guide",
+            r"fresh",
+        )
+        # Omission rule: unsupported optional features omitted with notes, missing required values fail
+        self.assert_claim(
+            decision,
+            where,
+            r"omit|omission",
+            r"optional",
+            r"fail|required",
+        )
+        # Evals across four harnesses
+        self.assert_claim(
+            decision,
+            where,
+            r"eval",
+            r"run_evals|parity|harness",
+        )
+        # Standalone dist: self-contained copies per harness with no symlinks
+        self.assert_claim(
+            decision,
+            where,
+            r"dist",
+            r"self[- ]contain|standalone|symlink",
+        )
+        # Final roster choices: Claude Fable/Opus/Sonnet, Grok 4.6 pin
+        self.assert_claim(
+            text,
+            f"{path.name}",
+            r"roster|model",
+            r"fable|grok-4\.6|opus|sonnet",
+        )
+
+    # --- 2. adr-0005-points-forward-without-rewrite (unit) -------------------
+
+    def test_adr_0005_points_forward_without_rewrite(self):
+        """adr-0005-points-forward-without-rewrite (unit).
+
+        Oracle: ADR 0005 Status names 0024 [0025] while its historical Context/Decision/
+        Consequences remain; ADR 0023 remains deployment authority.
+        """
+        adr_0005_path = ADRS / "0005-unified-cross-harness-plugin-architecture.md"
+        self.assertTrue(adr_0005_path.is_file(), "missing ADR 0005")
+        adr_0005_text = adr_0005_path.read_text(encoding="utf-8")
+
+        # ADR 0005 Status points forward to the layered architecture ADR (0025)
+        status = section(adr_0005_text, "Status")
+        self.assertTrue(status.strip(), "ADR 0005 Status section is empty")
+        self.assertRegex(
+            status,
+            r"\b(?:0024|0025)\b",
+            f"{adr_0005_path.name}: Status section does not point forward to ADR 0024/0025",
+        )
+        self.assertRegex(
+            status,
+            r"(?i)supersed",
+            f"{adr_0005_path.name}: Status section does not describe supersession",
+        )
+
+        # Historical Context, Decision, and Consequences remain intact
+        context = section(adr_0005_text, "Context")
+        decision = section(adr_0005_text, "Decision")
+        consequences = section(adr_0005_text, "Consequences")
+
+        self.assertIn("~/.claude/agents", context)
+        self.assertIn("~/.codex/skills", context)
+        self.assertIn("Antigravity", context)
+
+        self.assertIn("plugins/agy/workcell", decision)
+        self.assertIn("plugins/claude/workcell", decision)
+        self.assertIn("plugins/codex/workcell", decision)
+        self.assertIn("scripts/install-harness.sh", decision)
+        self.assertIn("scripts/project-bootstrap.sh", decision)
+
+        self.assertIn("Cleaner Global Namespace", consequences)
+        self.assertIn("Project-Local Tooling", consequences)
+        self.assertIn("Migration Required", consequences)
+
+        # ADR 0023 remains deployment authority
+        adr_0023_path = ADRS / "0023-installs-are-self-contained-copies.md"
+        self.assertTrue(adr_0023_path.is_file(), "missing ADR 0023")
+        adr_0023_text = adr_0023_path.read_text(encoding="utf-8")
+        self.assertRegex(
+            section(adr_0023_text, "Status"),
+            r"(?i)\bAccepted\b",
+            "ADR 0023 Status is not Accepted",
+        )
+        self.assertNotRegex(
+            status,
+            r"(?i)supersedes?.*0023",
+            "ADR 0005 Status improperly supersedes ADR 0023 deployment authority",
+        )
+
+    # --- 3. readme-diagram-matches-request (unit) ----------------------------
+
+    def test_readme_diagram_matches_request(self):
+        """readme-diagram-matches-request (unit).
+
+        Oracle: Diagram source/rendered SVGs show one root, four harness boxes each with
+        Agents/Skills/Scripts, and shared Scripts/Tools/everything else, with equivalent nearby text.
+        """
+        # Diagram source JSON in docs/diagrams/src/
+        diagram_sources = list((ROOT / "docs" / "diagrams" / "src").glob("*.json"))
+        arch_sources = [
+            p
+            for p in diagram_sources
+            if any(k in p.stem for k in ("arch", "layered", "harness-layered"))
+        ]
+        self.assertTrue(
+            arch_sources,
+            "expected an architecture diagram source in docs/diagrams/src/ "
+            "(e.g. layered-architecture.json or architecture.json)",
+        )
+        source_path = arch_sources[0]
+        source = json.loads(source_path.read_text(encoding="utf-8"))
+        stem = source_path.stem
+
+        nodes = {node["id"]: node for node in source.get("nodes", [])}
+        labels_and_subs = [
+            (node.get("label", "") + " " + node.get("sub", ""))
+            for node in nodes.values()
+        ]
+
+        # One root: Workcell root
+        self.assertTrue(
+            any(re.search(r"(?i)workcell root", ls) for ls in labels_and_subs),
+            f"{source_path.name} is missing a 'Workcell root' node",
+        )
+
+        # Four harness boxes each with Agents/Skills/Scripts
+        for harness in ("claude", "codex", "agy", "grok"):
+            matching = [
+                ls
+                for ls in labels_and_subs
+                if (
+                    harness in ls.lower()
+                    or (harness == "agy" and "antigravity" in ls.lower())
+                )
+                and "agents" in ls.lower()
+                and "skills" in ls.lower()
+                and "scripts" in ls.lower()
+            ]
+            self.assertTrue(
+                matching,
+                f"{source_path.name} is missing a box for {harness} with Agents, Skills, and Scripts",
+            )
+
+        # Shared Scripts/Tools/everything else
+        self.assertTrue(
+            any(
+                "scripts" in ls.lower()
+                and "tools" in ls.lower()
+                and "everything else" in ls.lower()
+                for ls in labels_and_subs
+            ),
+            f"{source_path.name} is missing a 'Scripts/Tools/everything else' node",
+        )
+
+        # Rendered SVGs must exist
+        for theme in ("light", "dark"):
+            svg_path = DIAGRAMS / f"{stem}-{theme}.svg"
+            self.assertTrue(
+                svg_path.is_file(),
+                f"missing rendered SVG {svg_path.relative_to(ROOT)} — run scripts/render-diagrams.py",
+            )
+            svg_text = svg_path.read_text(encoding="utf-8")
+            self.assertIn("Workcell root", svg_text)
+            for harness_token in (
+                "Claude",
+                "Codex",
+                "Scripts",
+                "Tools",
+                "everything else",
+            ):
+                self.assertIn(harness_token, svg_text)
+
+        # README has picture block and alt text and nearby prose
+        readme = README.read_text(encoding="utf-8")
+        picture = re.search(
+            rf"(?s)<picture>((?:(?!</picture>).)*{re.escape(stem)}(?:(?!</picture>).)*)</picture>",
+            readme,
+        )
+        self.assertIsNotNone(picture, f"README.md has no {stem} <picture> block")
+        alt = re.search(
+            rf'<img alt="([^"]*)"[^>]*src="docs/diagrams/{re.escape(stem)}-light\.svg"',
+            picture.group(1),
+        )
+        self.assertIsNotNone(alt, f"the {stem} <img> has no alt text (ADR 0004)")
+        alt_text = alt.group(1)
+        for pattern in (
+            r"workcell root",
+            r"claude",
+            r"codex",
+            r"antigravity|\bagy\b",
+            r"grok",
+            r"agents",
+            r"skills",
+            r"scripts",
+            r"tools.*everything else|everything else",
+        ):
+            self.assertRegex(alt_text, rf"(?i){pattern}", f"{stem} alt text")
+
+        after = readme[picture.end() :]
+        stop = after.find("<picture>")
+        prose = after[: stop if stop != -1 else len(after)]
+        self.assert_claim(
+            prose,
+            f"README {stem} nearby prose",
+            r"workcell root",
+            r"claude",
+            r"codex",
+            r"antigravity|\bagy\b",
+            r"grok",
+        )
+        self.assert_claim(
+            prose,
+            f"README {stem} nearby prose",
+            r"agents",
+            r"skills",
+            r"scripts",
+        )
+        self.assert_claim(
+            prose,
+            f"README {stem} nearby prose",
+            r"scripts",
+            r"tools",
+            r"everything else",
+        )
+
+    # --- 4. docs-publish-all-gates (unit) ------------------------------------
+
+    def test_docs_publish_all_gates(self):
+        """docs-publish-all-gates (unit).
+
+        Oracle: Docs name agent/skill sync, freshness, parity, four eval commands and
+        four stagers, and mark generated outputs non-editable.
+        """
+        doc_files = [
+            README,
+            ROOT / "docs" / "gates.md",
+            ROOT / "docs" / "install.md",
+        ]
+        combined_docs = "\n".join(
+            p.read_text(encoding="utf-8") for p in doc_files if p.is_file()
+        )
+
+        # Agent sync and skill sync
+        self.assertRegex(
+            combined_docs,
+            r"sync-agents\.py(?:\s+--check)?",
+            "docs do not name sync-agents.py gate",
+        )
+        self.assertRegex(
+            combined_docs,
+            r"sync-skills\.py(?:\s+--check)?",
+            "docs do not name sync-skills.py gate",
+        )
+
+        # Model guide freshness
+        self.assertRegex(
+            combined_docs,
+            r"check_guides\.py(?:\s+--check)?|guide freshness",
+            "docs do not name model guide freshness gate",
+        )
+
+        # Contract parity
+        self.assertRegex(
+            combined_docs,
+            r"check-contract-parity\.py|contract parity",
+            "docs do not name contract parity gate",
+        )
+
+        # Four eval commands
+        for harness in ("claude", "codex", "agy", "grok"):
+            self.assertRegex(
+                combined_docs,
+                rf"run_evals\.py[^\n]*--harness\s+{harness}",
+                f"docs do not name run_evals.py --harness {harness} command",
+            )
+
+        # Four stagers
+        for harness in ("claude", "codex", "agy", "grok"):
+            self.assertRegex(
+                combined_docs,
+                rf"build-{harness}-plugin\.py",
+                f"docs do not name build-{harness}-plugin.py stager",
+            )
+
+        # Mark generated outputs non-editable
+        self.assert_claim(
+            combined_docs,
+            "docs generated output policy",
+            r"generated",
+            r"not (?:be )?edit|non[- ]editable|fail|overwritten|read[- ]only",
+        )
+
+    # --- 5. no-fallback-survives (integration) -------------------------------
+
+    def test_no_fallback_survives(self):
+        """no-fallback-survives (integration).
+
+        Oracle: No legacy-shared-body marker exists and every 16-skill/10-agent source
+        exists in four harness roots; deletion or marker fails naming artifact.
+        """
+        # Test the checker itself on simulated failure cases to ensure
+        # "deletion or marker fails naming artifact".
+        synthetic_violations_marker = _scan_content_for_fallbacks(
+            "dummy/path/SKILL.md",
+            "some text <!-- generated harness-owned procedure: test --> more text",
+        )
+        self.assertTrue(synthetic_violations_marker)
+        self.assertIn("dummy/path/SKILL.md", synthetic_violations_marker[0])
+
+        synthetic_violations_missing = _check_required_artifacts(
+            ROOT, {"claude": (("skills", "missing-skill"),)}
+        )
+        self.assertTrue(synthetic_violations_missing)
+        self.assertIn("missing-skill", synthetic_violations_missing[0])
+
+        # Live verification across the repository
+        violations = check_no_fallback_markers_and_sources(ROOT)
+        self.assertEqual(
+            violations,
+            [],
+            "fallback markers survive or required harness sources are missing:\n"
+            + "\n".join(violations),
+        )
+
+    # --- 6. milestone-definition-of-done-is-green (e2e) ----------------------
+
+    def test_milestone_definition_of_done_is_green(self):
+        """milestone-definition-of-done-is-green (e2e).
+
+        Oracle: Freshness, both sync checks, parity, four run_evals --harness commands,
+        and four stagers exit 0; every dist has real Agents/Skills/Runtime and no symlink.
+        """
+        # 1. Freshness check
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "docs" / "models" / "check" / "check_guides.py"),
+                "--check",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(
+            res.returncode, 0, f"check_guides failed: {res.stdout}\n{res.stderr}"
+        )
+
+        # 2. Both sync checks
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "sync-agents.py"),
+                "--check",
+                "--diff",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(
+            res.returncode, 0, f"sync-agents failed: {res.stdout}\n{res.stderr}"
+        )
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "sync-skills.py"),
+                "--check",
+                "--diff",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(
+            res.returncode, 0, f"sync-skills failed: {res.stdout}\n{res.stderr}"
+        )
+
+        # 3. Contract parity
+        res = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "check-contract-parity.py")],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(
+            res.returncode,
+            0,
+            f"check-contract-parity failed: {res.stdout}\n{res.stderr}",
+        )
+
+        # 4. Four run_evals --harness commands
+        for harness in ("claude", "codex", "agy", "grok"):
+            res = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "evals" / "run_evals.py"),
+                    "--harness",
+                    harness,
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(
+                res.returncode,
+                0,
+                f"run_evals --harness {harness} failed: {res.stdout}\n{res.stderr}",
+            )
+
+        # 5. Four stagers
+        for harness in ("claude", "codex", "agy", "grok"):
+            res = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / f"build-{harness}-plugin.py")],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(
+                res.returncode,
+                0,
+                f"build-{harness}-plugin failed: {res.stdout}\n{res.stderr}",
+            )
+
+        # 6. Every dist has real Agents/Skills/Runtime and no symlink
+        dist_plugin_roots = {
+            "claude": ROOT / "dist" / "claude" / "workcell",
+            "codex": ROOT / "dist" / "codex" / "plugins" / "workcell",
+            "agy": ROOT / "dist" / "agy" / "workcell",
+            "grok": ROOT / "dist" / "grok" / "plugins" / "workcell",
+        }
+        for harness, plugin_root in dist_plugin_roots.items():
+            dist_harness_root = ROOT / "dist" / harness
+            self.assertTrue(
+                dist_harness_root.is_dir(),
+                f"{harness}: missing dist root {dist_harness_root.relative_to(ROOT)}",
+            )
+            # No symlinks
+            symlinks = [p for p in dist_harness_root.rglob("*") if p.is_symlink()]
+            self.assertEqual(
+                symlinks,
+                [],
+                f"{harness} dist contains symlinks: {[str(p.relative_to(ROOT)) for p in symlinks]}",
+            )
+            # Contains real directory names for agents, skills, runtime
+            dir_names = {p.name for p in plugin_root.rglob("*") if p.is_dir()}
+            self.assertIn(
+                "agents", dir_names, f"{harness} dist missing agents directory"
+            )
+            self.assertIn(
+                "skills", dir_names, f"{harness} dist missing skills directory"
+            )
+            self.assertIn(
+                "runtime", dir_names, f"{harness} dist missing runtime directory"
+            )
+
+            # Real files (non-empty)
+            files = [p for p in plugin_root.rglob("*") if p.is_file()]
+            self.assertTrue(files, f"{harness} dist has no files")
+            for f in files:
+                self.assertGreater(
+                    f.stat().st_size, 0, f"{f.relative_to(ROOT)} is empty"
+                )
+
+            # No fallback markers in staged dist
+            for f in files:
+                if f.suffix in (".md", ".py", ".sh", ".json"):
+                    text = f.read_text(encoding="utf-8", errors="ignore")
+                    for marker in (
+                        "<!-- generated harness-owned procedure:",
+                        "legacy-shared-body",
+                        "MIGRATION FALLBACK",
+                    ):
+                        self.assertNotIn(
+                            marker,
+                            text,
+                            f"staged dist file {f.relative_to(ROOT)} contains fallback marker {marker!r}",
+                        )
+
+        # 7. Mechanical docs gate is green and inspects the layered architecture ADR
+        res = subprocess.run(
+            [sys.executable, "-B", str(DOCS_CHECK), str(ROOT)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(
+            res.returncode, 0, f"docs_check failed: {res.stdout}\n{res.stderr}"
+        )
+        report = json.loads(res.stdout)
+        self.assertEqual(report.get("violations", []), [])
+        adr, _ = self.layered_adr()
+        entry = next(
+            (
+                item
+                for item in report.get("adrs", [])
+                if item["path"].endswith(adr.name)
+            ),
+            None,
+        )
+        self.assertIsNotNone(entry, f"the docs gate did not inspect {adr.name}")
+        self.assertTrue(
+            entry["ok"], f"{adr.name} is missing sections: {entry.get('missing')}"
+        )
+        self.assertEqual(entry["number"], LAYERED_ARCH_ADR_NUMBER)
+
+
 if __name__ == "__main__":
     unittest.main()
