@@ -117,14 +117,18 @@ In addition to runtime tool-event hooks, Workcell enforces mechanical repository
    `python3 scripts/check-contract-parity.py`
    Enforces contract parity across all four harness families defined in `contracts/harness-contracts.json`.
 
-5. **Cross-Harness Evaluation Gates**:
+5. **Harness Body Checker Gate**:
+   `python3 scripts/check-harness-bodies.py`
+   Validates harness-owned bodies against shared sources across all harness families, ensuring that no procedures, headings, commands, tables, links, or contract strings are lost.
+
+6. **Cross-Harness Evaluation Gates**:
    Behavioral and structural evaluation suites run per harness:
    - `python3 evals/run_evals.py --harness claude`
    - `python3 evals/run_evals.py --harness codex`
    - `python3 evals/run_evals.py --harness agy`
    - `python3 evals/run_evals.py --harness grok`
 
-6. **Harness Stagers**:
+7. **Harness Stagers**:
    Plugin trees are built into standalone distribution directories via four harness stagers:
    - `python3 scripts/build-claude-plugin.py`
    - `python3 scripts/build-codex-plugin.py`
