@@ -33,8 +33,19 @@ Execution proceeds through five strict, ordered gates:
 1. **Survey and interview.** Dispatch a `researcher` via `spawn_agent` and execute `scripts/bootstrap-project.sh <dir>` to inspect repository state, language manifests, and existing tooling. Interview the user to determine project purpose, canonical verification commands, build runners (e.g., standard vs Bazel), version control adoption, and lint/format tools.
 2. **Version control.** When adopting Jujutsu, initialize colocation at repository root: `jj git init --colocate`. Otherwise ensure git worktree compatibility via `workcell-ws` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)).
 3. **Instruction setup.** Dispatch a `documenter` via `spawn_agent` to create `AGENTS.md` as the single source of truth, detailing project purpose, directory layout, verification commands, and conventions. Symlink harness-specific instruction files: `ln -sf AGENTS.md CLAUDE.md`.
-4. **Build runner and tooling.** Configure build and test runners. Install stack-specific linters and formatters.
+4. **Build runner and tooling.** Configure build and test runners. Install stack-specific linters and formatters and wire advisory hooks:
+
+   ```bash
+   scripts/bootstrap-project.sh --install --with-hooks <dir>
+   ```
+
+   Everything it writes is added to the repository's `info/exclude`, so none of it shows up in a diff or a commit. Any config that is genuinely code — a CI workflow, a build file, a Bazel target — goes through a `builder` test-first where it is testable, not hand-edited here.
+
 5. **Baseline verification.** Dispatch an `integrator` via `spawn_agent` with `mode: baseline` conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) to confirm documented build, test, and lint commands run cleanly.
+
+## Boundaries
+
+Never overwrite an existing `AGENTS.md`, `CLAUDE.md`, or CI workflow without showing the human what changes — these encode decisions you were not present for. Never invent a build or test command to fill a section; if none exists, say so and offer to create one. Never adopt jj or Bazel because they are available: both are answers to specific problems, and imposing them on a repo that does not have those problems is a cost with no return. This skill sets a repository up; it does not implement features in it.
 
 ## Harness Limitations
 

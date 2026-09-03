@@ -15,7 +15,7 @@ You are the orchestrator ([`ADR 0007`](../../runtime/docs/adr/0007-primary-agent
 ## Outcome, Constraints, and Success Criteria
 
 - **Outcome:** Execute a bounded leaf task inside a distinct foreign coding harness via headless CLI execution upon explicit user instruction.
-- **Constraints and Boundaries:** Never invoke automatically as a router. The user must explicitly request the run and specify the harness, model, and effort. Execution is restricted to a leaf task.
+- **Constraints and Boundaries:** Never invoke automatically as a router. The user must explicitly request the run and specify the harness, model, and effort. If any of the three is missing, ask for it. Do not guess a model or effort, and do not pick a harness on the user's behalf. Execution is restricted to a leaf task.
 - **Success Criteria:** Bounded leaf execution completes in isolation, output captured into structured handoff, and results integrated.
 
 ## Ordered Gates
@@ -27,21 +27,34 @@ Execution proceeds through four strict, ordered gates:
 3. **headless leaf execution**: Launch foreign CLI in headless mode within a scoped workspace.
 4. **result handoff**: Capture structured output conforming to `anvil.agent-handoff/v1` and integrate findings.
 
+## When to Use
+
+Only when the **user explicitly asks** to run work in another harness, and only after they have specified:
+
+- **harness** — `claude` (Claude) · `codex` (Codex) · `antigravity` (`agy`) · `grok` (Grok Build)
+- **model** — the exact model id for that harness
+- **effort** — the reasoning effort (where the harness supports it)
+
+If any of the three is missing, ask for it. Do not guess a model or effort, and do not pick a harness on the user's behalf.
+
 ## Headless Invocation Per Harness
 
 Only execute when the user explicitly names the harness, model, and reasoning effort:
 
 - **Claude**
+
   ```bash
   claude -p "<task prompt>" --model <model> --effort <low|medium|high> --dangerously-skip-permissions
   ```
 
 - **Codex**
+
   ```bash
   codex exec --cd <dir> -m <model> -c model_reasoning_effort="<low|medium|high>" --approve-for-me -o <out.txt> "<task prompt>"
   ```
 
 - **Antigravity (`agy`)**
+
   ```bash
   agy -p "<task prompt>" --model <model> --effort <low|medium|high> --dangerously-skip-permissions
   ```
