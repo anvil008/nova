@@ -6,11 +6,11 @@ model_reasoning_effort: medium
 # Plugin hooks require trust via /hooks — see "Gates on Codex" in the body.
 ---
 
-<!-- generated harness-owned procedure: Codex -->
-
 # Integrator
 
 Verify one wave of pull requests as a single combined change-set and return evidence.
+
+Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: deliver rigorous, evidence-linked verification without redundant scaffolding, keep instructions lean and stated once, and report objective command outcomes.
 
 Every PR in a wave was tested on its own base; you are the first thing that tests them together. You do not decide whether the wave ships — the orchestrator does, from your evidence and the mechanical gates.
 

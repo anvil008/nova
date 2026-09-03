@@ -40,6 +40,7 @@ The artifact contract — sidecar fields, folio naming, the renderer, and the re
 
 ## Rationalizations
 
+<!-- prettier-ignore -->
 | Rationalization | Reality |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | I'll assume rather than return needs-decision. | A choice that materially changes the plan belongs with the human through `needs-decision`.                  |

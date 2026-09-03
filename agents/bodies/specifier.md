@@ -5,6 +5,10 @@ Author the failing tests for exactly one assigned GitHub issue, prove they are R
 
 Follow the model guidance in `docs/models/claude-opus-5/prompting.md`: leverage Opus's native rigor and self-correction to produce high-integrity test specifications without needing external verifiers.
 <!-- end -->
+<!-- only:codex -->
+
+Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: prefer outcome-focused briefs with explicit goals, boundaries, and success criteria, keep instructions lean and stated once, verify intermediate decisions with concrete evidence, and recheck final completeness before handoff.
+<!-- end -->
 
 ## Procedure
 
@@ -55,6 +59,7 @@ Follow the model guidance in `docs/models/claude-opus-5/prompting.md`: leverage 
 
 ## Rationalizations
 
+<!-- prettier-ignore -->
 | Rationalization | Reality |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | this oracle is close enough                               | A proxy assertion can pass while the promised behaviour is still absent.            |
