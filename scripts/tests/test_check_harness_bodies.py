@@ -112,7 +112,7 @@ class CheckHarnessBodiesTest(unittest.TestCase):
         source = (
             "# Demo\n\n"
             "Run python3 skills/demo/scripts/helper.py to generate data.\n\n"
-            "Then execute tdd-guard verify --all and jj git push.\n"
+            "Then execute `tdd-guard verify --all` and `jj git push`.\n"
         )
         (self.test_root / "skills" / "demo" / "SKILL.md").write_text(
             source, encoding="utf-8"
@@ -123,7 +123,7 @@ class CheckHarnessBodiesTest(unittest.TestCase):
             "# Demo\n\n"
             "Invocation: `/workcell:demo`\n\n"
             "Schema: `anvil.agent-handoff/v1`\n\n"
-            "Then execute jj git push.\n"
+            "Then execute `jj git push`.\n"
         )
         body_file = (
             self.test_root / "harnesses" / "claude" / "skills" / "demo" / "SKILL.md"
@@ -137,6 +137,79 @@ class CheckHarnessBodiesTest(unittest.TestCase):
         details = " ".join(v["detail"] for v in lost_cmds)
         self.assertIn("skills/demo/scripts/helper.py", details)
         self.assertIn("tdd-guard verify", details)
+
+    def test_tool_invocation_prose_vs_code(self) -> None:
+        # Prose mentions like "gh issue", "jj repo", "jj improves" without backticks must NOT be extracted.
+        # Backtick tokens and fenced command blocks MUST be extracted.
+        source = (
+            "# Demo\n\n"
+            "We discussed gh issue tracking and how jj repo adoption jj improves workflow.\n\n"
+            "Execute `tdd-guard verify --all` before pushing.\n\n"
+            "```bash\njj status\n```\n"
+        )
+        (self.test_root / "skills" / "demo" / "SKILL.md").write_text(
+            source, encoding="utf-8"
+        )
+
+        # Body satisfies backtick and fenced invocations, completely ignores prose tokens
+        body = (
+            "# Demo\n\n"
+            "Invocation: `/workcell:demo`\n\n"
+            "Schema: `anvil.agent-handoff/v1`\n\n"
+            "Run `tdd-guard verify --all` and `jj status`.\n"
+        )
+        body_file = (
+            self.test_root / "harnesses" / "claude" / "skills" / "demo" / "SKILL.md"
+        )
+        body_file.write_text(body, encoding="utf-8")
+
+        code, violations = self.run_checker("--json")
+        self.assertEqual(code, 0)
+        self.assertEqual(violations, [])
+
+        # If body omits the real backtick invocation, it fires
+        body_missing = (
+            "# Demo\n\n"
+            "Invocation: `/workcell:demo`\n\n"
+            "Schema: `anvil.agent-handoff/v1`\n\n"
+            "Run `jj status`.\n"
+        )
+        body_file.write_text(body_missing, encoding="utf-8")
+        code, violations = self.run_checker("--json")
+        self.assertEqual(code, 1)
+        self.assertTrue(any("tdd-guard verify" in v["detail"] for v in violations))
+        self.assertFalse(any("gh issue" in v["detail"] for v in violations))
+        self.assertFalse(any("jj repo" in v["detail"] for v in violations))
+
+    def test_fenced_command_normalisation_and_comments_and_prompts(self) -> None:
+        # Fenced command block with leading $ prompts and trailing # inline comments
+        source = (
+            "# Demo\n\n"
+            "```bash\n"
+            "$ ln -sf AGENTS.md CLAUDE.md      # and GEMINI.md where a harness wants its own name\n"
+            "$ python3 skills/demo/scripts/helper.py --flag1   # trailing comment\n"
+            "```\n"
+        )
+        (self.test_root / "skills" / "demo" / "SKILL.md").write_text(
+            source, encoding="utf-8"
+        )
+
+        # Body matches normalized command / first token + script path without prompt or comment
+        body = (
+            "# Demo\n\n"
+            "Invocation: `/workcell:demo`\n\n"
+            "Schema: `anvil.agent-handoff/v1`\n\n"
+            "Symlink instruction files: `ln -sf AGENTS.md CLAUDE.md`.\n"
+            "Run helper: `python3 skills/demo/scripts/helper.py`.\n"
+        )
+        body_file = (
+            self.test_root / "harnesses" / "claude" / "skills" / "demo" / "SKILL.md"
+        )
+        body_file.write_text(body, encoding="utf-8")
+
+        code, violations = self.run_checker("--json")
+        self.assertEqual(code, 0)
+        self.assertEqual(violations, [])
 
     def test_lost_command_fenced_block(self) -> None:
         source = "# Demo\n\n```bash\nworkcell-ws setup-cluster --nodes 3\n```\n"

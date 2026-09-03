@@ -47,9 +47,17 @@ SCRIPT_PATH_RE = re.compile(
 TOOL_INVOCATION_RE = re.compile(
     r"\b(tdd-guard\s+[a-z0-9_-]+|jj\s+[a-z0-9_-]+|gh\s+[a-z0-9_-]+)\b"
 )
+INLINE_CODE_RE = re.compile(r"(`+)(.+?)\1")
 
 # Table separator row pattern
 TABLE_SEP_RE = re.compile(r"^\s*\|?\s*[-:]+[-| :]*\|?\s*$")
+
+
+def normalise_command(cmd: str) -> str:
+    """Normalise command by stripping leading prompts, trailing comments, and whitespace."""
+    clean = re.sub(r"^\$\s*", "", cmd.strip())
+    clean = re.sub(r"(?:^|\s+)#.*$", "", clean)
+    return clean.strip()
 
 
 @dataclass(frozen=True)
@@ -198,10 +206,17 @@ def extract_tool_invocations(text: str) -> list[tuple[int, str]]:
         if stripped.startswith("```"):
             in_code = not in_code
             continue
-        if in_code and stripped.startswith("#"):
-            continue
-        for match in TOOL_INVOCATION_RE.finditer(line):
-            invocations.append((i, match.group(0)))
+        if in_code:
+            if stripped.startswith("#"):
+                continue
+            code_line = re.sub(r"(?:^|\s+)#.*$", "", line)
+            for match in TOOL_INVOCATION_RE.finditer(code_line):
+                invocations.append((i, match.group(0)))
+        else:
+            for span_match in INLINE_CODE_RE.finditer(line):
+                span_text = span_match.group(2)
+                for match in TOOL_INVOCATION_RE.finditer(span_text):
+                    invocations.append((i, match.group(0)))
     return invocations
 
 
@@ -499,14 +514,30 @@ def check_body(
     source_command_blocks = extract_command_blocks(source_text)
     for start_line, cmd_lines in source_command_blocks:
         represented = False
-        for cmd in cmd_lines:
-            for match in SCRIPT_PATH_RE.finditer(cmd):
-                if (
-                    match.group(0) in body_text
-                    or Path(match.group(0)).name in body_text
-                ):
-                    represented = True
-                    break
+        for raw_cmd in cmd_lines:
+            cmd = normalise_command(raw_cmd)
+            if not cmd:
+                continue
+            script_match = SCRIPT_PATH_RE.search(cmd)
+            if script_match:
+                script_path = script_match.group(0)
+                script_name = Path(script_path).name
+                first_token = cmd.split()[0]
+                if first_token != script_path:
+                    token_plus_script = f"{first_token} {script_path}"
+                    token_plus_name = f"{first_token} {script_name}"
+                    if (
+                        token_plus_script in body_text
+                        or token_plus_name in body_text
+                        or script_path in body_text
+                        or script_name in body_text
+                    ):
+                        represented = True
+                        break
+                else:
+                    if script_path in body_text or script_name in body_text:
+                        represented = True
+                        break
             if represented:
                 break
             for match in TOOL_INVOCATION_RE.finditer(cmd):
@@ -519,6 +550,12 @@ def check_body(
             if len(first_cmd) > 5 and first_cmd in body_text:
                 represented = True
                 break
+            tokens = first_cmd.split()
+            if len(tokens) >= 2:
+                prefix = f"{tokens[0]} {tokens[1]}"
+                if len(prefix) > 5 and prefix in body_text:
+                    represented = True
+                    break
         if not represented:
             sample = cmd_lines[0] if cmd_lines else "empty"
             violations.append(
