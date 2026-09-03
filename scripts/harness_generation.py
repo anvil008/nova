@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "contracts" / "harness-contracts.json"
 HARNESSES = ("claude", "codex", "agy", "grok")
-HARNESS_OWNED_SKILLS = frozenset({"claude", "codex"})
+HARNESS_OWNED_SKILLS = frozenset({"claude", "codex", "agy"})
 KINDS = ("skills", "agents")
 EXPECTED_SKILLS = frozenset(
     {
@@ -225,6 +225,34 @@ def _resolved_model(models: dict, agent: str, harness: str) -> dict:
     return values
 
 
+def _scoped_owners(root: Path, registry: dict, harness: str, skill: str) -> list[str]:
+    """Agents of `harness` that carry `skill` inside themselves instead of globally."""
+    return [
+        entry["name"]
+        for entry in registry["agents"]
+        if (
+            root
+            / "harnesses"
+            / harness
+            / "agents"
+            / entry["name"]
+            / "skills"
+            / skill
+            / "SKILL.md"
+        ).is_file()
+    ]
+
+
+def _declares_agent_scope(registry: dict, agent: str, harness: str) -> bool:
+    entry = next(item for item in registry["agents"] if item["name"] == agent)
+    return any(
+        surface["harness"] == harness
+        and surface["name"] == GLOBAL_SKILL_SURFACE
+        and surface["supported"] is False
+        for surface in entry["optionalSurfaces"]
+    )
+
+
 def validate_required(root: Path, registry: dict, kind: str) -> None:
     models = _models(root) if kind == "agents" else {}
     for entry in registry[kind]:
@@ -243,6 +271,10 @@ def validate_required(root: Path, registry: dict, kind: str) -> None:
                                 / name
                                 / "SKILL.md"
                             )
+                            if not path.is_file() and _scoped_owners(
+                                root, registry, harness, name
+                            ):
+                                continue
                         else:
                             path = root / "skills" / name / "SKILL.md"
                     elif harness == "agy":
@@ -550,6 +582,15 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                     root / "docs/models/gpt-5.6-sol/prompting.md",
                     Path("docs/models/gpt-5.6-sol/prompting.md"),
                 )
+            )
+        elif harness == "agy":
+            runtime_docs.extend(
+                [
+                    (
+                        root / "docs/models/gemini-3.7-flash/prompting.md",
+                        Path("docs/models/gemini-3.7-flash/prompting.md"),
+                    ),
+                ]
             )
         for source, relative in runtime_docs:
             _add_tree(desired, source, base / relative)
@@ -862,34 +903,6 @@ def sync(kind: str, check: bool = False, diff: bool = False, root: Path = ROOT) 
                 directory.rmdir()
     print(f"{len(drifted)} file(s) updated" if drifted else "already in sync")
     return 0
-
-
-def _scoped_owners(root: Path, registry: dict, harness: str, skill: str) -> list[str]:
-    """Agents of `harness` that carry `skill` inside themselves instead of globally."""
-    return [
-        entry["name"]
-        for entry in registry["agents"]
-        if (
-            root
-            / "harnesses"
-            / harness
-            / "agents"
-            / entry["name"]
-            / "skills"
-            / skill
-            / "SKILL.md"
-        ).is_file()
-    ]
-
-
-def _declares_agent_scope(registry: dict, agent: str, harness: str) -> bool:
-    entry = next(item for item in registry["agents"] if item["name"] == agent)
-    return any(
-        surface["harness"] == harness
-        and surface["name"] == GLOBAL_SKILL_SURFACE
-        and surface["supported"] is False
-        for surface in entry["optionalSurfaces"]
-    )
 
 
 def parse_invocation(content: str) -> str | None:
