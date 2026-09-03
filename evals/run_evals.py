@@ -25,6 +25,7 @@ from harness_generation import (
     HARNESS_OWNED_SKILLS,
     _scoped_owners,
     check_use_other_harness_invariants,
+    is_harness_test_path,
     parse_handoff_schema,
     parse_invocation,
     parse_ordered_gates,
@@ -92,6 +93,12 @@ def _expand_agent_description(
     return re.sub(r"{{([A-Za-z][A-Za-z0-9]*)}}", replace, description)
 
 
+def _is_test_dir_or_harness_test(path: Path, root: Path) -> bool:
+    if path.name == "tests":
+        return True
+    return is_harness_test_path(path, root)
+
+
 def load_documents(
     root: Path, harness: str = "claude"
 ) -> tuple[dict[str, Document], list[str]]:
@@ -105,7 +112,9 @@ def load_documents(
             errors.append(f"{skills_dir}: missing skills directory")
         else:
             for directory in sorted(
-                path for path in skills_dir.iterdir() if path.is_dir()
+                path
+                for path in skills_dir.iterdir()
+                if path.is_dir() and not _is_test_dir_or_harness_test(path, root)
             ):
                 skill_file = directory / "SKILL.md"
                 if not skill_file.is_file():
@@ -136,7 +145,9 @@ def load_documents(
         else:
             if harness == "agy":
                 for directory in sorted(
-                    path for path in agents_dir.iterdir() if path.is_dir()
+                    path
+                    for path in agents_dir.iterdir()
+                    if path.is_dir() and not _is_test_dir_or_harness_test(path, root)
                 ):
                     agent_file = directory / "agent.md"
                     if not agent_file.is_file():
@@ -167,7 +178,10 @@ def load_documents(
                     sub_skills = directory / "skills"
                     if sub_skills.is_dir():
                         for s_dir in sorted(
-                            path for path in sub_skills.iterdir() if path.is_dir()
+                            path
+                            for path in sub_skills.iterdir()
+                            if path.is_dir()
+                            and not _is_test_dir_or_harness_test(path, root)
                         ):
                             s_file = s_dir / "SKILL.md"
                             if (
@@ -200,7 +214,9 @@ def load_documents(
                 for agent_file in sorted(
                     path
                     for path in agents_dir.iterdir()
-                    if path.is_file() and path.suffix == ".md"
+                    if path.is_file()
+                    and path.suffix == ".md"
+                    and not _is_test_dir_or_harness_test(path, root)
                 ):
                     try:
                         fields = _frontmatter(agent_file)
@@ -228,7 +244,11 @@ def load_documents(
     skills_dir = root / "skills"
     agents_path = root / "agents" / "agents.json"
     if skills_dir.is_dir() and agents_path.is_file():
-        for directory in sorted(path for path in skills_dir.iterdir() if path.is_dir()):
+        for directory in sorted(
+            path
+            for path in skills_dir.iterdir()
+            if path.is_dir() and not _is_test_dir_or_harness_test(path, root)
+        ):
             skill_file = directory / "SKILL.md"
             if not skill_file.is_file():
                 continue

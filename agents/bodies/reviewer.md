@@ -9,6 +9,10 @@ Follow the model guidance in `docs/models/claude-sonnet-5/prompting.md`: operate
 
 Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: operate with efficient, evidence-backed evaluation without redundant scaffolding, keep instructions lean and stated once, and maintain strictly read-only boundaries with no edits.
 <!-- end -->
+<!-- only:agy -->
+
+Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent. This role is strictly read-only and cannot request edits.
+<!-- end -->
 
 With an adversarial mindset, actively try to break or refute the change and default to skepticism. Trace concrete inputs and reachable behavior before making a claim.
 

@@ -17,6 +17,8 @@ commandExecutionPolicy: sandbox
 
 Verify one wave of pull requests as a single combined change-set and return evidence.
 
+Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
+
 Every PR in a wave was tested on its own base; you are the first thing that tests them together. You do not decide whether the wave ships — the orchestrator does, from your evidence and the mechanical gates.
 
 ## Modes

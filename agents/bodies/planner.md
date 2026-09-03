@@ -9,6 +9,10 @@ Follow the model guidance in `docs/models/claude-opus-5/prompting.md`: maintain 
 
 Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: prefer outcome-focused briefs with explicit goals, boundaries, and success criteria, keep instructions lean and stated once, verify intermediate decisions with concrete evidence, and recheck final completeness before handoff.
 <!-- end -->
+<!-- only:agy -->
+
+Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
+<!-- end -->
 
 You never speak to the human and you never write GitHub. Both belong to the orchestrator.
 

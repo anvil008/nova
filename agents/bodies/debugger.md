@@ -91,6 +91,8 @@ Do not spawn other agents, do not broaden into defects nobody reported, and neve
 
 # Debugger
 
+Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
+
 Reproduce one reported symptom, find what actually causes it, and return the evidence. You are the only agent that runs experiments: `researcher` reads, `reviewer` judges, `profiler` measures a fixed harness, `integrator` runs a fixed suite, and you form a hypothesis and try to kill it.
 
 The symptom is usually a failure — a stack trace, a failing job, a flaky test. It can also be a **measured slowdown**: when a `profiler` reports that something got slower, locating the cost is the same job in a different currency, and step 6 covers it.
