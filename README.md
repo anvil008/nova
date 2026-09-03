@@ -176,7 +176,7 @@ evidence is fresh — otherwise it sends the builder back. The full gate-by-gate
   <img alt="Workcell root architecture showing four harness families (Claude, Codex, Antigravity, and Grok) each with their own Agents, Skills, and Scripts, beside shared Scripts, Tools, and everything else." src="docs/diagrams/layered-architecture-light.svg" width="100%">
 </picture>
 
-The Workcell root defines shared contracts feeding four harness families—Claude, Codex, Antigravity (agy), and Grok—where each family owns its native Agents, Skills, and Scripts, operating alongside shared Scripts, Tools, and everything else.
+In words: the Workcell root defines shared contracts feeding four harness families—Claude, Codex, Antigravity (agy), and Grok—where each family owns its native Agents, Skills, and Scripts, operating alongside shared Scripts, Tools, and everything else.
 
 ```
 workcell/
