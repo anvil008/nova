@@ -36,7 +36,7 @@ if str(REPO_ROOT) not in sys.path:
 # All 16 Workcell skills
 EXPECTED_SKILLS = (
     "build",
-    "clarity",
+    "jj",
     "code-analysis",
     "code-refactor",
     "code-review",

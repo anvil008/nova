@@ -57,6 +57,7 @@
         "effort": "xhigh"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "high"
       },
       "agy": {
@@ -70,6 +71,7 @@
         "effort": "high"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "high"
       },
       "agy": {
@@ -84,6 +86,7 @@
         "mode": "de-prescribed"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "high"
       },
       "agy": {
@@ -97,6 +100,7 @@
         "effort": "medium"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "medium"
       },
       "agy": {
@@ -110,6 +114,7 @@
         "effort": "medium"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "medium"
       },
       "agy": {
@@ -123,6 +128,7 @@
         "effort": "low"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "low"
       },
       "agy": {
@@ -136,6 +142,7 @@
         "effort": "medium"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "medium"
       },
       "agy": {
@@ -149,6 +156,7 @@
         "effort": "high"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "high"
       },
       "agy": {
@@ -163,6 +171,7 @@
         "mode": "de-prescribed"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "high"
       },
       "agy": {
@@ -176,6 +185,7 @@
         "effort": "medium"
       },
       "codex": {
+        "model": "gpt-5.6-sol",
         "effort": "medium"
       },
       "agy": {
