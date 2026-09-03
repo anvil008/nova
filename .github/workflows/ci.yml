@@ -11,6 +11,47 @@ on:
 permissions:
   contents: read
 jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Go mod tidy
+        timeout-minutes: 5
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Go build
+        timeout-minutes: 5
+        run: go build ./...
+      - name: Go vet
+        timeout-minutes: 5
+        run: go vet ./...
+      - name: Go tests
+        timeout-minutes: 5
+        run: go test -count=1 -race ./...
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Shell tests
+        timeout-minutes: 10
+        run: |
+          for test_script in scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh; do
+            bash "$test_script"
+          done
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -23,55 +64,68 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install Python lint tooling
+        timeout-minutes: 5
         run: python3 -m pip install ruff pyyaml
-      - run: go mod tidy
-      - run: git diff --exit-code -- go.mod go.sum
-      - run: go build ./...
-      - name: Go vet
-        run: go vet ./...
-      - name: Go tests
-        run: go test -count=1 -race ./...
-      - name: Shell tests
-        run: |
-          for test_script in scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh; do
-            bash "$test_script"
-          done
       - name: Script Python tests
+        timeout-minutes: 5
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - name: Ruff
+        timeout-minutes: 5
         run: ruff check skills/ evals/ scripts/render-diagrams.py
       - name: ShellCheck
+        timeout-minutes: 5
         run: shellcheck -S warning scripts/*.sh scripts/hooks/build-* scripts/workcell-ws
-      - name: Skill unit tests
-        run: |
-          for d in skills/*/tests; do
-            python3 -m unittest discover -s "$d" -p 'test_*.py'
-          done
       - name: Skill evals
+        timeout-minutes: 5
         run: |
           python3 evals/run_evals.py --structural
           python3 evals/run_evals.py --min-rank1 77
           python3 -m unittest discover -s evals/tests -p 'test_*.py'
       - name: Docs check
+        timeout-minutes: 5
         run: python3 skills/docs/scripts/docs_check.py .
       - name: Agent definitions in sync
+        timeout-minutes: 5
         run: python3 scripts/sync-agents.py --check --diff
       - name: Skill definitions in sync
+        timeout-minutes: 5
         run: python3 scripts/sync-skills.py --check --diff
       - name: Contract parity
+        timeout-minutes: 5
         run: python3 scripts/check-contract-parity.py
       - name: Agent models in sync
+        timeout-minutes: 5
         run: python3 scripts/sync-agent-models.py --check
       - name: Model-guide freshness
         timeout-minutes: 10
         run: python3 docs/models/check/check_guides.py --check
       - name: Guard release carrier agreement
+        timeout-minutes: 5
         run: python3 scripts/build-guard-release.py --check
       - name: Diagrams in sync
+        timeout-minutes: 5
         run: python3 scripts/render-diagrams.py --check
 
+  skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Skill unit tests
+        timeout-minutes: 10
+        run: |
+          for d in skills/*/tests; do
+            python3 -m unittest discover -s "$d" -p 'test_*.py'
+          done
+
   release:
-    needs: test
+    needs: [go, shell, test, skills]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -86,6 +140,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Build release artifacts
+        timeout-minutes: 10
         run: python3 scripts/build-guard-release.py
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
@@ -93,6 +148,7 @@ jobs:
           name: tdd-guard-release
           path: dist/release/*
       - name: Upload GitHub release assets
+        timeout-minutes: 10
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

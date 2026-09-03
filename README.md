@@ -76,18 +76,18 @@ configuration, a per-project install, and upgrading from an earlier install are 
 **Entry points — one PR, start to finish:** `new-feature`, `code-analysis`, `code-refactor`,
 `debug`, `perf`, `repo-setup` (see [Workflows](#workflows) for what each guarantees).
 
-| Phase    | Skill                                                                  | One line                                                                                                    |
-| -------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Plan     | [`plan`](skills/plan/SKILL.md)                                   | Investigates, then produces an offline plan and each issue's acceptance tests                               |
-| Build    | [`build`](skills/build/SKILL.md)                                       | Runs an approved milestone as resumable dependency waves, in single-PR mode when an entry workflow needs it |
-| Review   | [`code-review`](skills/code-review/SKILL.md)                           | Multi-lens, adversarially verified review of a PR, diff, or change-set                                      |
-| Review   | [`review-fix-loop`](skills/review-fix-loop/SKILL.md)                   | Bounded review-then-fix cycle on a dedicated loop branch                                                    |
-| Research | [`research`](skills/research/SKILL.md)                                 | Parallel read-only investigation merged into one evidence packet                                            |
-| Docs     | [`docs`](skills/docs/SKILL.md)                                         | Standardizes and updates documentation, records ADRs, runs the docs gate                                    |
-| Deploy   | [`deploy`](skills/deploy/SKILL.md)                                     | Preflight, approved release, post-deploy verification, rollback path                                        |
-| Memory   | [`wiki`](skills/wiki/SKILL.md)                                         | Consolidates a project's finished runs into a persistent namespace outside the repository                   |
-| Support  | [`jj`](skills/jj/SKILL.md)                                             | Jujutsu version control for repositories that use it                                                        |
-| Support  | [`use-other-harness`](skills/use-other-harness/SKILL.md)               | Explicit, user-triggered escape hatch to run a subagent in a different harness                              |
+| Phase    | Skill                                                    | One line                                                                                                    |
+| -------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Plan     | [`plan`](skills/plan/SKILL.md)                           | Investigates, then produces an offline plan and each issue's acceptance tests                               |
+| Build    | [`build`](skills/build/SKILL.md)                         | Runs an approved milestone as resumable dependency waves, in single-PR mode when an entry workflow needs it |
+| Review   | [`code-review`](skills/code-review/SKILL.md)             | Multi-lens, adversarially verified review of a PR, diff, or change-set                                      |
+| Review   | [`review-fix-loop`](skills/review-fix-loop/SKILL.md)     | Bounded review-then-fix cycle on a dedicated loop branch                                                    |
+| Research | [`research`](skills/research/SKILL.md)                   | Parallel read-only investigation merged into one evidence packet                                            |
+| Docs     | [`docs`](skills/docs/SKILL.md)                           | Standardizes and updates documentation, records ADRs, runs the docs gate                                    |
+| Deploy   | [`deploy`](skills/deploy/SKILL.md)                       | Preflight, approved release, post-deploy verification, rollback path                                        |
+| Memory   | [`wiki`](skills/wiki/SKILL.md)                           | Consolidates a project's finished runs into a persistent namespace outside the repository                   |
+| Support  | [`jj`](skills/jj/SKILL.md)                               | Jujutsu version control for repositories that use it                                                        |
+| Support  | [`use-other-harness`](skills/use-other-harness/SKILL.md) | Explicit, user-triggered escape hatch to run a subagent in a different harness                              |
 
 **The wiki layer** is what one project remembers about itself: write-once evidence from finished
 runs, append-only pages about the failure modes and strategies that recur, and a catalog over
@@ -232,7 +232,7 @@ python3 -m unittest discover -s evals/tests -p 'test_*.py'
 
 ## Verify the repository
 
-The same substantive checks CI runs:
+The same substantive checks CI runs (shell test suites can also be run concurrently via `bash scripts/run-tests.sh`):
 
 ```sh
 python3 -m pip install ruff
