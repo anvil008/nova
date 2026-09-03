@@ -30,9 +30,19 @@ Execution proceeds through five strict, ordered gates:
 4. **review**: Multi-lens review verifies behaviour preservation and clean refactoring.
 5. **pull request**: Open single PR to `main` consolidating approved refactoring changes.
 
-## Baseline Seal Gate
+## The one invariant
 
-Ordinary feature work records a `kind: red` seal after its command fails. A refactor records a `kind: baseline` seal after its command passes. Both kinds digest and protect the same test paths, bind the same command argv, and require post-seal GREEN plus a real diff review. The gate is the same `tdd-guard` state machine with the RED requirement replaced by a GREEN one, so the Stop hook and `status --json` work unchanged. Do not dispatch a `specifier`, and do not let a builder invent a failing test.
+**Behaviour does not change, and neither do the tests.** That is what separates a refactor from a rewrite, and it is checkable rather than promised:
+
+- the full suite is green _before_ the first change, and identical-green after;
+- **no test file is modified, added, or deleted** — a refactor that edits its own tests has stopped being one, because the thing that was supposed to hold still moved;
+- no new dependency, no new feature, no bug fix. A bug found on the way is written down and routed to [`code-analysis`](../code-analysis/SKILL.md), never fixed here — a fix inside a refactor is a behaviour change hiding in a diff nobody is reading for behaviour.
+
+## The same gate, with a green requirement
+
+Ordinary feature work records a `kind: red` seal after its command fails. A refactor records a `kind: baseline` seal after its command passes. Both kinds digest and protect the same test paths, bind the same command argv, and require post-seal GREEN plus a real diff review.
+
+The gate is the same `tdd-guard` state machine with the RED requirement replaced by a GREEN one, so the Stop hook and `status --json` work unchanged. Do not dispatch a `specifier`, and do not let a builder invent a failing test.
 
 ## Procedure
 

@@ -30,6 +30,12 @@ Execution proceeds through five strict, ordered gates:
 4. **review**: Multi-lens review verifies defect resolution without side effects.
 5. **pull request**: Open single consolidated PR to `main` closing all resolved defect issues.
 
+## What counts as a finding
+
+A defect needs a **concrete failure scenario**: inputs or state that produce a wrong result, a crash, corruption, a leak, or a security hole. "This could be clearer", "this lacks a null check nothing can reach", and "this is not how I would write it" are not defects — the first belongs to [`code-refactor`](../code-refactor/SKILL.md) and the rest belong nowhere.
+
+Rank by what actually goes wrong, not by how alarming it sounds. A `critical` is data loss, corruption, or an exploitable hole; a `high` is a wrong answer users act on; below that, say so honestly rather than inflating to be heard.
+
 ## Procedure
 
 1. **Baseline.** Dispatch an `integrator` via `invoke_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. A suite that is already red tells you which failures are pre-existing — that is the map, not a blocker.

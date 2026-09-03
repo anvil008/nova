@@ -33,7 +33,13 @@ Execution proceeds through four strict, ordered gates:
 
 **If the project has no benchmark harness, stop and say so.** Do not let an agent invent a timing script and call it a baseline — that measures the script. Offer to build a harness first, as its own [`new-feature`](../new-feature/SKILL.md) run, and come back.
 
-A change is faster when the difference is **outside the baseline's spread**, measured the same way on the same machine, with the run count stated. Anything inside the noise is no measurable difference.
+This is the honest failure mode of this skill, and taking it is cheaper than the alternative: a run that produces confident numbers nobody can reproduce next week.
+
+## What counts as an improvement
+
+A change is faster when the difference is **outside the baseline's spread**, measured the same way on the same machine, with the run count stated. Anything inside the noise is _no measurable difference_ — a real result, and one to report plainly rather than dress up. A codebase gets slower one unmeasurable "improvement" at a time, each of which looked positive in isolation.
+
+Correctness is not negotiable for speed: a faster wrong answer is a regression. The suite stays green on every measured revision.
 
 ## Procedure
 
