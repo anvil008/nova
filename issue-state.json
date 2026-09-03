@@ -10,75 +10,81 @@
         "models",
         "testing"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 148,
       "body": "Add docs/models/gpt-5.6-sol/prompting.md from the official queried latest-model page. Select lean prompts, goals/constraints/success criteria, intentional effort, relevant tools, autonomy boundaries, multi-agent use, evidence-grounded progress, and final completeness. Mark API-only material that Codex cannot express. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **gpt-guide-provenance-and-content** (unit) - The extract identifies gpt-5.6-sol, the exact official queried URL, fetch date, extractor and 64-hex digest, and has attributed sections for every Workcell lever named in scope. (test: `docs/models/gpt-5.6-sol/tests/test_extract.py`)\n- [ ] **gpt-guide-is-live-fresh** (integration) - check_guides.py --check --model gpt-5.6-sol refetches the official URL and exits 0; a changed injected page exits non-zero. (test: `docs/models/gpt-5.6-sol/tests/test_extract.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=OpenAIGuide -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "models",
         "codex"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 149,
       "body": "Store one official extract per Claude model under docs/models/claude-*. Fable covers de-scaffolding, goals/boundaries, evidence-backed progress, autonomy, async delegation, wiki-only memory, final re-grounding, fresh-context verification, and refusal sensitivity. Opus/Sonnet retain their own effort, tool, narration, delegation, verification, and literalness guidance without cross-model leakage. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **three-claude-guides-have-provenance** (unit) - Exactly one prompting.md exists for claude-fable-5-1, claude-opus-5 and claude-sonnet-5, each with its exact official URL, fetch date, extractor and digest. (test: `docs/models/claude-guides/tests/test_extracts.py`)\n- [ ] **fable-findings-do-not-leak** (unit) - All supplied Fable findings are attributed in its extract, while Opus/Sonnet do not label Fable-only statements as their guidance. (test: `docs/models/claude-guides/tests/test_extracts.py`)\n- [ ] **claude-guides-are-live-fresh** (integration) - The checker refetches all three official pages and exits 0; one changed fixture names only the drifted model. (test: `docs/models/claude-guides/tests/test_extracts.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=ClaudeGuides -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "models",
         "claude"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 150,
       "body": "Add the official model guide for Antigravity's Flash roster from Google's latest-model and prompt-strategy pages. Capture direct structured prompts, critical-instruction placement, explicit parameters, long-context anchoring, verbosity, thinking levels, and grounding/tools. Do not misstate Teamwork as a model feature. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **gemini-guide-provenance-and-strategy** (unit) - The extract identifies gemini-3.7-flash, both official Google sources and digests, fetch date and extractor, and contains every scoped attributed strategy without calling Teamwork a model feature. (test: `docs/models/gemini-3.7-flash/tests/test_extract.py`)\n- [ ] **gemini-guide-is-live-fresh** (integration) - The checker refetches both Google sources and exits 0; drift in either injected fixture is named and fails. (test: `docs/models/gemini-3.7-flash/tests/test_extract.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=GeminiGuide -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "models",
         "antigravity"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 151,
       "body": "Store verified xAI guidance for Grok 4.6 and record the roster pin to grok-4.6 (as verified via 'grok models' on this machine, moving agents/models.json grok entries from inherit to grok-4.6). Use official docs.x.ai Build overview, skills/plugins, modes/workflows, headless, settings, and Grok 4.6 pages; cross-check the vendored upstream guide and record its xai-org/grok-build path. Capture concise instruction rules, agents/personas, I/O contracts, background subagents, forks, workflows, capability modes, headless flags, and unsupported fields. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **grok-guide-provenance-and-native-surfaces** (unit) - The extract identifies Grok 4.6/Grok Build, official sources/digests, vendored upstream path, date/extractor, all scoped native surfaces, and records the grok-4.6 roster pin. (test: `docs/models/grok-4.6/tests/test_extract.py`)\n- [ ] **grok-guide-is-live-fresh** (integration) - The checker refetches configured official xAI pages and exits 0; a changed page fixture fails naming source and model. (test: `docs/models/grok-4.6/tests/test_extract.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=GrokGuide -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "models",
         "grok"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 152,
       "body": "Create the strict shared registry for all 16 skills and 10 agents: name, invocation, ordered gates, handoff schema, acceptance oracle, required values and optional surfaces. Update agents/models.json to move grok entries from inherit to the pinned grok-4.6 model ID. Keep sync-agents.py and add sync-skills.py behind one generator. Put sources/tracked outputs under harnesses/<h>/{agents,skills,runtime}; copy shared resources. --check is read-only, catches exact drift/orphans, fails missing required values, and emits deterministic notes for unsupported optional fields. Prove four genuinely different use-other-harness bodies with identical semantics. Redirect all plan08 stagers to only their harness root and retain ADR-0023 output/install shapes. A marked migration fallback is allowed only until final cleanup. Wire sync, parity and guide checks into gates. This broad seam issue runs alone. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **contract-registry-is-complete-and-strict** (unit) - The registry contains exactly 16 current skills and 10 current agents; every compatibility field validates, and unknown keys, duplicates or malformed values fail with a JSON path. (test: `scripts/tests/test_harness_generation.py`)\n- [ ] **required-fails-optional-notes** (unit) - A missing required harness value fails naming harness/artifact/value; an unavailable optional effort/tool surface is omitted with the exact generated limitation note. (test: `scripts/tests/test_harness_generation.py`)\n- [ ] **both-sync-checks-detect-real-drift** (integration) - Clean temporary outputs pass both --check commands; mutating one generated skill or agent fails and names its path without writing the real tree. (test: `scripts/tests/test_harness_generation.py`)\n- [ ] **use-other-harness-proves-layering** (unit) - Four generated use-other-harness skills have equal parsed contracts/explicit-only meaning, non-identical bodies, and correct native headless commands. (test: `scripts/tests/test_harness_generation.py`)\n- [ ] **each-stager-uses-only-its-family** (e2e) - A fixture with shared resources plus only harnesses/<h> builds expected dist/<h> agents/skills/runtime with no symlink, source-root text, other-harness read, or shared SKILL.md read. (test: `scripts/tests/test_harness_generation.py`)\n- [ ] **new-checks-are-gated** (integration) - CI invokes agent sync --check, skill sync --check, contract parity and model-guide freshness; deleting one invocation fails the truth test by name. (test: `scripts/tests/test_docs_truth.py`)\n- [ ] **grok-roster-is-pinned-to-grok-4-6** (unit) - agents/models.json pins grok defaults to grok-4.6 with no inherit entry remaining, validated by generator sync checks. (test: `scripts/tests/test_harness_generation.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=LayeredGeneration -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "architecture",
         "generators"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 153,
       "body": "Compare current Opus/Sonnet routes with Fable candidates for planner, debugger and builder on identical existing and targeted eval cases. Record quality, gates, refusal behavior, and available token/latency evidence. If moved, use Fable effort high (not xhigh) and de-prescribed mode. Keep security reviewer off Fable. Update authoritative model and role-to-guide mappings; final ADR cites the evidence. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.; Claude invocations are eval subjects.\n\n## Definition of Done (tests)\n\n- [ ] **roster-compares-controlled-variants** (integration) - A checked-in decision record runs the same named expectations for current and Fable candidate planner/debugger/builder routes and records result plus available cost evidence. (test: `agents/tests/test_claude_roster.py`)\n- [ ] **selected-routes-obey-fable-constraints** (unit) - Fable-selected roles use effort high and de-prescribed mode; no security reviewer uses Fable; retained roles have explicit Opus 5 or Sonnet 5 mappings. (test: `agents/tests/test_claude_roster.py`)\n- [ ] **each-claude-role-resolves-one-guide** (unit) - All ten resolved Claude roles map to exactly one existing docs/models/<model>/prompting.md with no unmapped alias or implicit fallback. (test: `agents/tests/test_claude_roster.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=ClaudeRoster -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "models",
         "claude",
         "decision"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 154,
@@ -86,10 +92,11 @@
       "labels": [
         "planning",
         "skills",
+        "status:in-progress",
         "claude"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 155,
@@ -97,32 +104,35 @@
       "labels": [
         "planning",
         "agents",
+        "status:in-progress",
         "claude"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 156,
       "body": "Own Claude manifests/hooks/wrappers under its runtime root while copying shared guards. Evaluate skill isolation, forks, subagents, worktrees, Workflow surfaces and command hooks against official/headless capability; guard or note interactive/experimental omissions. Preserve ADR-0023 staging. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **claude-runtime-is-self-contained** (integration) - Generated manifest/hooks/wrappers resolve inside the family and stage with no symlink or repository dependency. (test: `harnesses/claude/runtime/tests/test_claude_runtime.py`)\n- [ ] **interactive-features-do-not-break-headless** (unit) - Interactive/experimental features are capability-guarded or noted as omitted, and headless eval loads contracts without them. (test: `harnesses/claude/runtime/tests/test_claude_runtime.py`)\n- [ ] **claude-hooks-preserve-gates** (integration) - Generated hook events invoke the shared guard at the same Pre/Post/Stop/SubagentStop gate points; a missing required hook value fails. (test: `harnesses/claude/runtime/tests/test_claude_runtime.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=ClaudeRuntime -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "claude",
         "runtime"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 157,
       "body": "Load generated documents by --harness and accept claude/codex/agy/grok. Make run_evals.py --harness <h> run free structural/routing checks for that family. Add exact native behavioral commands/traces, bounded timeouts and grading. Parse every generated skill/agent contract and fail differences in name, invocation, gates, handoff, oracle, or use-other-harness meaning; body prose is excluded. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **free-evals-run-for-four-families** (integration) - run_evals.py --harness <h> exits 0 for all four and prints harness/document/case totals from that generated family. (test: `evals/tests/test_harness_matrix.py`)\n- [ ] **four-native-behavioral-dry-runs** (unit) - Dry runs emit claude -p, codex exec, agy -p, or grok --no-auto-update -p with workspace/trace options; unknown harness fails. (test: `evals/tests/test_harness_matrix.py`)\n- [ ] **parity-detects-each-contract-field** (integration) - Real tree passes; temporary drift in invocation, gate order, handoff or oracle fails naming harness/artifact/field/expected/actual. (test: `evals/tests/test_contract_parity.py`)\n- [ ] **use-other-harness-means-the-same** (e2e) - Explicit harness/model/effort requests route natively and implicit cross-harness suggestions are refused across all four, with identical handoff fields and no silent fallback. (test: `evals/tests/test_use_other_harness_parity.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=HarnessEvals -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "evals",
         "compatibility"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 158,
@@ -130,10 +140,11 @@
       "labels": [
         "planning",
         "skills",
+        "status:in-progress",
         "codex"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 159,
@@ -141,21 +152,23 @@
       "labels": [
         "planning",
         "agents",
+        "status:in-progress",
         "codex"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 160,
       "body": "Own Codex hook manifests, route/profile material and staging metadata while copying shared guard executables. Preserve plugin validation and ADR-0023 content-hash versioning; note unsupported plugin/per-agent fields. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **codex-runtime-stages-only-codex** (integration) - A parseable plugin/marketplace stages hooks, 16 skills and ten agent skills/metadata with no symlink or other harness path. (test: `harnesses/codex/runtime/tests/test_codex_runtime.py`)\n- [ ] **content-hash-is-sensitive-only-to-codex** (unit) - Unchanged builds keep <semver>+codex.<12hex>; changing Codex content changes it; changing another harness does not. (test: `harnesses/codex/runtime/tests/test_codex_runtime.py`)\n- [ ] **unsupported-codex-surfaces-are-not-invented** (unit) - Unavailable fields are absent with one limitation note; missing required profile values fail. (test: `harnesses/codex/runtime/tests/test_codex_runtime.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=CodexRuntime -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "codex",
         "runtime"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 161,
@@ -163,10 +176,11 @@
       "labels": [
         "planning",
         "skills",
+        "status:in-progress",
         "antigravity"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 162,
@@ -174,21 +188,23 @@
       "labels": [
         "planning",
         "agents",
+        "status:in-progress",
         "antigravity"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 163,
       "body": "Own agy manifest/hooks/rules/capability metadata under its runtime root. Preserve ADR-0023 ~/.gemini/config/plugins/workcell staged copy and guard semantics. Generate optional Teamwork notes, standard async headless fallback, and unsupported-effort note. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **agy-runtime-stages-one-family** (integration) - Stage contains manifest/hooks/rules/ten agents/16 skills/shared runtime/stamp as real files with no other harness. (test: `harnesses/agy/runtime/tests/test_agy_runtime.py`)\n- [ ] **teamwork-capability-is-generated** (unit) - Metadata marks Teamwork paid/interactive and names fallback; unavailable fixture omits Teamwork fields with note. (test: `harnesses/agy/runtime/tests/test_agy_runtime.py`)\n- [ ] **agy-hooks-preserve-gates** (integration) - Fixture events reach the same shared guard decisions; a missing required hook command fails staging. (test: `harnesses/agy/runtime/tests/test_agy_runtime.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=AgyRuntime -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "antigravity",
         "runtime"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 164,
@@ -196,10 +212,11 @@
       "labels": [
         "planning",
         "skills",
+        "status:in-progress",
         "grok"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 165,
@@ -207,21 +224,23 @@
       "labels": [
         "planning",
         "agents",
+        "status:in-progress",
         "grok"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 166,
       "body": "Own Grok manifest/runtime/workflow/persona support under its root, citing the Grok 4.6 guide. Preserve ADR-0023 ~/.grok/plugins/workcell drop, use --no-auto-update in automation, copy shared scripts, and keep unsupported-tool notes. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.\n\n## Definition of Done (tests)\n\n- [ ] **grok-runtime-stages-one-family** (integration) - Stage contains manifest/runtime metadata/ten agents/16 skills/shared copies/stamp as real files with no source-root or other harness. (test: `harnesses/grok/runtime/tests/test_grok_runtime.py`)\n- [ ] **headless-adapter-is-current-and-bounded** (unit) - Automation invokes grok --no-auto-update -p with workspace/machine output/timeout and explicit grok-4.6 model strategy. (test: `harnesses/grok/runtime/tests/test_grok_runtime.py`)\n- [ ] **unsupported-fields-are-not-invented** (unit) - No per-agent tool list or unsupported effort appears; optional omissions are noted once and missing required values fail. (test: `harnesses/grok/runtime/tests/test_grok_runtime.py`)\n\n<!-- workcell-planner planId=harness-owned-instructions issue=GrokRuntime -->",
       "labels": [
         "planning",
+        "status:in-progress",
         "grok",
         "runtime"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 167,
@@ -229,10 +248,11 @@
       "labels": [
         "documentation",
         "planning",
+        "status:in-progress",
         "adr"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     }
   ]
 }
