@@ -986,6 +986,7 @@ def check_contract_parity(root: Path = REPO_ROOT, out: TextIO = sys.stdout) -> i
         for reg_skill in registry.get("skills", []):
             s_name = reg_skill["name"]
             skill_doc = root / "harnesses" / harness / "skills" / s_name / "SKILL.md"
+            owners = []
             if not skill_doc.is_file():
                 owners = _scoped_owners(root, registry, harness, s_name)
                 if owners:
@@ -1007,7 +1008,7 @@ def check_contract_parity(root: Path = REPO_ROOT, out: TextIO = sys.stdout) -> i
                 continue
 
             content = skill_doc.read_text(encoding="utf-8")
-            if harness in HARNESS_OWNED_SKILLS:
+            if harness in HARNESS_OWNED_SKILLS and not owners:
                 exp_inv = reg_skill.get("invocation")
                 act_inv = parse_invocation(content)
                 if act_inv is None:
