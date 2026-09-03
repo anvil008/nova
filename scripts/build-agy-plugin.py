@@ -92,14 +92,17 @@ def main() -> int:
     source = HARNESS if layered else WRAPPER
     runtime = source / "runtime" if layered else source
     manifest = runtime / "plugin.json"
-    for required in (
+    required_sources = [
         source,
         manifest,
         source / "agents",
         source / "skills",
         runtime / "rules",
         runtime / "hooks.json",
-    ):
+    ]
+    if layered:
+        required_sources.append(runtime / "capabilities.json")
+    for required in required_sources:
         if not required.exists():
             return fail(f"missing required source: {required.relative_to(ROOT)}")
 
@@ -108,6 +111,42 @@ def main() -> int:
         version = manifest_data["version"]
     except (json.JSONDecodeError, KeyError, OSError) as e:
         return fail(f"could not read manifest {manifest.relative_to(ROOT)}: {e}")
+
+    hooks_file = runtime / "hooks.json"
+    try:
+        hooks_data = json.loads(hooks_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        return fail(f"could not read hooks {hooks_file.relative_to(ROOT)}: {e}")
+
+    guard_cfg = hooks_data.get("workcell-guard", {})
+    if not guard_cfg.get("enabled"):
+        return fail("workcell-guard must be enabled in hooks.json")
+
+    declared_commands: list[str] = []
+    for gate in ("PreToolUse", "PostToolUse", "Stop"):
+        entries = guard_cfg.get(gate) or []
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict):
+                if "hooks" in entry and isinstance(entry["hooks"], list):
+                    for h in entry["hooks"]:
+                        if isinstance(h, dict) and "command" in h:
+                            declared_commands.append(str(h["command"]))
+                if "command" in entry:
+                    declared_commands.append(str(entry["command"]))
+
+    required_hook_commands = (
+        "build-guard agy",
+        "build-hooks agy PreToolUse",
+        "build-hooks agy PostToolUse",
+        "build-format agy",
+        "build-lint agy",
+        "build-hooks agy Stop",
+    )
+    for req in required_hook_commands:
+        if not any(req in cmd for cmd in declared_commands):
+            return fail(f"hooks.json missing required command: {req}")
 
     lib_dist.reset_dist(DIST, PLUGIN)
 
