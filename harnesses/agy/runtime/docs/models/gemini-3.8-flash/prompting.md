@@ -7,9 +7,9 @@ official_source_urls:
 fetched_date: 2026-09-03
 extractor_version: 1.1.0
 normalized_source_digests:
-  https://ai.google.dev/gemini-api/docs/latest-model: c3a73825032d11c691f6675ec70bde29ca5e3b6f691fa90db5f543830b90a8e6
-  https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash: b22bbc4ece193fbd62ad38eb6a6e2dc6a9667c3421fff7d13f28591abdeb496f
-  https://ai.google.dev/gemini-api/docs/prompting-strategies: 02a91196f2be4df7c133e739fd2d8c60395b303f56330821e1f00864ff691124
+  https://ai.google.dev/gemini-api/docs/latest-model: d6fe3fd5e4956f8f94d0e7291c2d5bf541350be9a4c2a08f6f6317431ee4713d
+  https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash: 8321812e79ed341378c12484e320c64dcf48a355592a7f50e796a293db4063af
+  https://ai.google.dev/gemini-api/docs/prompting-strategies: 2f8b8693936161347eb9e1d514daa9d64927a24012212f7e2698ff2434620aed
 ---
 
 # Gemini 3.8 Flash prompting guide

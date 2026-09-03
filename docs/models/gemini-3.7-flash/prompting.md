@@ -3,11 +3,11 @@ model: gemini-3.7-flash
 official_source_urls:
   - https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash
   - https://ai.google.dev/gemini-api/docs/prompting-strategies
-fetched_date: 2026-09-02
+fetched_date: 2026-09-03
 extractor_version: 1.1.0
 normalized_source_digests:
-  https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash: 73fded168648a58631322b845b307afdd2eec8acec8649881094085bfec9e207
-  https://ai.google.dev/gemini-api/docs/prompting-strategies: 02a91196f2be4df7c133e739fd2d8c60395b303f56330821e1f00864ff691124
+  https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash: 9f211db62e61d88f92b38ee394fe42f2a28ddc1e80750774f403e7347d8f2e5f
+  https://ai.google.dev/gemini-api/docs/prompting-strategies: 2f8b8693936161347eb9e1d514daa9d64927a24012212f7e2698ff2434620aed
 ---
 # Gemini 3.7 Flash prompting guide
 
