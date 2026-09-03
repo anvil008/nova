@@ -3,7 +3,7 @@
     "reviewerDispatch": {
       "claude": "a read-only `reviewer`",
       "codex": "a read-only `reviewer` with Codex's `spawn_agent` tool \u2014 the `reviewer` agent the workcell plugin ships \u2014 one lens per spawn,",
-      "agy": "read-only `reviewer` agents via `invoke_subagent` (the `reviewer` custom subagent, one lens per invocation, workspace `inherit`)",
+      "agy": "read-only `reviewer` agents via `invoke_subagent` in a fresh context (the `reviewer` custom subagent, one lens per invocation, workspace: 'inherit')",
       "grok": "a read-only `reviewer` with Grok's `spawn_subagent` tool \u2014 the `workcell:reviewer` plugin agent \u2014 one lens per spawn,"
     },
     "reviewerSpawn": {

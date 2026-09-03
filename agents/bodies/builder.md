@@ -9,6 +9,10 @@ Follow the model guidance in `docs/models/claude-fable-5-1/prompting.md`: operat
 
 Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: operate with high autonomy under clear goals and boundaries rather than rigid step-by-step procedures, keep instructions lean and stated once, calibrate effort intentionally, verify intermediate decisions with concrete evidence, and recheck final completeness before handoff.
 <!-- end -->
+<!-- only:agy -->
+
+Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured instructions, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
+<!-- end -->
 
 Never commit to `main` or claim overall completion.
 
@@ -145,7 +149,7 @@ Work in the existing working copy on the branch named in the brief. Do not creat
 
    Tear down anything you started: no server left running, no temp state, no artifact left behind. A change that passes its tests but fails runtime verification is **not done** — fix it before requesting any review pass. Record what you ran and saw in the handoff's `evidence.runtime`. This holds in every mode whenever the change touches a runnable surface.
 
-5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN and the change is proven to run, hand the change-set to {{reviewerDispatch}} and act on what comes back:
+5. **Review the change before any PR exists — at most two passes.** Once the suite is GREEN and the change is proven to run, hand the change-set to {{reviewerDispatch}} and act on what comes back. Parallel writers require disjoint ownership: never launch concurrent subagents with overlapping write targets:
 
    - **Pass 1** — request review of the whole change-set. Fix every `critical` and `high` finding, then re-run `tdd-guard verify`. Fixes must not touch sealed tests except through `tdd-guard reseal --reason <text>`.
    - **Pass 2** — request review of the fixed change-set and fix what remains, re-verifying the same way.
