@@ -881,6 +881,43 @@ def _declares_agent_scope(registry: dict, agent: str, harness: str) -> bool:
     )
 
 
+def parse_invocation(content: str) -> str | None:
+    """Extract invocation string from document content if present."""
+    match = re.search(r"Invocation:\s*`?([^`\n\r]+)`?", content)
+    return match.group(1).strip() if match else None
+
+
+def parse_ordered_gates(content: str) -> list[str] | None:
+    """Extract ordered gate list from document content if section is present."""
+    if "## Ordered Gates" not in content:
+        return None
+    section = content.split("## Ordered Gates", 1)[1].split("\n## ", 1)[0]
+    return [
+        gate.strip()
+        for gate in re.findall(r"^\s*\d+\.\s*\*\*([^*]+)\*\*", section, re.MULTILINE)
+    ]
+
+
+def parse_handoff_schema(content: str) -> str | None:
+    """Extract anvil.agent-handoff schema identifier from document content if present."""
+    match = re.search(r"anvil\.agent-handoff/[a-zA-Z0-9_.-]+", content)
+    return match.group(0) if match else None
+
+
+def check_use_other_harness_invariants(content: str) -> list[str]:
+    """Verify invariants for use-other-harness document."""
+    errors: list[str] = []
+    normalized = re.sub(r"\s+", " ", content)
+    prohibition = "Do not guess a model or effort, and do not pick a harness on the user's behalf."
+    if prohibition not in normalized:
+        errors.append(
+            "expected mandatory prohibition against guessing model/effort, got 'missing'"
+        )
+    if "silently fall back" in normalized.lower():
+        errors.append("silent fallback is strictly prohibited")
+    return errors
+
+
 def check_parity(root: Path = ROOT) -> int:
     registry = load_registry(root)
     expected = (
@@ -907,6 +944,30 @@ def check_parity(root: Path = ROOT) -> int:
                 )
             elif staged_globally:
                 globally_invocable += 1
+                skill_path = root / "harnesses" / harness / "skills" / name / "SKILL.md"
+                content = skill_path.read_text(encoding="utf-8")
+                if harness in HARNESS_OWNED_SKILLS:
+                    act_inv = parse_invocation(content)
+                    exp_inv = entry.get("invocation")
+                    if act_inv is None or act_inv != (exp_inv or "").strip():
+                        errors.append(f"{harness}/skills/{name}: invocation drift")
+                    exp_gates = entry.get("orderedGates", [])
+                    doc_gates = parse_ordered_gates(content)
+                    if (
+                        doc_gates is None
+                        or len(doc_gates) < len(exp_gates)
+                        or doc_gates[: len(exp_gates)] != exp_gates
+                    ):
+                        errors.append(f"{harness}/skills/{name}: gate order drift")
+                    if name != "jj":
+                        act_handoff = parse_handoff_schema(content)
+                        if act_handoff is None or act_handoff != entry.get(
+                            "handoffSchema"
+                        ):
+                            errors.append(f"{harness}/skills/{name}: handoff drift")
+                if name == "use-other-harness":
+                    for err in check_use_other_harness_invariants(content):
+                        errors.append(f"{harness}/skills/{name}: {err}")
             elif not owners:
                 errors.append(f"{harness}/skills/{name}")
             else:
@@ -933,6 +994,11 @@ def check_parity(root: Path = ROOT) -> int:
             )
             if not path.is_file():
                 errors.append(str(path.relative_to(root)))
+            else:
+                content = path.read_text(encoding="utf-8")
+                act_handoff = parse_handoff_schema(content)
+                if act_handoff is None or act_handoff != entry.get("handoffSchema"):
+                    errors.append(f"{path.relative_to(root)}: handoff drift")
         summary = (
             f"- {harness}: {globally_invocable} globally invocable skills, "
             f"{len(registry['agents'])} agents"
