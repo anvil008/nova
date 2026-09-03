@@ -3,15 +3,43 @@ name: code-review
 description: Run a multi-lens, adversarially verified review of a pull request, diff, or change-set before merge — including a read-only frontend lens that inspects rendered UI across a fixed viewport matrix for responsiveness, accessibility, and visual QA.
 ---
 
-<!-- generated harness-owned procedure: Grok Build -->
-
-# Code review
+# Code Review
 
 Review one pull request, diff, or integrated change-set before merge.
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Invocation: `/workcell:code-review`
+Prompting Reference: [`docs/models/grok-4.6/prompting.md`](../../runtime/docs/models/grok-4.6/prompting.md)
 
-This orchestrator selects the lenses, dispatches the reviewers and verifiers, and owns the consolidated verdict.
+You are the orchestrator ([`ADR 0007`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch specialists using `spawn_subagent` (running in foreground or with `background: true` tracked via `get_command_or_subagent_output`, or coordinated via `/workflow`), hold human gates, run VCS and shell operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code directly. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+
+## Outcome, Constraints, and Success Criteria
+
+- **Outcome:** Deliver an evidence-backed, multi-lens code review where every candidate finding is independently substantiated against concrete failure scenarios.
+- **Constraints and Boundaries:** Reviewers and verifiers are strictly read-only and never edit code. Verification must be adversarial and independent (never verified by the discovering agent). Filing GitHub issues via `--apply` requires explicit human approval.
+- **Success Criteria:** Deduplicated findings merged into structured JSON, self-contained HTML report generated, and deterministic verdict (`block` / `approve-with-nits` / `approve`) rendered.
+
+## Ordered Gates
+
+Execution proceeds through four strict, ordered gates:
+
+1. **lens reviews**: Select applicable lenses based on file types and fan out independent read-only reviewers via `spawn_subagent`.
+2. **adversarial verification**: Dispatch fresh, independent skeptics to substantiate or refute candidate findings against code evidence.
+3. **deduplication**: Merge and deduplicate findings deterministically via `merge_findings.py`.
+4. **report**: Synthesize verified findings into structured JSON, HTML report, and optional reconciled GitHub issues.
+
+## Input and Output Contracts
+
+Subagent dispatch uses native Grok `spawn_subagent` (with `background: true` for parallel tasks, polled via `get_command_or_subagent_output`) or multi-step `/workflow` routines. Each dispatch exchanges structured handoff payloads conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
+
+- **Lens Reviewer Inputs and Outputs:**
+  - **Inputs:** Change diff, affected file list, and assigned assurance lens (`correctness`, `tests`, `security`, `performance`, `api-contract`, `frontend`).
+  - **Outputs:** Structured candidate findings JSON citing file, line, and concrete failure scenario without modifying code.
+- **Adversarial Verifier Inputs and Outputs:**
+  - **Inputs:** Candidate finding claim, target file and line evidence, and codebase tree.
+  - **Outputs:** Verification outcome (`substantiated` with reproducible proof or `refuted` with explanation).
+- **Report Synthesizer Inputs and Outputs:**
+  - **Inputs:** Deduplicated, substantiated findings JSON and review metadata.
+  - **Outputs:** Self-contained HTML report and optional reconciled GitHub issue payloads.
 
 ## Lens selection and fan-out
 
@@ -25,7 +53,7 @@ Use the change-set's **file list** and diffstat to select lenses from its actual
 - integrations applies when the change crosses a boundary this repository does not own — a third-party API, message broker, webhook, auth provider, or another internal service — where the failure modes are timeouts, retries, partial writes, and contract drift rather than logic errors;
 - frontend applies when the change touches user-facing UI — see below.
 
-The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-only `reviewer` per selected lens in parallel. Give each reviewer the same change-set and exactly one lens. Reviewers return structured findings and never edit.
+The fan-out count equals the applicable lenses, never a fixed N. Spawn one read-only `reviewer` per selected lens in parallel via `spawn_subagent` (with `background: true` tracked via `get_command_or_subagent_output`). Give each reviewer the same change-set and exactly one lens. Reviewers return structured findings and never edit.
 
 ### The frontend lens
 
@@ -38,7 +66,7 @@ The orchestrator sets `devServer` in the dispatch brief to `none`, a URL, or `st
 ## Merge and adversarial verification
 
 1. Collect the per-lens JSON files and deduplicate by `(file, line, claim)`. `skills/code-review/scripts/merge_findings.py --dedupe-only` chooses the representative by highest severity, highest confidence, then lexicographically smallest `(lens, failureScenario)`. This full tie-break is independent of parallel collection order; the helper then ranks candidates deterministically.
-2. Run an independent adversarial verification of every surviving candidate. Use a fresh read-only reviewer that did not originate the candidate, assign its lens and exact claim, and require a skeptic pass that tries to refute it against the code and concrete failure scenario.
+2. Run an independent adversarial verification of every surviving candidate. Use a fresh read-only reviewer dispatched via `spawn_subagent` that did not originate the candidate, assign its lens and exact claim, and require a skeptic pass that tries to refute it against the code and concrete failure scenario.
 3. Record one verification per candidate with `substantiated`, `refutationAttempt`, and `evidence`. Run the helper again with `--verification`. DROP every finding that the independent pass cannot substantiate; missing, duplicate, or extra verification records are errors.
 
 Only verified findings reach the report. The helper ranks `critical`, `high`, `medium`, `low`, then `nit`; `critical` or `high` yields `block`, remaining findings yield `approve-with-nits`, and no findings yields `approve`.
@@ -62,7 +90,7 @@ python3 skills/code-review/scripts/render_review.py review.json review.html \
 
 Only `review.json` and the output path are required; the rest default to honest placeholders. The renderer re-validates the merged JSON strictly and refuses unknown fields, so a hand-edited report cannot silently diverge from the pipeline that produced it.
 
-Maintainers of the renderer and templates follow the [report-rendering contract](references/report-rendering.md).
+Maintainers of the renderer and templates follow the [`references/report-rendering.md`](references/report-rendering.md).
 
 ## GitHub issues
 
@@ -119,7 +147,7 @@ stricter threshold filters findings out of the run, it does not fix them, so the
 Each issue body carries the failure scenario and the independent verification — the refutation
 attempt and the evidence — so whoever picks it up sees why it is real without re-reading the diff.
 
-## Offline demonstration
+## Offline Demonstration
 
 These commands read local fixtures only and have no GitHub or subagent side effects:
 
@@ -131,3 +159,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/reconcile_findin
 ```
 
 Never run `--apply` merely to test the skill. Use snapshot preview for validation.
+
+## Harness Limitations
+
+Skill frontmatter fields `allowed-tools`, `model`, `effort`, `license`, and `compatibility` are unsupported for capability enforcement or routing under Grok Build; execution relies on native CLI flags (`--tools`, `--disallowed-tools`), agent definitions, capability modes, and specialist dispatch. API-only model controls and programmatic tool calling are unsupported in skill prompts.

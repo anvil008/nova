@@ -3,26 +3,43 @@ name: docs
 description: Run a documentation-standardization and review pass — enforce the doc standard, update stale docs, record ADRs, and check instruction-file bloat. Use standalone, or as the final step of build/deploy.
 ---
 
-<!-- generated harness-owned procedure: Grok Build -->
-
 # Docs
 
 Bring a repository's documentation up to standard and keep it there.
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Invocation: `/workcell:docs`
+Prompting Reference: [`docs/models/grok-4.6/prompting.md`](../../runtime/docs/models/grok-4.6/prompting.md)
 
-This orchestrator scopes one coherent documentation pass, dispatches the `documenter` agent, and judges completion from the mechanical docs gate and handoff evidence.
+You are the orchestrator ([`ADR 0007`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch specialists using `spawn_subagent` (running in foreground or with `background: true` tracked via `get_command_or_subagent_output`, or coordinated via `/workflow`), hold human gates, run workspace and VCS operations using shell execution, and read gate evidence and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never author documentation or edit files directly. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-The canonical documentation standard and README contract live in the [`documenter` agent body](../../agents/documenter.md); link to that contract rather than duplicating it here. See [examples/visual-readme.md](examples/visual-readme.md) for the reference shape.
+## Outcome, Constraints, and Success Criteria
+
+- **Outcome:** Audit and update documentation so it accurately reflects system behaviour, adheres to documentation standards, explains what the repository does, and stays within instruction file line budgets.
+- **Constraints and Boundaries:** Never author or edit documentation yourself; dispatch the `documenter`. Enforce mechanical verification through `docs_check.py`.
+- **Success Criteria:** `docs_check.py` exits zero, required ADRs follow naming/section standards, and instruction files stay within line budgets.
+
+## Ordered Gates
+
+Execution proceeds through four strict, ordered gates:
+
+1. **truth audit**: Documenter audits repository docs against shipped code and invariants.
+2. **documentation update**: Update documentation in place, relocate instruction bloat, record ADRs.
+3. **docs check**: Execute `docs_check.py` to enforce line budgets, ADR numbering, and skill references.
+4. **review**: Review pass confirms documentation clarity and absence of stale claims.
 
 ## Pass
 
-1. **Dispatch the inventory.** Send one `documenter` agent a brief carrying the documentation goal, the changed-file list or release handoff, the allowed ownership paths, the repository root, and the canonical [`documenter` agent contract](../../agents/documenter.md). The agent inventories the documentation and reports stale, duplicate, missing, and misplaced material before writing.
-2. **Dispatch the update.** A documentation pass works on its own branch, `doc/<slug>`, and the workspace beneath it writes that slash as a dash ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). After confirming the ownership is coherent, dispatch the same role to update in place, relocate role-specific material out of global instruction files, record required ADRs at the repository root (`docs/adr/NNNN-title.md`), and append the changelog or handover entry. Split only genuinely independent doc areas.
-3. **Gate the result.** The `documenter` agent runs `python3 -B skills/docs/scripts/docs_check.py <repo-root>` — and, where the repository generates its README visuals, its `render-diagrams.py --check` ([ADR 0010](../../runtime/docs/adr/0010-readme-diagrams-are-generated-svg.md)) — and returns the exact command, exit code, summary, and changed files. The gate is GREEN only when `docs_check` exits zero and the handoff shows every requested doc area covered; otherwise re-dispatch the failed area. The orchestrator reads this evidence and never judges the document contents itself.
+1. **Dispatch the inventory.** Send one `documenter` agent via `spawn_subagent` a brief carrying the documentation goal, changed-file list, repository root, and documentation standards. The documenter audits existing docs against actual code behaviour, reporting stale, duplicate, missing, or misplaced content.
+2. **Dispatch the update.** Create a workspace on branch `doc/<slug>` via `workcell-ws add doc/<slug>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch the `documenter` via `spawn_subagent` to update documents in place, explaining what the repository does, relocating role-specific material out of global instruction files, and recording ADRs under `docs/adr/NNNN-title.md`. Refer to [examples/visual-readme.md](examples/visual-readme.md) for the reference shape.
+3. **Gate the result.** The `documenter` agent runs `python3 -B skills/docs/scripts/docs_check.py <repo-root>` — and, where the repository generates its README visuals, its `python3 scripts/render-diagrams.py --check` ([`ADR 0010`](../../runtime/docs/adr/0010-readme-diagrams-are-generated-svg.md)) — and returns the exact command, exit code, summary, and changed files. The gate is GREEN only when `docs_check` exits zero and the handoff shows every requested doc area covered; otherwise re-dispatch the failed area. The orchestrator reads this evidence and never judges the document contents itself.
+4. **Review.** Conduct review pass to ensure updated docs are clear, accurate, and aligned with shipped behavior.
 
-## Offline demonstration
+## Offline Demonstration
 
 ```bash
-python3 -B skills/docs/scripts/docs_check.py skills/docs/examples/sample-repo
+PYTHONDONTWRITEBYTECODE=1 python3 skills/docs/scripts/docs_check.py skills/docs/examples/sample-repo
 ```
+
+## Harness Limitations
+
+Skill frontmatter fields `allowed-tools`, `model`, `effort`, `license`, and `compatibility` are unsupported for capability enforcement or routing under Grok Build; execution relies on native CLI flags (`--tools`, `--disallowed-tools`), agent definitions, capability modes, and specialist dispatch. API-only model controls and programmatic tool calling are unsupported in skill prompts.
