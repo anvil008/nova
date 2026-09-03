@@ -256,6 +256,7 @@ python3 skills/docs/scripts/docs_check.py .
 python3 scripts/sync-agents.py --check --diff
 python3 scripts/sync-agent-models.py --check
 python3 scripts/render-diagrams.py --check
+python3 scripts/check-harness-bodies.py
 ```
 
 Architecture decisions live in [`docs/adr/`](docs/adr/); notable changes are summarized in

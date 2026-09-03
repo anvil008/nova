@@ -20,6 +20,8 @@ This orchestrator owns `loop-branch`, the iteration bound, and the stop decision
 - **Constraints:** Never run on `main`, never merge `loop-branch`, never push without explicit user request, and never alter `--max-iterations` to bypass a stall.
 - **Success Criteria:** Verified fix commit for each productive iteration, clean termination via `loop_state.py`, and lessons consolidated into the project wiki.
 
+<!-- body-check: drop-heading "## Harness requirement" other-harness instructions omitted in native Claude skill -->
+
 The harness `/loop` provides repetition in Claude Code (`/loop <interval> <prompt>`). This skill provides what one iteration does and, more importantly, when the loop must stop. Loop state lives on disk in `.workcell/review-fix-loop.json` rather than in-session context, because `/loop` re-invokes with a fresh context each tick.
 
 ## Ordered Gates
