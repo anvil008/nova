@@ -568,8 +568,8 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
             runtime_docs.extend(
                 [
                     (
-                        root / "docs/models/gemini-3.7-flash/prompting.md",
-                        Path("docs/models/gemini-3.7-flash/prompting.md"),
+                        root / "docs/models/gemini-3.8-flash/prompting.md",
+                        Path("docs/models/gemini-3.8-flash/prompting.md"),
                     ),
                 ]
             )

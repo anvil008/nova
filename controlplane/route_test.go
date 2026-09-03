@@ -9,7 +9,7 @@ func testExactRoute() ExactRoute {
 func testCapability(t *testing.T) CapabilitySnapshot {
 	t.Helper()
 	snapshot := CapabilitySnapshot{
-		HarnessID: "codex", Routes: []ExactRoute{testExactRoute(), {Provider: "google", Family: "gemini", Model: "gemini-3.7-flash", Effort: "max"}},
+		HarnessID: "codex", Routes: []ExactRoute{testExactRoute(), {Provider: "google", Family: "gemini", Model: "gemini-3.8-flash", Effort: "max"}},
 		ObservedAt: "2026-08-23T19:59:00Z", ExpiresAt: "2026-08-23T20:05:00Z",
 	}
 	if err := SealCapabilitySnapshot(&snapshot); err != nil {
@@ -49,7 +49,7 @@ func TestRouteInheritanceIsExact(t *testing.T) {
 
 func TestRouteRefinementRequiresAuthorityAndDiscovery(t *testing.T) {
 	parent := testExactRoute()
-	requested := ExactRoute{Provider: "google", Family: "gemini", Model: "gemini-3.7-flash", Effort: "max"}
+	requested := ExactRoute{Provider: "google", Family: "gemini", Model: "gemini-3.8-flash", Effort: "max"}
 	capability := testCapability(t)
 	if _, err := ResolveRoute(&parent, requested, RouteRefine, false, "", capability, "2026-08-23T20:00:00Z"); err == nil {
 		t.Fatal("unauthorized refinement accepted")

@@ -4,12 +4,12 @@
     "agy",
     "-p",
     "--model",
-    "gemini-3.7-flash",
+    "gemini-3.8-flash",
     "--effort",
     "high",
     "--dangerously-skip-permissions"
   ],
-  "unsupported_effort_note": "For gemini-3.7-flash, thinking is supported at low, medium, and high levels; minimal is not supported and returns an error.",
+  "unsupported_effort_note": "For gemini-3.8-flash, thinking is supported at low, medium, and high levels; minimal is not supported and returns an error.",
   "features": {
     "skill_isolation": {
       "supported": true,

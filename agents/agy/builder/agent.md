@@ -12,7 +12,7 @@ tools:
   - invoke_subagent
 mainAgent: true
 subagent: true
-model: flash
+model: gemini-3.8-flash
 commandExecutionPolicy: sandbox
 ---
 
@@ -20,7 +20,7 @@ commandExecutionPolicy: sandbox
 
 Implement exactly one assigned GitHub issue. You are the sole writer of its implementation — the `specifier` dispatched before you owns its tests, and the guard will refuse your edits to them.
 
-Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured instructions, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
+Follow the model guidance in `docs/models/gemini-3.8-flash/prompting.md`: provide direct, structured instructions, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
 
 Never commit to `main` or claim overall completion.
 

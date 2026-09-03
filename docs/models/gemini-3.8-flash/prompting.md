@@ -1,17 +1,20 @@
 ---
-model: gemini-3.7-flash
+model: gemini-3.8-flash
 official_source_urls:
-  - https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash
+  - https://ai.google.dev/gemini-api/docs/latest-model
+  - https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash
   - https://ai.google.dev/gemini-api/docs/prompting-strategies
-fetched_date: 2026-09-02
+fetched_date: 2026-09-03
 extractor_version: 1.1.0
 normalized_source_digests:
-  https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash: 73fded168648a58631322b845b307afdd2eec8acec8649881094085bfec9e207
+  https://ai.google.dev/gemini-api/docs/latest-model: c3a73825032d11c691f6675ec70bde29ca5e3b6f691fa90db5f543830b90a8e6
+  https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash: b22bbc4ece193fbd62ad38eb6a6e2dc6a9667c3421fff7d13f28591abdeb496f
   https://ai.google.dev/gemini-api/docs/prompting-strategies: 02a91196f2be4df7c133e739fd2d8c60395b303f56330821e1f00864ff691124
 ---
-# Gemini 3.7 Flash prompting guide
 
-This extract applies Google's Gemini 3 guidance to `gemini-3.7-flash`.
+# Gemini 3.8 Flash prompting guide
+
+This extract applies Google's Gemini 3 guidance to `gemini-3.8-flash`.
 Antigravity Teamwork is an orchestration surface, not a Gemini model capability,
 so it is outside this model guide.
 
@@ -61,7 +64,8 @@ Request the desired verbosity instead of assuming the model will infer it.
 
 ## Thinking levels
 
-Source: https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash
+Source: https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash
+Source: https://ai.google.dev/gemini-api/docs/latest-model
 
 Quoted as spec-table fragments, verbatim and in the order they appear in the
 versioned model page's property table:
@@ -71,6 +75,16 @@ versioned model page's property table:
 > Thinking Supported (low, medium, high)
 
 > Note: minimal is not supported and returns an error.
+
+From the latest model guide:
+
+> Gemini 3.8 Flash supports a 1M token context window, 64k max output tokens, tunable thinking levels (low, medium, high), and the same comprehensive suite of built-in tools.
+
+> Low thinking effort: Reduces time-to-answer for latency-critical tasks like incident response pipelines, real-time chat, writing drafts, and fast data analysis.
+
+> High thinking effort: Maximizes the model's reasoning and tool orchestration capabilities. Best for deep reasoning, mathematics, and difficult multi-step tasks.
+
+> Note: minimal thinking level is not supported for Gemini 3.8 Flash and will return an error.
 
 Use low for latency-sensitive tasks, medium as the default balance, and high
 for difficult reasoning, coding, or tool-heavy work where additional cost and

@@ -267,8 +267,8 @@ class AntigravityAgentsAcceptanceTests(unittest.TestCase):
             # Model routing: preserve Flash routing
             self.assertEqual(
                 meta.get("model"),
-                "flash",
-                f"Role {role!r} must route to 'flash', got {meta.get('model')!r}",
+                "gemini-3.8-flash",
+                f"Role {role!r} must route to 'gemini-3.8-flash', got {meta.get('model')!r}",
             )
 
             # Execution policy and agent flags
@@ -324,13 +324,13 @@ class AntigravityAgentsAcceptanceTests(unittest.TestCase):
             # Model guide citation
             has_guide_citation = bool(
                 re.search(
-                    r"docs/models/gemini-3\.7-flash/prompting\.md|gemini-3\.7-flash/prompting\.md",
+                    r"docs/models/gemini-3\.[78]-flash/prompting\.md|gemini-3\.[78]-flash/prompting\.md",
                     body,
                 )
             )
             self.assertTrue(
                 has_guide_citation,
-                f"Role {role!r} instructions must cite the official Gemini 3.7 Flash prompting guide (docs/models/gemini-3.7-flash/prompting.md)",
+                f"Role {role!r} instructions must cite the official Gemini prompting guide (docs/models/gemini-3.8-flash/prompting.md)",
             )
 
             # Ensure Teamwork is not conflated as a model feature
@@ -487,16 +487,16 @@ class AntigravityAgentsAcceptanceTests(unittest.TestCase):
                 f"Role {role!r} retains legacy conditional comment '<!-- only:'",
             )
 
-            # Native agent body must cite the Gemini 3.7 Flash model prompting guide
+            # Native agent body must cite the Gemini model prompting guide
             has_gemini_guide = bool(
                 re.search(
-                    r"docs/models/gemini-3\.7-flash/prompting\.md|gemini-3\.7-flash/prompting\.md",
+                    r"docs/models/gemini-3\.[78]-flash/prompting\.md|gemini-3\.[78]-flash/prompting\.md",
                     body,
                 )
             )
             self.assertTrue(
                 has_gemini_guide,
-                f"Role {role!r} is still an uncustomized fallback; native agent must cite Gemini 3.7 Flash guide",
+                f"Role {role!r} is still an uncustomized fallback; native agent must cite Gemini guide",
             )
 
         # 2. Verify contracts and ordered gates from contracts/harness-contracts.json

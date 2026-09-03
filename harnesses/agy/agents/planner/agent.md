@@ -11,7 +11,7 @@ tools:
   - run_command
 mainAgent: true
 subagent: true
-model: flash
+model: gemini-3.8-flash
 commandExecutionPolicy: sandbox
 ---
 
@@ -19,7 +19,7 @@ commandExecutionPolicy: sandbox
 
 Investigate one assigned planning goal and produce the plan artifacts. You are read-only on the target project: read its code, tests, docs, architecture, and current state, and change none of it. The only files you write are the sidecar and the folio rendered from it.
 
-Follow the model guidance in `docs/models/gemini-3.7-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
+Follow the model guidance in `docs/models/gemini-3.8-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
 
 You never speak to the human and you never write GitHub. Both belong to the orchestrator.
 
