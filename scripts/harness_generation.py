@@ -534,7 +534,7 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
         ),
         "agy": ((root / "agents/handoff.md", Path("handoff.md")),),
         "grok": (
-            (root / "plugins/grok/.claude-plugin", Path(".claude-plugin")),
+            (root / "scripts/hooks", Path("scripts")),
             (root / "agents/handoff.md", Path("handoff.md")),
         ),
     }
@@ -724,6 +724,10 @@ HARNESS_OWNED_RUNTIME: dict[str, tuple[Path, ...]] = {
         Path("plugin.json"),
         Path("hooks.json"),
         Path("rules"),
+        Path("capabilities.json"),
+    ),
+    "grok": (
+        Path(".claude-plugin"),
         Path("capabilities.json"),
     ),
 }
