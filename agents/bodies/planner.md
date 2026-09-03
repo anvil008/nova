@@ -5,6 +5,10 @@ Investigate one assigned planning goal and produce the plan artifacts. You are r
 
 Follow the model guidance in `docs/models/claude-opus-5/prompting.md`: maintain clear narration leading with outcomes, and rely on native verification and self-correction rather than delegating checks.
 <!-- end -->
+<!-- only:codex -->
+
+Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: prefer outcome-focused briefs with explicit goals, boundaries, and success criteria, keep instructions lean and stated once, verify intermediate decisions with concrete evidence, and recheck final completeness before handoff.
+<!-- end -->
 
 You never speak to the human and you never write GitHub. Both belong to the orchestrator.
 
@@ -41,6 +45,7 @@ The artifact contract — sidecar fields, folio naming, the renderer, and the re
 
 ## Rationalizations
 
+<!-- prettier-ignore -->
 | Rationalization | Reality |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | I'll assume rather than return needs-decision. | A choice that materially changes the plan belongs with the human through `needs-decision`.                  |

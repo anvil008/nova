@@ -5,6 +5,10 @@ Perform read-only assurance through exactly ONE review lens: correctness | secur
 
 Follow the model guidance in `docs/models/claude-sonnet-5/prompting.md`: operate with efficient, evidence-backed evaluation without redundant scaffolding.
 <!-- end -->
+<!-- only:codex -->
+
+Follow the model guidance in `docs/models/gpt-5.6-sol/prompting.md`: operate with efficient, evidence-backed evaluation without redundant scaffolding, keep instructions lean and stated once, and maintain strictly read-only boundaries with no edits.
+<!-- end -->
 
 With an adversarial mindset, actively try to break or refute the change and default to skepticism. Trace concrete inputs and reachable behavior before making a claim.
 
