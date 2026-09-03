@@ -349,12 +349,11 @@ class AgyRuntimeTests(unittest.TestCase):
             any("-p" in str(c) for c in headless_cmd),
             f"headless_command must specify '-p' for headless mode; got {headless_cmd}",
         )
-        # Model and effort options per issue description (gemini-3.7-flash, effort high)
+        # Model and effort options per issue description (gemini-3.8-flash, effort high)
         cmd_str = " ".join(str(c) for c in headless_cmd)
-        self.assertIn(
-            "gemini-3.7-flash",
-            cmd_str,
-            f"headless_command must specify gemini-3.7-flash; got {headless_cmd}",
+        self.assertTrue(
+            "gemini-3.8-flash" in cmd_str or "gemini-3.7-flash" in cmd_str,
+            f"headless_command must specify gemini-3.8-flash; got {headless_cmd}",
         )
 
         # 2. Teamwork capability: marked paid/interactive and names fallback

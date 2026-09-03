@@ -23,7 +23,7 @@ MANIFEST = ROOT / "agents" / "models.json"
 CLAUDE_EFFORT = ("low", "medium", "high", "xhigh")
 CLAUDE_MODES = ("de-prescribed",)
 CODEX_EFFORT = ("low", "medium", "high", "xhigh", "max")
-AGY_MODELS = ("pro", "flash", "inherit")
+AGY_MODELS = ("pro", "flash", "gemini-3.8-flash", "gemini-3.7-flash", "inherit")
 HARNESSES = frozenset({"claude", "codex", "agy", "grok"})
 
 # Codex has no per-agent model surface in its plugin manifest. The staged plugin

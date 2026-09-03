@@ -42,6 +42,11 @@ AGY_SKILLS_DIR = ROOT / "harnesses" / "agy" / "skills"
 CONTRACTS_FILE = ROOT / "contracts" / "harness-contracts.json"
 
 VALID_GEMINI_GUIDES = {
+    "gemini-3.8-flash",
+    "gemini-3.8",
+    "docs/models/gemini-3.8-flash/prompting.md",
+    "docs/models/gemini-3.8-flash",
+    "Gemini 3.8 Flash",
     "gemini-3.7-flash",
     "gemini-3.7",
     "docs/models/gemini-3.7-flash/prompting.md",
@@ -238,13 +243,15 @@ class AgySkillsAcceptanceTests(unittest.TestCase):
             # Cite Gemini guidance
             cites_guide = (
                 any(guide in content for guide in VALID_GEMINI_GUIDES)
+                or "docs/models/gemini-3.8-flash" in content
+                or "gemini-3.8-flash" in content.lower()
                 or "docs/models/gemini-3.7-flash" in content
                 or "gemini-3.7-flash" in content.lower()
             )
             self.assertTrue(
                 cites_guide,
                 f"Antigravity skill source {skill_name} does not cite Gemini guidance "
-                f"({', '.join(sorted(VALID_GEMINI_GUIDES))} or docs/models/gemini-3.7-flash/prompting.md)",
+                f"({', '.join(sorted(VALID_GEMINI_GUIDES))})",
             )
 
             # Contain no fallback marker
@@ -377,6 +384,8 @@ class AgySkillsAcceptanceTests(unittest.TestCase):
 
                 cites_guide = (
                     any(guide in staged_content for guide in VALID_GEMINI_GUIDES)
+                    or "docs/models/gemini-3.8-flash" in staged_content
+                    or "gemini-3.8-flash" in staged_content.lower()
                     or "docs/models/gemini-3.7-flash" in staged_content
                     or "gemini-3.7-flash" in staged_content.lower()
                 )
@@ -457,7 +466,12 @@ class AgySkillsAcceptanceTests(unittest.TestCase):
                 # Retain headless fallback
                 has_fallback = any(
                     term in content.lower()
-                    for term in ("headless", "headless fallback", "cli fallback", "fallback")
+                    for term in (
+                        "headless",
+                        "headless fallback",
+                        "cli fallback",
+                        "fallback",
+                    )
                 )
                 self.assertTrue(
                     has_fallback,
@@ -483,7 +497,8 @@ class AgySkillsAcceptanceTests(unittest.TestCase):
         # 3. At least one long-horizon entry workflow (plan, build, or new-feature) must document
         # Antigravity Teamwork as an optional surface (with paid/interactive availability and headless fallback).
         teamwork_found = any(
-            "teamwork" in (AGY_SKILLS_DIR / wf / "SKILL.md").read_text(encoding="utf-8").lower()
+            "teamwork"
+            in (AGY_SKILLS_DIR / wf / "SKILL.md").read_text(encoding="utf-8").lower()
             for wf in LONG_HORIZON_ENTRY_WORKFLOWS
             if (AGY_SKILLS_DIR / wf / "SKILL.md").is_file()
         )

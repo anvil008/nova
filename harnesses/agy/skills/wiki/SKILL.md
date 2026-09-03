@@ -8,11 +8,11 @@ description: Consolidate what a project's finished runs taught into its own pers
 Turn what a project's finished runs taught into a durable record of that project, kept in a namespace outside the repository so it outlives every branch, worktree, and clone of it.
 
 Invocation: `/workcell:wiki`
-Prompting Reference: [`docs/models/gemini-3.7-flash/prompting.md`](../../runtime/docs/models/gemini-3.7-flash/prompting.md)
+Prompting Reference: [`docs/models/gemini-3.8-flash/prompting.md`](../../runtime/docs/models/gemini-3.8-flash/prompting.md)
 
 You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Antigravity's `invoke_subagent`, hold the human gates, run `git` / `jj` / `gh` and scripts via `run_command` for branch, merge, and issue-state operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-This orchestrator decides whether the project opted in, dispatches the one agent that writes its namespace, and reads `wiki.py check` as the gate. Per the Gemini 3.7 Flash guide, place critical constraints first, demand explicit human opt-in before namespace creation, and enforce strict CLI boundary contracts.
+This orchestrator decides whether the project opted in, dispatches the one agent that writes its namespace, and reads `wiki.py check` as the gate. Per the Gemini 3.8 Flash guide, place critical constraints first, demand explicit human opt-in before namespace creation, and enforce strict CLI boundary contracts.
 
 ## Critical Constraints
 

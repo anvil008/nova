@@ -8,11 +8,11 @@ description: Hunt real defects across a codebase end-to-end — reproduce each a
 Find real defects, reproduce each as a failing test, fix them, and open one PR to `main`. This is the sweeper: it searches across the codebase for bugs rather than starting from a reported symptom.
 
 Invocation: `/workcell:code-analysis`
-Prompting Reference: [`docs/models/gemini-3.7-flash/prompting.md`](../../runtime/docs/models/gemini-3.7-flash/prompting.md)
+Prompting Reference: [`docs/models/gemini-3.8-flash/prompting.md`](../../runtime/docs/models/gemini-3.8-flash/prompting.md)
 
 You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Antigravity's `invoke_subagent`, hold the human gates, run `git` / `jj` / `gh` and scripts via `run_command` for branch, merge, and issue-state operations, and read gate output and handoff records using the [`anvil.agent-handoff/v1`](../../runtime/handoff.md) schema. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
 
-This orchestrator coordinates the defect search, verifies reproduction seals, and opens the consolidated PR. Per the Gemini 3.7 Flash guide, place critical constraints first, demand explicit evidence before state transitions, and enforce honest failure modes.
+This orchestrator coordinates the defect search, verifies reproduction seals, and opens the consolidated PR. Per the Gemini 3.8 Flash guide, place critical constraints first, demand explicit evidence before state transitions, and enforce honest failure modes.
 
 ## Critical Constraints
 
