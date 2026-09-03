@@ -28,6 +28,21 @@ Execution proceeds through five strict, ordered gates:
 4. **version control**: Adopt colocated jj repo if appropriate, or preserve git worktree compatibility.
 5. **lint and format gates**: Install per-stack linters/formatters and verify documented commands via integrator baseline.
 
+## Read before you ask
+
+Dispatch a `researcher` agent via `spawn_agent` to report what is already there: language and manifests, existing build/test/lint commands, CI workflows, version control (git, or `.jj/`), any current `AGENTS.md` / `CLAUDE.md` / `GEMINI.md`, and the test layout. `scripts/bootstrap-project.sh <dir>` reports the detected stack and tool readiness without installing anything, and is the fastest way to get that picture.
+
+Then ask the human what the survey cannot tell you. State what you found so the questions are corrections rather than an interrogation:
+
+- **Purpose** — what is this project, who uses it, and what does "working" mean? An instruction file that cannot answer this is decoration.
+- **Verification** — the exact commands for build, test, and lint. Agents need a command they can run, not a description of one.
+- **Build runner** — keep what exists, or move to something else? Ask specifically about **Bazel** if the repo is large, polyglot, or has a slow build: it is a real commitment and a bad default for a small one.
+- **Version control** — stay on plain git, or adopt **jj**? A git-only repo still gets isolation through `workcell-ws`, which falls back to git worktrees under the same naming and teardown, so nothing is blocked; jj adoption with `jj git init --colocate` remains the recommendation for parallel waves, because one operation log and `jj undo` are what make many concurrent working copies recoverable.
+- **Lint and format** — which tools, and are they advisory or blocking?
+- **Conventions worth writing down** — the ones a newcomer gets wrong: layout, naming, error handling, what must never be edited by hand.
+
+Recommend defaults for each rather than presenting a blank form, and mark which answers are blocking.
+
 ## Procedure
 
 1. **Survey and interview.** Dispatch a `researcher` via `spawn_agent` and execute `scripts/bootstrap-project.sh <dir>` to inspect repository state, language manifests, and existing tooling. Interview the user to determine project purpose, canonical verification commands, build runners (e.g., standard vs Bazel), version control adoption, and lint/format tools.
