@@ -71,26 +71,28 @@ class BuildError(Exception):
 def codex_routing(models_path: Path = MODELS) -> dict[str, dict[str, str]]:
     """Resolve the runtime model and effort for every Codex specialist."""
     data = json.loads(models_path.read_text(encoding="utf-8"))
-    defaults = data.get("defaults", {}).get("codex", {})
     agents = data.get("agents", {})
     routing: dict[str, dict[str, str]] = {}
     for name, spec in sorted(agents.items()):
         if name.startswith("_"):
             continue
-        values = dict(defaults)
-        values.update(spec.get("codex", {}))
-        model = values.get("model")
-        effort = values.get("effort")
+        if "codex" not in spec or not isinstance(spec.get("codex"), dict):
+            raise BuildError(f"{models_path}: {name} has no codex profile")
+        codex_spec = spec["codex"]
+        model = codex_spec.get("model")
+        effort = codex_spec.get("effort")
         if not isinstance(model, str) or not model.strip():
-            raise BuildError(f"agents/models.json: {name}/codex has no model")
+            raise BuildError(f"{models_path}: {name}/codex has no model")
+        if not isinstance(effort, str) or not effort.strip():
+            raise BuildError(f"{models_path}: {name}/codex has no effort")
         if effort not in CODEX_EFFORTS:
             raise BuildError(
-                f"agents/models.json: {name}/codex effort {effort!r} "
+                f"{models_path}: {name}/codex effort {effort!r} "
                 f"must be one of {sorted(CODEX_EFFORTS)}"
             )
         routing[name] = {"model": model.strip(), "effort": effort}
     if not routing:
-        raise BuildError("agents/models.json: no Codex agent routes")
+        raise BuildError(f"{models_path}: no Codex agent routes")
     return routing
 
 
@@ -171,9 +173,9 @@ def agent_skill(
         short = short[:61].rstrip() + "..."
     agent_yaml = (
         "interface:\n"
-        f'  display_name: "{display}"\n'
-        f'  short_description: "{short}"\n'
-        f'  default_prompt: "Use ${AGENT_PREFIX}{name} for exactly one assigned unit of work."\n'
+        f'  displayName: "{display}"\n'
+        f'  shortDescription: "{short}"\n'
+        f'  defaultPrompt: "Use ${AGENT_PREFIX}{name} for exactly one assigned unit of work."\n'
         "policy:\n"
         "  allow_implicit_invocation: true\n"
     )
@@ -255,7 +257,9 @@ def build() -> Path:
             runtime,
             plugin_root / "runtime",
             symlinks=False,
-            ignore=lib_dist.ignore_root_tests(runtime),
+            ignore=lib_dist.ignore_root_tests(
+                runtime, "tests", ".codex-plugin", "hooks"
+            ),
         )
         handoff = runtime / "handoff.md"
         if handoff.is_file():
@@ -265,7 +269,12 @@ def build() -> Path:
     # the install, and one that resolves inside it would be dereferenced anyway.
     skills = 0
     for skill_dir in skill_dirs:
-        shutil.copytree(skill_dir, skills_out / skill_dir.name, symlinks=False)
+        shutil.copytree(
+            skill_dir,
+            skills_out / skill_dir.name,
+            symlinks=False,
+            ignore=lib_dist.ignore_root_tests(skill_dir),
+        )
         skill_path = skills_out / skill_dir.name / "SKILL.md"
         skill_text = skill_path.read_text(encoding="utf-8")
         sep = "\n" if skill_text.endswith("\n") else "\n\n"

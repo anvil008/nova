@@ -496,8 +496,7 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
             (root / "agents/handoff.md", Path("handoff.md")),
         ),
         "codex": (
-            (root / "plugins/codex/.codex-plugin", Path(".codex-plugin")),
-            (root / "plugins/codex/hooks", Path("hooks")),
+            (root / "scripts/hooks", Path("scripts")),
             (root / "agents/models.json", Path("models.json")),
             (root / "agents/handoff.md", Path("handoff.md")),
         ),
@@ -544,6 +543,13 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                         Path("docs/models/claude-sonnet-5/prompting.md"),
                     ),
                 ]
+            )
+        elif harness == "codex":
+            runtime_docs.append(
+                (
+                    root / "docs/models/gpt-5.6-sol/prompting.md",
+                    Path("docs/models/gpt-5.6-sol/prompting.md"),
+                )
             )
         for source, relative in runtime_docs:
             _add_tree(desired, source, base / relative)
@@ -663,6 +669,11 @@ def is_harness_test_path(path: Path, root: Path = ROOT) -> bool:
 HARNESS_OWNED_RUNTIME: dict[str, tuple[Path, ...]] = {
     "claude": (
         Path(".claude-plugin"),
+        Path("hooks"),
+        Path("capabilities.json"),
+    ),
+    "codex": (
+        Path(".codex-plugin"),
         Path("hooks"),
         Path("capabilities.json"),
     ),
