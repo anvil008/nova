@@ -41,12 +41,65 @@ PLUGIN = DIST / "plugins" / "workcell"
 HARNESS = ROOT / "harnesses" / "grok"
 
 
+EXPECTED_AGENTS = (
+    "builder",
+    "debugger",
+    "deployer",
+    "documenter",
+    "integrator",
+    "planner",
+    "profiler",
+    "researcher",
+    "reviewer",
+    "specifier",
+)
+
+
+class BuildError(Exception):
+    pass
+
+
 def fail(message: str) -> int:
     print(f"build-grok-plugin: {message}", file=sys.stderr)
     return 1
 
 
+def validate_grok_models(root: Path) -> None:
+    models_path = root / "agents" / "models.json"
+    if not models_path.is_file():
+        return
+    try:
+        data = json.loads(models_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        raise BuildError(f"failed to parse {models_path}: {e}") from e
+
+    agents_cfg = data.get("agents", {})
+    for agent_name in EXPECTED_AGENTS:
+        agent_entry = agents_cfg.get(agent_name)
+        if not isinstance(agent_entry, dict):
+            raise BuildError(f"agent {agent_name} missing from agents/models.json")
+        grok_cfg = agent_entry.get("grok")
+        if not isinstance(grok_cfg, dict):
+            raise BuildError(
+                f"agent {agent_name} missing grok profile in agents/models.json"
+            )
+        model = grok_cfg.get("model")
+        if not model or not isinstance(model, str) or not model.strip():
+            raise BuildError(
+                f"agent {agent_name} has empty grok model in agents/models.json"
+            )
+        if model != "grok-4.6":
+            raise BuildError(
+                f"agent {agent_name} specifies unsupported grok model {model!r} (expected 'grok-4.6')"
+            )
+
+
 def main() -> int:
+    try:
+        validate_grok_models(ROOT)
+    except BuildError as e:
+        return fail(str(e))
+
     # MIGRATION FALLBACK (remove with #167): until every harness family is authored
     # under harnesses/<h>, this stager still builds from the pre-layered
     # plugins/grok wrapper when that family is absent. #167's
@@ -93,6 +146,15 @@ def main() -> int:
     (PLUGIN / ".claude-plugin").mkdir()
     shutil.copy2(manifest, PLUGIN / ".claude-plugin" / "plugin.json")
     shutil.copy2(handoff, PLUGIN / "handoff.md")
+
+    scripts_src = runtime / "scripts" if layered else ROOT / "scripts/hooks"
+    if scripts_src.is_dir():
+        shutil.copytree(
+            scripts_src,
+            PLUGIN / "scripts",
+            symlinks=False,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
 
     if layered:
         shutil.copytree(
