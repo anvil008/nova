@@ -65,6 +65,41 @@ _sha256s(){ printf '%s' "$1" | _sha256; }
 # never the raw text: interpolating a name would let a directory called "a link b" and a
 # symlink "a" pointing at "b dir" produce the same line, and so hash as the same tree.
 _digest_path(){
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import hashlib, os, sys
+from pathlib import Path
+arg = Path(sys.argv[1])
+if not arg.exists() and not arg.is_symlink():
+    sys.exit(1)
+if not arg.is_dir():
+    print(hashlib.sha256(arg.read_bytes()).hexdigest())
+    sys.exit(0)
+entries = []
+for p in arg.rglob("*"):
+    if p.parent == arg and p.name == ".workcell-stamp.json":
+        continue
+    rel = p.relative_to(arg)
+    entries.append(f"./{rel}")
+entries.sort(key=lambda s: s.encode("utf-8"))
+lines = []
+for entry in entries:
+    rel = entry[2:]
+    p = arg / rel
+    rel_sha = hashlib.sha256(rel.encode("utf-8")).hexdigest()
+    if p.is_symlink():
+        target_sha = hashlib.sha256(os.readlink(p).encode("utf-8")).hexdigest()
+        lines.append(f"link {rel_sha} {target_sha}\n")
+    elif p.is_dir():
+        lines.append(f"dir {rel_sha}\n")
+    elif p.is_file():
+        file_sha = hashlib.sha256(p.read_bytes()).hexdigest()
+        lines.append(f"file {rel_sha} {file_sha}\n")
+    else:
+        lines.append(f"other {rel_sha}\n")
+print(hashlib.sha256("".join(lines).encode("utf-8")).hexdigest())
+' "$1" 2>/dev/null && return 0
+  fi
   if [[ -d $1 ]]; then
     ( cd "$1" && find . ! -path . ! -path ./.workcell-stamp.json | LC_ALL=C sort | while IFS= read -r f; do
         if [[ -L $f ]]; then printf 'link %s %s\n' "$(_sha256s "${f#./}")" "$(_sha256s "$(readlink "$f")")"
