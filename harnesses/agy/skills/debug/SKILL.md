@@ -20,9 +20,11 @@ This orchestrator coordinates the reproduction, root cause isolation, specifier 
 - **Constraints:** Never guess or attempt fixes before the failure is reliably reproduced. Never dispatch a builder without a specifier RED seal. Never modify tests during the builder phase.
 - **Success Criteria:** Deterministic reproduction, verified RED seal, passing GREEN verification, passing review passes, and clean single PR to `main`.
 
-## No Reproduction, No Fix
+## Reproduction is the gate
 
-No reproduction, no fix: without an automated reproduction, any repair is speculative. If a defect cannot be reliably reproduced, document the findings, stop, and route to [`code-analysis`](../code-analysis/SKILL.md) or request more context. If the report is too thin to reproduce, the missing information is the finding — go back to whoever reported it with the specific gap, rather than inventing a plausible scenario and fixing that instead.
+**No reproduction, no fix.** If an issue cannot be reproduced, do not let an agent guess at a fix and call it done. Guessing at bugs makes worse bugs, and a fix you cannot prove is a change nobody can trust.
+
+If the report is too thin to reproduce, the missing information is the finding: go back to whoever reported it with the specific gap, rather than inventing a plausible scenario and fixing that instead.
 
 ## Ordered Gates
 
