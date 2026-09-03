@@ -38,21 +38,33 @@ The planner agent follows the [artifact and sidecar contract](references/sidecar
 
 ## Procedure
 
-1. **Dispatch planner.** Dispatch the `planner` agent via `invoke_subagent` with the objective. It inspects the codebase read-only, authors dependency-ordered issues with disjoint `ownershipHint` globs and `acceptanceTests`, writes the sidecar, and renders the offline HTML folio using `render_plan.py`.
-2. **Resolve open questions with the human before writing the plan.** If the planner returns `needs-decision`, present the question directly to the human, obtain their answer, and re-dispatch. Never guess answers.
-3. **Present folio.** Present the generated HTML plan folio to the user. You must stop here for explicit human approval. Approval to plan is not approval to write GitHub resources.
-4. **Reconciliation preview.** Prior to approval, preview GitHub reconciliation idempotently:
+1. **Dispatch planner.** Dispatch the `planner` agent via `invoke_subagent` with the objective. It inspects the codebase read-only, authors dependency-ordered issues with disjoint `ownershipHint` globs and `acceptanceTests`, writes the sidecar, and renders the offline HTML folio using `render_plan.py`:
    ```bash
-   python3 -B skills/plan/scripts/reconcile_github.py plan.sidecar.json
+   python3 skills/plan/scripts/render_plan.py plan.sidecar.json
+   python3 skills/plan/scripts/render_plan.py plan.sidecar.json --plans-dir docs/plans
    ```
-5. **Reconcile to GitHub milestone.** Only after explicit human approval, apply the sidecar with the approver login:
+   Omit the output path to get the `docs/plans/` naming convention; pass one explicitly only for a scratch render nobody intends to keep. Treat a coarse `ownershipHint` as a reason to send the plan back: each issue owns exactly one narrow path or glob, disjoint from its wave-mates. The plan also assigns each issue its **branch type**, carried as a `type:feature` or `type:bug` label in the sidecar ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)).
+2. **Resolve open questions with the human before writing the plan.** If the planner returns `needs-decision`, carry the question to the human, wait for their answer, and re-dispatch. Never answer on the human's behalf, and never let an unanswered question through: a plan carrying one is not ready for approval, and the sidecar has nowhere to put it by design.
+3. **Present folio.** Present the generated HTML plan folio to the user. You **must stop** here for explicit human approval. Approval to plan is not approval to write GitHub resources.
+4. **Reconciliation preview.** Prior to approval, a read-only reconciliation preview is allowed — the agent runs one, and you may run another against a captured snapshot:
+   ```bash
+   python3 skills/plan/scripts/reconcile_github.py plan.sidecar.json --snapshot github-state.json
+   python3 skills/plan/scripts/reconcile_github.py plan.sidecar.json
+   ```
+5. **Reconcile to GitHub milestone.** Only after the human approves the reviewed artifacts, apply the exact approved sidecar yourself with an approval identity via `run_command`:
    ```bash
    python3 -B skills/plan/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<github-login>"
    ```
-   Use milestones only; never create or modify a GitHub Project. Never run `--apply` merely to test the skill.
+   `--approved-by` must equal the login `gh` is authenticated as (`gh api user`). Use milestones only; never create or modify a GitHub Project. Never run `--apply` merely to test the skill. Use snapshot preview and local rendering for validation.
 
 ## Boundaries
 
-Never start execution on an unapproved plan. If changes are requested, re-render the folio and seek fresh approval.
+Never start execution on an unapproved plan. If changes are requested, re-render the folio and seek fresh approval. Never encode an unresolved decision into the plan.
+
+## Offline Demonstration
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/plan/scripts/render_plan.py skills/plan/examples/plan.sidecar.json /tmp/plan.html
+```
 
 Based on the requirements and constraints above, execute the plan workflow systematically.

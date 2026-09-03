@@ -32,17 +32,18 @@ Execution proceeds through five strict, ordered gates:
 
 ## Procedure
 
-1. **Sweep and plan.** Dispatch a `debugger` or `researcher` agent via `invoke_subagent` to formulate a concrete failure scenario for each potential bug and try to refute false alarms. Where an issue is merely cosmetic or architectural cleanup without a bug, route it to [`code-refactor`](../code-refactor/SKILL.md). Dispatch a `debugger` or `researcher` agent via `invoke_subagent` to sweep target subsystems for demonstrable bugs (e.g. edge-case panics, race conditions, leakages, or unhandled errors). Dispatch the `planner` agent to organize confirmed defects into dependency-ordered issues with disjoint `ownershipHint` globs and explicit `acceptanceTests`.
-2. **Approve.** Stop and present the plan folio for explicit human approval before creating issues or branches.
-3. **Execute in single-PR mode.** Run [`build`](../build/SKILL.md) in single-PR mode on the integration branch:
+1. **Baseline.** Dispatch an `integrator` via `invoke_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. A suite that is already red tells you which failures are pre-existing — that is the map, not a blocker.
+2. **Hunt.** Dispatch `reviewer` agents in parallel, one lens each, over the area under analysis: `correctness` and `tests` always, plus `security`, `performance`, `api-contract`, `backend`, `integrations`, or `frontend` as the code warrants. Each returns structured findings with a failure scenario and never edits. Where an issue is merely cosmetic or architectural cleanup without a bug, route it to [`code-refactor`](../code-refactor/SKILL.md).
+3. **Verify adversarially before believing anything.** Dispatch a fresh `reviewer` via `invoke_subagent` that did not originate the candidate to try to refute each one against the code. A finding that survives a genuine refutation attempt is real; one that cannot be reproduced from its own failure scenario is dropped, and dropping it is a result worth reporting. This is the same contract [`code-review`](../code-review/SKILL.md) uses, and the refuted ones belong in the report.
+4. **Plan.** Dispatch the `planner` via `invoke_subagent` with the surviving findings. One issue per defect, ordered by severity, with disjoint `ownershipHint`s. Each issue's `acceptanceTests` are written from the failure scenario: the oracle is the specific wrong behaviour, so the test fails today for the right reason. Stop for explicit human approval before any GitHub write.
+5. **Execute in single-PR mode.** Run [`build`](../build/SKILL.md) in **single-PR mode**, both phases intact:
    - For each issue, dispatch a `specifier` via `invoke_subagent` to author reproduction tests and establish a RED seal (`tdd-guard seal --test-command <cmd>`).
    - Dispatch a `builder` via `invoke_subagent` with `mode: standard` in an isolated workspace (`workcell-ws add bug/<issue-key> --base <integration-base>`) to implement the fix against the sealed tests without modifying them.
    - Run multi-lens review via `reviewer` agents before merging to the integration branch.
-4. **Integrate.** Dispatch an `integrator` via `invoke_subagent` over each wave to verify combined correctness.
-5. **Open final PR.** Open a single PR to `main` linking all closed issues.
+6. **Integrate and open final PR.** Dispatch an `integrator` via `invoke_subagent` over each wave, confirm every sealed test now passes and nothing that was green went red, and merge intermediate PRs to the integration branch only on the evidence. The final PR from that branch to `main` lists each defect, its failure scenario, and the test that now covers it, and repeats every per-issue `Closes #<n>` line.
 
 ## Boundaries
 
-Never claim a defect without an automated failing test. If an anomaly cannot be reliably reproduced, document it and stop rather than guessing a fix. Never introduce drive-by stylistic edits or unsolicited architectural shifts.
+Never refactor for taste, rename for consistency, or reformat while you are in there — an unrelated change in a bug-fix diff is how a fix gets reverted along with something else six months later; route it to [`code-refactor`](../code-refactor/SKILL.md). Never fix a defect you could not reproduce as a failing test: if the test cannot be written, the finding is not understood yet, and shipping a change to code you do not understand is how the next defect gets made. Never claim a clean bill of health from a partial sweep — say which areas and lenses were actually covered.
 
 Based on the requirements and constraints above, execute the code-analysis workflow systematically.

@@ -32,6 +32,7 @@ Execution proceeds through four strict, ordered gates:
 ## Procedure: Lens Selection and Fan-Out
 
 Select applicable lenses, never a fixed N:
+
 - `correctness` and `tests` are always selected.
 - `security` applies when touching trust boundaries, authentication, input handling, or cryptography.
 - `performance` applies to hot paths, loops, allocations, or database queries.
@@ -43,6 +44,7 @@ Spawn one read-only `reviewer` agent per lens in parallel via `invoke_subagent`.
 ## Adversarial Verification
 
 Candidate findings undergo independent adversarial verification. An independent verifier actively tries to refute the claim:
+
 - If the verifier cannot reproduce or confirms the claim is a false positive, the finding is marked `DROP`.
 - If the claim is substantiated, it is confirmed with recorded severity (`critical`, `high`, `medium`, `low`, or `nit`).
 
@@ -58,23 +60,58 @@ Candidate findings undergo independent adversarial verification. An independent 
    - `approve`: Zero findings remain.
 3. Render the review report following the [report-rendering contract](references/report-rendering.md):
    ```bash
-   python3 -B skills/code-review/scripts/render_review.py review.json report.html
+   PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/render_review.py review.json report.html --repo <owner/name> --subject "PR #<number>" --lenses correctness,tests,security
    ```
 
 ## Issue Reconciliation and Approval Gate
 
 When converting findings into tracked GitHub issues:
-- Use `reconcile_findings.py` with `--review-id <slug>` and `--snapshot <state.json>` to preview actions.
-- Stop for explicit human approval before creating or closing issues.
-- Never run `--apply` merely to test the skill.
-- Only with explicit human approval:
-  ```bash
-  python3 -B skills/code-review/scripts/reconcile_findings.py review.json --repo <owner/name> --review-id <slug> --apply --approved-by "<login>"
-  ```
-- Use `workcell-review reviewId` metadata to track provenance and ensure `close_resolved_issue` safely closes resolved findings. The matching key is deliberately not the line number, ensuring stability across code edits.
+
+- `--review-id` is the durable identity of this review — a stable lowercase slug you keep across re-runs (`pr-4821`, not a timestamp). Each issue carries `<!-- workcell-review reviewId=<id> finding=<key> severity=<sev> -->`, and that marker is what makes re-running safe.
+- Identity comes from the last marker in the body. Marker delimiters in quoted review prose are escaped while composing the issue, so an excerpt cannot squat the issue's identity.
+- A finding's key is a hash of **(file, claim)** — deliberately not the line. Line numbers move whenever anything above them changes, so keying on them would file a duplicate for the same defect after any unrelated edit and strand the original as never-fixed. The line lives in the issue body.
+
+Reconciliation therefore converges rather than accumulates:
+
+| Situation                                                | Action                  |
+| -------------------------------------------------------- | ----------------------- |
+| Finding has no issue                                     | `create_issue`          |
+| Issue exists, content changed                            | `update_issue`          |
+| Finding no longer reported — fixed, or refuted on re-run | `close_resolved_issue`  |
+| Two issues carry the same marker                         | `close_duplicate_issue` |
+| Nothing changed                                          | no actions at all       |
+
+`--min-severity` (default `medium`) sets the filing threshold; `low` and `nit` stay in the report rather than becoming tracker noise. An open issue is only closed as resolved when its recorded severity (from the marker, or the `severity:<sev>` label) is at or above the current `--min-severity`; a stricter threshold filters findings out of the run, it does not fix them, so their issues stay open. Issues are labelled `code-review`, `severity:<sev>`, and `lens:<lens>`; add more with `--label`, and attach them to a milestone with `--milestone`.
+
+Each issue body carries the failure scenario and the independent verification — the refutation attempt and the evidence — so whoever picks it up sees why it is real without re-reading the diff.
+
+### Preview and Apply
+
+Stop for explicit human approval before creating or closing issues. Never run `--apply` merely to test the skill:
+
+```bash
+# Preview — read-only. Omit --snapshot to query GitHub read-only instead.
+python3 -B skills/code-review/scripts/reconcile_findings.py review.json --repo <owner/name> --review-id <slug> --snapshot <state.json>
+
+# Apply — only after a human approves this exact review.
+python3 -B skills/code-review/scripts/reconcile_findings.py review.json --repo <owner/name> --review-id <slug> --apply --approved-by "<login>"
+```
 
 ## Boundaries
 
 Reviewers never perform edits. Never accept unverified claims or assume a bug exists without a reproducible path. Never bypass human approval for GitHub issue updates.
+
+## Offline Demonstration
+
+These commands read local fixtures only and have no GitHub or subagent side effects:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/merge_findings.py --dedupe-only skills/code-review/examples/correctness.json skills/code-review/examples/tests.json skills/code-review/examples/security.json
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/merge_findings.py --verification skills/code-review/examples/verification.json skills/code-review/examples/correctness.json skills/code-review/examples/tests.json skills/code-review/examples/security.json
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/render_review.py skills/code-review/examples/expected-review.json /tmp/review.html --repo acme/platform --subject "PR #4821" --lenses correctness,tests,security
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/code-review/scripts/reconcile_findings.py skills/code-review/examples/expected-review.json --repo acme/platform --review-id pr-4821 --subject "PR #4821" --snapshot skills/code-review/examples/empty-github-snapshot.json
+```
+
+Never run `--apply` merely to test the skill. Use snapshot preview for validation.
 
 Based on the requirements and constraints above, execute the code-review workflow systematically.

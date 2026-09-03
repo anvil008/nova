@@ -33,17 +33,19 @@ Execution proceeds through five strict, ordered gates:
 ## Procedure
 
 1. **Survey and interview.** Dispatch a `researcher` agent via `invoke_subagent` and run `scripts/bootstrap-project.sh <dir>` to inspect manifests, existing commands, and tooling. Interview the user regarding project purpose, verification commands, and build runner choices.
-2. **Version control setup.** When adopting jj, run `jj git init --colocate` at the repo root via `run_command` to enable operation logging and conflict recovery while preserving `.git/` compatibility.
-3. **Establish instruction files.** Dispatch the `documenter` agent via `invoke_subagent` to author `AGENTS.md` as the canonical instruction file. Link all harness-specific instruction files (`CLAUDE.md`, `GEMINI.md`) as symbolic links to `AGENTS.md`:
+2. **Instruction files.** Dispatch the `documenter` agent via `invoke_subagent` to author `AGENTS.md` as the canonical instruction file. Link all harness-specific instruction files (`CLAUDE.md`, `GEMINI.md`) as symbolic links to `AGENTS.md`:
    ```bash
    ln -sf AGENTS.md CLAUDE.md
    ln -sf AGENTS.md GEMINI.md
    ```
-4. **Configure tooling and gates.** Wire formatters, linters, and advisory hooks via `scripts/bootstrap-project.sh --install --with-hooks <dir>`.
-5. **Verify with baseline.** Dispatch an `integrator` agent with `mode: baseline` via `invoke_subagent` to execute every command documented in `AGENTS.md`. Every documented command must run green.
+3. **Build runner.** Configure build and test runners based on repo size and architecture.
+4. **Version control.** When adopting jj, run `jj git init --colocate` at the repo root via `run_command` to enable operation logging and conflict recovery while preserving `.git/` compatibility.
+5. **Lint and format gates.** Wire formatters, linters, and advisory hooks via `scripts/bootstrap-project.sh --install --with-hooks <dir>`. Everything it writes is added to the repository's `.git/info/exclude`, so none of it shows up in a diff or a commit. Any config that is genuinely code — a CI workflow, a build file, a Bazel target — goes through a `builder` test-first where it is testable, not hand-edited here.
+6. **Verify with baseline.** Dispatch an `integrator` agent with `mode: baseline` via `invoke_subagent` to execute every command documented in `AGENTS.md`. Every documented command must run green.
+7. **Report.** Report what was set up, what was left alone and why, and what the human still has to decide.
 
 ## Boundaries
 
-Never document an unverified command. If no test suite exists, stop and offer to author one via [`new-feature`](../new-feature/SKILL.md).
+Never overwrite an existing `AGENTS.md`, `CLAUDE.md`, or CI workflow without showing the human what changes — these encode decisions you were not present for. Never invent a build or test command to fill a section; if none exists, say so and offer to create one. Never adopt jj or Bazel because they are available: both are answers to specific problems, and imposing them on a repo that does not have those problems is a cost with no return. This skill sets a repository up; it does not implement features in it.
 
 Based on the requirements and constraints above, execute the repo-setup workflow systematically.

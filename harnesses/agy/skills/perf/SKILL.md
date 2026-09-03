@@ -37,16 +37,25 @@ A change is faster when the difference is **outside the baseline's spread**, mea
 
 ## Procedure
 
-1. **Baseline.** Dispatch a `profiler` via `invoke_subagent` to locate the benchmark harness, execute repeated measurement runs, and report median and spread with the run count. The profiler has no write tools. If it reports no harness exists, stop here.
-2. **Correctness baseline.** Dispatch an `integrator` via `invoke_subagent` with `mode: baseline` to verify existing tests on `base` and seal them.
-3. **Plan optimization.** Dispatch a `debugger` to profile hot paths, then dispatch `planner` to organize optimizations into issues with disjoint `ownershipHint` globs.
-4. **Optimize against baseline seal.** In isolated workspaces (`workcell-ws add perf/<issue-key> --base <integration-base>`), dispatch `builder` agents with `mode: refactor` against the green baseline seal.
-5. **Measure again.** Dispatch the `profiler` over the optimized code using the identical harness and parameters.
-6. **Compare.** Retain only optimizations whose gain is outside the baseline's spread.
-7. **Integrate and PR.** Open a single PR to `main` with before/after distributions.
+1. **Benchmark baseline.** Dispatch the `profiler` agent via `invoke_subagent` with the area to measure and the run count. It finds the harness, checks it is clean, runs it, and returns the baseline distribution: median, spread, and the runs. It has no write tools. If it reports no harness, stop.
+2. **Correctness baseline.** Dispatch an `integrator` via `invoke_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge.
+3. **Plan.** Dispatch a `debugger` agent via `invoke_subagent` to profile the hot path and find the bottleneck with evidence; then dispatch the `planner` with the bottleneck and the target. Each issue is one independently measurable change with a disjoint `ownershipHint`. Its `acceptanceTests` are the existing tests that must keep passing plus the profiler's baseline command. Approval as usual before writing GitHub tracking.
+4. **Optimize.** Run [`build`](../build/SKILL.md) in **single-PR mode** with the specifier phase omitted, identically to a refactor. For each issue, the orchestrator creates its jj workspace and branch on the integration base:
+
+   ```bash
+   workcell-ws add perf/<issue-key> --base <integration-base>
+   # = jj workspace add --name perf-<issue-key> ../<repo>-perf-<issue-key> -r <integration-base>
+   #   + jj bookmark create perf/<issue-key> -r @   (git worktree add -b <branch> in a git-only repo)
+   ```
+
+   Optimization branches take the `perf/` type ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Dispatch an `integrator` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) carrying `mode: baseline`, that `workspace`, the existing correctness tests as `sealedTests`, and their exact suite argv as `baselineCommand`. It returns green evidence plus a `kind: baseline` seal and hands the seal to the builder with `tdd-guard handoff --to builder`. Only then dispatch the `builder` in that workspace with `mode: refactor`. This is the same `tdd-guard` state machine with the RED requirement replaced by a GREEN one: the builder never touches a test file, retains post-seal GREEN evidence, and records real diff review passes.
+
+5. **Measure again.** Dispatch the `profiler` over the builder's branch with the same command, parameters, and run count. It returns the comparison distribution.
+6. **Compare.** Check the distributions. If the new median is outside the baseline spread, the optimization is real. Keep only what paid. An optimization inside the noise gets dropped, not merged: it bought nothing and cost readability. Say so in the PR — a documented negative result stops the next person from trying it again.
+7. **Integrate and open final PR.** Dispatch an `integrator` over each wave to verify combined correctness, and the `profiler` once more on the integrated result. The final PR from that branch to `main` carries the before-and-after distributions (median, spread, run count, machine specs if relevant), the flamegraph or profile diff, and repeats every per-issue `Closes #<n>` line.
 
 ## Boundaries
 
-Never accept a single run as evidence or quote a mean without a spread. Never trade correctness for speed without explicit human authorization.
+Never accept a single run as evidence, never quote a mean without a spread, and never report an improvement you cannot distinguish from noise. Never let a benchmark be "fixed" to produce a better number — the `profiler` has no write tools for exactly this reason. Never trade correctness for speed without stating the trade explicitly and getting the human to take it. Never extrapolate a microbenchmark to end-to-end behaviour: say what was measured, and say what was not.
 
 Based on the requirements and constraints above, execute the perf workflow systematically.

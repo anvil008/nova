@@ -33,13 +33,17 @@ Execution proceeds through five strict, ordered gates:
 ## Procedure
 
 1. **Pre-flight verification.** Dispatch an `integrator` agent via `invoke_subagent` to confirm that all target CI checks pass, the git working tree is clean, and the target release revision is fully green.
-2. **Human approval.** Present release details, changelog, target environment, and rollback instructions for explicit human approval. Stop until sign-off is granted.
-3. **Execute release.** Dispatch the `deployer` agent via `invoke_subagent` to trigger deployment pipelines or commands to the approved target environment.
-4. **Post-deploy verification.** Run automated health checks, smoke test suites, and monitoring validations against the target deployment.
-5. **Confirm rollback readiness.** Verify that previous revision artifacts and rollback procedures are accessible and ready in case an operational anomaly is detected.
+2. **Human approval.** Present release details, changelog, target environment, and rollback instructions for explicit human approval. Stop until sign-off is granted. The orchestrator never infers approval, never deploys secrets, and never treats a green pre-flight as permission to deploy.
+3. **Execute release.** Dispatch the `deployer` agent via `invoke_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) to execute the release. Where the release needs a branch of its own, it is `release/<slug>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Tag the release yourself, then publish the GitHub release for that tag:
+   ```bash
+   gh release create vX.Y.Z --title "<project> vX.Y.Z" --notes-file <notes>
+   ```
+   from the documenter's release notes. The release title is exactly `<project> vX.Y.Z`: the descriptive strapline belongs to the changelog entry heading, not the title, and the notes never repeat the title as their own first heading. Tagging and publishing a release are git/`gh` operations, not authorship. When the project publishes packages (GitHub Packages, npm, a container registry), that publish is part of this gated deploy — never a separate, unapproved step.
+4. **Post-deploy verification.** The deployer agent returns exact commands with `commandId`s, what it observed in the verification window, and whether it rolled back. A claim that the deploy "looks good" is not verification.
+5. **Confirm rollback readiness.** Verify that previous revision artifacts and rollback procedures are accessible and ready. A rollback is a successful outcome of the procedure, not a failure of it. Dispatch the `documenter` agent for an ADR on any non-trivial release decision and for the handover entry.
 
 ## Boundaries
 
-Deployment is outward-facing and high-impact. Never infer approval from silence or previous runs. If any post-deployment check fails, immediately notify the human and prepare the rollback path.
+The orchestrator never infers approval, never deploys secrets, and never treats a green pre-flight as permission to deploy. Deploy targets, credentials, and rollback steps come from the project — never invented. If any post-deployment check fails, trigger rollback immediately rather than attempting hot-fixes in place.
 
 Based on the requirements and constraints above, execute the deploy workflow systematically.

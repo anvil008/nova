@@ -37,19 +37,55 @@ Only when the **user explicitly asks** to run work in another harness, and only 
 
 If any of the three is missing, ask for it. Do not guess a model or effort, and do not pick a harness on the user's behalf.
 
+## Headless Invocation Per Harness
+
+Run in the target repo/dir; pass the task as the prompt (long briefs via stdin/a file); capture the result; launch in the background for long jobs and report back when it exits.
+
+**Claude Code**
+
+```bash
+claude -p "<task prompt>" --model <model> --effort <low|medium|high> \
+  [--agent <name>] --dangerously-skip-permissions
+```
+
+**Codex**
+
+```bash
+codex exec --cd <dir> -m <model> \
+  -c model_reasoning_effort="<low|medium|high>" \
+  --approve-for-me -o <out.txt> "<task prompt>"   # long brief: append  < brief.md
+```
+
+**Antigravity (`agy`)**
+
+```bash
+agy -p "<task prompt>" --model <model> --effort <low|medium|high> \
+  --dangerously-skip-permissions
+```
+
+**Grok Build (`grok`)**
+
+```bash
+grok -p "<task prompt>" -m <model> --effort <low|medium|high> \
+  --always-approve
+```
+
 ## Procedure
 
 1. **Validate explicit request.** Verify that the user provided an explicit prompt to execute via another coding harness. Never trigger this skill as an automatic router.
-2. **Check required parameters.** Ensure harness, model, and effort are all specified. If any parameter is absent, halt and request clarification from the user.
-3. **Execute headless leaf CLI.** Run the command via `run_command` in an isolated workspace:
-   - For Claude Code: `claude -p "<task prompt>" --model <model> --effort <effort> --dangerously-skip-permissions`
-   - For Codex: `codex exec --cd <dir> -m <model> -c model_reasoning_effort="<effort>" --approve-for-me -o <out.txt> "<task prompt>"`
-   - For Antigravity (`agy`): `agy -p "<task prompt>" --model <model> --effort <effort> --dangerously-skip-permissions`
-   - For Grok Build: `grok -p "<task prompt>" -m <model> --effort <effort> --always-approve`
+2. **Check required parameters.** Ensure harness, model, and effort are all specified. If any parameter is absent, halt and request clarification from the user. Never guess model or effort.
+3. **Execute headless leaf CLI.** Run the command via `run_command` in an isolated workspace using the appropriate CLI invocation above.
 4. **Capture and integrate result.** Ingest the leaf command output conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) and report findings.
+
+## Notes
+
+- Each command auto-approves tools inside a workspace sandbox (`--approve-for-me` / `--dangerously-skip-permissions` / `--always-approve`), so scope it to one repo/dir and review the diff after.
+- For long runs, launch in the background and wait for the process to exit rather than polling; then read the captured output (`-o` file or stdout) and summarize it.
+- Structured result: Codex `-o <file>`; `agy --json-schema <schema>`; Claude `--output-format json`; Grok `--output-format json` (long briefs via `--prompt-file`).
+- This is a leaf capability. The spawned agent does one bounded job and returns its output; it does not orchestrate, and you own integrating whatever it produced.
 
 ## Boundaries
 
-This is a leaf capability. The spawned agent does one bounded job and returns its output; it does not orchestrate, and you own integrating whatever it produced. Never attempt multi-hop routing between harnesses.
+This is a leaf capability. The spawned agent does one bounded job and returns its output; it does not orchestrate, and you own integrating whatever it produced. Never attempt multi-hop routing between harnesses. Never guess model or effort parameters.
 
 Based on the requirements and constraints above, execute the use-other-harness workflow systematically.

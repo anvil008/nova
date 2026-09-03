@@ -53,17 +53,29 @@ python3 -B skills/research/scripts/merge_research.py skills/research/examples/ar
 
 Return the consolidated packet: per-area findings with evidence, the conflicts, the coverage summary, the gaps, and the open questions. The orchestrator owns synthesis and decides what the evidence means — deciding is orchestration; gathering is not.
 
-When a shareable report is wanted, write the synthesis as JSON and render into a self-contained HTML page in the shared report style using `render_research.py`. Maintainers follow the [report-rendering contract](references/report-rendering.md).
+When a shareable report is wanted, write the synthesis as JSON — `{"verdict": "clean|advisory|action-needed", "summary": "...", "recommendations": [{"priority": "high|medium|low", "title", "detail", "refs": ["F1-01"]}]}` — where each `ref` is a finding id (`F<area index>-<finding index>`) from the packet, and render both into a self-contained HTML page in the shared Foundry Zero report style (`docs/research/research<NN>-<YYYYMMDD>-<title>.html`):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/render_research.py packet.json docs/research/research01-20260101-sample.html --synthesis synthesis.json --title "Sample" --repo owner/name --subject "what was researched"
+```
+
+The renderer rejects a recommendation that cites an unknown finding and a `clean` verdict that carries recommendations. Maintainers follow the [report-rendering contract](references/report-rendering.md).
 
 ## Procedure
 
 1. **Formulate area briefs.** Define the research objective and divide it into clear, orthogonal areas.
 2. **Dispatch blind researchers.** Run one read-only researcher per area in parallel using `invoke_subagent`.
 3. **Merge and deduplicate.** Merge envelope outputs via `merge_research.py` without dropping conflicting stances.
-4. **Synthesize report.** Generate the final evidence packet and HTML report.
+4. **Synthesize report.** Generate the final evidence packet and render the HTML report via `render_research.py` with `--synthesis`, `--title`, `--repo`, and `--subject` flags.
 
 ## Boundaries
 
 Researchers never edit repository code. The orchestrator synthesizes findings but never invents findings not present in the agent envelopes.
+
+## Offline Demonstration
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B skills/research/scripts/merge_research.py skills/research/examples/areas.json skills/research/examples/code.json skills/research/examples/docs.json skills/research/examples/runtime.json
+```
 
 Based on the requirements and constraints above, execute the research workflow systematically.
