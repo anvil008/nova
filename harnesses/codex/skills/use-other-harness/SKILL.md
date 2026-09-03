@@ -1,68 +1,56 @@
 ---
 name: use-other-harness
-description: ONLY when the user explicitly asks to run a subagent in a DIFFERENT coding harness (Claude Code, Codex, Antigravity, or Grok Build) via headless mode. The user must name the harness, the model, and the effort. Never invoke this for automatic cross-harness routing — it is an explicit, user-triggered escape hatch, not a router.
+description: ONLY when the user explicitly asks to run a subagent in a DIFFERENT coding harness (Claude, Codex, Antigravity, or Grok Build) via headless mode. The user must name the harness, the model, and the effort. Never invoke this for automatic cross-harness routing — it is an explicit, user-triggered escape hatch, not a router.
 ---
 
-<!-- generated harness-owned procedure: Codex -->
+# Use Another Harness (Headless)
 
-# Use another harness from Codex
+Spin up a one-shot subagent in another harness by calling its headless CLI directly. This replaces foreign-dispatch protocols with direct headless execution: you launch a process, wait on it, and capture the output.
 
-Run the target harness's command below in the shell. Point it at the working directory with its own directory flag instead of changing directory first, and capture the result to a file so the output survives the run.
+Invocation: `/workcell:use-other-harness`
+Prompting Reference: [`docs/models/gpt-5.6-sol/prompting.md`](../../runtime/docs/models/gpt-5.6-sol/prompting.md)
 
-Spin up a one-shot subagent in another harness by calling its headless CLI directly.
-This replaces the old `workcell-runplane` run-plane and its MCP: **no service, no control
-plane, no foreign-dispatch protocol** — just a direct headless process you launch, wait
-on, and read back.
+You are the orchestrator ([`ADR 0007`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you hold human gates, run headless processes via shell execution, and read handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never invoke this skill automatically as a router; it is solely an explicit user escape hatch for leaf execution.
 
-## When to use
+## Outcome, Constraints, and Success Criteria
 
-Only when the **user explicitly asks** to run work in another harness, and only after they
-have specified:
+- **Outcome:** Execute a bounded leaf task inside a distinct foreign coding harness via headless CLI execution upon explicit user instruction.
+- **Constraints and Boundaries:** Never invoke automatically as a router. The user must explicitly request the run and specify the harness, model, and effort. Execution is restricted to a leaf task.
+- **Success Criteria:** Bounded leaf execution completes in isolation, output captured into structured handoff, and results integrated.
 
-- **harness** — `claude` (Claude Code) · `codex` (Codex) · `antigravity` (`agy`) · `grok` (Grok Build)
-- **model** — the exact model id for that harness
-- **effort** — the reasoning effort (where the harness supports it)
+## Ordered Gates
 
-If any of the three is missing, ask for it. Do not guess a model or effort, and do not
-pick a harness on the user's behalf.
+Execution proceeds through four strict, ordered gates:
 
-## Headless invocation per harness
+1. **explicit user request**: Verify user explicitly requested running a task in a different coding harness.
+2. **named harness model and effort**: Confirm user named the target harness, model ID, and reasoning effort.
+3. **headless leaf execution**: Launch foreign CLI in headless mode within a scoped workspace.
+4. **result handoff**: Capture structured output conforming to `anvil.agent-handoff/v1` and integrate findings.
 
-Run in the target repo/dir; pass the task as the prompt (long briefs via stdin/a file);
-capture the result; launch in the background for long jobs and report back when it exits.
+## Headless Invocation Per Harness
 
-**Claude Code**
-```bash
-claude -p "<task prompt>" --model <model> --effort <low|medium|high> \
-  [--agent <name>] --dangerously-skip-permissions
-```
+Only execute when the user explicitly names the harness, model, and reasoning effort:
 
-**Codex**
-```bash
-codex exec --cd <dir> -m <model> \
-  -c model_reasoning_effort="<low|medium|high>" \
-  --approve-for-me -o <out.txt> "<task prompt>"   # long brief: append  < brief.md
-```
+- **Claude**
+  ```bash
+  claude -p "<task prompt>" --model <model> --effort <low|medium|high> --dangerously-skip-permissions
+  ```
 
-**Antigravity (`agy`)**
-```bash
-agy -p "<task prompt>" --model <model> --effort <low|medium|high> \
-  --dangerously-skip-permissions
-```
+- **Codex**
+  ```bash
+  codex exec --cd <dir> -m <model> -c model_reasoning_effort="<low|medium|high>" --approve-for-me -o <out.txt> "<task prompt>"
+  ```
 
-**Grok Build (`grok`)**
-```bash
-grok -p "<task prompt>" -m <model> --effort <low|medium|high> \
-  --always-approve
-```
+- **Antigravity (`agy`)**
+  ```bash
+  agy -p "<task prompt>" --model <model> --effort <low|medium|high> --dangerously-skip-permissions
+  ```
 
-## Notes
+- **Grok Build (`grok`)**
+  ```bash
+  grok -p "<task prompt>" -m <model> --effort <low|medium|high> --always-approve
+  ```
 
-- Each command auto-approves tools inside a workspace sandbox (`--approve-for-me` /
-  `--dangerously-skip-permissions` / `--always-approve`), so scope it to one repo/dir and review the diff after.
-- For long runs, launch in the background and wait for the process to exit rather than
-  polling; then read the captured output (`-o` file or stdout) and summarize it.
-- Structured result: Codex `-o <file>`; `agy --json-schema <schema>`; Claude
-  `--output-format json`; Grok `--output-format json` (long briefs via `--prompt-file`).
-- This is a leaf capability. The spawned agent does one bounded job and returns its output;
-  it does not orchestrate, and you own integrating whatever it produced.
+## Harness Limitations
+
+API-only model controls (such as dynamic request-level reasoning effort or pro mode toggles) and API-only orchestration features are unsupported in Codex skill prompts; execution relies on native harness tooling and specialist dispatch.
