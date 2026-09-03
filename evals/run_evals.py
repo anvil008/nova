@@ -17,6 +17,19 @@ from pathlib import Path
 from typing import Any, TextIO
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+_SCRIPTS_PATH = str(REPO_ROOT / "scripts")
+if _SCRIPTS_PATH not in sys.path:
+    sys.path.insert(0, _SCRIPTS_PATH)
+
+from harness_generation import (
+    HARNESS_OWNED_SKILLS,
+    _scoped_owners,
+    check_use_other_harness_invariants,
+    parse_handoff_schema,
+    parse_invocation,
+    parse_ordered_gates,
+)
+
 VALID_CASE_KINDS = {"skill", "agent"}
 VALID_EVAL_KINDS = {"execution", "dialogue"}
 TOKEN_RE = re.compile(r"[a-z0-9]+")
@@ -870,7 +883,10 @@ def check_contract_parity(root: Path = REPO_ROOT, out: TextIO = sys.stdout) -> i
     for harness in harnesses:
         carrier = root / "harnesses" / harness / "runtime" / "contracts.json"
         if not carrier.is_file():
-            errors.append(f"harness {harness}: missing contracts carrier: {carrier}")
+            errors.append(
+                f"harness {harness}: artifact runtime/contracts.json: "
+                "field carrier drift - expected 'present', got 'missing'"
+            )
         else:
             try:
                 carrier_data = json.loads(carrier.read_text(encoding="utf-8"))
@@ -893,23 +909,36 @@ def check_contract_parity(root: Path = REPO_ROOT, out: TextIO = sys.stdout) -> i
                 )
                 if car_skill is None:
                     errors.append(
-                        f"harness {harness}: artifact {s_name}: missing from carrier"
+                        f"harness {harness}: artifact {s_name}: "
+                        "field carrier drift - expected 'present', got 'missing'"
                     )
                 else:
                     exp_oracle = reg_skill.get("acceptanceOracle")
                     act_oracle = car_skill.get("acceptanceOracle")
-                    if exp_oracle and act_oracle != exp_oracle:
-                        errors.append(
-                            f"harness {harness}: artifact {s_name}: field oracle drift - "
-                            f"expected {exp_oracle!r}, got {act_oracle!r}"
-                        )
+                    if exp_oracle:
+                        if act_oracle is None:
+                            errors.append(
+                                f"harness {harness}: artifact {s_name}: field oracle drift - "
+                                f"expected {exp_oracle!r}, got 'missing'"
+                            )
+                        elif act_oracle != exp_oracle:
+                            errors.append(
+                                f"harness {harness}: artifact {s_name}: field oracle drift - "
+                                f"expected {exp_oracle!r}, got {act_oracle!r}"
+                            )
                     exp_handoff = reg_skill.get("handoffSchema")
                     act_handoff = car_skill.get("handoffSchema")
-                    if exp_handoff and act_handoff != exp_handoff:
-                        errors.append(
-                            f"harness {harness}: artifact {s_name}: field handoff drift - "
-                            f"expected {exp_handoff!r}, got {act_handoff!r}"
-                        )
+                    if exp_handoff:
+                        if act_handoff is None:
+                            errors.append(
+                                f"harness {harness}: artifact {s_name}: field handoff drift - "
+                                f"expected {exp_handoff!r}, got 'missing'"
+                            )
+                        elif act_handoff != exp_handoff:
+                            errors.append(
+                                f"harness {harness}: artifact {s_name}: field handoff drift - "
+                                f"expected {exp_handoff!r}, got {act_handoff!r}"
+                            )
 
             for reg_agent in registry.get("agents", []):
                 a_name = reg_agent["name"]
@@ -923,86 +952,116 @@ def check_contract_parity(root: Path = REPO_ROOT, out: TextIO = sys.stdout) -> i
                 )
                 if car_agent is None:
                     errors.append(
-                        f"harness {harness}: artifact {a_name}: missing from carrier"
+                        f"harness {harness}: artifact {a_name}: "
+                        "field carrier drift - expected 'present', got 'missing'"
                     )
                 else:
                     exp_oracle = reg_agent.get("acceptanceOracle")
                     act_oracle = car_agent.get("acceptanceOracle")
-                    if exp_oracle and act_oracle != exp_oracle:
-                        errors.append(
-                            f"harness {harness}: artifact {a_name}: field oracle drift - "
-                            f"expected {exp_oracle!r}, got {act_oracle!r}"
-                        )
+                    if exp_oracle:
+                        if act_oracle is None:
+                            errors.append(
+                                f"harness {harness}: artifact {a_name}: field oracle drift - "
+                                f"expected {exp_oracle!r}, got 'missing'"
+                            )
+                        elif act_oracle != exp_oracle:
+                            errors.append(
+                                f"harness {harness}: artifact {a_name}: field oracle drift - "
+                                f"expected {exp_oracle!r}, got {act_oracle!r}"
+                            )
                     exp_handoff = reg_agent.get("handoffSchema")
                     act_handoff = car_agent.get("handoffSchema")
-                    if exp_handoff and act_handoff != exp_handoff:
-                        errors.append(
-                            f"harness {harness}: artifact {a_name}: field handoff drift - "
-                            f"expected {exp_handoff!r}, got {act_handoff!r}"
-                        )
+                    if exp_handoff:
+                        if act_handoff is None:
+                            errors.append(
+                                f"harness {harness}: artifact {a_name}: field handoff drift - "
+                                f"expected {exp_handoff!r}, got 'missing'"
+                            )
+                        elif act_handoff != exp_handoff:
+                            errors.append(
+                                f"harness {harness}: artifact {a_name}: field handoff drift - "
+                                f"expected {exp_handoff!r}, got {act_handoff!r}"
+                            )
 
         for reg_skill in registry.get("skills", []):
             s_name = reg_skill["name"]
             skill_doc = root / "harnesses" / harness / "skills" / s_name / "SKILL.md"
-            if not skill_doc.is_file() and harness == "agy":
-                skill_doc = (
-                    root
-                    / "harnesses"
-                    / "agy"
-                    / "agents"
-                    / "builder"
-                    / "skills"
-                    / s_name
-                    / "SKILL.md"
-                )
-            if skill_doc.is_file():
-                content = skill_doc.read_text(encoding="utf-8")
-                exp_inv = reg_skill.get("invocation")
-                m_inv = re.search(r"Invocation:\s*`?([^`\n\r]+)`?", content)
-                if m_inv and exp_inv:
-                    act_inv = m_inv.group(1).strip()
-                    if act_inv != exp_inv.strip():
-                        errors.append(
-                            f"harness {harness}: artifact {s_name}: field invocation drift - "
-                            f"expected {exp_inv!r}, got {act_inv!r}"
-                        )
-                exp_gates = reg_skill.get("orderedGates", [])
-                if "## Ordered Gates" in content and exp_gates:
-                    section = content.split("## Ordered Gates", 1)[1].split("\n## ", 1)[
-                        0
-                    ]
-                    doc_gates = re.findall(
-                        r"^\s*\d+\.\s*\*\*([^*]+)\*\*", section, re.MULTILINE
+            if not skill_doc.is_file():
+                owners = _scoped_owners(root, registry, harness, s_name)
+                if owners:
+                    skill_doc = (
+                        root
+                        / "harnesses"
+                        / harness
+                        / "agents"
+                        / owners[0]
+                        / "skills"
+                        / s_name
+                        / "SKILL.md"
                     )
-                    if doc_gates and doc_gates[: len(exp_gates)] != exp_gates:
+            if not skill_doc.is_file():
+                errors.append(
+                    f"harness {harness}: artifact {s_name}: field artifact drift - "
+                    "expected 'present', got 'missing'"
+                )
+                continue
+
+            content = skill_doc.read_text(encoding="utf-8")
+            if harness in HARNESS_OWNED_SKILLS:
+                exp_inv = reg_skill.get("invocation")
+                act_inv = parse_invocation(content)
+                if act_inv is None:
+                    errors.append(
+                        f"harness {harness}: artifact {s_name}: field invocation drift - "
+                        f"expected {exp_inv!r}, got 'missing'"
+                    )
+                elif exp_inv and act_inv != exp_inv.strip():
+                    errors.append(
+                        f"harness {harness}: artifact {s_name}: field invocation drift - "
+                        f"expected {exp_inv!r}, got {act_inv!r}"
+                    )
+
+                exp_gates = reg_skill.get("orderedGates", [])
+                doc_gates = parse_ordered_gates(content)
+                if doc_gates is None:
+                    errors.append(
+                        f"harness {harness}: artifact {s_name}: field gate order drift - "
+                        f"expected {exp_gates!r}, got 'missing'"
+                    )
+                elif exp_gates:
+                    if not doc_gates:
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field gate order drift - "
+                            f"expected {exp_gates!r}, got 'missing'"
+                        )
+                    elif (
+                        len(doc_gates) < len(exp_gates)
+                        or doc_gates[: len(exp_gates)] != exp_gates
+                    ):
                         errors.append(
                             f"harness {harness}: artifact {s_name}: field gate order drift - "
                             f"expected {exp_gates!r}, got {doc_gates!r}"
                         )
-                exp_handoff = reg_skill.get("handoffSchema")
-                m_handoff = re.search(r"anvil\.agent-handoff/[a-zA-Z0-9_.-]+", content)
-                if m_handoff and exp_handoff:
-                    act_handoff = m_handoff.group(0)
-                    if act_handoff != exp_handoff:
+
+                if s_name != "jj":
+                    exp_handoff = reg_skill.get("handoffSchema")
+                    act_handoff = parse_handoff_schema(content)
+                    if act_handoff is None:
+                        errors.append(
+                            f"harness {harness}: artifact {s_name}: field handoff drift - "
+                            f"expected {exp_handoff!r}, got 'missing'"
+                        )
+                    elif exp_handoff and act_handoff != exp_handoff:
                         errors.append(
                             f"harness {harness}: artifact {s_name}: field handoff drift - "
                             f"expected {exp_handoff!r}, got {act_handoff!r}"
                         )
-                if s_name == "use-other-harness":
-                    normalized = re.sub(r"\s+", " ", content)
-                    if (
-                        "Do not guess a model or effort, and do not pick a harness on the user's behalf."
-                        not in normalized
-                    ):
-                        errors.append(
-                            f"harness {harness}: artifact {s_name}: field fallback drift - "
-                            "missing mandatory prohibition against guessing model/effort"
-                        )
-                    if "silently fall back" in normalized.lower():
-                        errors.append(
-                            f"harness {harness}: artifact {s_name}: field fallback drift - "
-                            "silent fallback is strictly prohibited"
-                        )
+
+            if s_name == "use-other-harness":
+                for err in check_use_other_harness_invariants(content):
+                    errors.append(
+                        f"harness {harness}: artifact {s_name}: field fallback drift - {err}"
+                    )
 
         for reg_agent in registry.get("agents", []):
             a_name = reg_agent["name"]
@@ -1011,30 +1070,41 @@ def check_contract_parity(root: Path = REPO_ROOT, out: TextIO = sys.stdout) -> i
                 if harness == "agy"
                 else root / "harnesses" / harness / "agents" / f"{a_name}.md"
             )
-            if agent_doc.is_file():
-                content = agent_doc.read_text(encoding="utf-8")
-                exp_handoff = reg_agent.get("handoffSchema")
-                m_handoff = re.search(r"anvil\.agent-handoff/[a-zA-Z0-9_.-]+", content)
-                if m_handoff and exp_handoff:
-                    act_handoff = m_handoff.group(0)
-                    if act_handoff != exp_handoff:
-                        errors.append(
-                            f"harness {harness}: artifact {a_name}: field handoff drift - "
-                            f"expected {exp_handoff!r}, got {act_handoff!r}"
-                        )
-                exp_gates = reg_agent.get("orderedGates", [])
-                if "## Ordered Gates" in content and exp_gates:
-                    section = content.split("## Ordered Gates", 1)[1].split("\n## ", 1)[
-                        0
-                    ]
-                    doc_gates = re.findall(
-                        r"^\s*\d+\.\s*\*\*([^*]+)\*\*", section, re.MULTILINE
-                    )
-                    if doc_gates and doc_gates[: len(exp_gates)] != exp_gates:
-                        errors.append(
-                            f"harness {harness}: artifact {a_name}: field gate order drift - "
-                            f"expected {exp_gates!r}, got {doc_gates!r}"
-                        )
+            if not agent_doc.is_file():
+                errors.append(
+                    f"harness {harness}: artifact {a_name}: field artifact drift - "
+                    "expected 'present', got 'missing'"
+                )
+                continue
+
+            content = agent_doc.read_text(encoding="utf-8")
+            exp_handoff = reg_agent.get("handoffSchema")
+            act_handoff = parse_handoff_schema(content)
+            if act_handoff is None:
+                errors.append(
+                    f"harness {harness}: artifact {a_name}: field handoff drift - "
+                    f"expected {exp_handoff!r}, got 'missing'"
+                )
+            elif exp_handoff and act_handoff != exp_handoff:
+                errors.append(
+                    f"harness {harness}: artifact {a_name}: field handoff drift - "
+                    f"expected {exp_handoff!r}, got {act_handoff!r}"
+                )
+
+            exp_gates = reg_agent.get("orderedGates", [])
+            doc_gates = parse_ordered_gates(content)
+            if (
+                doc_gates is not None
+                and exp_gates
+                and (
+                    len(doc_gates) < len(exp_gates)
+                    or doc_gates[: len(exp_gates)] != exp_gates
+                )
+            ):
+                errors.append(
+                    f"harness {harness}: artifact {a_name}: field gate order drift - "
+                    f"expected {exp_gates!r}, got {doc_gates!r}"
+                )
 
     if errors:
         print("Contract parity drift detected:", file=out)
