@@ -1,0 +1,106 @@
+{
+  "repo": "anvil008/workcell",
+  "milestone": "Jujutsu Trunk-Based High-Velocity Pipeline in Workcell",
+  "issues": [
+    {
+      "body": "Run python3 scripts/sync-skills.py and python3 scripts/sync-agents.py to synchronize the updated build skill (skills/build) and agent definitions (builder, integrator) across all four harness replicas (claude, codex, agy, grok). Verify that python3 scripts/sync-skills.py --check and python3 scripts/sync-agents.py --check report zero drift across all 16 skills and 10 agents. Verify that python3 scripts/check-contract-parity.py and python3 scripts/check-harness-bodies.py pass without errors.\n\n## Definition of Done (tests)\n\n- [ ] **sync_skills_reports_zero_drift** (integration) - python3 scripts/sync-skills.py --check exits 0 reporting all 16 skills in sync across 4 harnesses. (test: `scripts/sync-skills.py`)\n- [ ] **sync_agents_reports_zero_drift** (integration) - python3 scripts/sync-agents.py --check exits 0 reporting 10 agents in sync across 4 harnesses. (test: `scripts/sync-agents.py`)\n- [ ] **contract_parity_and_bodies_pass** (integration) - python3 scripts/check-contract-parity.py and python3 scripts/check-harness-bodies.py exit 0 with no violations. (test: `scripts/check-contract-parity.py`)\n\n<!-- workcell-planner planId=jj-trunk-velocity-pipeline issue=sync-harness-skills -->",
+      "labels": [
+        {
+          "id": "LA_kwDOUDOzh88AAAACzr6pvQ",
+          "name": "harnesses",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOUDOzh88AAAACzr6pvg",
+          "name": "sync",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "number": 217,
+      "state": "open"
+    },
+    {
+      "body": "Update skills/build/SKILL.md to eliminate intermediate GitHub branch pushes and intermediate pull requests (gh pr create, gh pr checks --watch, gh pr merge --rebase). In skills/build/SKILL.md: (1) specify that builders commit locally in isolated jj workspaces (jj describe) and hand off changeId; (2) instruct builders to run ONLY their sealed acceptance test (tdd-guard verify --green-command ...) in ~5s, strictly forbidding broad test suites or discovery suites; (3) document that the integrator uses `jj rebase -s <changeId> -d <planId>-integration` to instantly combine wave changes onto the integration trunk in 50ms with zero network roundtrips; (4) document that the integrator runs the full project test suite (scripts/run-tests.sh + linters) ONCE on the combined wave state; (5) specify that only the final milestone integration PR targeting main is pushed to GitHub and triggers remote CI. Strictly preserve all existing wave loop contract phrases checked by test_skill_contracts.py and test_build.py: `closed **and** (`status:done` or `state_reason == completed`)`, `skills/build/scripts/waves.py`, `## Single-PR mode`, `<planId>-integration`, `final PR from the integration branch to `main``, `combined GREEN`, `never dispatch a builder for an issue with no seal`, `sole completion authority`, `wiki.py record`, `--kind build-wave`, `wiki.py status --repo .`, `tdd-guard reseal --reason`, `` `mode: refactor` ``, `` `mode: baseline` ``. Update skills/build/tests/test_build.py (specifically test_every_harness_builder_publishes_the_jj_workspace_lifecycle) to verify the new local trunk handoff lifecycle (local commit jj describe, local changeId handoff, zero intermediate push/PR) while verifying that all skill invariants in test_skill_contracts.py pass cleanly.\n\n## Definition of Done (tests)\n\n- [ ] **build_skill_eliminates_intermediate_prs** (unit) - skills/build/SKILL.md eliminates intermediate PR creation and documents jj rebase wave integration onto <planId>-integration. (test: `skills/build/SKILL.md`)\n- [ ] **build_skill_scopes_builder_testing** (unit) - skills/build/SKILL.md instructs builders to run only sealed tests and reserves full project test suite for integrator. (test: `skills/build/SKILL.md`)\n- [ ] **build_skill_contract_invariants_pass** (unit) - python3 -m unittest skills/build/tests/test_skill_contracts.py passes cleanly. (test: `skills/build/tests/test_skill_contracts.py`)\n- [ ] **builder_workspace_lifecycle_test_passes** (unit) - python3 -m unittest skills/build/tests/test_build.py passes all workspace lifecycle and wave loop tests. (test: `skills/build/tests/test_build.py`)\n\n<!-- workcell-planner planId=jj-trunk-velocity-pipeline issue=build-skill-trunk-pipeline -->",
+      "labels": [
+        {
+          "id": "LA_kwDOUDOzh88AAAACzr6pJg",
+          "name": "build",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOUDOzh88AAAACztNPcA",
+          "name": "jj",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOUDOzh88AAAACztNQuw",
+          "name": "pipeline",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOUDOzh88AAAACztNQvQ",
+          "name": "tests",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "number": 216,
+      "state": "open"
+    },
+    {
+      "body": "Update .github/workflows/ci.yml to optimize remote gating and build speeds. Configure dependency caching across CI jobs: add Go build cache (~/.cache/go-build) caching via actions/cache alongside the existing Go module cache in setup-go, and add Python pip dependency caching (via actions/setup-python cache: 'pip' or actions/cache for pip dependencies). Ensure workflow triggers are scoped to direct pushes to main and pull requests targeting main, preventing intermediate branch pushes from running redundant remote CI runs. Validate YAML syntax and verify that cached CI runs target reducing end-to-end execution from ~3.5 minutes to ~1 minute.\n\n## Definition of Done (tests)\n\n- [ ] **ci_workflow_has_go_build_cache** (unit) - .github/workflows/ci.yml contains caching configuration for ~/.cache/go-build. (test: `.github/workflows/ci.yml`)\n- [ ] **ci_workflow_has_python_pip_cache** (unit) - .github/workflows/ci.yml configures pip caching on Python setup or actions/cache for pip dependencies. (test: `.github/workflows/ci.yml`)\n- [ ] **ci_triggers_restricted_to_main** (unit) - .github/workflows/ci.yml scopes push and pull_request events to the main branch. (test: `.github/workflows/ci.yml`)\n\n<!-- workcell-planner planId=jj-trunk-velocity-pipeline issue=ci-workflow-caching -->",
+      "labels": [
+        {
+          "id": "LA_kwDOUDOzh88AAAACykinXA",
+          "name": "ci",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOUDOzh88AAAACztNP_A",
+          "name": "performance",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOUDOzh88AAAACztNP_Q",
+          "name": "github-actions",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "number": 215,
+      "state": "open"
+    },
+    {
+      "body": "Update agents/handoff.md, agents/bodies/builder.md, and agents/bodies/integrator.md. Formally add changeId to the anvil.agent-handoff/v1 schema and dispatch/handoff examples, documenting that builders commit changes locally in their isolated Jujutsu workspace via `jj describe -m '...'` and return their local changeId, setting pr to null. In agents/bodies/builder.md, strictly scope builder testing to run ONLY the sealed acceptance test via `tdd-guard verify --green-command ...` (~5s), explicitly forbidding broad discovery suites or whole-project test runners (scripts/run-tests.sh); eliminate `jj git push` and intermediate PR creation (`gh pr create`); update workspace teardown to happen after local changeId handoff is complete. In agents/bodies/integrator.md, document rebasing builder changes onto the integration trunk using `jj rebase -s <changeId> -d <integration-trunk>` (50ms zero network roundtrips) and executing full project test verification (scripts/run-tests.sh + linters) ONCE per combined wave state. Run python3 scripts/sync-agents.py to propagate changes across all agent definitions.\n\n## Definition of Done (tests)\n\n- [ ] **handoff_contract_defines_change_id** (unit) - agents/handoff.md specifies optional changeId in anvil.agent-handoff/v1 schema and notes pr is null in local trunk handoff. (test: `agents/handoff.md`)\n- [ ] **builder_body_scopes_test_and_eliminates_intermediate_pr** (unit) - agents/bodies/builder.md instructs builders to verify ONLY sealed acceptance tests, forbids broad test suites, and eliminates jj git push and gh pr create. (test: `agents/bodies/builder.md`)\n- [ ] **integrator_body_documents_jj_rebase** (unit) - agents/bodies/integrator.md documents combining wave changes via jj rebase onto integration trunk and running full project test suite once. (test: `agents/bodies/integrator.md`)\n\n<!-- workcell-planner planId=jj-trunk-velocity-pipeline issue=agent-handoff-contract -->",
+      "labels": [
+        {
+          "id": "LA_kwDOUDOzh88AAAACykinCw",
+          "name": "agents",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOUDOzh88AAAACzr6odQ",
+          "name": "contract",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOUDOzh88AAAACztNPcA",
+          "name": "jj",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "number": 214,
+      "state": "open"
+    }
+  ]
+}

@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Jujutsu Trunk-Based High-Velocity Pipeline in Workcell · Workcell Plan</title>
+  <!-- workcell-planner planId=jj-trunk-velocity-pipeline -->
+  <style>/* Foundry Zero report design system.
+   Shared core for the planner folio, the code-review report, and the research packet.
+   This file is byte-identical in skills/planner, skills/code-review, and skills/research;
+   a test asserts that. Skill-specific rules live alongside it. */
+
+:root, [data-theme="dark"] {
+  --bg: oklch(0.19 0.012 250);
+  --bg-2: oklch(0.225 0.014 250);
+  --bg-3: oklch(0.265 0.016 250);
+  --bg-4: oklch(0.305 0.018 250);
+  --line: oklch(0.325 0.018 250);
+  --line-2: oklch(0.415 0.020 250);
+  --txt: oklch(0.945 0.006 250);
+  --txt-2: oklch(0.735 0.014 250);
+  --txt-3: oklch(0.590 0.016 250);
+  --acc: oklch(0.700 0.145 255);
+  --acc-bg: oklch(0.265 0.045 255);
+  --sev-critical: oklch(0.680 0.180 22);
+  --sev-critical-bg: oklch(0.290 0.070 22);
+  --sev-high: oklch(0.775 0.145 62);
+  --sev-high-bg: oklch(0.295 0.060 62);
+  --sev-medium: oklch(0.820 0.130 95);
+  --sev-medium-bg: oklch(0.300 0.055 95);
+  --sev-low: oklch(0.740 0.090 230);
+  --sev-low-bg: oklch(0.280 0.045 230);
+  --sev-nit: oklch(0.700 0.030 250);
+  --sev-nit-bg: oklch(0.280 0.014 250);
+  --ok: oklch(0.780 0.130 155);
+  --ok-bg: oklch(0.275 0.055 155);
+  --mut: var(--txt-3); /* alias the generated diagrams paint neutral nodes with */
+  --gap: 46px;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: oklch(0.980 0.004 250);
+  --bg-2: oklch(1 0 0);
+  --bg-3: oklch(0.962 0.006 250);
+  --bg-4: oklch(0.935 0.008 250);
+  --line: oklch(0.900 0.008 250);
+  --line-2: oklch(0.820 0.012 250);
+  --txt: oklch(0.245 0.014 250);
+  --txt-2: oklch(0.455 0.016 250);
+  --txt-3: oklch(0.585 0.016 250);
+  --acc: oklch(0.520 0.170 258);
+  --acc-bg: oklch(0.955 0.022 258);
+  --sev-critical: oklch(0.505 0.190 22);
+  --sev-critical-bg: oklch(0.940 0.045 22);
+  --sev-high: oklch(0.560 0.140 55);
+  --sev-high-bg: oklch(0.945 0.050 62);
+  --sev-medium: oklch(0.560 0.115 90);
+  --sev-medium-bg: oklch(0.950 0.055 95);
+  --sev-low: oklch(0.520 0.110 230);
+  --sev-low-bg: oklch(0.945 0.035 230);
+  --sev-nit: oklch(0.520 0.020 250);
+  --sev-nit-bg: oklch(0.945 0.006 250);
+  --ok: oklch(0.470 0.115 155);
+  --ok-bg: oklch(0.938 0.050 155);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+}
+
+a { color: var(--acc); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 4px; }
+::selection { background: var(--acc-bg); }
+
+.mono, .kbd, code, pre {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* ── Chrome: toolbar ───────────────────────────────────────────── */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 8px 22px;
+  flex-wrap: wrap;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.bar-mark {
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--acc); color: var(--bg);
+  display: grid; place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; font-weight: 700;
+}
+.bar-name { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.01em; }
+.bar-spacer { flex: 1; }
+.chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 5px;
+  background: var(--acc-bg); color: var(--acc); border: 1px solid var(--line);
+}
+.bar button {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; padding: 5px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg-3); color: var(--txt-2);
+  cursor: pointer;
+}
+.bar button:hover { border-color: var(--line-2); color: var(--txt); }
+.bar-note {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+
+/* ── Chrome: shell and contents rail ───────────────────────────── */
+
+.shell {
+  display: grid;
+  grid-template-columns: 246px minmax(0, 1fr);
+  align-items: start;
+  max-width: 1420px;
+  margin: 0 auto;
+}
+
+.rail {
+  position: sticky;
+  top: 56px;
+  align-self: start;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 28px 18px 60px 22px;
+  border-right: 1px solid var(--line);
+}
+.rail-title, .eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--txt-3);
+}
+.rail-title { margin-bottom: 12px; }
+.rail nav { display: flex; flex-direction: column; gap: 1px; }
+.rail nav a {
+  display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: baseline;
+  padding: 5px 8px; border-radius: 6px; font-size: 13px;
+  color: var(--txt-2); border-left: 2px solid transparent;
+}
+.rail nav a:hover { background: var(--bg-3); text-decoration: none; color: var(--txt); }
+.rail nav a .num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; color: var(--txt-3);
+}
+.rail-foot {
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; line-height: 1.8; color: var(--txt-3);
+  overflow-wrap: anywhere;
+}
+
+main { padding: 34px 44px 120px; max-width: 1010px; min-width: 0; }
+
+/* ── Sections ──────────────────────────────────────────────────── */
+
+.section { margin-bottom: var(--gap); scroll-margin-top: 68px; }
+.section-head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.section-head .num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.section-head h2 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; flex: 1; }
+.section-head .count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+h3 { font-size: 13.5px; font-weight: 600; margin: 22px 0 10px; letter-spacing: -0.005em; }
+p { margin: 0 0 14px; max-width: 76ch; }
+.lede { font-size: 16.5px; color: var(--txt-2); max-width: 68ch; }
+.muted { color: var(--txt-3); }
+
+/* ── Header block ──────────────────────────────────────────────── */
+
+.doc-eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 10px;
+}
+h1 { margin: 0 0 10px; font-size: 33px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.18; }
+
+.verdict-row { display: flex; gap: 12px; align-items: stretch; margin: 20px 0; flex-wrap: wrap; }
+.verdict {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 17px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg-2);
+  flex: 1; min-width: 320px;
+}
+.verdict-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--txt-3); }
+.verdict-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt-3);
+}
+.verdict-value { font-weight: 600; font-size: 15px; }
+
+.meter { display: flex; gap: 3px; }
+.meter i { width: 15px; height: 5px; border-radius: 3px; background: var(--bg-4); }
+.meter i.on { background: var(--acc); }
+
+.meta-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.meta-grid > div { background: var(--bg-2); padding: 11px 14px; min-width: 0; }
+.meta-grid dt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 3px;
+}
+.meta-grid dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px; color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Metrics ───────────────────────────────────────────────────── */
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.metric { padding: 13px 15px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); }
+.metric .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.metric .v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+.metric .v span { font-size: 12.5px; font-weight: 400; color: var(--txt-3); margin-left: 4px; }
+.metric .d {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.metric.tone-critical .v { color: var(--sev-critical); }
+.metric.tone-high .v { color: var(--sev-high); }
+.metric.tone-ok .v { color: var(--ok); }
+
+/* ── Cards, chips, callouts ────────────────────────────────────── */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.card { padding: 14px 16px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); min-width: 0; }
+.card h3 { margin: 0 0 5px; font-size: 14.5px; }
+.card p { margin: 0; color: var(--txt-2); font-size: 13.5px; }
+
+.tag {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; padding: 1px 6px; border-radius: 4px;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--txt-3);
+}
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.callout {
+  display: grid; grid-template-columns: 18px 1fr; gap: 10px;
+  padding: 11px 14px; border-radius: 9px; margin: 14px 0;
+  border: 1px solid var(--line); background: var(--bg-2); font-size: 13.5px;
+}
+.callout .mark { font-weight: 700; }
+.callout p { margin: 0; }
+.callout.warn { background: var(--sev-high-bg); }
+.callout.warn .mark { color: var(--sev-high); }
+.callout.note { background: var(--acc-bg); }
+.callout.note .mark { color: var(--acc); }
+.callout.blocker { background: var(--sev-critical-bg); }
+.callout.blocker .mark { color: var(--sev-critical); }
+
+.spec {
+  display: grid; grid-template-columns: 16px 1fr; gap: 10px;
+  margin: 0 0 16px; padding: 9px 12px;
+  background: var(--acc-bg); border: 1px dashed var(--line-2); border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; line-height: 1.7; color: var(--txt-2);
+}
+.spec .mark { color: var(--acc); font-weight: 700; }
+.spec b { color: var(--txt); }
+[data-hints="off"] .spec { display: none; }
+
+/* ── Severity ──────────────────────────────────────────────────── */
+
+.sev {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+}
+.sev-critical { background: var(--sev-critical-bg); color: var(--sev-critical); }
+.sev-high     { background: var(--sev-high-bg);     color: var(--sev-high); }
+.sev-medium   { background: var(--sev-medium-bg);   color: var(--sev-medium); }
+.sev-low      { background: var(--sev-low-bg);      color: var(--sev-low); }
+.sev-nit      { background: var(--sev-nit-bg);      color: var(--sev-nit); }
+
+.bar-critical { background: var(--sev-critical); }
+.bar-high     { background: var(--sev-high); }
+.bar-medium   { background: var(--sev-medium); }
+.bar-low      { background: var(--sev-low); }
+.bar-nit      { background: var(--sev-nit); }
+
+/* ── Tables ────────────────────────────────────────────────────── */
+
+.table-shell { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); font-weight: 500; background: var(--bg-3);
+}
+td { font-size: 13.5px; }
+td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+/* ── Diagrams ──────────────────────────────────────────────────── */
+
+.diagram-shell {
+  overflow-x: auto; border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; background: var(--bg-2);
+}
+/* Generated at build time at its natural size; the shell scrolls rather than
+   shrinking the labels, and print falls back to fitting the page. */
+.diagram-shell > svg.diagram { display: block; margin: 0 auto; }
+.diagram-text { margin-top: 10px; color: var(--txt-3); font-size: 12px; }
+.diagram-text summary { cursor: pointer; }
+.diagram-text ul { margin: 8px 0 0; padding-left: 20px; }
+.diagram-text li { margin: 3px 0; overflow-wrap: anywhere; }
+
+/* ── Disclosure rows ───────────────────────────────────────────── */
+
+.rows { display: flex; flex-direction: column; gap: 9px; }
+.row {
+  border-radius: 10px; background: var(--bg-2);
+  border: 1px solid var(--line); overflow: hidden;
+}
+.row > summary {
+  display: grid; grid-template-columns: 4px 1fr auto;
+  align-items: stretch; cursor: pointer; list-style: none;
+}
+.row > summary::-webkit-details-marker { display: none; }
+.row > summary:hover { background: var(--bg-3); }
+.row .stripe { grid-row: 1; }
+.row .row-body { padding: 13px 16px; min-width: 0; }
+.row .row-title { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 5px; }
+.row .row-title strong { font-weight: 600; font-size: 15px; }
+.row .row-meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+.row .caret {
+  display: grid; place-items: center; padding: 0 16px; color: var(--txt-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+}
+.row[open] .caret { transform: rotate(180deg); }
+.row-detail { padding: 4px 16px 16px 20px; border-top: 1px solid var(--line); }
+
+.block { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); margin-top: 12px; }
+.block .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 5px;
+}
+.block p { margin: 0; font-size: 13.8px; max-width: 74ch; }
+/* Neutral on purpose: severity is carried by the stripe and badge, so tinting
+   the impact block by severity would double-encode it — and mis-encode it on a
+   low finding. */
+.block.impact { background: var(--bg-3); }
+.block.impact .k { color: var(--txt-2); }
+.block.proof { background: var(--ok-bg); }
+.block.proof .k { color: var(--ok); }
+
+/* ── Motion, print, narrow viewports ───────────────────────────── */
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.pulse { animation: pulse 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail {
+    position: static; max-height: none; border-right: 0;
+    border-bottom: 1px solid var(--line); padding: 20px 22px;
+  }
+  .rail nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  main { padding: 26px 22px 90px; }
+  h1 { font-size: 27px; }
+}
+
+@media (max-width: 560px) {
+  .bar { padding: 8px 14px; gap: 9px; }
+  main { padding: 22px 14px 70px; }
+  .rail { padding: 16px 14px; }
+  h1 { font-size: 23px; }
+  .verdict { min-width: 0; }
+}
+
+@media print {
+  .bar, .rail, .spec, .no-print { display: none !important; }
+  .shell { display: block; max-width: none; }
+  main { padding: 0; max-width: none; }
+  body { background: #fff; color: #111; font-size: 10.5pt; }
+  .section { break-inside: auto; margin-bottom: 22px; }
+  .section-head, .card, .metric, .row, .block, .verdict { break-inside: avoid; }
+  .row > summary { cursor: default; }
+  .row-detail { display: block !important; border-top: 1px solid #ddd; }
+  .diagram-shell, .table-shell { overflow: visible; }
+  .diagram-shell > svg.diagram { max-width: 100%; height: auto; }
+  a { color: inherit; text-decoration: none; }
+}
+
+/* Planner folio — additions on top of report.css. */
+
+/* Wave palette. Consumed as var() by the generated diagram SVGs, so dependency
+   nodes follow the active theme instead of a baked-in hex. */
+:root, [data-theme="dark"] {
+  --wave-1: oklch(0.345 0.085 255);
+  --wave-2: oklch(0.345 0.085 305);
+  --wave-3: oklch(0.345 0.080 155);
+  --wave-4: oklch(0.345 0.080 62);
+  --wave-5: oklch(0.345 0.020 250);
+  --wave-stroke: oklch(0.600 0.090 255);
+  --wave-text: oklch(0.945 0.006 250);
+}
+[data-theme="light"] {
+  --wave-1: oklch(0.930 0.035 255);
+  --wave-2: oklch(0.930 0.035 300);
+  --wave-3: oklch(0.930 0.035 155);
+  --wave-4: oklch(0.935 0.040 62);
+  --wave-5: oklch(0.935 0.008 250);
+  --wave-stroke: oklch(0.640 0.080 255);
+  --wave-text: oklch(0.245 0.014 250);
+}
+
+/* ── Generated diagrams ───────────────────────── */
+
+/* render_plan.py draws every diagram as inline SVG at build time and names the
+   paint rather than baking it, so a diagram follows the theme toggle with the
+   rest of the page. Node kind is carried by shape, not by colour alone. */
+
+svg.diagram text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+svg.diagram .d-shape { fill: var(--bg-3); stroke: var(--line-2); stroke-width: 1.6; }
+svg.diagram .d-inner { fill: none; stroke-width: 1; }
+svg.diagram .d-label { font-size: 13px; font-weight: 600; fill: var(--txt); text-anchor: middle; }
+svg.diagram .d-sub { font-size: 11px; font-style: italic; fill: var(--txt-2); text-anchor: middle; }
+svg.diagram .d-edge { fill: none; stroke: var(--txt-3); stroke-width: 1.6; }
+svg.diagram .d-dashed { stroke-dasharray: 6 4; }
+svg.diagram .d-thick { stroke-width: 3; }
+svg.diagram .d-arrowhead { fill: var(--txt-3); }
+svg.diagram .d-chip { fill: var(--bg-2); stroke: var(--line); stroke-width: 1; }
+svg.diagram .d-edgelabel { font-size: 11px; fill: var(--txt-2); }
+/* Dotted, so a subgraph frame never reads as one of the dashed edges. */
+svg.diagram .d-frame { fill: none; stroke: var(--acc); stroke-width: 1.4; stroke-dasharray: 1 4; stroke-linecap: round; }
+svg.diagram .d-frametext { font-size: 11px; font-weight: 600; fill: var(--acc); }
+svg.diagram .d-plate { fill: var(--bg-2); }
+
+svg.diagram .neutral .d-shape { fill: transparent; stroke: var(--mut); }
+svg.diagram .neutral .d-label, svg.diagram .neutral .d-sub { fill: var(--mut); }
+svg.diagram .wave1 .d-shape { fill: var(--wave-1); stroke: var(--wave-stroke); }
+svg.diagram .wave2 .d-shape { fill: var(--wave-2); stroke: var(--wave-stroke); }
+svg.diagram .wave3 .d-shape { fill: var(--wave-3); stroke: var(--wave-stroke); }
+svg.diagram .wave4 .d-shape { fill: var(--wave-4); stroke: var(--wave-stroke); }
+svg.diagram .wave5 .d-shape { fill: var(--wave-5); stroke: var(--wave-stroke); }
+svg.diagram [class*="wave"] .d-label, svg.diagram [class*="wave"] .d-sub { fill: var(--wave-text); }
+
+/* ── Approval gate ─────────────────────────────────────────────── */
+
+.gate-proposed { background: var(--sev-medium-bg); }
+.gate-proposed .verdict-dot { background: var(--sev-medium); }
+.gate-approved { background: var(--ok-bg); }
+.gate-approved .verdict-dot { background: var(--ok); }
+.gate-applied { background: var(--acc-bg); }
+.gate-applied .verdict-dot { background: var(--acc); }
+
+.gate-steps {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.gate-steps .step { padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); background: var(--bg-3); }
+.gate-steps .step.now { border-color: var(--acc); color: var(--acc); background: var(--acc-bg); }
+.gate-steps .step.done { color: var(--ok); border-color: var(--line-2); }
+
+/* ── Architecture comparison ──────────────────────────────────── */
+
+.architecture-delta {
+  margin: 16px 0 12px; padding: 13px 15px; border-left: 3px solid var(--acc);
+  border-radius: 0 9px 9px 0; background: var(--acc-bg);
+}
+.architecture-delta .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--acc);
+}
+.architecture-delta p { margin: 4px 0 0; max-width: 74ch; color: var(--txt-2); }
+.architecture-comparison {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.architecture-state {
+  min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2);
+}
+.architecture-state h3 { margin-top: 0; }
+.architecture-state.current h3 { color: var(--txt-2); }
+.architecture-state.proposed { border-color: var(--acc); }
+.architecture-state.proposed h3 { color: var(--acc); }
+
+/* ── Waves ─────────────────────────────────────────────────────── */
+
+.waves { display: flex; flex-direction: column; gap: 10px; }
+.wave {
+  display: grid; grid-template-columns: 132px minmax(0, 1fr);
+  gap: 14px; align-items: start;
+  padding: 13px 15px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.wave-label { min-width: 0; }
+.wave-label .n {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.wave-label .t { font-weight: 600; font-size: 14.5px; }
+.wave-label .c {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.wave-items { display: flex; gap: 7px; flex-wrap: wrap; }
+.wave-item {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  padding: 5px 10px; border-radius: 7px;
+  background: var(--bg-3); border: 1px solid var(--line); font-size: 13px;
+}
+.wave-item .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; color: var(--acc);
+}
+.wave.ungrouped { border-style: dashed; }
+.wave.ungrouped .wave-label .t { color: var(--txt-3); }
+
+/* ── Issues ────────────────────────────────────────────────────── */
+
+.issue-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--acc);
+}
+.issue-body { white-space: pre-wrap; margin: 10px 0 0; color: var(--txt-2); font-size: 13.8px; max-width: 74ch; }
+.issue-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 18px; margin-top: 12px;
+}
+.issue-facts .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.issue-facts .v {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; color: var(--txt-2); overflow-wrap: anywhere;
+}
+
+/* ── Risk matrix ───────────────────────────────────────────────── */
+
+.risk-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; align-items: start; }
+
+.matrix {
+  padding: 16px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.matrix-grid { display: grid; grid-template-columns: 30px repeat(3, 1fr); gap: 6px; }
+.matrix-y {
+  display: grid; place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+  writing-mode: vertical-rl; transform: rotate(180deg);
+}
+.cell {
+  min-height: 62px; border-radius: 8px; border: 1px solid var(--line);
+  padding: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
+}
+.cell.s1 { background: var(--sev-low-bg); }
+.cell.s2 { background: var(--sev-low-bg); }
+.cell.s3 { background: var(--sev-medium-bg); }
+.cell.s4 { background: var(--sev-high-bg); }
+.cell.s6 { background: var(--sev-high-bg); }
+.cell.s9 { background: var(--sev-critical-bg); }
+.cell .pin {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+  background: var(--bg-2); border: 1px solid var(--line-2); color: var(--txt);
+  align-self: flex-start;
+}
+.matrix-x {
+  display: grid; grid-template-columns: 30px repeat(3, 1fr); gap: 6px; margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.matrix-x span { text-align: center; }
+.matrix-axis {
+  margin-top: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; color: var(--txt-3);
+}
+
+.risk-list { display: flex; flex-direction: column; gap: 9px; }
+.risk {
+  padding: 13px 15px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.risk-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 6px; }
+.risk-head .id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--txt-2);
+}
+.risk-head strong { font-weight: 600; font-size: 14.5px; flex: 1; }
+.risk-head .owner {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.risk p { margin: 0; font-size: 13.5px; color: var(--txt-2); max-width: 74ch; }
+.risk p .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+  margin-right: 6px;
+}
+
+.empty {
+  padding: 26px; text-align: center; border-radius: 10px;
+  border: 1px dashed var(--line-2); color: var(--txt-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
+}
+
+@media (max-width: 900px) {
+  .architecture-comparison { grid-template-columns: minmax(0, 1fr); }
+  .risk-layout { grid-template-columns: minmax(0, 1fr); }
+  .wave { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+
+/* Rendered prose blocks: the lede and issue bodies carry real paragraphs. */
+.lede p { margin: 0 0 0.85em; }
+.lede p:last-child { margin-bottom: 0; }
+.issue-body p { margin: 0 0 0.7em; }
+.issue-body p:last-child { margin-bottom: 0; }
+</style>
+  <script>
+  document.documentElement.dataset.theme =
+    window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  </script>
+</head>
+<body>
+
+<div class="bar">
+  <span class="bar-name"><span class="bar-mark">WC</span>Workcell</span>
+  <span class="chip">Implementation Plan</span>
+  <span class="bar-spacer"></span>
+  <span class="bar-note">jj-trunk-velocity-pipeline</span>
+  <button type="button" id="hints-toggle">&#9671; hints</button>
+  <button type="button" id="theme-toggle" aria-label="Toggle colour theme">&#9788;</button>
+</div>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail-title">Contents</div>
+    <nav>
+      <a href="#overview"><span class="num">01</span><span>Overview</span></a>
+      <a href="#architecture"><span class="num">02</span><span>Architecture</span></a>
+      <a href="#tasks"><span class="num">03</span><span>Task Breakdown</span></a>
+      <a href="#waves"><span class="num">04</span><span>Execution Waves</span></a>
+      <a href="#risks"><span class="num">05</span><span>Risks</span></a>
+      <a href="#execution"><span class="num">06</span><span>Milestone &amp; Execution</span></a>
+    </nav>
+    <div class="rail-foot">
+      <div>repo · anvil008/workcell</div>
+      <div>plan · jj-trunk-velocity-pipeline</div>
+      <div>issues · 4</div>
+    </div>
+  </aside>
+
+  <main>
+
+    <section class="section" id="header">
+      <div class="doc-eyebrow">Plan &middot; generated <time datetime="2026-09-04T00:40:00Z">September 04, 2026</time></div>
+      <h1>Jujutsu Trunk-Based High-Velocity Pipeline in Workcell</h1>
+      <div class="lede"><p>Implement the Jujutsu trunk-based high-velocity pipeline in Workcell. Transition the build lifecycle from an intermediate GitHub PR model to true Jujutsu (jj) trunk-based development with zero network roundtrip local handoffs and single remote CI gating. Update agents/handoff.md to formally specify local changeId handoff in anvil.agent-handoff/v1. Update agents/bodies/builder.md and agents/bodies/integrator.md to restrict builder verification strictly to sealed acceptance tests (~5s), eliminate intermediate GitHub branch pushes and PR creation, and empower the integrator to instantly combine wave changes onto the integration trunk in ~50ms via jj rebase -s &lt;changeId&gt; -d &lt;integration-trunk&gt; and execute the full test suite (scripts/run-tests.sh + linters) once on the combined wave state. Update .github/workflows/ci.yml to add Go build cache (~/.cache/go-build) and Python pip dependency caching, accelerating remote CI runs from ~3.5m to ~1m. Update skills/build/SKILL.md and skills/build/tests/test_build.py to codify trunk-based wave integration and builder test scoping while maintaining 100% of wave-loop and single-PR invariant assertions. Synchronize updated skills and agent definitions across all 4 harness replicas (claude, codex, agy, grok) via scripts/sync-skills.py and scripts/sync-agents.py.</p></div>
+
+      <div class="verdict-row">
+        <div class="verdict gate-proposed">
+          <span class="verdict-dot pulse"></span>
+          <div>
+            <div class="verdict-label">Status</div>
+            <div class="verdict-value">Proposed &mdash; awaiting explicit human approval</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gate-steps">
+        <span class="step now">1 · review this folio</span>
+        <span class="step">2 · approve the sidecar</span>
+        <span class="step">3 · reconcile milestone</span>
+      </div>
+
+      <div class="meta-grid" style="margin-top: 20px;">
+        <div><dt>Repository</dt><dd>anvil008/workcell</dd></div>
+        <div><dt>Plan id</dt><dd>jj-trunk-velocity-pipeline</dd></div>
+        <div><dt>Generated</dt><dd>2026-09-04T00:40:00Z</dd></div>
+        <div><dt>Issues</dt><dd>4</dd></div>
+        <div><dt>Waves</dt><dd>3</dd></div>
+        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/workcell/milestones">Jujutsu Trunk-Based High-Velocity Pipeline in Workcell</a></dd></div>
+      </div>
+    </section>
+
+    <section class="section" id="overview">
+      <div class="section-head"><span class="num">01</span><h2>Overview</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>metrics + goal</b> &mdash; headline counts a reviewer can scan, then the outcome this plan buys. Lead with the decision, not the process.</div>
+      </div>
+      <div class="metrics"><div class="metric"><div class="k">Issues</div><div class="v">4</div><div class="d">3 parallel waves</div></div><div class="metric"><div class="k">Acceptance tests</div><div class="v">13</div><div class="d">definition of done</div></div><div class="metric"><div class="k">External deps</div><div class="v">0</div><div class="d">all internal</div></div><div class="metric tone-critical"><div class="k">Risks</div><div class="v">4</div><div class="d">2 in the top band</div></div></div>
+      <p class="muted">Nothing is written to GitHub until a human approves this plan. Approval is bound to the sidecar, not to this page: if the sidecar changes after approval, the changed plan must be presented again.</p>
+    </section>
+
+    <section class="section" id="architecture">
+      <div class="section-head"><span class="num">02</span><h2>Architecture</h2></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>current + proposed</b> &mdash; compare the smallest meaningful system boundary, then state the operational change in plain language.</div>
+      </div>
+      <div class="cards"><article class="card"><h3>AgentHandoffContract</h3><p>Specifies local changeId handoff and null PR semantics for trunk-based development in agents/handoff.md.</p></article><article class="card"><h3>AgentLifecycleBodies</h3><p>Defines strict test scoping, local jj describe commits, and jj rebase wave integration in agents/bodies/builder.md and agents/bodies/integrator.md.</p></article><article class="card"><h3>CIWorkflowAcceleration</h3><p>Provides Go build cache and Python pip dependency caching in .github/workflows/ci.yml with main-branch-scoped remote CI execution.</p></article><article class="card"><h3>BuildSkillTrunkPipeline</h3><p>Codifies single remote CI gating, local jj rebase wave integration, and builder test scoping in skills/build/SKILL.md and tests.</p></article><article class="card"><h3>HarnessReplicas</h3><p>Propagates updated build skill and agent definitions across claude, codex, agy, and grok harness replicas using sync scripts.</p></article></div>
+      <div class="architecture-delta"><span class="k">What changes</span><p>Transition Workcell from per-issue GitHub PR pushes and remote CI bottlenecks to Jujutsu trunk-based development with single remote CI gating. Builders verify strictly scoped sealed acceptance tests in isolated jj workspaces, commit locally, and hand off anonymous change IDs. Integrators rebase wave changes locally in 50ms and execute the full project test suite once. Only the final milestone PR to main is pushed to GitHub, gated by an accelerated, cached GitHub Actions CI workflow.</p></div>
+      <div class="architecture-comparison">
+        <article class="architecture-state current">
+          <h3>Current</h3>
+          <div class="diagram-shell"><svg class="diagram" xmlns="http://www.w3.org/2000/svg" width="248" height="946" viewBox="0 0 248 946" style="max-width: 248px; width: 100%; height: auto" role="img" aria-labelledby="d-current-title d-current-desc"><title id="d-current-title">Current architecture</title><desc id="d-current-desc">10 nodes and 9 relationships; the same content is listed as text beneath the diagram.</desc><defs><marker id="d-current-arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="d-arrowhead" d="M0,0 L10,4 L0,8 Z"/></marker></defs><rect class="d-frame" x="14" y="14" width="220" height="558" rx="12"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 78 L 124 124"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 174 L 124 220"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 270 L 124 316"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 366 L 124 412"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 462 L 124 508"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 558 L 124 618"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 668 L 124 714"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 752 L 124 798"/><path class="d-edge" marker-end="url(#d-current-arrow)" d="M 124 848 L 124 894"/><rect class="d-plate" x="22" y="19" width="245.2" height="17"/><text class="d-frametext" x="28" y="32">Wave Execution (Previous Multi-PR Flow)</text><g class="d-node"><rect class="d-shape" x="30" y="40" width="188" height="38" rx="3"/><text class="d-label" x="124" y="63">Specifier: tdd-guard seal</text></g><g class="d-node"><rect class="d-shape" x="30" y="124" width="188" height="50" rx="3"/><text class="d-label" x="124" y="145">Builder: Broad discovery</text><text class="d-label" x="124" y="161">tests (116s)</text></g><g class="d-node"><rect class="d-shape" x="35" y="220" width="178" height="50" rx="3"/><text class="d-label" x="124" y="241">jj git push bookmark to</text><text class="d-label" x="124" y="257">remote</text></g><g class="d-node"><rect class="d-shape" x="29" y="316" width="190" height="50" rx="3"/><text class="d-label" x="124" y="337">gh pr create intermediate</text><text class="d-label" x="124" y="353">PR</text></g><g class="d-node"><rect class="d-shape" x="28" y="412" width="192" height="50" rx="3"/><text class="d-label" x="124" y="433">gh pr checks --watch (4m</text><text class="d-label" x="124" y="449">stall per PR)</text></g><g class="d-node"><rect class="d-shape" x="37" y="508" width="174" height="50" rx="3"/><text class="d-label" x="124" y="529">Integrator: gh pr merge</text><text class="d-label" x="124" y="545">--rebase per PR</text></g><g class="d-node"><rect class="d-shape" x="39" y="618" width="170" height="50" rx="3"/><text class="d-label" x="124" y="639">Full project test suite</text><text class="d-label" x="124" y="655">repeated serially</text></g><g class="d-node"><rect class="d-shape" x="54" y="714" width="140" height="38" rx="3"/><text class="d-label" x="124" y="737">Final PR to main</text></g><g class="d-node"><rect class="d-shape" x="24" y="798" width="200" height="50" rx="3"/><text class="d-label" x="124" y="819">GitHub Actions CI (6th run,</text><text class="d-label" x="124" y="835">24 remote jobs)</text></g><g class="d-node"><rect class="d-shape" x="45" y="894" width="158" height="38" rx="3"/><text class="d-label" x="124" y="917">Trunk / main branch</text></g></svg></div><details class="diagram-text"><summary>Current architecture in words</summary><ul><li>Specifier: tdd-guard seal → Builder: Broad discovery tests (116s)</li><li>Builder: Broad discovery tests (116s) → jj git push bookmark to remote</li><li>jj git push bookmark to remote → gh pr create intermediate PR</li><li>gh pr create intermediate PR → gh pr checks --watch (4m stall per PR)</li><li>gh pr checks --watch (4m stall per PR) → Integrator: gh pr merge --rebase per PR</li><li>Integrator: gh pr merge --rebase per PR → Full project test suite repeated serially</li><li>Full project test suite repeated serially → Final PR to main</li><li>Final PR to main → GitHub Actions CI (6th run, 24 remote jobs)</li><li>GitHub Actions CI (6th run, 24 remote jobs) → Trunk / main branch</li><li>Wave Execution (Previous Multi-PR Flow) groups: Specifier: tdd-guard seal, Builder: Broad discovery tests (116s), jj git push bookmark to remote, gh pr create intermediate PR, gh pr checks --watch (4m stall per PR), Integrator: gh pr merge --rebase per PR</li></ul></details>
+        </article>
+        <article class="architecture-state proposed">
+          <h3>Proposed</h3>
+          <div class="diagram-shell"><svg class="diagram" xmlns="http://www.w3.org/2000/svg" width="256" height="922" viewBox="0 0 256 922" style="max-width: 256px; width: 100%; height: auto" role="img" aria-labelledby="d-proposed-title d-proposed-desc"><title id="d-proposed-title">Proposed architecture</title><desc id="d-proposed-desc">9 nodes and 8 relationships; the same content is listed as text beneath the diagram.</desc><defs><marker id="d-proposed-arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="d-arrowhead" d="M0,0 L10,4 L0,8 Z"/></marker></defs><rect class="d-frame" x="14" y="14" width="228" height="490" rx="12"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 128 90 L 128 136"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 128 186 L 128 232"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 128 282 L 128 328"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 128 378 L 128 424"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 128 490 L 128 550"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 128 616 L 128 662"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 128 712 L 128 758"/><path class="d-edge" marker-end="url(#d-proposed-arrow)" d="M 128 824 L 128 870"/><rect class="d-plate" x="22" y="19" width="220.83" height="17"/><text class="d-frametext" x="28" y="32">Wave Execution (Jujutsu Trunk Flow)</text><g class="d-node"><rect class="d-shape" x="34" y="40" width="188" height="50" rx="3"/><text class="d-label" x="128" y="61">Specifier: tdd-guard seal</text><text class="d-label" x="128" y="77">RED (15s)</text></g><g class="d-node"><rect class="d-shape" x="28" y="136" width="200" height="50" rx="3"/><text class="d-label" x="128" y="157">Builder: Scoped sealed test</text><text class="d-label" x="128" y="173">only (5s)</text></g><g class="d-node"><rect class="d-shape" x="34" y="232" width="188" height="50" rx="3"/><text class="d-label" x="128" y="253">jj describe local commit</text><text class="d-label" x="128" y="269">(no push)</text></g><g class="d-node"><rect class="d-shape" x="28" y="328" width="200" height="50" rx="3"/><text class="d-label" x="128" y="349">anvil.agent-handoff/v1 with</text><text class="d-label" x="128" y="365">changeId (50ms)</text></g><g class="d-node"><rect class="d-shape" x="36" y="424" width="184" height="66" rx="3"/><text class="d-label" x="128" y="445">Integrator: jj rebase -s</text><text class="d-label" x="128" y="461">changeId -d</text><text class="d-label" x="128" y="477">integration-trunk (50ms)</text></g><g class="d-node"><rect class="d-shape" x="30" y="550" width="196" height="66" rx="3"/><text class="d-label" x="128" y="571">Single consolidated test</text><text class="d-label" x="128" y="587">gate (scripts/run-tests.sh,</text><text class="d-label" x="128" y="603">1x)</text></g><g class="d-node"><rect class="d-shape" x="38" y="662" width="180" height="50" rx="3"/><text class="d-label" x="128" y="683">Single milestone PR to</text><text class="d-label" x="128" y="699">main (Closes #)</text></g><g class="d-node"><rect class="d-shape" x="32" y="758" width="192" height="66" rx="3"/><text class="d-label" x="128" y="779">GitHub Actions CI (1x run</text><text class="d-label" x="128" y="795">with Go &amp; Pip Caching</text><text class="d-label" x="128" y="811">~1m)</text></g><g class="d-node"><rect class="d-shape" x="49" y="870" width="158" height="38" rx="3"/><text class="d-label" x="128" y="893">Trunk / main branch</text></g></svg></div><details class="diagram-text"><summary>Proposed architecture in words</summary><ul><li>Specifier: tdd-guard seal RED (15s) → Builder: Scoped sealed test only (5s)</li><li>Builder: Scoped sealed test only (5s) → jj describe local commit (no push)</li><li>jj describe local commit (no push) → anvil.agent-handoff/v1 with changeId (50ms)</li><li>anvil.agent-handoff/v1 with changeId (50ms) → Integrator: jj rebase -s changeId -d integration-trunk (50ms)</li><li>Integrator: jj rebase -s changeId -d integration-trunk (50ms) → Single consolidated test gate (scripts/run-tests.sh, 1x)</li><li>Single consolidated test gate (scripts/run-tests.sh, 1x) → Single milestone PR to main (Closes #)</li><li>Single milestone PR to main (Closes #) → GitHub Actions CI (1x run with Go &amp; Pip Caching ~1m)</li><li>GitHub Actions CI (1x run with Go &amp; Pip Caching ~1m) → Trunk / main branch</li><li>Wave Execution (Jujutsu Trunk Flow) groups: Specifier: tdd-guard seal RED (15s), Builder: Scoped sealed test only (5s), jj describe local commit (no push), anvil.agent-handoff/v1 with changeId (50ms), Integrator: jj rebase -s changeId -d integration-trunk (50ms)</li></ul></details>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="tasks">
+      <div class="section-head"><span class="num">03</span><h2>Task Breakdown</h2><span class="count">4 issues</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>issues</b> &mdash; data: issues[]{key, title, body, labels, dependsOn, ownershipHint, wave}. One independently deliverable concern per issue. Acceptance tests are deliberately absent here; they render into the GitHub issue body.</div>
+      </div>
+      <div class="rows"><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">agent-handoff-contract</span><strong>Update agent handoff contract and builder/integrator bodies for local trunk handoff</strong></div><div class="row-meta"><span>Wave 1</span><span>agents/**</span><span class="tag">contract</span><span class="tag">agents</span><span class="tag">jj</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="issue-body"><p>Update agents/handoff.md, agents/bodies/builder.md, and agents/bodies/integrator.md. Formally add changeId to the anvil.agent-handoff/v1 schema and dispatch/handoff examples, documenting that builders commit changes locally in their isolated Jujutsu workspace via <code>jj describe -m &#x27;...&#x27;</code> and return their local changeId, setting pr to null. In agents/bodies/builder.md, strictly scope builder testing to run ONLY the sealed acceptance test via <code>tdd-guard verify --green-command ...</code> (~5s), explicitly forbidding broad discovery suites or whole-project test runners (scripts/run-tests.sh); eliminate <code>jj git push</code> and intermediate PR creation (<code>gh pr create</code>); update workspace teardown to happen after local changeId handoff is complete. In agents/bodies/integrator.md, document rebasing builder changes onto the integration trunk using <code>jj rebase -s &lt;changeId&gt; -d &lt;integration-trunk&gt;</code> (50ms zero network roundtrips) and executing full project test verification (scripts/run-tests.sh + linters) ONCE per combined wave state. Run python3 scripts/sync-agents.py to propagate changes across all agent definitions.</p></div><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">agents/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">ci-workflow-caching</span><strong>Accelerate GitHub Actions CI with Go build and Python pip caching</strong></div><div class="row-meta"><span>Wave 1</span><span>.github/workflows/**</span><span class="tag">ci</span><span class="tag">performance</span><span class="tag">github-actions</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="issue-body"><p>Update .github/workflows/ci.yml to optimize remote gating and build speeds. Configure dependency caching across CI jobs: add Go build cache (~/.cache/go-build) caching via actions/cache alongside the existing Go module cache in setup-go, and add Python pip dependency caching (via actions/setup-python cache: &#x27;pip&#x27; or actions/cache for pip dependencies). Ensure workflow triggers are scoped to direct pushes to main and pull requests targeting main, preventing intermediate branch pushes from running redundant remote CI runs. Validate YAML syntax and verify that cached CI runs target reducing end-to-end execution from ~3.5 minutes to ~1 minute.</p></div><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">.github/workflows/**</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">build-skill-trunk-pipeline</span><strong>Transition build skill to Jujutsu trunk-based pipeline and harmonize contract tests</strong></div><div class="row-meta"><span>Wave 2</span><span>skills/build/**</span><span class="tag">build</span><span class="tag">pipeline</span><span class="tag">jj</span><span class="tag">tests</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="issue-body"><p>Update skills/build/SKILL.md to eliminate intermediate GitHub branch pushes and intermediate pull requests (gh pr create, gh pr checks --watch, gh pr merge --rebase). In skills/build/SKILL.md: (1) specify that builders commit locally in isolated jj workspaces (jj describe) and hand off changeId; (2) instruct builders to run ONLY their sealed acceptance test (tdd-guard verify --green-command ...) in ~5s, strictly forbidding broad test suites or discovery suites; (3) document that the integrator uses <code>jj rebase -s &lt;changeId&gt; -d &lt;planId&gt;-integration</code> to instantly combine wave changes onto the integration trunk in 50ms with zero network roundtrips; (4) document that the integrator runs the full project test suite (scripts/run-tests.sh + linters) ONCE on the combined wave state; (5) specify that only the final milestone integration PR targeting main is pushed to GitHub and triggers remote CI. Strictly preserve all existing wave loop contract phrases checked by test_skill_contracts.py and test_build.py: <code>closed <strong>and</strong> (</code>status:done<code> or </code>state_reason == completed<code>)</code>, <code>skills/build/scripts/waves.py</code>, <code>## Single-PR mode</code>, <code>&lt;planId&gt;-integration</code>, <code>final PR from the integration branch to </code>main`<code>, </code>combined GREEN<code>, </code>never dispatch a builder for an issue with no seal<code>, </code>sole completion authority<code>, </code>wiki.py record<code>, </code>--kind build-wave<code>, </code>wiki.py status --repo .<code>, </code>tdd-guard reseal --reason<code>, </code><code> </code>mode: refactor<code> </code><code>, </code><code> </code>mode: baseline<code> </code>`. Update skills/build/tests/test_build.py (specifically test_every_harness_builder_publishes_the_jj_workspace_lifecycle) to verify the new local trunk handoff lifecycle (local commit jj describe, local changeId handoff, zero intermediate push/PR) while verifying that all skill invariants in test_skill_contracts.py pass cleanly.</p></div><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">agent-handoff-contract, ci-workflow-caching</div></div><div><div class="k">Ownership</div><div class="v">skills/build/**</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">sync-harness-skills</span><strong>Synchronize updated build skill and contracts across all harness replicas</strong></div><div class="row-meta"><span>Wave 3</span><span>harnesses/**</span><span class="tag">harnesses</span><span class="tag">sync</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><div class="issue-body"><p>Run python3 scripts/sync-skills.py and python3 scripts/sync-agents.py to synchronize the updated build skill (skills/build) and agent definitions (builder, integrator) across all four harness replicas (claude, codex, agy, grok). Verify that python3 scripts/sync-skills.py --check and python3 scripts/sync-agents.py --check report zero drift across all 16 skills and 10 agents. Verify that python3 scripts/check-contract-parity.py and python3 scripts/check-harness-bodies.py pass without errors.</p></div><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">build-skill-trunk-pipeline</div></div><div><div class="k">Ownership</div><div class="v">harnesses/**</div></div><div><div class="k">Wave</div><div class="v">Wave 3</div></div></div></div></details></div>
+      <h3>Dependency graph</h3>
+      <div class="diagram-shell"><svg class="diagram" xmlns="http://www.w3.org/2000/svg" width="702" height="226" viewBox="0 0 702 226" style="max-width: 702px; width: 100%; height: auto" role="img" aria-labelledby="d-deps-title d-deps-desc"><title id="d-deps-title">Issue dependency graph</title><desc id="d-deps-desc">4 nodes and 3 relationships; the same content is listed as text beneath the diagram.</desc><defs><marker id="d-deps-arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="d-arrowhead" d="M0,0 L10,4 L0,8 Z"/></marker></defs><path class="d-edge" marker-end="url(#d-deps-arrow)" d="M 214 62 L 229 62 Q 237 62 237 70 L 237 105 Q 237 113 245 113 L 260 113"/><path class="d-edge" marker-end="url(#d-deps-arrow)" d="M 214 172 L 229 172 Q 237 172 237 164 L 237 121 Q 237 113 245 113 L 260 113"/><path class="d-edge" marker-end="url(#d-deps-arrow)" d="M 442 113 L 488 113"/><g class="d-node wave1"><rect class="d-shape" x="14" y="14" width="200" height="96" rx="3"/><text class="d-label" x="114" y="35">Update agent handoff</text><text class="d-label" x="114" y="51">contract and</text><text class="d-label" x="114" y="67">builder/integrator bodies for</text><text class="d-label" x="114" y="83">local trunk handoff</text><text class="d-sub" x="114" y="97.5">agent-handoff-contract</text></g><g class="d-node wave1"><rect class="d-shape" x="14" y="132" width="200" height="80" rx="3"/><text class="d-label" x="114" y="153">Accelerate GitHub Actions</text><text class="d-label" x="114" y="169">CI with Go build and Python</text><text class="d-label" x="114" y="185">pip caching</text><text class="d-sub" x="114" y="199.5">ci-workflow-caching</text></g><g class="d-node wave2"><rect class="d-shape" x="260" y="65" width="182" height="96" rx="3"/><text class="d-label" x="351" y="86">Transition build skill to</text><text class="d-label" x="351" y="102">Jujutsu trunk-based</text><text class="d-label" x="351" y="118">pipeline and harmonize</text><text class="d-label" x="351" y="134">contract tests</text><text class="d-sub" x="351" y="148.5">build-skill-trunk-pipeline</text></g><g class="d-node wave3"><rect class="d-shape" x="488" y="73" width="200" height="80" rx="3"/><text class="d-label" x="588" y="94">Synchronize updated build</text><text class="d-label" x="588" y="110">skill and contracts across</text><text class="d-label" x="588" y="126">all harness replicas</text><text class="d-sub" x="588" y="140.5">sync-harness-skills</text></g></svg></div><details class="diagram-text"><summary>Issue dependency graph in words</summary><ul><li>Update agent handoff contract and builder/integrator bodies for local trunk handoff [agent-handoff-contract] → Transition build skill to Jujutsu trunk-based pipeline and harmonize contract tests [build-skill-trunk-pipeline]</li><li>Accelerate GitHub Actions CI with Go build and Python pip caching [ci-workflow-caching] → Transition build skill to Jujutsu trunk-based pipeline and harmonize contract tests [build-skill-trunk-pipeline]</li><li>Transition build skill to Jujutsu trunk-based pipeline and harmonize contract tests [build-skill-trunk-pipeline] → Synchronize updated build skill and contracts across all harness replicas [sync-harness-skills]</li></ul></details>
+      <h3>Dependency table</h3>
+      <div class="table-shell"><table><thead><tr><th class="mono">Key</th><th>Issue</th><th>Depends on</th><th>Wave</th><th>Ownership</th></tr></thead><tbody><tr><td class="mono">agent-handoff-contract</td><td>Update agent handoff contract and builder/integrator bodies for local trunk handoff</td><td class="mono">—</td><td class="mono">1</td><td class="mono">agents/**</td></tr><tr><td class="mono">ci-workflow-caching</td><td>Accelerate GitHub Actions CI with Go build and Python pip caching</td><td class="mono">—</td><td class="mono">1</td><td class="mono">.github/workflows/**</td></tr><tr><td class="mono">build-skill-trunk-pipeline</td><td>Transition build skill to Jujutsu trunk-based pipeline and harmonize contract tests</td><td class="mono">agent-handoff-contract, ci-workflow-caching</td><td class="mono">2</td><td class="mono">skills/build/**</td></tr><tr><td class="mono">sync-harness-skills</td><td>Synchronize updated build skill and contracts across all harness replicas</td><td class="mono">build-skill-trunk-pipeline</td><td class="mono">3</td><td class="mono">harnesses/**</td></tr></tbody></table></div>
+    </section>
+
+    <section class="section" id="waves">
+      <div class="section-head"><span class="num">04</span><h2>Execution Waves</h2><span class="count">3 waves</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>waves</b> &mdash; derived from issues[].wave. A wave is a parallelisable set, not a duration. Only issues with genuinely disjoint ownership belong in the same wave.</div>
+      </div>
+      <div class="waves"><div class="wave"><div class="wave-label"><div class="n">Wave 1</div><div class="t">Parallel</div><div class="c">2 issues</div></div><div class="wave-items"><span class="wave-item"><span class="k">agent-handoff-contract</span>Update agent handoff contract and builder/integrator bodies for local trunk handoff</span><span class="wave-item"><span class="k">ci-workflow-caching</span>Accelerate GitHub Actions CI with Go build and Python pip caching</span></div></div><div class="wave"><div class="wave-label"><div class="n">Wave 2</div><div class="t">Single</div><div class="c">1 issue</div></div><div class="wave-items"><span class="wave-item"><span class="k">build-skill-trunk-pipeline</span>Transition build skill to Jujutsu trunk-based pipeline and harmonize contract tests</span></div></div><div class="wave"><div class="wave-label"><div class="n">Wave 3</div><div class="t">Single</div><div class="c">1 issue</div></div><div class="wave-items"><span class="wave-item"><span class="k">sync-harness-skills</span>Synchronize updated build skill and contracts across all harness replicas</span></div></div></div>
+      <h3>Wave order</h3>
+      <div class="diagram-shell"><svg class="diagram" xmlns="http://www.w3.org/2000/svg" width="184" height="278" viewBox="0 0 184 278" style="max-width: 184px; width: 100%; height: auto" role="img" aria-labelledby="d-waves-title d-waves-desc"><title id="d-waves-title">Execution wave order</title><desc id="d-waves-desc">3 nodes and 2 relationships; the same content is listed as text beneath the diagram.</desc><defs><marker id="d-waves-arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="d-arrowhead" d="M0,0 L10,4 L0,8 Z"/></marker></defs><path class="d-edge" marker-end="url(#d-waves-arrow)" d="M 92 76 L 92 122"/><path class="d-edge" marker-end="url(#d-waves-arrow)" d="M 92 170 L 92 216"/><g class="d-node wave1"><rect class="d-shape" x="17" y="14" width="150" height="62" rx="3"/><text class="d-label" x="92" y="35">Wave 1</text><text class="d-sub" x="92" y="49.5">agent-handoff-contract ·</text><text class="d-sub" x="92" y="63.5">ci-workflow-caching</text></g><g class="d-node wave2"><rect class="d-shape" x="14" y="122" width="156" height="48" rx="3"/><text class="d-label" x="92" y="143">Wave 2</text><text class="d-sub" x="92" y="157.5">build-skill-trunk-pipeline</text></g><g class="d-node wave3"><rect class="d-shape" x="27" y="216" width="130" height="48" rx="3"/><text class="d-label" x="92" y="237">Wave 3</text><text class="d-sub" x="92" y="251.5">sync-harness-skills</text></g></svg></div><details class="diagram-text"><summary>Execution wave order in words</summary><ul><li>Wave 1 [agent-handoff-contract · ci-workflow-caching] → Wave 2 [build-skill-trunk-pipeline]</li><li>Wave 2 [build-skill-trunk-pipeline] → Wave 3 [sync-harness-skills]</li></ul></details>
+    </section>
+
+    <section class="section" id="risks">
+      <div class="section-head"><span class="num">05</span><h2>Risks</h2><span class="count">4</span></div>
+      <div class="spec"><span class="mark">&#9671;</span>
+        <div><b>risk-matrix</b> &mdash; data: risks[]{id, title, likelihood: 1|2|3, impact: 1|2|3, owner, mitigation}. The cell is likelihood&times;impact; anything in the top-right band needs a named owner.</div>
+      </div>
+      <div class="risk-layout"><div class="matrix"><div class="matrix-grid"><div class="matrix-y">high</div><div class="cell s3"></div><div class="cell s6"><span class="pin">builder-lifecycle-test-failure</span></div><div class="cell s9"></div><div class="matrix-y">med</div><div class="cell s2"></div><div class="cell s4"><span class="pin">ci-workflow-cache-miss-or-invalidation</span></div><div class="cell s6"><span class="pin">build-skill-contract-drift</span></div><div class="matrix-y">low</div><div class="cell s1"></div><div class="cell s2"><span class="pin">harness-replica-drift</span></div><div class="cell s3"></div></div><div class="matrix-x"><span></span><span>low</span><span>med</span><span>high</span></div><div class="matrix-axis">likelihood &uarr; &middot; impact &rarr;</div></div><div class="risk-list"><article class="risk"><div class="risk-head"><span class="id">build-skill-contract-drift</span><strong>Modifying skills/build/SKILL.md breaks wave loop or single-PR contract assertions in test_build.py or test_skill_contracts.py</strong><span class="owner">build specifier / builder</span></div><p><span class="k">Likelihood med &middot; impact high</span></p><p><span class="k">Mitigation</span>Preserve all required contract phrases (`closed **and** (`status:done` or `state_reason == completed`)`, `skills/build/scripts/waves.py`, `## Single-PR mode`, `&lt;planId&gt;-integration`, `final PR from the integration branch to `main``, `combined GREEN`, `never dispatch a builder for an issue with no seal`, `sole completion authority`, `wiki.py record`, `--kind build-wave`, `wiki.py status --repo .`) and run test_skill_contracts.py as an immediate verification gate.</p></article><article class="risk"><div class="risk-head"><span class="id">builder-lifecycle-test-failure</span><strong>Updating builder lifecycle to eliminate intermediate PR pushes causes test_every_harness_builder_publishes_the_jj_workspace_lifecycle in test_build.py to fail</strong><span class="owner">build builder</span></div><p><span class="k">Likelihood high &middot; impact med</span></p><p><span class="k">Mitigation</span>Concurrently update test_build.py to assert the new trunk-based builder lifecycle (jj workspace list, tdd-guard verify, Prove it runs, not just passes, at most two passes, jj describe, local handoff) rather than expecting jj git push.</p></article><article class="risk"><div class="risk-head"><span class="id">ci-workflow-cache-miss-or-invalidation</span><strong>Incorrect cache keys in .github/workflows/ci.yml cause cache churn or failed module resolution</strong><span class="owner">ci specifier / builder</span></div><p><span class="k">Likelihood med &middot; impact med</span></p><p><span class="k">Mitigation</span>Use standard hashFiles patterns (go.sum, setup.py/requirements) for Go build cache and Python pip cache, test workflow syntax with yamllint or GitHub CLI, and verify fallbacks.</p></article><article class="risk"><div class="risk-head"><span class="id">harness-replica-drift</span><strong>Harness skill and agent replicas fall out of sync with canonical shared sources</strong><span class="owner">integrator</span></div><p><span class="k">Likelihood low &middot; impact med</span></p><p><span class="k">Mitigation</span>Run python3 scripts/sync-skills.py and python3 scripts/sync-agents.py, then verify with --check across all 4 harnesses before wave completion.</p></article></div></div>
+    </section>
+
+    <section class="section" id="execution">
+      <div class="section-head"><span class="num">06</span><h2>Milestone &amp; Execution</h2></div>
+      <div class="callout note"><span class="mark">&#9679;</span>
+        <p>After review, explicit human approval is required before the milestone or any issue is written to GitHub. Reconciliation uses stable plan and issue markers, updates changed work, and closes removed work. Re-running an unchanged plan produces no mutations.</p>
+      </div>
+      <div class="cards">
+        <article class="card"><h3>1 &middot; Review</h3><p>Read this folio and the sidecar together. They must describe the same scope.</p></article>
+        <article class="card"><h3>2 &middot; Approve</h3><p>Approval names a human identity and applies to this exact sidecar. A changed sidecar needs fresh approval.</p></article>
+        <article class="card"><h3>3 &middot; Reconcile</h3><p>Milestones only, never a GitHub Project. Preview read-only first, then apply.</p></article>
+      </div>
+      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/workcell/milestones">Jujutsu Trunk-Based High-Velocity Pipeline in Workcell</a> in anvil008/workcell.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    document.getElementById("theme-toggle").innerHTML = next === "light" ? "&#9789;" : "&#9788;";
+  });
+
+  document.getElementById("hints-toggle").addEventListener("click", () => {
+    root.dataset.hints = root.dataset.hints === "off" ? "on" : "off";
+  });
+
+  // Print needs every disclosure open; restore the reader's state afterwards.
+  let reopened = [];
+  window.addEventListener("beforeprint", () => {
+    reopened = [...document.querySelectorAll("details:not([open])")];
+    reopened.forEach((node) => { node.open = true; });
+  });
+  window.addEventListener("afterprint", () => {
+    reopened.forEach((node) => { node.open = false; });
+    reopened = [];
+  });
+})();
+</script>
+</body>
+</html>
