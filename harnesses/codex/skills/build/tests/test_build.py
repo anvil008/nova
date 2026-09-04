@@ -379,9 +379,9 @@ class BuildSkillTests(unittest.TestCase):
             self.assertIn(phrase, skill)
 
     def test_every_harness_builder_publishes_the_jj_workspace_lifecycle(self):
-        """jj setup, workspace isolation, runtime proof, bounded review, PR, teardown — in
+        """jj setup, workspace isolation, runtime proof, bounded review, local commit, teardown — in
         that order, identically across harnesses. A builder that skips teardown leaks a working
-        copy; one that tears down before the PR exists strands the branch; one that reviews
+        copy; one that tears down before committing locally strands the change; one that reviews
         before running the change reviews something nobody has seen work."""
         builders = [
             ROOT.parents[1] / "agents" / "claude" / "builder.md",
@@ -393,7 +393,7 @@ class BuildSkillTests(unittest.TestCase):
             "tdd-guard verify",
             "Prove it runs, not just passes",
             "at most two passes",
-            "jj git push",
+            "jj describe",
             "jj workspace forget",
         ]
         for path in builders:
@@ -407,11 +407,19 @@ class BuildSkillTests(unittest.TestCase):
                 self.assertEqual(
                     positions, sorted(positions), f"{path}: lifecycle out of order"
                 )
-                # Teardown must be gated on the PR existing.
-                self.assertIn("only after the PR exists", agent)
-                self.assertIn("never `jj abandon` the bookmark", agent)
+                # Local changeId handoff and zero intermediate push/PR
+                self.assertIn("changeId", agent)
+                self.assertIn("pr: null", agent)
+                self.assertNotIn("jj git push", agent)
+                self.assertNotIn("gh pr create", agent)
+                # Teardown must be gated on committing locally.
+                self.assertIn("after committing locally", agent)
+                self.assertTrue(
+                    "never `jj abandon`" in agent.lower(),
+                    f"{path}: missing 'never `jj abandon`'",
+                )
                 # The single spawn exception, and its limit.
-                self.assertIn("read-only `reviewer` agents", agent)
+                self.assertIn("read-only `reviewer`", agent)
                 self.assertIn("never spawn a builder", agent)
 
     def test_claude_builder_can_actually_reach_the_reviewer(self):
