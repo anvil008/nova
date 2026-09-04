@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" id="flow-svg">
+        <defs>
+          <linearGradient id="cyan-glow" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.9" />
+            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.9" />
+          </linearGradient>
+
+          <linearGradient id="emerald-glow" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#10b981" stop-opacity="0.9" />
+            <stop offset="100%" stop-color="#059669" stop-opacity="0.9" />
+          </linearGradient>
+
+          <linearGradient id="amber-glow" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.9" />
+            <stop offset="100%" stop-color="#d97706" stop-opacity="0.9" />
+          </linearGradient>
+
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#475569" />
+          </marker>
+          <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#06b6d4" />
+          </marker>
+        </defs>
+
+        <!-- SWIMLANES -->
+        <!-- Lane 1: Isolated JJ Workspaces -->
+        <rect x="40" y="30" width="1120" height="230" class="swimlane-bg" />
+        <text x="65" y="60" class="swimlane-label">Level 1: Concurrent Isolated JJ Workspaces (Micro-TDD)</text>
+        <rect x="830" y="45" width="310" height="28" rx="6" fill="rgba(16, 185, 129, 0.1)" stroke="rgba(16, 185, 129, 0.3)" />
+        <text x="840" y="64" fill="#10b981" font-size="11" font-weight="700">⚡ NO Git Push · NO Remote PR · NO Remote CI</text>
+
+        <!-- Lane 2: Local Wave Integration Trunk -->
+        <rect x="40" y="280" width="1120" height="190" class="swimlane-bg" />
+        <text x="65" y="310" class="swimlane-label">Level 2: Jujutsu Local Integration Trunk (Integrator)</text>
+        <rect x="850" y="295" width="290" height="28" rx="6" fill="rgba(6, 182, 212, 0.1)" stroke="rgba(6, 182, 212, 0.3)" />
+        <text x="860" y="314" fill="#06b6d4" font-size="11" font-weight="700">⚡ Instant 50ms Rebase · 1 Local Test Gate</text>
+
+        <!-- Lane 3: GitHub Mainline & Single Remote Gate -->
+        <rect x="40" y="490" width="1120" height="160" class="swimlane-bg" />
+        <text x="65" y="520" class="swimlane-label">Level 3: GitHub Mainline (Single Continuous Integration Gate)</text>
+
+        <!-- PATH CONNECTIONS -->
+        <!-- Issue 1 Specifier -> Builder -->
+        <path id="path-s1-b1" d="M 230 140 L 320 140" class="edge-line" marker-end="url(#arrow)" />
+        <!-- Issue 1 Builder -> Integrator -->
+        <path id="path-b1-int" d="M 480 140 L 540 140 Q 560 140 560 180 L 560 340 Q 560 370 600 370 L 630 370" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Issue 2 Specifier -> Builder -->
+        <path id="path-s2-b2" d="M 230 215 L 320 215" class="edge-line" marker-end="url(#arrow)" />
+        <!-- Issue 2 Builder -> Integrator -->
+        <path id="path-b2-int" d="M 480 215 L 530 215 Q 550 215 550 270 L 550 380 Q 550 395 600 395 L 630 395" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Integrator -> Full Suite Gate -->
+        <path id="path-int-gate" d="M 790 385 L 850 385" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Gate -> Wiki Trace Store -->
+        <path id="path-gate-wiki" d="M 1010 385 L 1050 385" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Integrator / Wiki -> Final PR to Main -->
+        <path id="path-wiki-pr" d="M 1085 415 L 1085 555 Q 1085 570 1040 570 L 890 570" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Final PR -> Remote CI -->
+        <path id="path-pr-ci" d="M 710 570 L 610 570" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Remote CI -> Mainline -->
+        <path id="path-ci-main" d="M 430 570 L 310 570" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- NODES -->
+        <!-- Issue 1 Specifier -->
+        <g id="node-s1" class="node-group" onclick="selectNode('s1')">
+          <rect x="70" y="105" width="160" height="70" class="node-box" />
+          <text x="85" y="132" class="node-title">Specifier (Issue A)</text>
+          <text x="85" y="150" class="node-subtitle">tdd-guard seal (RED)</text>
+          <text x="85" y="166" fill="#f43f5e" font-size="10" font-weight="700">RED 15s</text>
+        </g>
+
+        <!-- Issue 1 Builder -->
+        <g id="node-b1" class="node-group" onclick="selectNode('b1')">
+          <rect x="320" y="105" width="160" height="70" class="node-box" />
+          <text x="335" y="132" class="node-title">Builder (Issue A)</text>
+          <text x="335" y="150" class="node-subtitle">tdd-guard verify (GREEN)</text>
+          <text x="335" y="166" fill="#10b981" font-size="10" font-weight="700">Change @A (jj describe)</text>
+        </g>
+
+        <!-- Issue 2 Specifier -->
+        <g id="node-s2" class="node-group" onclick="selectNode('s2')">
+          <rect x="70" y="180" width="160" height="70" class="node-box" />
+          <text x="85" y="207" class="node-title">Specifier (Issue B)</text>
+          <text x="85" y="225" class="node-subtitle">tdd-guard seal (RED)</text>
+          <text x="85" y="241" fill="#f43f5e" font-size="10" font-weight="700">RED 15s (Parallel)</text>
+        </g>
+
+        <!-- Issue 2 Builder -->
+        <g id="node-b2" class="node-group" onclick="selectNode('b2')">
+          <rect x="320" y="180" width="160" height="70" class="node-box" />
+          <text x="335" y="207" class="node-title">Builder (Issue B)</text>
+          <text x="335" y="225" class="node-subtitle">tdd-guard verify (GREEN)</text>
+          <text x="335" y="241" fill="#10b981" font-size="10" font-weight="700">Change @B (jj describe)</text>
+        </g>
+
+        <!-- Integrator Node -->
+        <g id="node-int" class="node-group" onclick="selectNode('int')">
+          <rect x="630" y="340" width="160" height="90" class="node-box" />
+          <text x="645" y="368" class="node-title">Wave Integrator</text>
+          <text x="645" y="388" class="node-subtitle">jj rebase -s @A -s @B</text>
+          <text x="645" y="405" class="node-subtitle">onto integration trunk</text>
+          <text x="645" y="421" fill="#06b6d4" font-size="10" font-weight="700">⚡ 50ms Rebase</text>
+        </g>
+
+        <!-- Single Integration Test Gate -->
+        <g id="node-gate" class="node-group" onclick="selectNode('gate')">
+          <rect x="850" y="340" width="160" height="90" class="node-box" />
+          <text x="865" y="368" class="node-title">Combined Test Gate</text>
+          <text x="865" y="388" class="node-subtitle">scripts/run-tests.sh</text>
+          <text x="865" y="405" class="node-subtitle">1,114 assertions (1x run)</text>
+          <text x="865" y="421" fill="#10b981" font-size="10" font-weight="700">Single Wave Gate</text>
+        </g>
+
+        <!-- Wiki Trace Record -->
+        <g id="node-wiki" class="node-group" onclick="selectNode('wiki')">
+          <rect x="1050" y="355" width="85" height="60" class="node-box" />
+          <text x="1062" y="382" class="node-title">Wiki</text>
+          <text x="1062" y="400" class="node-subtitle">Raw Trace</text>
+        </g>
+
+        <!-- Single Milestone PR -->
+        <g id="node-pr" class="node-group" onclick="selectNode('pr')">
+          <rect x="710" y="525" width="180" height="90" class="node-box" />
+          <text x="725" y="555" class="node-title">Single PR to Main</text>
+          <text x="725" y="575" class="node-subtitle">gh pr create --base main</text>
+          <text x="725" y="593" fill="#a855f7" font-size="10" font-weight="700">Includes all wave changes</text>
+        </g>
+
+        <!-- Single GitHub CI Gate -->
+        <g id="node-ci" class="node-group" onclick="selectNode('ci')">
+          <rect x="430" y="525" width="180" height="90" class="node-box" />
+          <text x="445" y="555" class="node-title">GitHub Actions CI</text>
+          <text x="445" y="575" class="node-subtitle">4 Jobs Cached (Go/Shell/Test)</text>
+          <text x="445" y="593" fill="#10b981" font-size="10" font-weight="700">Runs ONCE (~3.5m)</text>
+        </g>
+
+        <!-- Final Main Branch -->
+        <g id="node-main" class="node-group" onclick="selectNode('main')">
+          <rect x="130" y="525" width="180" height="90" class="node-box" />
+          <text x="145" y="555" class="node-title">Trunk / main</text>
+          <text x="145" y="575" class="node-subtitle">Merged & Released</text>
+          <text x="145" y="593" fill="#06b6d4" font-size="10" font-weight="700">Production Ready</text>
+        </g>
+
+        <!-- ANIMATED TRAVELING PARTICLES -->
+        <circle id="particle-1" r="5" class="particle">
+          <animateMotion id="anim-p1" dur="10s" repeatCount="indefinite" rotate="auto"
+            path="M 70 140 L 230 140 L 320 140 L 480 140 L 560 140 L 560 370 L 630 370 L 790 385 L 850 385 L 1010 385 L 1050 385 L 1085 430 L 1085 570 L 890 570 L 710 570 L 610 570 L 430 570 L 310 570" />
+        </circle>
+
+        <circle id="particle-2" r="5" class="particle" style="fill: var(--accent-amber);">
+          <animateMotion id="anim-p2" dur="10s" begin="1.5s" repeatCount="indefinite" rotate="auto"
+            path="M 70 215 L 230 215 L 320 215 L 480 215 L 550 215 L 550 395 L 630 395 L 790 385 L 850 385 L 1010 385 L 1050 385 L 1085 430 L 1085 570 L 890 570 L 710 570 L 610 570 L 430 570 L 310 570" />
+        </circle>
+      </svg>

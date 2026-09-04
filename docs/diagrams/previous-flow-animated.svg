@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" id="svg-old" style="display: none;">
+        <defs>
+          <marker id="arrow-warn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#f43f5e" />
+          </marker>
+        </defs>
+
+        <!-- SWIMLANES -->
+        <rect x="40" y="30" width="1120" height="230" class="swimlane-bg-warn" />
+        <text x="65" y="60" class="swimlane-label" style="fill: #f43f5e;">Level 1: Intermediate Git Push + PR per Builder (High Latency)</text>
+        <rect x="790" y="45" width="350" height="28" rx="6" fill="rgba(244, 63, 94, 0.15)" stroke="rgba(244, 63, 94, 0.4)" />
+        <text x="800" y="64" fill="#f43f5e" font-size="11" font-weight="700">⚠️ Builder IDLE 4m on 'gh pr checks --watch'</text>
+
+        <rect x="40" y="280" width="1120" height="190" class="swimlane-bg" />
+        <text x="65" y="310" class="swimlane-label">Level 2: Remote GitHub API PR Merging (Integrator)</text>
+        <rect x="820" y="295" width="320" height="28" rx="6" fill="rgba(245, 158, 11, 0.1)" stroke="rgba(245, 158, 11, 0.3)" />
+        <text x="830" y="314" fill="#f59e0b" font-size="11" font-weight="700">⚠️ Repeated across 3 Waves (5 throwaway PRs)</text>
+
+        <rect x="40" y="490" width="1120" height="160" class="swimlane-bg" />
+        <text x="65" y="520" class="swimlane-label">Level 3: Final Milestone PR (6th Remote CI Run)</text>
+
+        <!-- EDGES -->
+        <!-- Issue 1: Specifier -> Builder -> Push -> CI STALL -->
+        <path id="opath-s1-b1" d="M 180 125 L 240 125" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-b1-push" d="M 380 125 L 430 125" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-push-stall" d="M 570 125 L 620 125" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-stall-int" d="M 770 125 L 820 125 Q 840 125 840 250 L 840 330 Q 840 370 780 370 L 730 370" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Issue 2: Specifier -> Builder -> Push -> CI STALL -->
+        <path id="opath-s2-b2" d="M 180 205 L 240 205" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-b2-push" d="M 380 205 L 430 205" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-push2-stall" d="M 570 205 L 620 205" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-stall2-int" d="M 770 205 L 810 205 Q 830 205 830 290 L 830 380 Q 830 395 780 395 L 730 395" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Integrator -> Local Test Suite -->
+        <path id="opath-int-test" d="M 550 385 L 470 385" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-test-wiki" d="M 310 385 L 230 385" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- Wave loop repeat -->
+        <path id="opath-wiki-loop" d="M 155 420 L 155 460 Q 155 475 200 475 L 880 475 Q 910 475 910 420 L 910 370 Q 910 370 750 370" class="edge-line" stroke-dasharray="4,4" marker-end="url(#arrow)" />
+
+        <!-- Final PR -->
+        <path id="opath-wiki-final" d="M 155 420 L 155 570 L 310 570" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-final-ci6" d="M 490 570 L 590 570" class="edge-line" marker-end="url(#arrow)" />
+        <path id="opath-ci6-main" d="M 770 570 L 870 570" class="edge-line" marker-end="url(#arrow)" />
+
+        <!-- NODES -->
+        <g id="onode-s1" class="node-group" onclick="selectOldNode(0)">
+          <rect x="60" y="95" width="120" height="60" class="node-box" />
+          <text x="75" y="122" class="node-title">Specifier A</text>
+          <text x="75" y="140" class="node-subtitle">tdd-guard seal</text>
+        </g>
+
+        <g id="onode-b1" class="node-group" onclick="selectOldNode(0)">
+          <rect x="240" y="95" width="140" height="60" class="node-box" />
+          <text x="252" y="120" class="node-title">Builder A</text>
+          <text x="252" y="137" class="node-subtitle">Runs full suites</text>
+        </g>
+
+        <g id="onode-push1" class="node-group" onclick="selectOldNode(1)">
+          <rect x="430" y="95" width="140" height="60" class="node-box" />
+          <text x="442" y="120" class="node-title">Push & PR #1</text>
+          <text x="442" y="137" class="node-subtitle">gh pr create</text>
+        </g>
+
+        <!-- STALL BOX 1 -->
+        <g id="onode-stall1" class="node-group" onclick="selectOldNode(1)">
+          <rect x="620" y="90" width="150" height="70" class="node-box node-stall" />
+          <text x="632" y="117" class="node-title" fill="#fca5a5">⏳ STALLED 4m</text>
+          <text x="632" y="135" class="node-subtitle" fill="#fecdd3">gh pr checks --watch</text>
+          <text x="632" y="149" fill="#f43f5e" font-size="10" font-weight="700">4 remote jobs spinning</text>
+        </g>
+
+        <g id="onode-s2" class="node-group" onclick="selectOldNode(0)">
+          <rect x="60" y="175" width="120" height="60" class="node-box" />
+          <text x="75" y="202" class="node-title">Specifier B</text>
+          <text x="75" y="220" class="node-subtitle">tdd-guard seal</text>
+        </g>
+
+        <g id="onode-b2" class="node-group" onclick="selectOldNode(0)">
+          <rect x="240" y="175" width="140" height="60" class="node-box" />
+          <text x="252" y="200" class="node-title">Builder B</text>
+          <text x="252" y="217" class="node-subtitle">Runs full suites</text>
+        </g>
+
+        <g id="onode-push2" class="node-group" onclick="selectOldNode(1)">
+          <rect x="430" y="175" width="140" height="60" class="node-box" />
+          <text x="442" y="200" class="node-title">Push & PR #2</text>
+          <text x="442" y="217" class="node-subtitle">gh pr create</text>
+        </g>
+
+        <!-- STALL BOX 2 -->
+        <g id="onode-stall2" class="node-group" onclick="selectOldNode(1)">
+          <rect x="620" y="170" width="150" height="70" class="node-box node-stall" />
+          <text x="632" y="197" class="node-title" fill="#fca5a5">⏳ STALLED 4m</text>
+          <text x="632" y="215" class="node-subtitle" fill="#fecdd3">gh pr checks --watch</text>
+          <text x="632" y="229" fill="#f43f5e" font-size="10" font-weight="700">4 remote jobs spinning</text>
+        </g>
+
+        <!-- Integrator Node -->
+        <g id="onode-int" class="node-group" onclick="selectOldNode(2)">
+          <rect x="550" y="340" width="180" height="90" class="node-box" />
+          <text x="565" y="368" class="node-title">Integrator (Remote API)</text>
+          <text x="565" y="388" class="node-subtitle">gh pr merge 1 --rebase</text>
+          <text x="565" y="405" class="node-subtitle">gh pr merge 2 --rebase</text>
+          <text x="565" y="421" fill="#f59e0b" font-size="10" font-weight="700">🐢 GitHub API roundtrips</text>
+        </g>
+
+        <!-- Local test node in Integrator -->
+        <g id="onode-test" class="node-group" onclick="selectOldNode(2)">
+          <rect x="310" y="340" width="160" height="90" class="node-box" />
+          <text x="325" y="368" class="node-title">Local Test Suite</text>
+          <text x="325" y="388" class="node-subtitle">bash run-tests.sh</text>
+          <text x="325" y="405" class="node-subtitle">1,114 assertions (repeated)</text>
+          <text x="325" y="421" fill="#94a3b8" font-size="10" font-weight="700">3x across waves</text>
+        </g>
+
+        <g id="onode-wiki" class="node-group" onclick="selectOldNode(2)">
+          <rect x="110" y="355" width="90" height="60" class="node-box" />
+          <text x="122" y="382" class="node-title">Wiki Trace</text>
+          <text x="122" y="400" class="node-subtitle">Wave Record</text>
+        </g>
+
+        <!-- Final PR Node -->
+        <g id="onode-final" class="node-group" onclick="selectOldNode(3)">
+          <rect x="310" y="530" width="180" height="80" class="node-box" />
+          <text x="325" y="560" class="node-title">Final PR to Main</text>
+          <text x="325" y="580" class="node-subtitle">PR #6 (Milestone PR)</text>
+          <text x="325" y="595" fill="#a855f7" font-size="10" font-weight="700">6th PR in milestone</text>
+        </g>
+
+        <g id="onode-ci6" class="node-group" onclick="selectOldNode(3)">
+          <rect x="590" y="530" width="180" height="80" class="node-box" />
+          <text x="605" y="560" class="node-title">GitHub Actions CI #6</text>
+          <text x="605" y="580" class="node-subtitle">4 Jobs (24th total job)</text>
+          <text x="605" y="595" fill="#f43f5e" font-size="10" font-weight="700">~4 mins additional wait</text>
+        </g>
+
+        <g id="onode-main" class="node-group" onclick="selectOldNode(3)">
+          <rect x="870" y="530" width="150" height="80" class="node-box" />
+          <text x="885" y="560" class="node-title">Trunk / main</text>
+          <text x="885" y="580" class="node-subtitle">Merged after 90m</text>
+          <text x="885" y="595" fill="#10b981" font-size="10" font-weight="700">Done</text>
+        </g>
+
+        <!-- OLD PARTICLES (SLOW) -->
+        <circle id="oparticle-1" r="5" class="particle-warn">
+          <animateMotion id="oanim-p1" dur="20s" repeatCount="indefinite" rotate="auto"
+            path="M 60 125 L 240 125 L 430 125 L 620 125 L 770 125 L 840 250 L 840 370 L 730 370 L 550 385 L 470 385 L 310 385 L 230 385 L 155 420 L 155 570 L 310 570 L 490 570 L 590 570 L 770 570 L 870 570" />
+        </circle>
+      </svg>
