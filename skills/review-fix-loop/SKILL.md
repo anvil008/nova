@@ -136,13 +136,15 @@ for it; it is the only place in this skill that touches the [`wiki`](../wiki/SKI
      --id <YYYY-MM-DD>-review-fix-loop-<slug> --kind review-fix-loop \
      --summary "<ending status and pass count>" \
      --file .workcell/review-pass-1.json --file .workcell/review-pass-<n>.json \
-     --file .workcell/review-fix-loop.json
+     --file .workcell/review-fix-loop.json \
+     [--model <model>] [--effort <effort>]
    ```
 
    This copies files that already exist and writes no prose, which is why the orchestrator runs it
    before there is any agent to attribute a write to; every page of prose is composed later, by the
-   agent dispatched in step 3, through this same CLI. `record` prints the raw id it wrote, and the
-   dispatch below cites that printed id rather than a path.
+   agent dispatched in step 3, through this same CLI. Optional `--model` and `--effort` flags record
+   the model string and reasoning effort. `record` prints the raw id it wrote, and the dispatch below
+   cites that printed id rather than a path.
 
 3. **Dispatch the consolidation.** Exactly one `documenter` dispatch, conforming to
    [`agents/handoff.md`](../../agents/handoff.md); a fan-out would race on the same append-only
