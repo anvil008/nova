@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" id="svg-old" style="display: none;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" id="svg-old" style="display: none;" role="img" aria-labelledby="diagram-title-old diagram-desc-old">
+  <title id="diagram-title-old">Previous Multi-PR GitHub Build Wave Architecture</title>
+  <desc id="diagram-desc-old">The legacy pipeline with intermediate branches, per-builder PR creation, remote CI polling stalls, and sequential GitHub API merges.</desc>
         <defs>
           <marker id="arrow-warn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1 L 9 5 L 0 9 z" fill="#f43f5e" />
