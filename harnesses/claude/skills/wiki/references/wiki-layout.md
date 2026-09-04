@@ -114,12 +114,17 @@ raw/2026-08-27-build-wave-1/
   "kind": "build-wave",
   "recordedAt": "2026-08-27T18:22:41Z",
   "summary": "wave 1 accepted after one re-run",
-  "files": [{ "path": "files/integrator-handoff.json", "sha256": "9f2c…" }]
+  "files": [{ "path": "files/integrator-handoff.json", "sha256": "9f2c…" }],
+  "model": "claude-sonnet-5",
+  "effort": "high"
 }
 ```
 
-Written by `wiki.py record --id <id> --kind <kind> --summary <text> --file <path>`, which
-prints the id it wrote and may be given `--file` repeatedly. Recording under an id that
+Written by `wiki.py record --id <id> --kind <kind> --summary <text> --file <path> [--model <model>] [--effort <effort>]`, which
+prints the id it wrote and may be given `--file` repeatedly. Optional `--model` and `--effort` flags record
+the model string (e.g. `claude-sonnet-5`, `gemini-3.7-flash`) and reasoning effort level (e.g. `low`, `medium`, `high`)
+in `manifest.json`. When omitted or not passed, `"model"` and `"effort"` are null or omitted, preserving full backward
+compatibility with legacy manifests. Recording under an id that
 already exists exits non-zero and changes nothing: a raw trace is the evidence every
 pattern page cites, so it is written once and never rewritten. New evidence goes under a
 new id.
@@ -140,12 +145,18 @@ nothing already written here is rewritten to say something different.
 ## Evidence
 
 - 2026-08-14 — `2026-08-14-build-wave-3` — The integrator timed out waiting on the sandbox lock.
-- 2026-08-27 — `2026-08-27-build-wave-1` — The same lock starved a second wave on a slower runner.
+- 2026-08-27 — `2026-08-27-build-wave-1` [claude-sonnet-5·high] — The same lock starved a second wave on a slower runner.
 ```
 
 Written by `wiki.py pattern <slug> --evidence <raw-id> --note <prose> [--title <text>]`,
 with `--evidence` repeatable. One dated line per call, in three fields separated by `—`:
-the date, the cited raw ids in backticks, and the prose. Citations are read back out of
+the date, the cited raw ids (with optional bracketed attribution), and the prose.
+When citing a raw bundle, `wiki.py pattern` inspects the bundle's `manifest.json`:
+- If both `model` and `effort` are recorded: the citation is formatted with bracketed attribution using middle dot `·`: `<raw-id>` [<model>·<effort>] (e.g. `` `2026-08-27-build-wave-1` [claude-sonnet-5·high] ``).
+- If only `model` is recorded (effort is null/omitted): the citation is formatted as `<raw-id>` [<model>] (e.g. `` `2026-08-27-build-wave-1` [claude-sonnet-5] ``).
+- If `model` is omitted (legacy): the citation is formatted unbracketed as legacy `<raw-id>` (e.g. `` `2026-08-14-build-wave-3` ``).
+
+Citations are read back out of
 the second field alone, so a backtick in the prose cannot forge one; the prose of an
 earlier call stays present verbatim. A page that turns out
 to be wrong gains a new dated entry saying so — **it is never rewritten to say something
@@ -201,6 +212,7 @@ skill it aimed at, the decision, the reason, and who decided.
   missing bundle was removed out of band, and the ledger is what catches one no page
   happens to cite;
 - a `.staging-*` directory, the residue of an interrupted `record`;
+- a raw bundle manifest or pattern line citation tag with unsanitized `model` or `effort` strings (containing newlines, tabs, or carriage returns) — maintaining backward compatibility for legacy records;
 - a pattern page citing a raw id with no directory under `raw/`, or citing something that
   is not a raw id at all;
 - a pattern page with no row in `index.md`, a row whose count or last-seen date disagrees

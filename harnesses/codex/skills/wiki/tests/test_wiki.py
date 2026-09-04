@@ -41,6 +41,7 @@ REPO = Path(__file__).resolve().parents[3]
 SKILL_DIR = REPO / "skills" / "wiki"
 WIKI = SKILL_DIR / "scripts" / "wiki.py"
 SKILL_MD = SKILL_DIR / "SKILL.md"
+WIKI_LAYOUT_MD = SKILL_DIR / "references" / "wiki-layout.md"
 SAMPLE_NAMESPACE = SKILL_DIR / "examples" / "sample-namespace"
 WORKCELL_WS = REPO / "scripts" / "workcell-ws"
 
@@ -1149,6 +1150,512 @@ class RepositoryGateTests(WikiTestCase):
         import run_evals
 
         return run_evals
+
+
+class WikiModelEffortTests(WikiTestCase):
+    """Acceptance tests for issue #204: model and reasoning effort tracking."""
+
+    def write_bundle(
+        self,
+        namespace: Path,
+        raw_id: str,
+        *,
+        kind: str = "build-wave",
+        summary: str = "test bundle",
+        model: str | None = None,
+        effort: str | None = None,
+        include_model_effort: bool = True,
+        file_content: str = '{"gate": "green"}\n',
+    ) -> Path:
+        bundle = namespace / "raw" / raw_id
+        bundle.mkdir(parents=True, exist_ok=True)
+        files_dir = bundle / "files"
+        files_dir.mkdir(exist_ok=True)
+        ev_file = files_dir / "evidence.json"
+        ev_file.write_text(file_content, encoding="utf-8")
+        manifest_data = {
+            "id": raw_id,
+            "kind": kind,
+            "recordedAt": "2026-09-04T00:00:00Z",
+            "summary": summary,
+            "files": [
+                {
+                    "path": "files/evidence.json",
+                    "sha256": sha256_bytes(ev_file.read_bytes()),
+                }
+            ],
+        }
+        if include_model_effort:
+            manifest_data["model"] = model
+            manifest_data["effort"] = effort
+        (bundle / "manifest.json").write_text(
+            json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8"
+        )
+        logs_path = namespace / "logs.md"
+        with logs_path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                f"- 2026-09-04T00:00:00Z record {raw_id} ({kind}) — {summary}\n"
+            )
+        return bundle
+
+    def test_record_stores_sanitized_model_and_effort(self):
+        repo = self.git_repo("record-sanitized-fixture")
+        namespace = self.init_namespace(repo)
+        evidence = self.evidence_file(repo, "trace.json", '{"ok": true}\n')
+
+        result = self.wiki(
+            "record",
+            "--repo",
+            repo,
+            "--id",
+            "trace-sanitized",
+            "--kind",
+            "build-wave",
+            "--summary",
+            "wave accepted",
+            "--file",
+            evidence,
+            "--model",
+            "  claude-sonnet-5 \n  ",
+            "--effort",
+            "  high \n  ",
+        )
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"wiki.py record --model --effort must exit 0: {self.output(result)}",
+        )
+        bundle = namespace / "raw" / "trace-sanitized"
+        self.assertTrue(bundle.is_dir(), f"bundle directory must exist: {bundle}")
+        manifest = json.loads(self.read(bundle / "manifest.json", "manifest.json"))
+        self.assertEqual(manifest.get("model"), "claude-sonnet-5")
+        self.assertEqual(manifest.get("effort"), "high")
+
+    def test_record_supports_optional_and_null_model_effort(self):
+        repo = self.git_repo("record-optional-fixture")
+        namespace = self.init_namespace(repo)
+        evidence = self.evidence_file(repo, "trace.json", '{"ok": true}\n')
+
+        # 1. Record without --model and --effort succeeds and produces null or omitted fields
+        res1 = self.wiki(
+            "record",
+            "--repo",
+            repo,
+            "--id",
+            "trace-omitted",
+            "--kind",
+            "build-wave",
+            "--summary",
+            "omitted model and effort",
+            "--file",
+            evidence,
+        )
+        self.assertEqual(
+            res1.returncode,
+            0,
+            f"record without model/effort must exit 0: {self.output(res1)}",
+        )
+        manifest1 = json.loads(
+            self.read(
+                namespace / "raw" / "trace-omitted" / "manifest.json", "manifest1"
+            )
+        )
+        self.assertIn(
+            manifest1.get("model"),
+            (None,),
+            f"model must be null or omitted: {manifest1}",
+        )
+        self.assertIn(
+            manifest1.get("effort"),
+            (None,),
+            f"effort must be null or omitted: {manifest1}",
+        )
+
+        # 2. Record with --model but without --effort succeeds with effort null or omitted
+        res2 = self.wiki(
+            "record",
+            "--repo",
+            repo,
+            "--id",
+            "trace-model-only",
+            "--kind",
+            "build-wave",
+            "--summary",
+            "model only",
+            "--file",
+            evidence,
+            "--model",
+            "gemini-3.7-flash",
+        )
+        self.assertEqual(
+            res2.returncode,
+            0,
+            f"record with --model only must exit 0: {self.output(res2)}",
+        )
+        manifest2 = json.loads(
+            self.read(
+                namespace / "raw" / "trace-model-only" / "manifest.json", "manifest2"
+            )
+        )
+        self.assertEqual(manifest2.get("model"), "gemini-3.7-flash")
+        self.assertIn(
+            manifest2.get("effort"),
+            (None,),
+            f"effort must be null or omitted when not passed: {manifest2}",
+        )
+
+    def test_pattern_formats_model_and_effort_attribution(self):
+        repo = self.git_repo("pattern-model-effort-fixture")
+        namespace = self.init_namespace(repo)
+        raw_id = "trace-attr-both"
+        self.write_bundle(
+            namespace,
+            raw_id,
+            model="claude-sonnet-5",
+            effort="high",
+        )
+
+        slug = "flaky-test-lock"
+        result = self.wiki(
+            "pattern",
+            slug,
+            "--repo",
+            repo,
+            "--evidence",
+            raw_id,
+            "--note",
+            "Attributed evidence line",
+        )
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"wiki.py pattern must exit 0: {self.output(result)}",
+        )
+        page = self.pattern_page(namespace, slug)
+        expected_citation = f"`{raw_id}` [claude-sonnet-5·high]"
+        self.assertIn(
+            expected_citation,
+            page,
+            f"pattern page must format citation as '{expected_citation}', got:\n{page}",
+        )
+
+    def test_pattern_formats_model_only_attribution(self):
+        repo = self.git_repo("pattern-model-only-fixture")
+        namespace = self.init_namespace(repo)
+        raw_id = "trace-attr-model-only"
+        self.write_bundle(
+            namespace,
+            raw_id,
+            model="gemini-3.7-flash",
+            effort=None,
+        )
+
+        slug = "flaky-test-lock"
+        result = self.wiki(
+            "pattern",
+            slug,
+            "--repo",
+            repo,
+            "--evidence",
+            raw_id,
+            "--note",
+            "Model-only attributed evidence line",
+        )
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"wiki.py pattern must exit 0: {self.output(result)}",
+        )
+        page = self.pattern_page(namespace, slug)
+        expected_citation = f"`{raw_id}` [gemini-3.7-flash]"
+        self.assertIn(
+            expected_citation,
+            page,
+            f"pattern page must format citation as '{expected_citation}', got:\n{page}",
+        )
+        self.assertNotIn(
+            "·",
+            page,
+            f"pattern page must not have middle dot when effort is null:\n{page}",
+        )
+
+    def test_pattern_formats_legacy_unattributed_citation(self):
+        repo = self.git_repo("pattern-legacy-fixture")
+        namespace = self.init_namespace(repo)
+        raw_legacy = "trace-legacy"
+        raw_attributed = "trace-attributed"
+        self.write_bundle(
+            namespace,
+            raw_legacy,
+            include_model_effort=False,
+        )
+        self.write_bundle(
+            namespace,
+            raw_attributed,
+            model="claude-sonnet-5",
+            effort="medium",
+        )
+
+        slug = "flaky-test-lock"
+        # 1. Single legacy citation must produce unbracketed citation
+        result1 = self.wiki(
+            "pattern",
+            slug,
+            "--repo",
+            repo,
+            "--evidence",
+            raw_legacy,
+            "--note",
+            "Legacy unbracketed note",
+        )
+        self.assertEqual(
+            result1.returncode,
+            0,
+            f"wiki.py pattern must exit 0: {self.output(result1)}",
+        )
+        page1 = self.pattern_page(namespace, slug)
+        self.assertIn(f"`{raw_legacy}`", page1)
+        self.assertNotIn(f"`{raw_legacy}` [", page1)
+
+        # 2. Mixed citations: legacy remains unbracketed, attributed receives brackets
+        result2 = self.wiki(
+            "pattern",
+            slug,
+            "--repo",
+            repo,
+            "--evidence",
+            raw_legacy,
+            "--evidence",
+            raw_attributed,
+            "--note",
+            "Mixed citation note",
+        )
+        self.assertEqual(
+            result2.returncode,
+            0,
+            f"wiki.py pattern must exit 0: {self.output(result2)}",
+        )
+        page2 = self.pattern_page(namespace, slug)
+        self.assertIn(
+            f"`{raw_attributed}` [claude-sonnet-5·medium]",
+            page2,
+            f"attributed citation must be bracketed:\n{page2}",
+        )
+        self.assertIn(
+            f"`{raw_legacy}`, `{raw_attributed}` [claude-sonnet-5·medium]",
+            page2,
+            "citations must preserve legacy unbracketed while adding brackets to "
+            f"attributed:\n{page2}",
+        )
+
+    def test_check_validates_sanitized_model_and_effort(self):
+        repo = self.git_repo("check-valid-fixture")
+        namespace = self.init_namespace(repo)
+        raw_1 = "trace-one"
+        raw_2 = "trace-two"
+        self.write_bundle(
+            namespace,
+            raw_1,
+            model="claude-sonnet-5",
+            effort="high",
+        )
+        self.write_bundle(
+            namespace,
+            raw_2,
+            model="gpt-5.6-sol",
+            effort=None,
+        )
+
+        slug = "flaky-test-lock"
+        # Create pattern page with wiki.py pattern first to get correct index.md and logs
+        first_p = self.wiki(
+            "pattern",
+            slug,
+            "--repo",
+            repo,
+            "--evidence",
+            raw_1,
+            "--evidence",
+            raw_2,
+            "--note",
+            "Valid sanitized citation",
+        )
+        self.assertEqual(
+            first_p.returncode, 0, f"pattern setup failed: {self.output(first_p)}"
+        )
+        # Overwrite page line with bracketed attributions
+        page_path = namespace / "patterns" / f"{slug}.md"
+        page_lines = page_path.read_text(encoding="utf-8").splitlines()
+        updated_lines = []
+        for line in page_lines:
+            if line.startswith("- "):
+                date_prefix = line.split("—")[0].strip()
+                updated_lines.append(
+                    f"{date_prefix} — `{raw_1}` [claude-sonnet-5·high], "
+                    f"`{raw_2}` [gpt-5.6-sol] — Valid sanitized citation"
+                )
+            else:
+                updated_lines.append(line)
+        page_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+
+        result = self.wiki("check", "--repo", repo)
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"wiki.py check must exit 0 on sanitized model/effort: {self.output(result)}",
+        )
+        payload = self.json_payload(result, "wiki.py check")
+        self.assertTrue(payload.get("ok"), str(payload))
+        self.assertEqual(payload.get("raw"), 2)
+        self.assertEqual(payload.get("patterns"), 1)
+
+    def test_check_preserves_legacy_backward_compatibility(self):
+        repo = self.git_repo("check-legacy-fixture")
+        namespace = self.init_namespace(repo)
+        raw_legacy = "trace-legacy"
+        self.write_bundle(
+            namespace,
+            raw_legacy,
+            include_model_effort=False,
+        )
+        slug = "flaky-test-lock"
+        pat = self.wiki(
+            "pattern",
+            slug,
+            "--repo",
+            repo,
+            "--evidence",
+            raw_legacy,
+            "--note",
+            "Legacy unbracketed citation note",
+        )
+        self.assertEqual(pat.returncode, 0, f"pattern setup failed: {self.output(pat)}")
+
+        result = self.wiki("check", "--repo", repo)
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"wiki.py check must exit 0 on legacy namespace: {self.output(result)}",
+        )
+        payload = self.json_payload(result, "wiki.py check on legacy namespace")
+        self.assertTrue(payload.get("ok"), str(payload))
+        self.assertEqual(payload.get("raw"), 1)
+        self.assertEqual(payload.get("patterns"), 1)
+
+    def test_check_rejects_unsanitized_model_or_effort(self):
+        slug = "flaky-test-lock"
+
+        # 1. Manifest with unsanitized model (containing newline)
+        repo1 = self.git_repo("check-bad-model-fixture")
+        namespace1 = self.init_namespace(repo1)
+        raw_bad_model = "trace-bad-model"
+        self.write_bundle(
+            namespace1,
+            raw_bad_model,
+            model="claude-sonnet-5\nforged-line",
+            effort="high",
+        )
+        res1 = self.wiki("check", "--repo", repo1)
+        self.refuses(
+            res1,
+            "check on manifest containing unsanitized model with newline",
+            raw_bad_model,
+        )
+
+        # 2. Manifest with unsanitized effort (containing newline)
+        repo2 = self.git_repo("check-bad-effort-fixture")
+        namespace2 = self.init_namespace(repo2)
+        raw_bad_effort = "trace-bad-effort"
+        self.write_bundle(
+            namespace2,
+            raw_bad_effort,
+            model="gemini-3.7-flash",
+            effort="high\ninvalid",
+        )
+        res2 = self.wiki("check", "--repo", repo2)
+        self.refuses(
+            res2,
+            "check on manifest containing unsanitized effort with newline",
+            raw_bad_effort,
+        )
+
+        # 3. Pattern line with unsanitized model citation tag (containing tab character)
+        repo3 = self.git_repo("check-bad-pattern-fixture")
+        namespace3 = self.init_namespace(repo3)
+        raw_valid = "trace-valid"
+        self.write_bundle(
+            namespace3,
+            raw_valid,
+            model="claude-sonnet-5",
+            effort="high",
+        )
+        p_setup = self.wiki(
+            "pattern",
+            slug,
+            "--repo",
+            repo3,
+            "--evidence",
+            raw_valid,
+            "--note",
+            "Pattern line to tamper",
+        )
+        self.assertEqual(
+            p_setup.returncode, 0, f"pattern setup failed: {self.output(p_setup)}"
+        )
+        page_path = namespace3 / "patterns" / f"{slug}.md"
+        page_lines = page_path.read_text(encoding="utf-8").splitlines()
+        updated_lines = []
+        for line in page_lines:
+            if line.startswith("- "):
+                date_prefix = line.split("—")[0].strip()
+                updated_lines.append(
+                    f"{date_prefix} — `{raw_valid}` [claude\tsonnet·high] — Unsanitized tab tag"
+                )
+            else:
+                updated_lines.append(line)
+        page_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+        res3 = self.wiki("check", "--repo", repo3)
+        self.refuses(
+            res3,
+            "check on pattern page containing unsanitized model tag with tab",
+            slug,
+        )
+
+    def test_layout_contract_specifies_model_and_effort(self):
+        self.assertTrue(
+            WIKI_LAYOUT_MD.is_file(),
+            f"wiki-layout.md must exist at {WIKI_LAYOUT_MD}",
+        )
+        content = self.read(WIKI_LAYOUT_MD, "wiki-layout.md")
+
+        # 1. Manifest schema fields specify model and effort
+        self.assertIn(
+            '"model"',
+            content,
+            "wiki-layout.md manifest schema must document the 'model' field",
+        )
+        self.assertIn(
+            '"effort"',
+            content,
+            "wiki-layout.md manifest schema must document the 'effort' field",
+        )
+
+        # 2. Evidence line citation format specifies bracketed attribution
+        self.assertTrue(
+            "·" in content and ("<model>" in content or "model" in content),
+            "wiki-layout.md must document bracketed model/effort citation syntax with '·'",
+        )
+        self.assertTrue(
+            any(
+                syntax in content
+                for syntax in (
+                    "[<model>·<effort>]",
+                    "`<raw-id>` [<model>·<effort>]",
+                    "[<model>]",
+                )
+            ),
+            "wiki-layout.md must specify [<model>·<effort>] or [<model>] citation format",
+        )
 
 
 if __name__ == "__main__":

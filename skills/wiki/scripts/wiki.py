@@ -9,7 +9,7 @@ editor tool bypasses the write-once, append-only, and identity rules enforced he
     wiki.py key      [--repo <dir> | --namespace <dir>]
     wiki.py init     [--repo <dir> | --namespace <dir>]
     wiki.py status   [--repo <dir> | --namespace <dir>]
-    wiki.py record   --id <id> --kind <kind> --summary <text> --file <path> [--file ...]
+    wiki.py record   --id <id> --kind <kind> --summary <text> --file <path> [--file ...] [--model <model>] [--effort <effort>]
     wiki.py pattern  <slug> --evidence <raw-id> [--evidence ...] --note <text> [--title <text>]
     wiki.py check    [--repo <dir> | --namespace <dir>]
 
@@ -47,6 +47,7 @@ REMOTE_PARTS = re.compile(r"^([^/:]+)(?::(\d+))?[:/]?(.*)$")
 # a backtick in the prose cannot forge one.
 EVIDENCE_LINE = re.compile(r"^-\s+(\d{4}-\d{2}-\d{2})\s+—\s+(.*?)\s+—\s+\S")
 CITATION = re.compile(r"`([^`]+)`")
+CITATION_ITEM = re.compile(r"^`([^`]+)`(?:\s*\[([^\]]*)\])?$")
 INDEX_ROW = re.compile(r"^\|\s*\[?([a-z0-9][a-z0-9-]*)\]?")
 # `- <timestamp> record <id> (<kind>) — <summary>`, anchored so a summary cannot forge one.
 LOGGED_RECORD = re.compile(r"^-\s+\S+\s+record\s+(\S+)\s+\(")
@@ -152,6 +153,17 @@ def one_line(text: str) -> str:
     """Every field the CLI writes into a page or a log is folded to one line, so no
     argument can smuggle a second line into an append-only file."""
     return " ".join(text.split())
+
+
+def is_sanitized_string(val: object) -> bool:
+    """Validate that val is a sanitized single-line string without newlines, tabs, or carriage returns."""
+    if not isinstance(val, str):
+        return False
+    if any(ch in val for ch in ("\n", "\r", "\t")):
+        return False
+    if val != one_line(val):
+        return False
+    return bool(val.strip())
 
 
 def append_line(path: Path, line: str) -> None:
@@ -532,6 +544,13 @@ def command_record(target: Target, args: argparse.Namespace) -> int:
         if not source.is_file():
             raise WikiError(f"no such evidence file: {source}")
 
+    model = one_line(args.model) if args.model is not None else None
+    if model == "":
+        model = None
+    effort = one_line(args.effort) if args.effort is not None else None
+    if effort == "":
+        effort = None
+
     assert_identity(target)
     namespace = require_namespace(target)
     bundle = namespace / "raw" / raw_id
@@ -577,6 +596,8 @@ def command_record(target: Target, args: argparse.Namespace) -> int:
                 "recordedAt": now(),
                 "summary": summary,
                 "files": sorted(entries, key=lambda entry: entry["path"]),
+                "model": model,
+                "effort": effort,
             },
         )
         staging.rename(bundle)
@@ -630,7 +651,26 @@ def command_pattern(target: Target, args: argparse.Namespace) -> int:
         # otherwise carry a second one that reads as an evidence entry nothing recorded.
         title = one_line(args.title or "") or slug.replace("-", " ").capitalize()
         page.write_text(f"# {title}\n\n{PAGE_PREAMBLE}", encoding="utf-8")
-    citations = ", ".join(f"`{raw_id}`" for raw_id in cited)
+    citation_parts = []
+    for raw_id in cited:
+        manifest_path = namespace / "raw" / raw_id / "manifest.json"
+        model = None
+        effort = None
+        if manifest_path.is_file():
+            try:
+                manifest = read_json(manifest_path, "manifest.json")
+                model = manifest.get("model")
+                effort = manifest.get("effort")
+            except WikiError:
+                pass
+        if model:
+            if effort:
+                citation_parts.append(f"`{raw_id}` [{model}·{effort}]")
+            else:
+                citation_parts.append(f"`{raw_id}` [{model}]")
+        else:
+            citation_parts.append(f"`{raw_id}`")
+    citations = ", ".join(citation_parts)
     append_line(page, f"- {today()} — {citations} — {note}")
     write_index(namespace)
     log(namespace, f"pattern {slug} — {citations.replace('`', '')} — {note}")
@@ -713,6 +753,12 @@ def check_raw(namespace: Path) -> list[str]:
                     f"{bundle.name}: {relative} is in the bundle but not in "
                     "manifest.json"
                 )
+        for field in ("model", "effort"):
+            val = manifest.get(field)
+            if val is not None and not is_sanitized_string(val):
+                problems.append(
+                    f"{bundle.name}: manifest.json has unsanitized {field}: {val!r}"
+                )
     return problems
 
 
@@ -733,8 +779,28 @@ def check_patterns(namespace: Path) -> list[str]:
                 f"{count} evidence entries, last seen {last_seen}"
             )
         page = (namespace / "patterns" / f"{slug}.md").read_text(encoding="utf-8")
-        for _date, cited in evidence_entries(page):
-            for raw_id in cited:
+        for line in page.splitlines():
+            line_str = line.strip()
+            if not line_str.startswith("- "):
+                continue
+            match = EVIDENCE_LINE.match(line_str)
+            if not match:
+                continue
+            citations_field = match.group(2)
+            parts = [p.strip() for p in citations_field.split(",")]
+            for part in parts:
+                if not part:
+                    problems.append(
+                        f"{slug}: empty citation in evidence line: {line_str!r}"
+                    )
+                    continue
+                c_match = CITATION_ITEM.match(part)
+                if not c_match:
+                    problems.append(
+                        f"{slug}: cites {part!r}, which is not a valid citation"
+                    )
+                    continue
+                raw_id, tag = c_match.group(1), c_match.group(2)
                 if not RAW_ID.match(raw_id):
                     problems.append(
                         f"{slug}: cites {raw_id}, which is not a raw id — a citation "
@@ -745,6 +811,32 @@ def check_patterns(namespace: Path) -> list[str]:
                         f"{slug}: cites the raw id {raw_id}, which has no directory "
                         "under raw/"
                     )
+                if tag is not None:
+                    if any(ch in tag for ch in ("\n", "\r", "\t")):
+                        problems.append(
+                            f"{slug}: citation tag [{tag}] for raw id {raw_id!r} contains unsanitized characters"
+                        )
+                    elif "·" in tag:
+                        if tag.count("·") > 1:
+                            problems.append(
+                                f"{slug}: citation tag [{tag}] for raw id {raw_id!r} has invalid middle dot format"
+                            )
+                        else:
+                            model, _, effort = tag.partition("·")
+                            if not is_sanitized_string(model):
+                                problems.append(
+                                    f"{slug}: citation tag [{tag}] for raw id {raw_id!r} has unsanitized model: {model!r}"
+                                )
+                            if not is_sanitized_string(effort):
+                                problems.append(
+                                    f"{slug}: citation tag [{tag}] for raw id {raw_id!r} has unsanitized effort: {effort!r}"
+                                )
+                    else:
+                        model = tag
+                        if not is_sanitized_string(model):
+                            problems.append(
+                                f"{slug}: citation tag [{tag}] for raw id {raw_id!r} has unsanitized model: {model!r}"
+                            )
     for slug in sorted(set(rows) - set(computed)):
         problems.append(f"{slug}: index.md carries a row with no page under patterns/")
     return problems
@@ -817,6 +909,8 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--kind", default=None)
     record.add_argument("--summary", default=None)
     record.add_argument("--file", dest="files", action="append", default=[])
+    record.add_argument("--model", default=None, help="the model string that produced the trace")
+    record.add_argument("--effort", default=None, help="the reasoning effort level (e.g. low, medium, high)")
 
     pattern = _common(
         subcommands.add_parser("pattern", help="append evidence to a pattern page")
