@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" id="flow-svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" id="flow-svg" role="img" aria-labelledby="diagram-title-trunk diagram-desc-trunk">
+  <title id="diagram-title-trunk">Jujutsu Trunk-Based High-Velocity Pipeline Architecture</title>
+  <desc id="diagram-desc-trunk">The optimized Jujutsu pipeline with local workspace change handoff, 50ms wave integration rebase, and single remote CI gating.</desc>
         <defs>
           <linearGradient id="cyan-glow" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.9" />

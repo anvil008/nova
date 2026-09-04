@@ -53,7 +53,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: 'pip'
       - name: Shell tests
         timeout-minutes: 10
         run: |
@@ -72,7 +71,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: 'pip'
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-ruff-pyyaml
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Install Python lint tooling
         timeout-minutes: 5
         run: python3 -m pip install ruff pyyaml
@@ -130,7 +135,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: 'pip'
       - name: Skill unit tests
         timeout-minutes: 10
         run: |
@@ -153,7 +157,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: 'pip'
       - name: Build release artifacts
         timeout-minutes: 10
         run: python3 scripts/build-guard-release.py
