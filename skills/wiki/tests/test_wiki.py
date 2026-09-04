@@ -37,7 +37,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[3]
+
+def _find_repo_root(start: Path) -> Path:
+    for p in [start, *start.parents]:
+        if (p / "skills").is_dir() and (p / "contracts").is_dir() and (p / "harnesses").is_dir():
+            return p
+    return start.parents[3]
+
+REPO = _find_repo_root(Path(__file__).resolve())
 SKILL_DIR = REPO / "skills" / "wiki"
 WIKI = SKILL_DIR / "scripts" / "wiki.py"
 SKILL_MD = SKILL_DIR / "SKILL.md"
@@ -66,7 +73,8 @@ REAL_HOME_STATE = _real_home_state()
 
 # The paragraph every orchestrator skill carries verbatim (ADR 0007).
 CANONICAL_BOUNDARY = (
-    "You are the orchestrator ([ADR 0007](../../docs/adr/"
+    "You are the orchestrator ([ADR 0007]("
+    "../../docs/adr/"
     "0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human "
     "gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read "
     "gate output and handoff records. You never read or edit the target project's code, run "
@@ -949,8 +957,9 @@ class SkillContractTests(WikiTestCase):
 
     def test_the_skill_contract_states_its_boundaries(self):
         text = self.skill_text()
+        canonical = CANONICAL_BOUNDARY.replace("../../runtime/docs/", "../../docs/")
         self.assertIn(
-            CANONICAL_BOUNDARY,
+            canonical,
             text,
             "skills/wiki/SKILL.md must carry the canonical ADR-0007 orchestrator "
             "paragraph verbatim",
