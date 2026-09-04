@@ -63,7 +63,8 @@ Every agent returns one `anvil.agent-handoff/v1` JSON object with these fields:
 - `disposition`: exactly one of `done`, `blocked`, or `needs-decision`.
 - `result`: one paragraph stating the outcome.
 - `branch`: the assigned branch or bookmark, or `null` when the agent has none.
-- `pr`: the pull-request URL or number, or `null` when the agent does not open one.
+- `changeId`: the Jujutsu commit change ID (e.g. from `jj log -r @ -T "change_id\n"`), optional or `null` when unset.
+- `pr`: the pull-request URL or number, or `null` when the agent does not open one (in local trunk handoff, `pr` is `null`).
 - `workspace`: the workspace path used for the work.
 - `changedFiles[]`: repository-relative paths changed by the agent.
 - `commands[]`: command evidence entries, each containing `argv`, `commandId`, `exitCode`, and `summary`.
@@ -87,7 +88,8 @@ Runtime evidence is judged apart from that: its absence makes a record **incompl
   "disposition": "done",
   "result": "Empty API tokens are now rejected before transport, and the sealed acceptance test plus the project suite pass.",
   "branch": "issue-142-empty-token",
-  "pr": "https://github.com/example/workcell/pull/187",
+  "changeId": "kpqxyvwnloqtuslrzuvlztkzzuorptvn",
+  "pr": null,
   "workspace": "/work/workcell-issue-142",
   "changedFiles": ["src/auth/token.py"],
   "commands": [
