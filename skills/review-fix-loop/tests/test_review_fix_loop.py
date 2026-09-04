@@ -593,5 +593,45 @@ class LoopExitConsolidationTests(SkillProseTestCase):
                 )
 
 
+class ReviewFixLoopWikiTests(SkillProseTestCase):
+    def test_consolidation_documents_model_and_effort(self):
+        """The loop exit consolidation section (step 2 'Record the evidence, before
+        anything is dispatched') in skills/review-fix-loop/SKILL.md must document
+        passing optional --model and --effort (e.g. [--model <model>] and
+        [--effort <effort>]) when invoking wiki.py record."""
+        recorded = self.exit_step(r"wiki\.py record")
+        self.assertTrue(
+            recorded,
+            f"a numbered step of `{EXIT_SECTION}` must run `wiki.py record`",
+        )
+        step_number, step_body = recorded[0]
+        self.assertEqual(
+            step_number,
+            2,
+            f"`wiki.py record` must be step 2 of `{EXIT_SECTION}`, found step {step_number}",
+        )
+        self.assertIn(
+            "--model",
+            step_body,
+            f"step {step_number} of `{EXIT_SECTION}` must document passing optional `--model` to wiki.py record",
+        )
+        self.assertIn(
+            "--effort",
+            step_body,
+            f"step {step_number} of `{EXIT_SECTION}` must document passing optional `--effort` to wiki.py record",
+        )
+        self.assertRegex(
+            step_body,
+            r"\[?--model\s+(<model>|<model-id>|MODEL)\]?",
+            f"step {step_number} of `{EXIT_SECTION}` must document `[--model <model>]` when invoking wiki.py record",
+        )
+        self.assertRegex(
+            step_body,
+            r"\[?--effort\s+(<effort>|EFFORT)\]?",
+            f"step {step_number} of `{EXIT_SECTION}` must document `[--effort <effort>]` when invoking wiki.py record",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
+
