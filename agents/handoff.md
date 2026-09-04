@@ -17,6 +17,8 @@ This contract defines the one brief an orchestrator sends to a Workcell agent an
 - `devServer`: reviewers only; `none`, a non-production URL, or `start: <command>`.
 - `runtime`: builders only; an optional hint object `{launch, url, healthPath}` telling the builder how to run the surface it changed — `launch` is the command that starts it, `url` is where it answers, `healthPath` is a service's health path. It is `null` or absent when the orchestrator has no hint, and the builder then discovers the run command from the repo. A production URL is never a valid hint.
 - `approval`: deployer only; an object naming `who`, `when`, `target`, and `commit`. It is `null` for every other agent.
+- `model`: optional model string assigned for the agent dispatch (e.g. `claude-sonnet-5`, `gemini-3.7-flash`), or `null` when unset.
+- `effort`: optional reasoning effort level (`low`, `medium`, `high`), or `null` when unset.
 
 ## Dispatch brief example
 
@@ -43,7 +45,9 @@ This contract defines the one brief an orchestrator sends to a Workcell agent an
   "baselineCommand": null,
   "devServer": "none",
   "runtime": null,
-  "approval": null
+  "approval": null,
+  "model": "claude-sonnet-5",
+  "effort": "high"
 }
 ```
 
@@ -54,6 +58,8 @@ Every agent returns one `anvil.agent-handoff/v1` JSON object with these fields:
 - `schema`: exactly `anvil.agent-handoff/v1`.
 - `agent`: the Workcell agent name.
 - `issue`: the GitHub issue number, or `null` for a no-issue dispatch.
+- `model`: optional model string identifying the model that performed the work, or `null` when unset.
+- `effort`: optional reasoning effort level (`low`, `medium`, `high`), or `null` when unset.
 - `disposition`: exactly one of `done`, `blocked`, or `needs-decision`.
 - `result`: one paragraph stating the outcome.
 - `branch`: the assigned branch or bookmark, or `null` when the agent has none.
@@ -75,6 +81,8 @@ Runtime evidence is judged apart from that: its absence makes a record **incompl
 {
   "schema": "anvil.agent-handoff/v1",
   "agent": "builder",
+  "model": "claude-fable-5-1",
+  "effort": "high",
   "issue": 142,
   "disposition": "done",
   "result": "Empty API tokens are now rejected before transport, and the sealed acceptance test plus the project suite pass.",
