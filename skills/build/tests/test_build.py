@@ -1388,6 +1388,57 @@ class WikiBuildTraceTests(unittest.TestCase):
             "a fresh `tdd-guard status --json` for every issue plus `gh pr checks` passing",
         )
 
+    def test_wave_acceptance_documents_model_and_effort(self):
+        """The wave-acceptance step must explicitly document passing optional
+        `--model` and `--effort` flags to `wiki.py record` (extracted from the
+        integrator handoff record or dispatch brief)."""
+        number, step = self.acceptance_step()
+        self.assertEqual(number, "5", "wave-acceptance must be step 5 of the wave loop")
+
+        record_paras = [
+            para
+            for para in self.paragraphs(step)
+            if re.search(r"wiki\.py record", para, re.IGNORECASE)
+            and not SPECULATION.search(para)
+        ]
+        self.assertTrue(
+            record_paras,
+            "the wave-acceptance step must contain an instruction for `wiki.py record`",
+        )
+        record_text = "\n\n".join(record_paras)
+
+        self.assertRegex(
+            record_text,
+            r"--model",
+            "the wave-acceptance step must explicitly document the `--model` flag "
+            "when invoking `wiki.py record`",
+        )
+        self.assertRegex(
+            record_text,
+            r"--effort",
+            "the wave-acceptance step must explicitly document the `--effort` flag "
+            "when invoking `wiki.py record`",
+        )
+        self.sentence(
+            step,
+            [
+                r"--model",
+                r"--effort",
+            ],
+            "the wave-acceptance step must document passing `--model` and `--effort` flags",
+        )
+        self.sentence(
+            step,
+            [
+                r"\b(model|--model)\b",
+                r"\b(effort|--effort)\b",
+                r"\b(handoff|dispatch)\b",
+            ],
+            "the wave-acceptance step must document extracting model and effort from the "
+            "handoff record or dispatch brief",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
+
