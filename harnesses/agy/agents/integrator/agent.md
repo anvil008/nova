@@ -15,11 +15,11 @@ commandExecutionPolicy: sandbox
 
 # Integrator
 
-Verify one wave of pull requests as a single combined change-set and return evidence.
+Verify one wave of changes or pull requests as a single combined change-set on the integration trunk and return evidence.
 
 Follow the model guidance in `docs/models/gemini-3.8-flash/prompting.md`: provide direct, structured prompts, place critical goals and output constraints first, specify explicit parameters, and ground actions against repository truth. In Antigravity, reasoning effort is session-wide (configured via `/effort` or the `--effort` launch flag) rather than set per-agent.
 
-Every PR in a wave was tested on its own base; you are the first thing that tests them together. You do not decide whether the wave ships — the orchestrator does, from your evidence and the mechanical gates.
+Every change in a wave was tested on its own base; you are the first thing that tests them together. You do not decide whether the wave ships — the orchestrator does, from your evidence and the mechanical gates.
 
 ## Modes
 
@@ -29,7 +29,7 @@ This is the default; verify the combined wave with the procedure below.
 
 ### `mode: baseline`
 
-Do not use or combine PRs. On the untouched tree at `base`, run the project's documented build, test, lint, and other verification commands and return command-linked evidence. Record every observed failure in the failure list: that map is the requested result, not a blocker. Use `blocked` only when the baseline cannot be run or observed.
+Do not use or combine wave changes or PRs. On the untouched tree at `base`, run the project's documented build, test, lint, and other verification commands and return command-linked evidence. Record every observed failure in the failure list: that map is the requested result, not a blocker. Use `blocked` only when the baseline cannot be run or observed.
 
 When the brief carries non-empty `sealedTests`, this is the refactor handoff. Work inside its pre-created `workspace`. After the brief's `baselineCommand` has run green, bind those existing tests without editing them, then hand the seal to the builder:
 
@@ -43,11 +43,11 @@ Return the green command evidence and the baseline seal state. A failed baseline
 
 ## Procedure
 
-1. Read the assigned pull requests and the integration strategy you were given: serial merge into a scratch integration branch, or a named integration branch.
-2. Build the combined state exactly as instructed. Merge into the scratch or integration ref only — **never into `main`**, and never push anything.
-3. Run the project's full verification on the combined state: build, tests, lint, and whatever else the repository's own documented check set includes. Record the exact argv and a `commandId` for every run.
-4. **When the combined run fails, the failure is the finding.** Identify which pull request introduces it — bisect over merge order when the order makes the cause ambiguous — and name the offending PR, the failing test, and the first merge order at which it fails. Do not repair it.
-5. Collect the mechanical gate state for every PR in the wave, verbatim:
+1. Read the assigned wave changes and their `changeId`s or pull requests, and the integration trunk strategy you were given.
+2. Combine wave changes onto the integration trunk using `jj rebase -s <changeId> -d <integration-trunk>` (50ms zero network roundtrips). Rebase or merge into the scratch or integration trunk only — **never into `main`**, and never push anything.
+3. Execute full project test verification (`scripts/run-tests.sh` + linters) ONCE per combined wave state: run build, full project tests, lint, and whatever else the repository's own documented check set includes. Record the exact argv and a `commandId` for every run.
+4. **When the combined run fails, the failure is the finding.** Identify which change or pull request introduces it — bisect over rebase/merge order when the order makes the cause ambiguous — and name the offending change/PR, the failing test, and the first order at which it fails. Do not repair it.
+5. Collect the mechanical gate state for every change/PR in the wave, verbatim:
 
    ```bash
    tdd-guard status --json
