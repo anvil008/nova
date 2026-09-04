@@ -1,887 +1,258 @@
 {
-  "planId": "harness-owned-instructions",
-  "planName": "Harness-owned instructions under shared Workcell contracts",
+  "planId": "wiki-model-effort-tracking",
+  "planName": "Track model string and reasoning effort in the Workcell Wiki layer",
   "repo": "anvil008/workcell",
-  "generatedAt": "2026-09-02T02:08:00Z",
-  "summary": "GOAL: replace shared prompt bodies with four generated, self-contained harness families. Claude Code, Codex, Antigravity (agy), and Grok Build retain identical machine-readable contracts for every skill and agent (name, /workcell:<skill> invocation, specifier seal -> builder -> reviewer -> integrator gates, anvil.agent-handoff/v1, and acceptance oracle), while each harness owns procedure prose, prompting style, native feature use, agents, skills, and runtime scripts/hooks. Shared Workcell scripts, tools, resources, and non-prompt code remain shared.\n\nGROUND TRUTH: scripts/sync-agents.py expands agents/bodies/*.md into four mostly byte-identical agent families using variables and only-blocks; skills/<name>/SKILL.md is one body copied verbatim by every stager. agents/models.json routes ten roles and records missing per-agent surfaces. evals/run_evals.py supports only Claude and Codex behavioral executors. The merged plan08 build-{claude,codex,agy,grok}-plugin.py stagers already create symlink-free dist/<harness> trees, but read shared skills and current generated agents. ADR 0023 remains the deployment authority. PR #146 adds only plan08 artifacts and is ignored.\n\nVERIFIED SOURCES (2026-09-01/02): OpenAI GPT-5.6 at https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6; Claude Fable 5.1, Opus 5, and Sonnet 5 under https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/; Gemini 3.7 Flash and prompt strategies at https://ai.google.dev/gemini-api/docs/latest-model and https://ai.google.dev/gemini-api/docs/prompting-strategies; Antigravity Teamwork/subagents at https://www.antigravity.google/docs/teamwork/ and https://antigravity.google/docs/subagents; Grok Build overview, skills, workflows, settings, and headless guidance under https://docs.x.ai/build/, matching the vendored ~/.grok/docs/user-guide/.\n\nDESIGN TWICE: Candidate A keeps contracts and four bodies artifact-local under skills/<name> and agents/<name>. It has artifact locality but scatters one harness setup and repeats assembly across stagers. Candidate B, selected, creates one deep generation seam: shared contracts/manifests and shared resources feed sync-agents.py plus sync-skills.py; harness sources and tracked generated inputs live under harnesses/<h>/{agents,skills,runtime}; stagers consume only that harness root. Its interface is contract + resolved guide/roster + harness body -> generated setup, deletion would smear validation/parity/omission logic across four stagers, and locality matches the requested four-box architecture plus safe ownership seams. A marked legacy fallback is allowed only during migration; the final gate rejects it.\n\nEXECUTION NOTES (binding): every specifier, builder, reviewer, and integrator runs headlessly. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each. Each issue is sized for one run well under one hour. Sealed tests and shared contracts cannot be weakened.\n\nASSUMPTIONS: extracts are concise attributed summaries, not vendor-page copies; freshness compares normalized article content, not navigation chrome; live freshness is a loud gate while unit tests use local fixtures; unsupported optional features are omitted with generated notes, missing required values fail; paid/interactive native features never replace the headless compatibility path.",
+  "generatedAt": "2026-09-03T21:20:00Z",
+  "summary": "Introduce model string and reasoning effort tracking across the Workcell Wiki layer. Extend wiki.py record to accept optional --model and --effort flags and store them in raw/<id>/manifest.json. Extend wiki.py pattern to inspect cited manifests and format citations as `<raw-id>` [<model>·<effort>] (or [<model>] if effort is null). Update wiki.py check to validate single-line string formatting while preserving 100% backward compatibility for legacy manifests and pattern lines. Document model and effort fields in agents/handoff.md, skills/build/SKILL.md, and skills/review-fix-loop/SKILL.md, and synchronize replicas across all 4 harnesses using scripts/sync-skills.py.",
   "architecture": {
-    "changeSummary": "One shared skill body and one mostly shared agent body currently flow through four stagers. The target separates immutable contracts and shared resources from harness-owned bodies/runtime, generates a complete tracked input tree per harness, and makes guide freshness, sync drift, contract parity, four-harness evals, and standalone staging independent gates.",
+    "changeSummary": "Enhance the Workcell Wiki layer to capture model provenance and reasoning effort alongside recorded evidence bundles and pattern citations. The wiki store records raw trace manifests with optional model and effort properties, automatically includes model and effort tags in pattern page evidence lines, and validates integrity via wiki.py check. The agent handoff contract (agents/handoff.md) and consumer skills (skills/build and skills/review-fix-loop) are updated to propagate model and effort metadata, and harness replicas are synchronized via scripts/sync-skills.py.",
     "components": [
       {
-        "name": "Shared Workcell contracts",
-        "purpose": "Canonical compatibility facts and required/optional variables for 16 skills and 10 agents."
+        "name": "WikiStoreCLI",
+        "purpose": "Implements record, pattern, and check CLI commands with model and effort tracking and validation in skills/wiki/scripts/wiki.py."
       },
       {
-        "name": "Model guide registry",
-        "purpose": "Attributed extracts with official URL, fetch date, normalized digest, and refetching freshness gate."
+        "name": "WikiLayoutContract",
+        "purpose": "Defines the specification and schema for manifest.json and pattern page citation formats in skills/wiki/references/wiki-layout.md."
       },
       {
-        "name": "Harness source families",
-        "purpose": "Claude, Codex, agy, and Grok own agent prose, skill prose, and native runtime adapters."
+        "name": "AgentHandoffContract",
+        "purpose": "Specifies optional model and effort fields in dispatch briefs and anvil.agent-handoff/v1 return records in agents/handoff.md."
       },
       {
-        "name": "Generators",
-        "purpose": "Compose contracts, roster guides, harness bodies, shared resources, and limitation notes; --check detects drift."
+        "name": "OrchestratorSkills",
+        "purpose": "Documents passing model and effort parameters during wave acceptance in skills/build/SKILL.md and review-fix-loop exit consolidation in skills/review-fix-loop/SKILL.md."
       },
       {
-        "name": "Harness evaluators",
-        "purpose": "Load one generated family, execute four native headless adapters, and reject compatibility drift."
-      },
-      {
-        "name": "Distribution stagers",
-        "purpose": "Produce ADR-0023 self-contained dist/<harness> copies only from that harness's generated root."
-      },
-      {
-        "name": "Shared Workcell implementation",
-        "purpose": "Skill scripts, guards, tools, templates, and other non-prompt product code stay shared."
+        "name": "HarnessReplicas",
+        "purpose": "Maintains synchronized copies of the shared wiki skill across claude, codex, agy, and grok harnesses."
       }
     ],
     "diagramsMermaid": {
-      "currentArchitecture": "flowchart LR\n  Root[Workcell root] --> AB[Shared agent bodies]\n  Root --> SB[Shared skill bodies]\n  AB --> Sync[sync-agents substitutions]\n  Sync --> CA[Claude agents]\n  Sync --> COA[Codex agents]\n  Sync --> AA[agy agents]\n  Sync --> GA[Grok agents]\n  SB --> CS[Claude stager]\n  SB --> COS[Codex stager]\n  SB --> AS[agy stager]\n  SB --> GS[Grok stager]\n  CA --> CS\n  COA --> COS\n  AA --> AS\n  GA --> GS",
-      "targetArchitecture": "flowchart LR\n  Root[Workcell root] --> Contracts[Shared contracts]\n  Root --> Guides[Fresh model guides]\n  Root --> Shared[Workcell Scripts Tools and everything else]\n  Contracts --> Gen[Agent and skill generators]\n  Guides --> Gen\n  Gen --> Claude[Claude: Agents Skills Scripts]\n  Gen --> Codex[Codex: Agents Skills Scripts]\n  Gen --> Agy[agy: Agents Skills Scripts]\n  Gen --> Grok[Grok: Agents Skills Scripts]\n  Shared --> Claude\n  Shared --> Codex\n  Shared --> Agy\n  Shared --> Grok\n  Claude --> DC[dist/claude]\n  Codex --> DO[dist/codex]\n  Agy --> DA[dist/agy]\n  Grok --> DG[dist/grok]"
+      "currentArchitecture": "flowchart LR\n  Handoff[Agent Handoff] -->|evidence files| Record[wiki.py record]\n  Record -->|write bundle| Manifest[raw manifest]\n  Manifest --> Pattern[wiki.py pattern]\n  Pattern -->|unadorned citation| Page[pattern page]\n  Check[wiki.py check] -->|verify| Manifest\n  Check -->|verify| Page",
+      "targetArchitecture": "flowchart LR\n  Handoff[Agent Handoff with model and effort] -->|--model and --effort| Record[wiki.py record]\n  Record -->|store model and effort| Manifest[raw manifest with metadata]\n  Manifest -->|inspect metadata| Pattern[wiki.py pattern]\n  Pattern -->|model and effort citation| Page[pattern page with bracketed tags]\n  Check[wiki.py check] -->|validate sanitized strings| Manifest\n  Check -->|validate citation tags| Page"
     }
   },
   "issues": [
     {
-      "key": "GuideFreshness",
-      "title": "Build the model-guide extract and freshness gate",
-      "body": "Create a vendor-neutral checker under docs/models/check. Define prompting.md provenance fields (model, official source URLs, fetched date, extractor version, normalized source digests), selected-content format, --check, --model, deterministic fixture injection, and intentional update mode. Refetch article content, distinguish network/extraction failure from drift, name model and URL, and never rewrite under --check. Vendor selectors are adapters behind one scanner. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
+      "key": "agent-handoff-contract",
+      "title": "Document model string and reasoning effort in agent handoff contract",
+      "body": "Update agents/handoff.md to formally specify optional model and effort fields across both the orchestrator dispatch brief and the anvil.agent-handoff/v1 return record. Include clear semantics: model names the model string (e.g. claude-sonnet-5, gemini-3.7-flash), and effort indicates the reasoning effort level (e.g. low, medium, high). Update both JSON schema examples to demonstrate model and effort tracking.",
       "labels": [
-        "planning",
-        "models",
-        "testing"
+        "contract",
+        "agents"
       ],
       "dependsOn": [],
-      "ownershipHint": "docs/models/check/**",
+      "ownershipHint": "agents/**",
       "wave": 1,
       "acceptanceTests": [
         {
-          "name": "required-header-is-enforced",
+          "name": "handoff_brief_documents_model_and_effort",
           "kind": "unit",
-          "oracle": "Fixture extracts missing each required provenance field make check_guides.py --check exit non-zero naming file and field; a complete fixture passes.",
-          "testPath": "docs/models/check/tests/test_check_guides.py"
+          "oracle": "agents/handoff.md dispatch brief section explicitly specifies optional model and effort fields.",
+          "testPath": "agents/handoff.md"
         },
         {
-          "name": "upstream-drift-is-loud-and-read-only",
-          "kind": "integration",
-          "oracle": "Unchanged normalized fixture content exits 0; changing a selected passage or article digest exits non-zero naming drift/model/URL and leaves the stored extract byte-identical.",
-          "testPath": "docs/models/check/tests/test_check_guides.py"
+          "name": "handoff_record_documents_model_and_effort",
+          "kind": "unit",
+          "oracle": "agents/handoff.md handoff record section explicitly defines model and effort within the anvil.agent-handoff/v1 specification.",
+          "testPath": "agents/handoff.md"
         },
         {
-          "name": "fetch-failure-is-not-freshness",
+          "name": "handoff_examples_include_model_and_effort",
           "kind": "unit",
-          "oracle": "Timeout, non-2xx, or missing article selector exits non-zero as fetch/extraction failure and never reports fresh.",
-          "testPath": "docs/models/check/tests/test_check_guides.py"
+          "oracle": "Both dispatch brief and handoff record JSON examples in agents/handoff.md contain valid model and effort fields.",
+          "testPath": "agents/handoff.md"
         }
       ]
     },
     {
-      "key": "OpenAIGuide",
-      "title": "Extract and verify GPT-5.6 Sol guidance",
-      "body": "Add docs/models/gpt-5.6-sol/prompting.md from the official queried latest-model page. Select lean prompts, goals/constraints/success criteria, intentional effort, relevant tools, autonomy boundaries, multi-agent use, evidence-grounded progress, and final completeness. Mark API-only material that Codex cannot express. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
+      "key": "wiki-core-model-effort",
+      "title": "Add model and effort tracking to wiki store CLI and verification gates",
+      "body": "Enhance skills/wiki/scripts/wiki.py and skills/wiki/references/wiki-layout.md to track model string and reasoning effort. In wiki.py record, add optional --model and --effort flags, sanitize them with one_line(), and store them in raw/<id>/manifest.json. In wiki.py pattern, automatically inspect cited raw manifests and format citations as `<raw-id>` [<model>·<effort>] (or `<raw-id>` [<model>] if effort is null, or legacy `<raw-id>` if model is omitted). Update EVIDENCE_LINE regex and check_patterns to validate both legacy and model-tagged lines. In wiki.py check, validate that if model and effort are present in manifests or pattern lines, they are sanitized single-line strings. Maintain 100% backward compatibility for legacy manifests and pattern lines. Add comprehensive unit and integration tests to skills/wiki/tests/test_wiki.py.",
       "labels": [
-        "planning",
-        "models",
-        "codex"
+        "wiki",
+        "feature"
+      ],
+      "dependsOn": [],
+      "ownershipHint": "skills/wiki/**",
+      "wave": 1,
+      "acceptanceTests": [
+        {
+          "name": "record_stores_sanitized_model_and_effort",
+          "kind": "unit",
+          "oracle": "wiki.py record --model <str> --effort <str> persists sanitized strings for model and effort in manifest.json.",
+          "testPath": "skills/wiki/tests/test_wiki.py"
+        },
+        {
+          "name": "record_supports_optional_and_null_model_effort",
+          "kind": "unit",
+          "oracle": "wiki.py record without --model and --effort succeeds and produces a valid manifest with null or omitted model and effort.",
+          "testPath": "skills/wiki/tests/test_wiki.py"
+        },
+        {
+          "name": "pattern_formats_model_and_effort_attribution",
+          "kind": "integration",
+          "oracle": "wiki.py pattern citing a bundle with model and effort formats the citation as `<raw-id>` [<model>·<effort>].",
+          "testPath": "skills/wiki/tests/test_wiki.py"
+        },
+        {
+          "name": "pattern_formats_model_only_attribution",
+          "kind": "integration",
+          "oracle": "wiki.py pattern citing a bundle with model and null effort formats the citation as `<raw-id>` [<model>].",
+          "testPath": "skills/wiki/tests/test_wiki.py"
+        },
+        {
+          "name": "pattern_formats_legacy_unattributed_citation",
+          "kind": "integration",
+          "oracle": "wiki.py pattern citing a bundle without model produces an unbracketed legacy `<raw-id>` citation.",
+          "testPath": "skills/wiki/tests/test_wiki.py"
+        },
+        {
+          "name": "check_validates_sanitized_model_and_effort",
+          "kind": "unit",
+          "oracle": "wiki.py check exits 0 when manifests and pattern lines contain sanitized single-line model and effort strings.",
+          "testPath": "skills/wiki/tests/test_wiki.py"
+        },
+        {
+          "name": "check_preserves_legacy_backward_compatibility",
+          "kind": "unit",
+          "oracle": "wiki.py check exits 0 on namespaces containing legacy manifests without model/effort and pattern lines without model tags.",
+          "testPath": "skills/wiki/tests/test_wiki.py"
+        },
+        {
+          "name": "check_rejects_unsanitized_model_or_effort",
+          "kind": "unit",
+          "oracle": "wiki.py check exits non-zero and reports errors when manifest or pattern model/effort contains newlines or invalid characters.",
+          "testPath": "skills/wiki/tests/test_wiki.py"
+        },
+        {
+          "name": "layout_contract_specifies_model_and_effort",
+          "kind": "unit",
+          "oracle": "skills/wiki/references/wiki-layout.md specifies the manifest schema fields and the bracketed evidence line citation format.",
+          "testPath": "skills/wiki/references/wiki-layout.md"
+        }
+      ]
+    },
+    {
+      "key": "build-skill-wiki-record",
+      "title": "Document model and effort flags in build skill wave acceptance recording",
+      "body": "Update skills/build/SKILL.md to document passing optional --model and --effort flags (extracted from the integrator handoff record or dispatch brief) when invoking wiki.py record during wave acceptance in step 5. Strictly preserve all existing contract phrases and invariants checked by skills/build/tests/test_build.py (WikiBuildTraceTests) and skills/build/tests/test_skill_contracts.py (test_the_wave_loop_invariants_survive).",
+      "labels": [
+        "build",
+        "contract"
       ],
       "dependsOn": [
-        "GuideFreshness"
+        "agent-handoff-contract",
+        "wiki-core-model-effort"
       ],
-      "ownershipHint": "docs/models/gpt-5.6-sol/**",
+      "ownershipHint": "skills/build/**",
       "wave": 2,
       "acceptanceTests": [
         {
-          "name": "gpt-guide-provenance-and-content",
+          "name": "build_skill_documents_model_and_effort_recording",
           "kind": "unit",
-          "oracle": "The extract identifies gpt-5.6-sol, the exact official queried URL, fetch date, extractor and 64-hex digest, and has attributed sections for every Workcell lever named in scope.",
-          "testPath": "docs/models/gpt-5.6-sol/tests/test_extract.py"
+          "oracle": "skills/build/SKILL.md wave acceptance step documents passing --model and --effort to wiki.py record.",
+          "testPath": "skills/build/SKILL.md"
         },
         {
-          "name": "gpt-guide-is-live-fresh",
+          "name": "build_skill_passes_wiki_trace_contract_tests",
           "kind": "integration",
-          "oracle": "check_guides.py --check --model gpt-5.6-sol refetches the official URL and exits 0; a changed injected page exits non-zero.",
-          "testPath": "docs/models/gpt-5.6-sol/tests/test_extract.py"
+          "oracle": "WikiBuildTraceTests in skills/build/tests/test_build.py passes without errors or failures.",
+          "testPath": "skills/build/tests/test_build.py"
+        },
+        {
+          "name": "build_skill_preserves_canonical_invariants",
+          "kind": "integration",
+          "oracle": "test_the_wave_loop_invariants_survive in skills/build/tests/test_skill_contracts.py passes without errors.",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
         }
       ]
     },
     {
-      "key": "ClaudeGuides",
-      "title": "Extract Claude Fable 5.1, Opus 5, and Sonnet 5 guides",
-      "body": "Store one official extract per Claude model under docs/models/claude-*. Fable covers de-scaffolding, goals/boundaries, evidence-backed progress, autonomy, async delegation, wiki-only memory, final re-grounding, fresh-context verification, and refusal sensitivity. Opus/Sonnet retain their own effort, tool, narration, delegation, verification, and literalness guidance without cross-model leakage. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
+      "key": "review-fix-loop-wiki-record",
+      "title": "Document model and effort flags in review-fix-loop consolidation recording",
+      "body": "Update skills/review-fix-loop/SKILL.md to document passing optional --model and --effort flags when invoking wiki.py record in step 2 of loop exit consolidation. Maintain compatibility with contract tests in skills/build/tests/test_skill_contracts.py.",
       "labels": [
-        "planning",
-        "models",
-        "claude"
+        "review-fix-loop",
+        "contract"
       ],
       "dependsOn": [
-        "GuideFreshness"
+        "agent-handoff-contract",
+        "wiki-core-model-effort"
       ],
-      "ownershipHint": "docs/models/claude-*/**",
+      "ownershipHint": "skills/review-fix-loop/**",
       "wave": 2,
       "acceptanceTests": [
         {
-          "name": "three-claude-guides-have-provenance",
+          "name": "review_fix_loop_documents_model_and_effort_recording",
           "kind": "unit",
-          "oracle": "Exactly one prompting.md exists for claude-fable-5-1, claude-opus-5 and claude-sonnet-5, each with its exact official URL, fetch date, extractor and digest.",
-          "testPath": "docs/models/claude-guides/tests/test_extracts.py"
+          "oracle": "skills/review-fix-loop/SKILL.md consolidation section documents passing --model and --effort to wiki.py record.",
+          "testPath": "skills/review-fix-loop/SKILL.md"
         },
         {
-          "name": "fable-findings-do-not-leak",
-          "kind": "unit",
-          "oracle": "All supplied Fable findings are attributed in its extract, while Opus/Sonnet do not label Fable-only statements as their guidance.",
-          "testPath": "docs/models/claude-guides/tests/test_extracts.py"
-        },
-        {
-          "name": "claude-guides-are-live-fresh",
+          "name": "review_fix_loop_preserves_contract_tests",
           "kind": "integration",
-          "oracle": "The checker refetches all three official pages and exits 0; one changed fixture names only the drifted model.",
-          "testPath": "docs/models/claude-guides/tests/test_extracts.py"
+          "oracle": "test_modes_named_in_dispatch_steps in skills/build/tests/test_skill_contracts.py passes.",
+          "testPath": "skills/build/tests/test_skill_contracts.py"
         }
       ]
     },
     {
-      "key": "GeminiGuide",
-      "title": "Extract Gemini 3.7 Flash prompting guidance",
-      "body": "Add the official model guide for Antigravity's Flash roster from Google's latest-model and prompt-strategy pages. Capture direct structured prompts, critical-instruction placement, explicit parameters, long-context anchoring, verbosity, thinking levels, and grounding/tools. Do not misstate Teamwork as a model feature. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
+      "key": "sync-harness-skills",
+      "title": "Synchronize wiki layer changes across all harness skill replicas",
+      "body": "Run python3 scripts/sync-skills.py to propagate the updated wiki CLI, layout contracts, and tests to all four harness skill directories (harnesses/claude/skills/wiki, harnesses/codex/skills/wiki, harnesses/agy/skills/wiki, and harnesses/grok/skills/wiki). Verify that python3 scripts/sync-skills.py --check reports zero drift across all 16 skills and 4 harnesses, and verify that harness-level tests execute cleanly.",
       "labels": [
-        "planning",
-        "models",
-        "antigravity"
+        "harnesses",
+        "sync"
       ],
       "dependsOn": [
-        "GuideFreshness"
+        "wiki-core-model-effort",
+        "build-skill-wiki-record",
+        "review-fix-loop-wiki-record"
       ],
-      "ownershipHint": "docs/models/gemini-3.7-flash/**",
-      "wave": 2,
-      "acceptanceTests": [
-        {
-          "name": "gemini-guide-provenance-and-strategy",
-          "kind": "unit",
-          "oracle": "The extract identifies gemini-3.7-flash, both official Google sources and digests, fetch date and extractor, and contains every scoped attributed strategy without calling Teamwork a model feature.",
-          "testPath": "docs/models/gemini-3.7-flash/tests/test_extract.py"
-        },
-        {
-          "name": "gemini-guide-is-live-fresh",
-          "kind": "integration",
-          "oracle": "The checker refetches both Google sources and exits 0; drift in either injected fixture is named and fails.",
-          "testPath": "docs/models/gemini-3.7-flash/tests/test_extract.py"
-        }
-      ]
-    },
-    {
-      "key": "GrokGuide",
-      "title": "Extract Grok Build and Grok 4.6 guidance",
-      "body": "Store verified xAI guidance for Grok 4.6 and record the roster pin to grok-4.6 (as verified via 'grok models' on this machine, moving agents/models.json grok entries from inherit to grok-4.6). Use official docs.x.ai Build overview, skills/plugins, modes/workflows, headless, settings, and Grok 4.6 pages; cross-check the vendored upstream guide and record its xai-org/grok-build path. Capture concise instruction rules, agents/personas, I/O contracts, background subagents, forks, workflows, capability modes, headless flags, and unsupported fields. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "models",
-        "grok"
-      ],
-      "dependsOn": [
-        "GuideFreshness"
-      ],
-      "ownershipHint": "docs/models/grok-4.6/**",
-      "wave": 2,
-      "acceptanceTests": [
-        {
-          "name": "grok-guide-provenance-and-native-surfaces",
-          "kind": "unit",
-          "oracle": "The extract identifies Grok 4.6/Grok Build, official sources/digests, vendored upstream path, date/extractor, all scoped native surfaces, and records the grok-4.6 roster pin.",
-          "testPath": "docs/models/grok-4.6/tests/test_extract.py"
-        },
-        {
-          "name": "grok-guide-is-live-fresh",
-          "kind": "integration",
-          "oracle": "The checker refetches configured official xAI pages and exits 0; a changed page fixture fails naming source and model.",
-          "testPath": "docs/models/grok-4.6/tests/test_extract.py"
-        }
-      ]
-    },
-    {
-      "key": "LayeredGeneration",
-      "title": "Introduce shared contracts and harness-rooted generation",
-      "body": "Create the strict shared registry for all 16 skills and 10 agents: name, invocation, ordered gates, handoff schema, acceptance oracle, required values and optional surfaces. Update agents/models.json to move grok entries from inherit to the pinned grok-4.6 model ID. Keep sync-agents.py and add sync-skills.py behind one generator. Put sources/tracked outputs under harnesses/<h>/{agents,skills,runtime}; copy shared resources. --check is read-only, catches exact drift/orphans, fails missing required values, and emits deterministic notes for unsupported optional fields. Prove four genuinely different use-other-harness bodies with identical semantics. Redirect all plan08 stagers to only their harness root and retain ADR-0023 output/install shapes. A marked migration fallback is allowed only until final cleanup. Wire sync, parity and guide checks into gates. This broad seam issue runs alone. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "architecture",
-        "generators"
-      ],
-      "dependsOn": [
-        "OpenAIGuide",
-        "ClaudeGuides",
-        "GeminiGuide",
-        "GrokGuide"
-      ],
-      "ownershipHint": "**",
+      "ownershipHint": "harnesses/**",
       "wave": 3,
       "acceptanceTests": [
         {
-          "name": "contract-registry-is-complete-and-strict",
-          "kind": "unit",
-          "oracle": "The registry contains exactly 16 current skills and 10 current agents; every compatibility field validates, and unknown keys, duplicates or malformed values fail with a JSON path.",
-          "testPath": "scripts/tests/test_harness_generation.py"
-        },
-        {
-          "name": "required-fails-optional-notes",
-          "kind": "unit",
-          "oracle": "A missing required harness value fails naming harness/artifact/value; an unavailable optional effort/tool surface is omitted with the exact generated limitation note.",
-          "testPath": "scripts/tests/test_harness_generation.py"
-        },
-        {
-          "name": "both-sync-checks-detect-real-drift",
+          "name": "sync_skills_reports_zero_drift",
           "kind": "integration",
-          "oracle": "Clean temporary outputs pass both --check commands; mutating one generated skill or agent fails and names its path without writing the real tree.",
-          "testPath": "scripts/tests/test_harness_generation.py"
+          "oracle": "python3 scripts/sync-skills.py --check exits 0 with message confirming all skills in sync across 4 harnesses.",
+          "testPath": "scripts/sync-skills.py"
         },
         {
-          "name": "use-other-harness-proves-layering",
-          "kind": "unit",
-          "oracle": "Four generated use-other-harness skills have equal parsed contracts/explicit-only meaning, non-identical bodies, and correct native headless commands.",
-          "testPath": "scripts/tests/test_harness_generation.py"
-        },
-        {
-          "name": "each-stager-uses-only-its-family",
-          "kind": "e2e",
-          "oracle": "A fixture with shared resources plus only harnesses/<h> builds expected dist/<h> agents/skills/runtime with no symlink, source-root text, other-harness read, or shared SKILL.md read.",
-          "testPath": "scripts/tests/test_harness_generation.py"
-        },
-        {
-          "name": "new-checks-are-gated",
+          "name": "harness_wiki_tests_pass",
           "kind": "integration",
-          "oracle": "CI invokes agent sync --check, skill sync --check, contract parity and model-guide freshness; deleting one invocation fails the truth test by name.",
-          "testPath": "scripts/tests/test_docs_truth.py"
-        },
-        {
-          "name": "grok-roster-is-pinned-to-grok-4-6",
-          "kind": "unit",
-          "oracle": "agents/models.json pins grok defaults to grok-4.6 with no inherit entry remaining, validated by generator sync checks.",
-          "testPath": "scripts/tests/test_harness_generation.py"
-        }
-      ]
-    },
-    {
-      "key": "ClaudeRoster",
-      "title": "Measure and record the Claude Fable 5.1 roster decision",
-      "body": "Compare current Opus/Sonnet routes with Fable candidates for planner, debugger and builder on identical existing and targeted eval cases. Record quality, gates, refusal behavior, and available token/latency evidence. If moved, use Fable effort high (not xhigh) and de-prescribed mode. Keep security reviewer off Fable. Update authoritative model and role-to-guide mappings; final ADR cites the evidence. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.; Claude invocations are eval subjects.",
-      "labels": [
-        "planning",
-        "claude",
-        "models",
-        "decision"
-      ],
-      "dependsOn": [
-        "LayeredGeneration"
-      ],
-      "ownershipHint": "agents/**",
-      "wave": 4,
-      "acceptanceTests": [
-        {
-          "name": "roster-compares-controlled-variants",
-          "kind": "integration",
-          "oracle": "A checked-in decision record runs the same named expectations for current and Fable candidate planner/debugger/builder routes and records result plus available cost evidence.",
-          "testPath": "agents/tests/test_claude_roster.py"
-        },
-        {
-          "name": "selected-routes-obey-fable-constraints",
-          "kind": "unit",
-          "oracle": "Fable-selected roles use effort high and de-prescribed mode; no security reviewer uses Fable; retained roles have explicit Opus 5 or Sonnet 5 mappings.",
-          "testPath": "agents/tests/test_claude_roster.py"
-        },
-        {
-          "name": "each-claude-role-resolves-one-guide",
-          "kind": "unit",
-          "oracle": "All ten resolved Claude roles map to exactly one existing docs/models/<model>/prompting.md with no unmapped alias or implicit fallback.",
-          "testPath": "agents/tests/test_claude_roster.py"
-        }
-      ]
-    },
-    {
-      "key": "ClaudeSkills",
-      "title": "Author Claude-owned bodies for every Workcell skill",
-      "body": "Replace all 16 Claude skill fallbacks. Apply Claude-family goal/constraint phrasing, evidence-grounded progress, boundaries, wiki memory, fresh verifiers, and calibrated structure without weakening contracts. Use context forks/Workflow-like native surfaces only where official capability and headless availability fit; otherwise omit with notes. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "claude",
-        "skills"
-      ],
-      "dependsOn": [
-        "ClaudeRoster"
-      ],
-      "ownershipHint": "harnesses/claude/skills/**",
-      "wave": 5,
-      "acceptanceTests": [
-        {
-          "name": "all-claude-skills-are-owned",
-          "kind": "unit",
-          "oracle": "Exactly 16 Claude skill sources/outputs exist, cite applicable guide(s), contain no fallback marker, and read no other harness body.",
-          "testPath": "harnesses/claude/skills/tests/test_claude_skills.py"
-        },
-        {
-          "name": "claude-skill-compatibility-is-identical",
-          "kind": "integration",
-          "oracle": "Generated contracts equal the registry for names/invocations/gates/handoff/oracle; use-other-harness and eval mode retain identical meaning.",
-          "testPath": "harnesses/claude/skills/tests/test_claude_skills.py"
-        },
-        {
-          "name": "native-fields-are-capability-safe",
-          "kind": "unit",
-          "oracle": "Fork/Workflow/agent fields appear only with supporting capability metadata; unsupported surfaces are omitted with deterministic notes.",
-          "testPath": "harnesses/claude/skills/tests/test_claude_skills.py"
-        }
-      ]
-    },
-    {
-      "key": "ClaudeAgents",
-      "title": "Author roster-aware Claude agent bodies",
-      "body": "Replace ten Claude agent fallbacks with bodies written for selected Fable/Opus/Sonnet routes. Fable roles use less-prescriptive goals/constraints; Opus/Sonnet retain only guide-supported structure. Generate truthful tools/model/effort, autonomy, async delegation, boundaries, wiki-only notes, final re-grounding and fresh verifier behavior. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "claude",
-        "agents"
-      ],
-      "dependsOn": [
-        "ClaudeRoster"
-      ],
-      "ownershipHint": "harnesses/claude/agents/**",
-      "wave": 5,
-      "acceptanceTests": [
-        {
-          "name": "ten-claude-agents-are-owned-and-routed",
-          "kind": "unit",
-          "oracle": "Exactly ten definitions resolve ClaudeRoster model/effort, cite that guide, and contain no fallback.",
-          "testPath": "harnesses/claude/agents/tests/test_claude_agents.py"
-        },
-        {
-          "name": "fable-prose-is-deprescribed",
-          "kind": "unit",
-          "oracle": "Roster-selected Fable roles use goals/constraints/boundaries without forced step scaffolding; selected Opus/Sonnet roles retain only guide-supported structure.",
-          "testPath": "harnesses/claude/agents/tests/test_claude_agents.py"
-        },
-        {
-          "name": "claude-agent-contracts-and-capabilities-hold",
-          "kind": "integration",
-          "oracle": "Contracts match; read-only roles deny writes, writers retain tools, handoffs remain v1, and fresh verifier delegation exists without redundant self-critique.",
-          "testPath": "harnesses/claude/agents/tests/test_claude_agents.py"
-        }
-      ]
-    },
-    {
-      "key": "ClaudeRuntime",
-      "title": "Generate Claude-native runtime scripts and hooks",
-      "body": "Own Claude manifests/hooks/wrappers under its runtime root while copying shared guards. Evaluate skill isolation, forks, subagents, worktrees, Workflow surfaces and command hooks against official/headless capability; guard or note interactive/experimental omissions. Preserve ADR-0023 staging. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "claude",
-        "runtime"
-      ],
-      "dependsOn": [
-        "ClaudeRoster"
-      ],
-      "ownershipHint": "harnesses/claude/runtime/**",
-      "wave": 5,
-      "acceptanceTests": [
-        {
-          "name": "claude-runtime-is-self-contained",
-          "kind": "integration",
-          "oracle": "Generated manifest/hooks/wrappers resolve inside the family and stage with no symlink or repository dependency.",
-          "testPath": "harnesses/claude/runtime/tests/test_claude_runtime.py"
-        },
-        {
-          "name": "interactive-features-do-not-break-headless",
-          "kind": "unit",
-          "oracle": "Interactive/experimental features are capability-guarded or noted as omitted, and headless eval loads contracts without them.",
-          "testPath": "harnesses/claude/runtime/tests/test_claude_runtime.py"
-        },
-        {
-          "name": "claude-hooks-preserve-gates",
-          "kind": "integration",
-          "oracle": "Generated hook events invoke the shared guard at the same Pre/Post/Stop/SubagentStop gate points; a missing required hook value fails.",
-          "testPath": "harnesses/claude/runtime/tests/test_claude_runtime.py"
-        }
-      ]
-    },
-    {
-      "key": "HarnessEvals",
-      "title": "Wire four harness evaluators and contract parity",
-      "body": "Load generated documents by --harness and accept claude/codex/agy/grok. Make run_evals.py --harness <h> run free structural/routing checks for that family. Add exact native behavioral commands/traces, bounded timeouts and grading. Parse every generated skill/agent contract and fail differences in name, invocation, gates, handoff, oracle, or use-other-harness meaning; body prose is excluded. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "evals",
-        "compatibility"
-      ],
-      "dependsOn": [
-        "ClaudeSkills",
-        "ClaudeAgents",
-        "ClaudeRuntime"
-      ],
-      "ownershipHint": "evals/**",
-      "wave": 6,
-      "acceptanceTests": [
-        {
-          "name": "free-evals-run-for-four-families",
-          "kind": "integration",
-          "oracle": "run_evals.py --harness <h> exits 0 for all four and prints harness/document/case totals from that generated family.",
-          "testPath": "evals/tests/test_harness_matrix.py"
-        },
-        {
-          "name": "four-native-behavioral-dry-runs",
-          "kind": "unit",
-          "oracle": "Dry runs emit claude -p, codex exec, agy -p, or grok --no-auto-update -p with workspace/trace options; unknown harness fails.",
-          "testPath": "evals/tests/test_harness_matrix.py"
-        },
-        {
-          "name": "parity-detects-each-contract-field",
-          "kind": "integration",
-          "oracle": "Real tree passes; temporary drift in invocation, gate order, handoff or oracle fails naming harness/artifact/field/expected/actual.",
-          "testPath": "evals/tests/test_contract_parity.py"
-        },
-        {
-          "name": "use-other-harness-means-the-same",
-          "kind": "e2e",
-          "oracle": "Explicit harness/model/effort requests route natively and implicit cross-harness suggestions are refused across all four, with identical handoff fields and no silent fallback.",
-          "testPath": "evals/tests/test_use_other_harness_parity.py"
-        }
-      ]
-    },
-    {
-      "key": "CodexSkills",
-      "title": "Author GPT-5.6-native Codex skill bodies",
-      "body": "Replace 16 Codex fallbacks with lean GPT-5.6 Sol bodies stating outcome, constraints, boundaries, success criteria and relevant tools once. Use native skill metadata/programmatic orchestration only where supported; reference generated routes instead of duplicating tables. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "codex",
-        "skills"
-      ],
-      "dependsOn": [
-        "HarnessEvals"
-      ],
-      "ownershipHint": "harnesses/codex/skills/**",
-      "wave": 7,
-      "acceptanceTests": [
-        {
-          "name": "all-codex-skills-are-owned",
-          "kind": "unit",
-          "oracle": "Exactly 16 sources/outputs cite the GPT guide, contain no fallback, and read no other harness.",
-          "testPath": "harnesses/codex/skills/tests/test_codex_skills.py"
-        },
-        {
-          "name": "codex-prompts-are-lean-and-complete",
-          "kind": "unit",
-          "oracle": "Every body has one outcome/constraints/success section, no duplicated contract/routing table, and only relevant declared tools.",
-          "testPath": "harnesses/codex/skills/tests/test_codex_skills.py"
-        },
-        {
-          "name": "codex-skill-gates-are-green",
-          "kind": "integration",
-          "oracle": "Skill sync, Codex evals and parity exit 0.",
-          "testPath": "harnesses/codex/skills/tests/test_codex_skills.py"
-        }
-      ]
-    },
-    {
-      "key": "CodexAgents",
-      "title": "Author Codex custom agents and routing metadata",
-      "body": "Replace ten fallbacks with GPT-5.6-native bodies and custom TOML agents/profiles where they deepen routing. Generate exact model/effort, bounded fork context, capability/read-only isolation and complete dispatch. agents/models.json stays authoritative; no silent inheritance or repeated tables. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "codex",
-        "agents"
-      ],
-      "dependsOn": [
-        "HarnessEvals"
-      ],
-      "ownershipHint": "harnesses/codex/agents/**",
-      "wave": 7,
-      "acceptanceTests": [
-        {
-          "name": "ten-codex-agents-resolve-routes",
-          "kind": "unit",
-          "oracle": "Ten roles resolve non-empty gpt-5.6-sol/allowed effort; missing or unavailable routes fail rather than inherit.",
-          "testPath": "harnesses/codex/agents/tests/test_codex_agents.py"
-        },
-        {
-          "name": "toml-agents-and-profiles-agree",
-          "kind": "integration",
-          "oracle": "Generated TOML/profile files parse and agree on model/effort/isolation; one mutation makes --check name the file.",
-          "testPath": "harnesses/codex/agents/tests/test_codex_agents.py"
-        },
-        {
-          "name": "dispatches-use-bounded-forks",
-          "kind": "unit",
-          "oracle": "Every specialist dispatch requires exact model/effort, none or smallest bounded fork, and complete assignment/acceptance message; no full-history override remains.",
-          "testPath": "harnesses/codex/agents/tests/test_codex_agents.py"
-        }
-      ]
-    },
-    {
-      "key": "CodexRuntime",
-      "title": "Generate Codex hooks, profiles, and staging runtime",
-      "body": "Own Codex hook manifests, route/profile material and staging metadata while copying shared guard executables. Preserve plugin validation and ADR-0023 content-hash versioning; note unsupported plugin/per-agent fields. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "codex",
-        "runtime"
-      ],
-      "dependsOn": [
-        "HarnessEvals"
-      ],
-      "ownershipHint": "harnesses/codex/runtime/**",
-      "wave": 7,
-      "acceptanceTests": [
-        {
-          "name": "codex-runtime-stages-only-codex",
-          "kind": "integration",
-          "oracle": "A parseable plugin/marketplace stages hooks, 16 skills and ten agent skills/metadata with no symlink or other harness path.",
-          "testPath": "harnesses/codex/runtime/tests/test_codex_runtime.py"
-        },
-        {
-          "name": "content-hash-is-sensitive-only-to-codex",
-          "kind": "unit",
-          "oracle": "Unchanged builds keep <semver>+codex.<12hex>; changing Codex content changes it; changing another harness does not.",
-          "testPath": "harnesses/codex/runtime/tests/test_codex_runtime.py"
-        },
-        {
-          "name": "unsupported-codex-surfaces-are-not-invented",
-          "kind": "unit",
-          "oracle": "Unavailable fields are absent with one limitation note; missing required profile values fail.",
-          "testPath": "harnesses/codex/runtime/tests/test_codex_runtime.py"
-        }
-      ]
-    },
-    {
-      "key": "AgySkills",
-      "title": "Author Gemini 3.7 Flash Antigravity skill bodies",
-      "body": "Replace 16 fallbacks with direct, consistently structured Gemini bodies: critical constraints first, explicit parameters, long-context question last, intentional verbosity/thinking. Teamwork may be recommended only for suitable top-level long-horizon work and cannot be required by headless/eval mode. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "antigravity",
-        "skills"
-      ],
-      "dependsOn": [
-        "CodexSkills",
-        "CodexAgents",
-        "CodexRuntime"
-      ],
-      "ownershipHint": "harnesses/agy/skills/**",
-      "wave": 8,
-      "acceptanceTests": [
-        {
-          "name": "all-agy-skills-are-owned",
-          "kind": "unit",
-          "oracle": "Exactly 16 sources/outputs cite Gemini guidance, contain no fallback, and put critical constraints before procedure.",
-          "testPath": "harnesses/agy/skills/tests/test_agy_skills.py"
-        },
-        {
-          "name": "teamwork-is-optional-and-correctly-scoped",
-          "kind": "unit",
-          "oracle": "Only long-horizon entry workflows mention Teamwork, state paid/interactive availability and retain headless fallback; issue-sized worker skills never invoke it.",
-          "testPath": "harnesses/agy/skills/tests/test_agy_skills.py"
-        },
-        {
-          "name": "agy-skill-gates-are-green",
-          "kind": "integration",
-          "oracle": "Skill sync, agy evals and parity exit 0.",
-          "testPath": "harnesses/agy/skills/tests/test_agy_skills.py"
-        }
-      ]
-    },
-    {
-      "key": "AgyAgents",
-      "title": "Author Antigravity custom-agent bodies",
-      "body": "Replace ten fallbacks with Gemini/Antigravity-native agents using async fresh-context subagents and truthful tools. Preserve Flash routing; omit per-agent effort with note because effort is session-wide. Workspace modes must respect ownership/isolation. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "antigravity",
-        "agents"
-      ],
-      "dependsOn": [
-        "CodexSkills",
-        "CodexAgents",
-        "CodexRuntime"
-      ],
-      "ownershipHint": "harnesses/agy/agents/**",
-      "wave": 8,
-      "acceptanceTests": [
-        {
-          "name": "ten-agy-agents-have-truthful-frontmatter",
-          "kind": "unit",
-          "oracle": "Ten agents parse with supported tools/policy/main/subagent/Flash; no per-agent effort exists and one note explains it.",
-          "testPath": "harnesses/agy/agents/tests/test_agy_agents.py"
-        },
-        {
-          "name": "agy-delegation-is-async-and-owned",
-          "kind": "unit",
-          "oracle": "Allowed roles use invoke_subagent with fresh context/explicit workspace; parallel writers require disjoint ownership and read-only roles cannot request edits.",
-          "testPath": "harnesses/agy/agents/tests/test_agy_agents.py"
-        },
-        {
-          "name": "agy-agent-gates-are-green",
-          "kind": "integration",
-          "oracle": "Agent sync, agy agent evals and parity exit 0 without fallbacks.",
-          "testPath": "harnesses/agy/agents/tests/test_agy_agents.py"
-        }
-      ]
-    },
-    {
-      "key": "AgyRuntime",
-      "title": "Generate Antigravity hooks and Teamwork runtime notes",
-      "body": "Own agy manifest/hooks/rules/capability metadata under its runtime root. Preserve ADR-0023 ~/.gemini/config/plugins/workcell staged copy and guard semantics. Generate optional Teamwork notes, standard async headless fallback, and unsupported-effort note. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "antigravity",
-        "runtime"
-      ],
-      "dependsOn": [
-        "CodexSkills",
-        "CodexAgents",
-        "CodexRuntime"
-      ],
-      "ownershipHint": "harnesses/agy/runtime/**",
-      "wave": 8,
-      "acceptanceTests": [
-        {
-          "name": "agy-runtime-stages-one-family",
-          "kind": "integration",
-          "oracle": "Stage contains manifest/hooks/rules/ten agents/16 skills/shared runtime/stamp as real files with no other harness.",
-          "testPath": "harnesses/agy/runtime/tests/test_agy_runtime.py"
-        },
-        {
-          "name": "teamwork-capability-is-generated",
-          "kind": "unit",
-          "oracle": "Metadata marks Teamwork paid/interactive and names fallback; unavailable fixture omits Teamwork fields with note.",
-          "testPath": "harnesses/agy/runtime/tests/test_agy_runtime.py"
-        },
-        {
-          "name": "agy-hooks-preserve-gates",
-          "kind": "integration",
-          "oracle": "Fixture events reach the same shared guard decisions; a missing required hook command fails staging.",
-          "testPath": "harnesses/agy/runtime/tests/test_agy_runtime.py"
-        }
-      ]
-    },
-    {
-      "key": "GrokSkills",
-      "title": "Author Grok Build-owned skill bodies",
-      "body": "Replace 16 fallbacks citing the Grok 4.6 guide with concise native skills, agents/personas, I/O contracts, background subagents, forks and workflows. Keep /workcell:<skill>, gates and explicit-only cross-harness meaning. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "grok",
-        "skills"
-      ],
-      "dependsOn": [
-        "AgySkills",
-        "AgyAgents",
-        "AgyRuntime"
-      ],
-      "ownershipHint": "harnesses/grok/skills/**",
-      "wave": 9,
-      "acceptanceTests": [
-        {
-          "name": "all-grok-skills-are-owned-and-resolved",
-          "kind": "unit",
-          "oracle": "Exactly 16 outputs have no fallback and cite the Grok 4.6 guide; unresolved inherit fails rather than guessing.",
-          "testPath": "harnesses/grok/skills/tests/test_grok_skills.py"
-        },
-        {
-          "name": "native-workflows-preserve-gates",
-          "kind": "unit",
-          "oracle": "Any workflow/fork/background use declares I/O and returns through shared handoff/gates; none bypasses seal/reviewer/integrator.",
-          "testPath": "harnesses/grok/skills/tests/test_grok_skills.py"
-        },
-        {
-          "name": "grok-skill-gates-are-green",
-          "kind": "integration",
-          "oracle": "Skill sync, Grok evals and parity exit 0.",
-          "testPath": "harnesses/grok/skills/tests/test_grok_skills.py"
-        }
-      ]
-    },
-    {
-      "key": "GrokAgents",
-      "title": "Author Grok Build agents, roles, and personas",
-      "body": "Replace ten fallbacks citing the Grok 4.6 guide, using Grok's distinction between session agents, roles and personas. Declare I/O, capability modes, model resolution to grok-4.6, and isolation. Preserve read-only roles through capability/permission mode because no per-agent tool list is verified. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "grok",
-        "agents"
-      ],
-      "dependsOn": [
-        "AgySkills",
-        "AgyAgents",
-        "AgyRuntime"
-      ],
-      "ownershipHint": "harnesses/grok/agents/**",
-      "wave": 9,
-      "acceptanceTests": [
-        {
-          "name": "ten-grok-roles-resolve-approved-strategy",
-          "kind": "unit",
-          "oracle": "Ten roles cite the Grok 4.6 guide and resolve the grok-4.6 pin; unresolved inherited model is a hard error.",
-          "testPath": "harnesses/grok/agents/tests/test_grok_agents.py"
-        },
-        {
-          "name": "roles-personas-capabilities-are-truthful",
-          "kind": "unit",
-          "oracle": "Files parse under documented formats, declare Workcell I/O, use read-only modes where required, and invent no tool-list restriction.",
-          "testPath": "harnesses/grok/agents/tests/test_grok_agents.py"
-        },
-        {
-          "name": "grok-agent-gates-are-green",
-          "kind": "integration",
-          "oracle": "Agent sync, Grok agent evals and parity exit 0 without fallbacks.",
-          "testPath": "harnesses/grok/agents/tests/test_grok_agents.py"
-        }
-      ]
-    },
-    {
-      "key": "GrokRuntime",
-      "title": "Generate Grok Build runtime, workflows, and headless adapter",
-      "body": "Own Grok manifest/runtime/workflow/persona support under its root, citing the Grok 4.6 guide. Preserve ADR-0023 ~/.grok/plugins/workcell drop, use --no-auto-update in automation, copy shared scripts, and keep unsupported-tool notes. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "grok",
-        "runtime"
-      ],
-      "dependsOn": [
-        "AgySkills",
-        "AgyAgents",
-        "AgyRuntime"
-      ],
-      "ownershipHint": "harnesses/grok/runtime/**",
-      "wave": 9,
-      "acceptanceTests": [
-        {
-          "name": "grok-runtime-stages-one-family",
-          "kind": "integration",
-          "oracle": "Stage contains manifest/runtime metadata/ten agents/16 skills/shared copies/stamp as real files with no source-root or other harness.",
-          "testPath": "harnesses/grok/runtime/tests/test_grok_runtime.py"
-        },
-        {
-          "name": "headless-adapter-is-current-and-bounded",
-          "kind": "unit",
-          "oracle": "Automation invokes grok --no-auto-update -p with workspace/machine output/timeout and explicit grok-4.6 model strategy.",
-          "testPath": "harnesses/grok/runtime/tests/test_grok_runtime.py"
-        },
-        {
-          "name": "unsupported-fields-are-not-invented",
-          "kind": "unit",
-          "oracle": "No per-agent tool list or unsupported effort appears; optional omissions are noted once and missing required values fail.",
-          "testPath": "harnesses/grok/runtime/tests/test_grok_runtime.py"
-        }
-      ]
-    },
-    {
-      "key": "LayeredArchitectureDocs",
-      "title": "Record the layered architecture and update Workcell docs",
-      "body": "Add ADR 0024, superseding only ADR 0005's shared-body implication while preserving wrapper history and ADR 0023 deployment. Record contract fields, four owned families, model guides/freshness, required-vs-optional behavior, Claude-first rollout, measured Fable decision, grok-4.6 pin decision, eval/parity/standalone DoD. Amend ADR 0005 Status only. Update README diagram/layout, install, eval, gates and contributor commands. Show Workcell root feeding four Agents/Skills/Scripts boxes beside shared Workcell Scripts/Tools/everything else. Reject all fallback markers. Broad issue runs alone. Execution: headless Antigravity (`agy`), model `gemini-3.7-flash`, effort high, via the use-other-harness skill; issues within a wave run in parallel, one workspace each.",
-      "labels": [
-        "planning",
-        "documentation",
-        "adr"
-      ],
-      "dependsOn": [
-        "GrokSkills",
-        "GrokAgents",
-        "GrokRuntime"
-      ],
-      "ownershipHint": "**",
-      "wave": 10,
-      "acceptanceTests": [
-        {
-          "name": "adr-0024-records-the-decision",
-          "kind": "unit",
-          "oracle": "Exactly one ADR 0024 has required headings and records ADR 0005/0023, contracts, four families, guides, omission rule, evals, standalone dist, and final roster choices.",
-          "testPath": "scripts/tests/test_docs_truth.py"
-        },
-        {
-          "name": "adr-0005-points-forward-without-rewrite",
-          "kind": "unit",
-          "oracle": "ADR 0005 Status names 0024 while its historical Context/Decision/Consequences remain; ADR 0023 remains deployment authority.",
-          "testPath": "scripts/tests/test_docs_truth.py"
-        },
-        {
-          "name": "readme-diagram-matches-request",
-          "kind": "unit",
-          "oracle": "Diagram source/rendered SVGs show one root, four harness boxes each with Agents/Skills/Scripts, and shared Scripts/Tools/everything else, with equivalent nearby text.",
-          "testPath": "scripts/tests/test_docs_truth.py"
-        },
-        {
-          "name": "docs-publish-all-gates",
-          "kind": "unit",
-          "oracle": "Docs name agent/skill sync, freshness, parity, four eval commands and four stagers, and mark generated outputs non-editable.",
-          "testPath": "scripts/tests/test_docs_truth.py"
-        },
-        {
-          "name": "no-fallback-survives",
-          "kind": "integration",
-          "oracle": "No legacy-shared-body marker exists and every 16-skill/10-agent source exists in four harness roots; deletion or marker fails naming artifact.",
-          "testPath": "scripts/tests/test_docs_truth.py"
-        },
-        {
-          "name": "milestone-definition-of-done-is-green",
-          "kind": "e2e",
-          "oracle": "Freshness, both sync checks, parity, four run_evals --harness commands, and four stagers exit 0; every dist has real Agents/Skills/Runtime and no symlink.",
-          "testPath": "scripts/tests/test_docs_truth.py"
+          "oracle": "python3 -m unittest discover -s harnesses/claude/skills/wiki/tests and corresponding harness test suites pass.",
+          "testPath": "harnesses/claude/skills/wiki/tests/test_wiki.py"
         }
       ]
     }
   ],
   "risks": [
     {
-      "id": "R-01",
-      "title": "Vendor presentation changes cause noisy freshness failures",
-      "likelihood": 2,
-      "impact": 2,
-      "owner": "GuideFreshness builder",
-      "mitigation": "Normalize article content through vendor adapters, fixture-test selectors, distinguish fetch failure from drift, and require intentional named updates."
-    },
-    {
-      "id": "R-02",
-      "title": "Shared contracts become a second prose body",
-      "likelihood": 2,
-      "impact": 3,
-      "owner": "LayeredGeneration builder",
-      "mitigation": "Limit schema to compatibility facts/oracles, reject procedure prose fields, and test independent harness ownership."
-    },
-    {
-      "id": "R-03",
-      "title": "Migration fallback survives",
-      "likelihood": 2,
-      "impact": 3,
-      "owner": "LayeredArchitectureDocs builder",
-      "mitigation": "Mark fallbacks mechanically and require the final 16-by-10-by-4 source matrix with no markers."
-    },
-    {
-      "id": "R-04",
-      "title": "Native interactive features break headless execution",
-      "likelihood": 2,
-      "impact": 3,
-      "owner": "Per-harness runtime builders",
-      "mitigation": "Capability-gate forks/Workflow/Teamwork/Grok workflows, retain native headless adapters, and test omission notes."
-    },
-    {
-      "id": "R-05",
-      "title": "Four families increase semantic drift",
-      "likelihood": 3,
-      "impact": 2,
-      "owner": "HarnessEvals builder",
-      "mitigation": "Parse immutable fields, run parity/routing on all harnesses, and drift-check outputs while allowing prose differences."
-    },
-    {
-      "id": "R-06",
-      "title": "Grok inherit cannot resolve one guide",
+      "id": "legacy-manifest-breakage",
+      "title": "Existing raw manifests lacking model and effort fields cause wiki.py check or pattern parsing errors",
       "likelihood": 1,
       "impact": 3,
-      "owner": "LayeredGeneration / GrokAgents builders",
-      "mitigation": "Mitigated by pinning Grok routes to grok-4.6 in agents/models.json; unresolved required guide values fail generation."
+      "owner": "wiki specifier / builder",
+      "mitigation": "Enforce backward-compatibility tests in test_wiki.py asserting that manifests without model/effort keys pass wiki.py check and produce valid unbracketed pattern citations."
     },
     {
-      "id": "R-07",
-      "title": "Broad seam issues collide with other work",
+      "id": "build-skill-contract-drift",
+      "title": "Modifying skills/build/SKILL.md breaks wave loop contract assertions in test_build.py or test_skill_contracts.py",
       "likelihood": 2,
       "impact": 2,
-      "owner": "Build orchestrator",
-      "mitigation": "Run foundation and final docs alone; all other same-wave hints are literal disjoint roots; ignore plan-only PR #146."
+      "owner": "build specifier / builder",
+      "mitigation": "Keep the verbatim required phrases intact (wiki.py record, --kind build-wave, wiki.py status --repo .) and run WikiBuildTraceTests as a verification gate."
+    },
+    {
+      "id": "harness-replica-desynchronization",
+      "title": "Harness skill copies fall out of sync with canonical skills/wiki",
+      "likelihood": 1,
+      "impact": 2,
+      "owner": "integrator",
+      "mitigation": "Run python3 scripts/sync-skills.py --check in Wave 3 to mechanically guarantee zero file drift across all 4 harnesses."
     }
   ]
 }
