@@ -9,8 +9,8 @@
         "harnesses",
         "sync"
       ],
-      "state": "open",
-      "state_reason": null
+      "state": "closed",
+      "state_reason": "completed"
     },
     {
       "number": 216,
