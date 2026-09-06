@@ -120,6 +120,9 @@ func (s *Seal) boundArgv() BoundArgv {
 // parseable percentage, and it never gates verification.
 type Green struct {
 	controlplane.CommandEvidence
+	// Base binds the passing command to the implementation it actually tested.
+	// Legacy records without this field must be verified again.
+	Base            Base     `json:"base"`
 	CoveragePercent *float64 `json:"coveragePercent,omitempty"`
 }
 
@@ -202,6 +205,7 @@ type Status struct {
 	ArchReview   *ArchReview `json:"archReview,omitempty"`
 	Handoff      *Handoff    `json:"handoff,omitempty"`
 	ChangedTests []string    `json:"changedTests"`
+	GreenStale   bool        `json:"greenStale"`
 	DiffStale    bool        `json:"diffStale"`
 	ArchStale    bool        `json:"archStale"`
 	Ready        bool        `json:"ready"`

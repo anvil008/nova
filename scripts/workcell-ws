@@ -291,7 +291,9 @@ forget_one(){
   local name=$1 path=$2 rc=0
   if [[ $VCS == jj ]]; then
     name=${name//\//-}   # the workspace jj registered, whose name never carries the bookmark's slash
-    if jjq workspace list -T 'name ++ "\n"' | grep -qxF "$name"; then
+    # Consume every row: grep -q can close the pipe early, making jj fail and
+    # pipefail skip deregistration even though the requested name was found.
+    if jjq workspace list -T 'name ++ "\n"' | grep -xF "$name" >/dev/null; then
       # Snapshot before forgetting: the working copy is a commit, and this is what preserves it.
       [[ -d $path ]] && jj -R "$path" st >/dev/null 2>&1
       jjq workspace forget "$name" || rc=1

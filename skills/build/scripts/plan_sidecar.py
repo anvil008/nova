@@ -1,7 +1,7 @@
 """Strict validation of a planner sidecar, as waves.py consumes it.
 
 Mirrors validate_plan() and the closure it needs — PlanError, require_exact_fields(),
-nonempty_string(), validate_risks() and the field/pattern constants they read — from
+nonempty_string(), canonical_write_target(), validate_risks() and the field/pattern constants they read — from
 the sibling skills/plan/scripts/render_plan.py, duplicated because build ships
 self-contained. The bodies are copied verbatim so the two can be diffed line for
 line; render_plan's HTML rendering is deliberately left behind. Keep the accepts,
@@ -48,6 +48,27 @@ def nonempty_string(value: object, where: str) -> str:
     return value.strip()
 
 
+def canonical_write_target(value: object, where: str) -> str:
+    """Keep ownership and test writes in one lexical, repository-relative namespace."""
+    target = nonempty_string(value, where)
+    if "," in target or target.split() != [target]:
+        raise PlanError(f"{where} takes one path or glob, not {value!r}")
+    # PurePath collapses dot/empty components but preserves '..'; neither behavior
+    # is suitable before the scheduler compares ownership strings. Reject aliases
+    # instead of silently changing a write target the user reviewed.
+    if (
+        target != value
+        or "\\" in target
+        or re.match(r"^[A-Za-z]:", target)
+        or any(ord(character) < 32 or ord(character) == 127 for character in target)
+        or any(part in {"", ".", ".."} for part in target.split("/"))
+    ):
+        raise PlanError(
+            f"{where} must be a canonical relative POSIX path or glob, not {value!r}"
+        )
+    return target
+
+
 def validate_plan(plan: object) -> dict:
     if not isinstance(plan, dict):
         raise PlanError("sidecar must be a JSON object")
@@ -59,9 +80,11 @@ def validate_plan(plan: object) -> dict:
     # re-run of an unchanged plan is a no-op even if the sidecar carries padding.
     plan["planId"] = plan_id
     nonempty_string(plan["planName"], "planName")
-    repo = nonempty_string(plan["repo"], "repo")
-    if not REPOSITORY.fullmatch(repo):
-        raise PlanError("repo must be owner/name")
+    if plan["repo"] is not None:
+        repo = nonempty_string(plan["repo"], "repo")
+        if not REPOSITORY.fullmatch(repo):
+            raise PlanError("repo must be owner/name or null for local-only plans")
+        plan["repo"] = repo
     generated_at = nonempty_string(plan["generatedAt"], "generatedAt")
     try:
         datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
@@ -112,14 +135,9 @@ def validate_plan(plan: object) -> dict:
         issue["key"] = key
         nonempty_string(issue["title"], f"issues[{index}].title")
         nonempty_string(issue["body"], f"issues[{index}].body")
-        # One token only: every consumer (waves.py's overlap check, the ownership an
-        # agent is handed) treats the value as a single literal path or glob.
-        hint = nonempty_string(issue["ownershipHint"], f"issues[{index}].ownershipHint")
-        if "," in hint or hint.split() != [hint]:
-            raise PlanError(
-                f"issues[{index}].ownershipHint takes one path or glob, not {hint!r}"
-            )
-        issue["ownershipHint"] = hint
+        issue["ownershipHint"] = canonical_write_target(
+            issue["ownershipHint"], f"issues[{index}].ownershipHint"
+        )
         if not isinstance(issue["labels"], list) or any(not isinstance(label, str) or not label for label in issue["labels"]):
             raise PlanError(f"issues[{index}].labels must be an array of non-empty strings")
         if len(set(issue["labels"])) != len(issue["labels"]):
@@ -155,7 +173,13 @@ def validate_plan(plan: object) -> dict:
                 raise PlanError(f"{twhere}.kind must be one of: {', '.join(sorted(ACC_KINDS))}")
             nonempty_string(spec["oracle"], f"{twhere}.oracle")
             if "testPath" in spec:
-                nonempty_string(spec["testPath"], f"{twhere}.testPath")
+                spec["testPath"] = canonical_write_target(
+                    spec["testPath"], f"{twhere}.testPath"
+                )
+                if any(character in spec["testPath"] for character in "*?["):
+                    raise PlanError(
+                        f"{twhere}.testPath must name one concrete test file without glob metacharacters, not {spec['testPath']!r}"
+                    )
             if "stub" in spec:
                 nonempty_string(spec["stub"], f"{twhere}.stub")
 

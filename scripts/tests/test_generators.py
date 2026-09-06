@@ -41,7 +41,6 @@ class GeneratorTests(unittest.TestCase):
             "body": ROOT / f"agents/bodies/{name}.md",
             "claude": ROOT / f"agents/claude/{name}.md",
             "codex": ROOT / f"agents/codex/{name}.md",
-            "grok": ROOT / f"agents/grok/{name}.md",
             "agy": ROOT / f"agents/agy/{name}/agent.md",
         }
         return [
@@ -260,7 +259,7 @@ class GeneratorTests(unittest.TestCase):
                 self.assertIn("anvil.agent-handoff/v1", text)
                 self.assertIn("(../handoff.md)", text)
                 name = body.stem
-                for harness in ("claude", "codex", "grok"):
+                for harness in ("claude", "codex"):
                     generated = (ROOT / f"agents/{harness}/{name}.md").read_text(
                         encoding="utf-8"
                     )
@@ -295,7 +294,7 @@ class GeneratorTests(unittest.TestCase):
                 self.assertNotIn("skills/plan/SKILL.md", planner)
 
     def test_rationalization_tables_present(self):
-        for name in ("builder", "specifier", "planner"):
+        for name in ("builder", "specifier"):
             for harness, text in self.agent_variants(name):
                 with self.subTest(agent=name, harness=harness):
                     section = text.split("## Rationalizations", 1)
@@ -313,7 +312,7 @@ class GeneratorTests(unittest.TestCase):
                 ordered = [
                     "tdd-guard verify",
                     "Prove it runs, not just passes",
-                    "at most two passes",
+                    "Obtain independent review",
                 ]
                 positions = []
                 for phrase in ordered:

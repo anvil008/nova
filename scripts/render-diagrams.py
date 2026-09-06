@@ -48,7 +48,7 @@ SOURCES = DIAGRAMS / "src"
 # this front-end centres a fixed-width canvas, gives every node of a kind one
 # width, and routes returns through the side channel its source names.
 sys.path.append(str(ROOT / "skills" / "plan" / "scripts"))
-from diagrams import (
+from diagrams import (  # noqa: E402 - repository-local renderer
     Diagram,
     DiagramError,
     assign_layers,
@@ -631,7 +631,8 @@ def render(diagram: dict, scheme: str) -> str:
     for node in nodes.values():
         body.append(shape(node) + node_text(node))
     for edge in edges:
-        body.append(edge_label(edge))
+        if edge.label:
+            body.append(edge_label(edge))
 
     marker = (
         '<marker id="{name}" markerWidth="10" markerHeight="8" refX="10" refY="4"'

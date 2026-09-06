@@ -4,25 +4,29 @@
   "trigger": {
     "positive": [
       {
-        "prompt": "Investigate this substantial change and prepare a reviewable folio plus machine-readable issue plan.",
+        "prompt": "Develop a reviewed repository change plan with a Markdown roadmap and strict acceptance-tested issue sidecar.",
         "top_k": 3
       },
       {
-        "prompt": "Draft an offline implementation roadmap and wait for my approval before creating milestones or issues.",
+        "prompt": "Ask whether I want one plan or multiple plan ideas, then have planners compare implementation approaches.",
         "top_k": 3
       },
       {
-        "prompt": "Break this repository task into acceptance-tested work items and preview GitHub reconciliation.",
+        "prompt": "Prepare a visual implementation plan and preview the optional GitHub reconciliation.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Review alternative planner proposals and hand the accepted implementation plan to the build workflow.",
         "top_k": 3
       }
     ],
     "negative": [
       {
-        "prompt": "Investigate several independent subsystems in parallel and merge the evidence into one packet.",
-        "owner": "skill:research"
+        "prompt": "Investigate only the storage subsystem and return structured source-backed research findings.",
+        "owner": "agent:researcher"
       },
       {
-        "prompt": "Implement this already-assigned issue in its workspace and open its PR.",
+        "prompt": "Implement this already-assigned task in its workspace and open the resulting PR.",
         "owner": "agent:builder"
       }
     ]
@@ -31,11 +35,134 @@
     {
       "id": 1,
       "kind": "dialogue",
-      "prompt": "The requested migration does not say whether legacy clients must remain compatible, and the answer changes issue scope. Produce the plan.",
-      "expected_output": "A needs-decision handoff naming the unresolved compatibility question rather than a completed plan.",
+      "prompt": "I want one plan for this API migration. Legacy-client compatibility is undecided and changes issue scope.",
+      "expected_output": "Delegate plan authorship and route the material compatibility decision to the user before final acceptance.",
       "expectations": [
-        "The disposition is needs-decision.",
-        "The compatibility choice is presented to the human and is not encoded as an assumption in the plan or sidecar."
+        "Reuse the explicit single-plan choice without reasking it.",
+        "The planner authors the plan; the orchestrator owns the user conversation and review.",
+        "Do not encode an unresolved compatibility requirement as a finalized sidecar assumption."
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Plan a coordinated API migration. I have not chosen how many plan ideas I want or an output format.",
+      "expected_output": "Ask one plan versus multiple plan ideas once; default to Markdown without a format question.",
+      "expectations": [
+        "Ask about the desired output choice rather than Standard versus Research-assisted mode or a required team size.",
+        "While the answer is pending, ground the request without starting speculative alternative plans.",
+        "Do not ask Markdown versus HTML or generate HTML by default."
+      ]
+    },
+    {
+      "id": 3,
+      "kind": "dialogue",
+      "prompt": "Give me one plan for this migration. Choose whatever delegation helps; do not ask me to manage agent counts.",
+      "expected_output": "The orchestrator chooses a useful team and delegates investigation and final plan authorship.",
+      "expectations": [
+        "One plan constrains the final output, not a mandatory single-agent team.",
+        "Use planner-owned research when useful without another research opt-in question.",
+        "Do not invent minimum, default, maximum, or retry counts; honor runtime capacity and explicit user limits.",
+        "The orchestrator reviews the result and asks about build after presenting the standalone plan."
+      ]
+    },
+    {
+      "id": 4,
+      "kind": "dialogue",
+      "prompt": "Produce multiple plan ideas for this migration and a visual plan. Keep compatibility with current clients. Choose the number of planners and researchers yourself.",
+      "expected_output": "Frame distinct proposals, compare evidence and tradeoffs, and assign a planner to author the selected or combined plan in Markdown and HTML.",
+      "expectations": [
+        "Reuse the explicit multiple-ideas and visual choices without redundant questions.",
+        "Give alternative planners meaningful different directions under the same compatibility constraint.",
+        "Do not impose a fixed proposal count or repeat the same research in every team when shared evidence is applicable.",
+        "The orchestrator judges the proposals and a designated planner authors a coherent final approach."
+      ]
+    },
+    {
+      "id": 5,
+      "kind": "dialogue",
+      "prompt": "Resume this plan. planning-choice.json records choice=multiple, format=html, completed proposal and research paths, and currently running planner and researcher IDs. Source and scope are unchanged.",
+      "expected_output": "Resume the recorded agents and artifacts, retaining choices, evidence, and identity.",
+      "expectations": [
+        "Do not ask the planning or output-format choice again.",
+        "Inspect or wait for existing agents before any new dispatch; do not duplicate completed work.",
+        "Preserve proposal decisions, source references, gaps, and final plan and issue identities."
+      ]
+    },
+    {
+      "id": 6,
+      "kind": "dialogue",
+      "prompt": "A researcher failed to access the runtime during planning. Other evidence is available, useful follow-up work exists, and the user has supplied no numerical retry limit.",
+      "expected_output": "Keep the failed coverage visible and choose useful next work from evidence and runtime capacity.",
+      "expectations": [
+        "Do not invent an attempt budget or demand approval for an ordinary useful replacement assignment within the authorized task.",
+        "Do not claim all research areas completed or repeat the same ineffective attempt indefinitely.",
+        "Surface critical inaccessible evidence or produce a plan with an explicit limitation only when defensible."
+      ]
+    },
+    {
+      "id": 7,
+      "kind": "dialogue",
+      "prompt": "Review the planner proposals. Most proposals drop legacy clients; another preserves them with a compatibility adapter. The user requires legacy compatibility.",
+      "expected_output": "Judge proposals against the requirements and evidence instead of vote counts.",
+      "expectations": [
+        "Reject incompatible choices even when more agents favor them.",
+        "Give a planner concrete revisions or final authorship; do not silently rewrite the plan in the orchestrator.",
+        "Critical claims need inspected source evidence and observable acceptance criteria."
+      ]
+    },
+    {
+      "id": 8,
+      "kind": "dialogue",
+      "prompt": "Produce one concise Markdown plan for this clear change and then implement it. No HTML, please.",
+      "expected_output": "Delegate a concise plan, review it, and carry it directly into build under the existing authorization.",
+      "expectations": [
+        "Do not ask the output choice, format, or permission to proceed to an already requested build.",
+        "Do not invent a milestone or multi-issue sidecar for a concise task brief.",
+        "Carry the reviewed plan, source revision, evidence, and user decisions into build without replanning."
+      ]
+    },
+    {
+      "id": 9,
+      "kind": "dialogue",
+      "prompt": "Resume an old planning-choice.json that says research-assisted and records completed evidence, but nothing records whether I wanted one plan or multiple plan ideas.",
+      "expected_output": "Preserve completed evidence and resolve only the missing output choice.",
+      "expectations": [
+        "Do not interpret a research-mode record as a single-versus-multiple output decision.",
+        "Do not discard research, repeat completed investigations, or reintroduce an obsolete research opt-in."
+      ]
+    },
+    {
+      "id": 10,
+      "kind": "dialogue",
+      "prompt": "I want one plan. This harness can dispatch agents only from the root; the planner cannot spawn its own researchers. The planner has identified independent research questions.",
+      "expected_output": "Proxy dispatch through the orchestrator while the planner retains research ownership.",
+      "expectations": [
+        "The planner authors the questions and synthesizes results routed back by the root.",
+        "Use actual native tools and preserve agent IDs; do not pretend nesting exists or start untracked processes.",
+        "Do not invoke a standalone research skill or turn research agents into planners."
+      ]
+    },
+    {
+      "id": 11,
+      "kind": "dialogue",
+      "prompt": "Create one substantial plan for this local repository, which has no GitHub remote. Do not create external tracking resources.",
+      "expected_output": "Produce a reviewed plan using repo=null in its strict sidecar and local task tracking.",
+      "expectations": [
+        "Do not invent owner/name or require GitHub issues to complete the plan.",
+        "Render Markdown with a local repository label and preserve acceptance specifications and dependency keys.",
+        "Do not invoke GitHub apply or claim external resources were created."
+      ]
+    },
+    {
+      "id": 12,
+      "kind": "dialogue",
+      "prompt": "The final plan is reviewed and ready. This was a standalone planning request; I never asked for implementation.",
+      "expected_output": "Present the completed plan artifacts and ask whether to proceed to build.",
+      "expectations": [
+        "Link Markdown and only the HTML companion that was explicitly requested.",
+        "Do not start implementation on internal plan acceptance alone.",
+        "Retain existing artifacts and decisions for an eventual build transition."
       ]
     }
   ]

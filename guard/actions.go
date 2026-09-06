@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/anvil008/workcell/controlplane"
@@ -130,6 +131,30 @@ func handoff(loaded *state, to string) error {
 // coverage that errors, parses to nothing, or falls short of --min-coverage
 // never blocks: test strength is a signal, not a new gate.
 func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage float64, stderr io.Writer) error {
+	if err := os.MkdirAll(loaded.directory, 0o700); err != nil {
+		return err
+	}
+	lock, err := os.OpenFile(filepath.Join(loaded.directory, "verify.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return fmt.Errorf("another verification is running: %w", err)
+	}
+	defer func() { _ = syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) }()
+	// A new attempt supersedes the previous result, including when validation,
+	// process startup, or the command itself fails. Never leave a stale success.
+	if err := os.Remove(loaded.greenPath()); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	loaded.green = nil
+	// Once implementation verification starts, the specifier's Stop relaxation
+	// no longer applies, including to a failed no-change baseline attempt.
+	if err := os.Remove(loaded.handoffPath()); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	loaded.handoff = nil
 	if loaded.seal == nil {
 		return fmt.Errorf("no seal for %s; run `tdd-guard seal` first", loaded.repository)
 	}
@@ -149,6 +174,10 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 		return fmt.Errorf("sealed tests changed since the seal: %s; run `tdd-guard reseal --reason <text>` to amend them explicitly", strings.Join(changed, ", "))
 	}
 	before, err := loaded.sealedTestStats()
+	if err != nil {
+		return err
+	}
+	base, _, err := currentBase(loaded.repository)
 	if err != nil {
 		return err
 	}
@@ -172,7 +201,7 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 	if !isAfter(evidence.StartedAt, loaded.seal.SealedAt) {
 		return fmt.Errorf("green evidence %s does not postdate the seal %s", evidence.StartedAt, loaded.seal.SealedAt)
 	}
-	green := Green{CommandEvidence: evidence}
+	green := Green{CommandEvidence: evidence, Base: base}
 	if len(coverageCommand) > 0 {
 		if coverage, ok := measureCoverage(loaded.repository, coverageCommand); ok {
 			green.CoveragePercent = &coverage
@@ -180,6 +209,13 @@ func verify(loaded *state, greenCommand, coverageCommand []string, minCoverage f
 				fmt.Fprintf(stderr, "tdd-guard: coverage %.1f%% is below --min-coverage %.1f%% (advisory, not a gate)\n", coverage, minCoverage)
 			}
 		}
+	}
+	after, _, err := currentBase(loaded.repository)
+	if err != nil {
+		return err
+	}
+	if after != base {
+		return fmt.Errorf("implementation changed during verification; re-run on a stable source tree")
 	}
 	return writeJSON(loaded.greenPath(), green)
 }
@@ -476,6 +512,13 @@ func stopBlockers(loaded *state) ([]string, error) {
 	} else if loaded.seal != nil && !isAfter(loaded.green.StartedAt, loaded.seal.SealedAt) {
 		blockers = append(blockers, "green evidence predates the current seal; re-run `tdd-guard verify`")
 	}
+	greenStale, err := greenEvidenceStale(loaded)
+	if err != nil {
+		return nil, err
+	}
+	if loaded.green != nil && greenStale {
+		blockers = append(blockers, "green evidence is stale for the current source tree; re-run `tdd-guard verify`")
+	}
 	stale, err := diffReviewStale(loaded)
 	if err != nil {
 		return nil, err
@@ -490,11 +533,23 @@ func diffReviewStale(loaded *state) (bool, error) {
 	if loaded.diffReview == nil {
 		return true, nil
 	}
-	_, digest, err := currentBase(loaded.repository)
+	base, digest, err := currentBase(loaded.repository)
 	if err != nil {
 		return false, err
 	}
-	return digest != loaded.diffReview.DiffDigest, nil
+	return base != loaded.diffReview.Base || digest != loaded.diffReview.DiffDigest, nil
+}
+
+func greenEvidenceStale(loaded *state) (bool, error) {
+	if loaded.green == nil {
+		return true, nil
+	}
+	base, _, err := currentBase(loaded.repository)
+	if err != nil {
+		return false, err
+	}
+	return loaded.green.ExitCode != 0 || loaded.green.Base != base ||
+		(loaded.seal != nil && loaded.green.ArgvDigest != loaded.seal.boundArgv().Digest), nil
 }
 
 func status(loaded *state) (Status, error) {
@@ -510,6 +565,9 @@ func status(loaded *state) (Status, error) {
 		return Status{}, err
 	}
 	report.ArchStale = stale
+	if report.GreenStale, err = greenEvidenceStale(loaded); err != nil {
+		return Status{}, err
+	}
 	if loaded.seal == nil {
 		return report, nil
 	}

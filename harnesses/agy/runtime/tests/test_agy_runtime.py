@@ -2,7 +2,7 @@
 
 Covers the three Definition of Done acceptance criteria for AgyRuntime:
 1. agy-runtime-stages-one-family (integration):
-   Stage contains manifest/hooks/rules/ten agents/16 skills/shared runtime/stamp
+   Stage contains manifest/hooks/rules/ten agents/12 skills/shared runtime/stamp
    as real files with no other harness.
 2. teamwork-capability-is-generated (unit):
    Metadata marks Teamwork paid/interactive and names fallback;
@@ -20,6 +20,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -48,19 +49,15 @@ EXPECTED_AGENTS = {
 
 EXPECTED_SKILLS = {
     "build",
-    "code-analysis",
-    "code-refactor",
-    "code-review",
     "debug",
     "deploy",
     "docs",
     "jj",
-    "new-feature",
-    "perf",
     "plan",
+    "profile",
+    "refactor",
     "repo-setup",
-    "research",
-    "review-fix-loop",
+    "review",
     "use-other-harness",
     "wiki",
 }
@@ -81,7 +78,7 @@ class AgyRuntimeTests(unittest.TestCase):
     def test_agy_runtime_stages_one_family(self) -> None:
         """agy-runtime-stages-one-family (integration):
 
-        Stage contains manifest/hooks/rules/ten agents/16 skills/shared runtime/stamp
+        Stage contains manifest/hooks/rules/ten agents/12 skills/shared runtime/stamp
         as real files with no other harness.
         """
         # 1. Manifest, hooks, rules exist directly under harnesses/agy/runtime as real files
@@ -195,7 +192,7 @@ class AgyRuntimeTests(unittest.TestCase):
             f"Expected exactly 10 agents, got {len(staged_agents)}",
         )
 
-        # 16 skills represented as real files (15 global + agent-owned jj)
+        # 12 skills represented as real files (11 global + agent-owned jj)
         skills_dir = STAGED_PLUGIN / "skills"
         self.assertTrue(
             skills_dir.is_dir(), f"Staged skills dir missing at {skills_dir}"
@@ -219,12 +216,12 @@ class AgyRuntimeTests(unittest.TestCase):
         self.assertEqual(
             all_staged_skills,
             EXPECTED_SKILLS,
-            f"Staged skills must contain all 16 skills; got {all_staged_skills}",
+            f"Staged skills must contain all registered skills; got {all_staged_skills}",
         )
         self.assertEqual(
             len(all_staged_skills),
-            16,
-            f"Expected 16 skills, got {len(all_staged_skills)}",
+            12,
+            f"Expected 12 skills, got {len(all_staged_skills)}",
         )
 
         # Shared runtime staged
@@ -455,7 +452,7 @@ class AgyRuntimeTests(unittest.TestCase):
 
         skills = contract.get("skills", [])
         self.assertEqual(
-            len(skills), 16, f"Expected 16 skills in contracts, got {len(skills)}"
+            len(skills), 12, f"Expected 12 skills in contracts, got {len(skills)}"
         )
         for sk in skills:
             reqs = sk.get("requiredValues", {}).get("agy", [])
@@ -641,14 +638,30 @@ class AgyRuntimeTests(unittest.TestCase):
         deny_eval_payload = {
             "toolCall": {"args": {"TargetFile": "/repo/.workcell/eval-mode.json"}},
         }
-        proc_deny_eval = subprocess.run(
-            ["bash", str(HOOKS_SCRIPT), "agy", "PreToolUse"],
-            input=json.dumps(deny_eval_payload),
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        self.assertEqual(proc_deny_eval.returncode, 0)
+        # Exercise the actual wrapper without relying on the user's global
+        # tool installation. Only this child process receives the fixture home.
+        with tempfile.TemporaryDirectory(prefix="workcell-agy-hooks-") as temporary:
+            task_home = Path(temporary)
+            guard = task_home / ".local/bin/tdd-guard"
+            guard.parent.mkdir(parents=True)
+            compile_env = dict(os.environ)
+            compile_env.setdefault("GOCACHE", str(task_home / "go-cache"))
+            built = subprocess.run(
+                ["go", "build", "-o", str(guard), "./cmd/tdd-guard"],
+                cwd=REPO_ROOT, env=compile_env, text=True, capture_output=True,
+            )
+            self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+            child_env = dict(os.environ)
+            child_env["HOME"] = str(task_home)
+            proc_deny_eval = subprocess.run(
+                ["bash", str(HOOKS_SCRIPT), "agy", "PreToolUse"],
+                input=json.dumps(deny_eval_payload),
+                text=True,
+                capture_output=True,
+                check=False,
+                env=child_env,
+            )
+        self.assertEqual(proc_deny_eval.returncode, 0, proc_deny_eval.stderr)
         eval_output = json.loads(proc_deny_eval.stdout)
         self.assertEqual(
             eval_output.get("decision"),

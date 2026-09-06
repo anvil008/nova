@@ -29,7 +29,7 @@ class AgentCapabilityTests(unittest.TestCase):
                 values = frontmatter(AGENTS / "claude" / f"{name}.md")
                 denied = {item.strip() for item in values["disallowedTools"].split(",")}
                 self.assertTrue({"Edit", "Write", "NotebookEdit", "Task"} <= denied)
-                self.assertGreater(int(values["maxTurns"]), 0)
+                self.assertNotIn("maxTurns", values)
 
     def test_write_capable_agents_keep_edit_and_write_available(self):
         manifest = json.loads((AGENTS / "agents.json").read_text(encoding="utf-8"))
@@ -52,8 +52,10 @@ class AgentCapabilityTests(unittest.TestCase):
         for path in paths:
             with self.subTest(path=path.relative_to(ROOT)):
                 text = path.read_text(encoding="utf-8")
-                self.assertIn('"stance": "supports | contradicts | neutral"', text)
-                self.assertIn("Use `contradicts`", text)
+                self.assertIn('"stance": "neutral"', text)
+                for stance in ("supports", "contradicts", "neutral"):
+                    self.assertIn(f"`{stance}`", text)
+                self.assertIn("conflicting evidence", text)
 
     def test_dead_codex_sandbox_mode_is_absent(self):
         searched = [AGENTS, ROOT / "scripts" / "sync-agents.py"]

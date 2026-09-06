@@ -1,6 +1,6 @@
 /* Foundry Zero report design system.
-   Shared core for the planner folio, the code-review report, and the research packet.
-   This file is byte-identical in skills/planner, skills/code-review, and skills/research;
+   Shared core for the planner folio, the review report, and the research packet.
+   This file is byte-identical in skills/plan, skills/review, and skills/plan/research;
    a test asserts that. Skill-specific rules live alongside it. */
 
 :root, [data-theme="dark"] {

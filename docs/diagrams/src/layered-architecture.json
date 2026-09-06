@@ -1,38 +1,32 @@
 {
   "title": "Layered architecture of Workcell",
-  "description": "Workcell root defines shared contracts feeding four harness-owned families alongside shared scripts, tools, and repository tooling.",
+  "description": "Workcell defines 12 public skills and 10 roles across Claude Code, Codex with GPT-6 Astra, and Antigravity. Harness-owned agents, skills, and scripts share evidence contracts and repository tooling. Research remains a planner capability rather than a standalone skill.",
   "direction": "TB",
-  "width": 880,
+  "width": 1040,
   "nodes": [
     {
       "id": "workcell-root",
       "kind": "orchestrator",
       "label": "Workcell root",
-      "sub": "shared contracts and registry"
+      "sub": "12 skills · 10 roles · shared evidence contracts"
     },
     {
       "id": "claude",
       "kind": "agent",
       "label": "Claude Code",
-      "sub": "Agents · Skills · Scripts"
+      "sub": "Agents · Skills · Scripts · Opus 5"
     },
     {
       "id": "codex",
       "kind": "agent",
       "label": "Codex",
-      "sub": "Agents · Skills · Scripts"
+      "sub": "Agents · Skills · Scripts · GPT-6 Astra"
     },
     {
       "id": "agy",
       "kind": "agent",
       "label": "Antigravity (agy)",
-      "sub": "Agents · Skills · Scripts"
-    },
-    {
-      "id": "grok",
-      "kind": "agent",
-      "label": "Grok Build",
-      "sub": "Agents · Skills · Scripts"
+      "sub": "Agents · Skills · Scripts · Gemini 3.8 Flash"
     },
     {
       "id": "shared",
@@ -42,13 +36,29 @@
     }
   ],
   "edges": [
-    { "from": "workcell-root", "to": "claude" },
-    { "from": "workcell-root", "to": "codex" },
-    { "from": "workcell-root", "to": "agy" },
-    { "from": "workcell-root", "to": "grok" },
-    { "from": "claude", "to": "shared" },
-    { "from": "codex", "to": "shared" },
-    { "from": "agy", "to": "shared" },
-    { "from": "grok", "to": "shared" }
+    {
+      "from": "workcell-root",
+      "to": "claude"
+    },
+    {
+      "from": "workcell-root",
+      "to": "codex"
+    },
+    {
+      "from": "workcell-root",
+      "to": "agy"
+    },
+    {
+      "from": "claude",
+      "to": "shared"
+    },
+    {
+      "from": "codex",
+      "to": "shared"
+    },
+    {
+      "from": "agy",
+      "to": "shared"
+    }
   ]
 }

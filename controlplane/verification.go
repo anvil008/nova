@@ -35,13 +35,14 @@ const (
 	VerificationBlock  VerificationDecision = "block"
 )
 
+// VerificationPolicy contains optional caller limits. Zero means no workflow ceiling.
 type VerificationPolicy struct {
 	MaxPasses  int `json:"maxPasses"`
 	MaxRepairs int `json:"maxRepairs"`
 }
 
 func DefaultVerificationPolicy() VerificationPolicy {
-	return VerificationPolicy{MaxPasses: 2, MaxRepairs: 1}
+	return VerificationPolicy{}
 }
 
 type VerificationUsage struct {
@@ -208,7 +209,7 @@ func ApplyVerification(state VerificationState, observation VerificationObservat
 		return VerificationState{}, err
 	}
 	state.Passes++
-	if state.Passes > state.Policy.MaxPasses {
+	if state.Policy.MaxPasses > 0 && state.Passes > state.Policy.MaxPasses {
 		return VerificationState{}, fmt.Errorf("%w: verification pass budget exhausted", ErrInvalidContract)
 	}
 	state.EvidenceDigest = observation.EvidenceDigest
@@ -222,7 +223,7 @@ func ApplyVerification(state VerificationState, observation VerificationObservat
 	case VerificationAccept:
 		state.Phase, state.Outcome, state.FinishedAt = VerificationTerminal, VerificationAccepted, observation.At
 	case VerificationReject:
-		if observation.Repairable && state.Passes < state.Policy.MaxPasses && state.Repairs < state.Policy.MaxRepairs {
+		if observation.Repairable && (state.Policy.MaxPasses == 0 || state.Passes < state.Policy.MaxPasses) && (state.Policy.MaxRepairs == 0 || state.Repairs < state.Policy.MaxRepairs) {
 			state.Phase = VerificationAwaitingRepair
 		} else {
 			state.Phase, state.Outcome, state.FinishedAt = VerificationTerminal, VerificationExhausted, observation.At
@@ -240,7 +241,7 @@ func ApplyVerification(state VerificationState, observation VerificationObservat
 	return state, nil
 }
 
-// ApplyRepair records the sole optional repair. If neither repository nor
+// ApplyRepair records a requested repair. If neither repository nor
 // evidence changes, the loop terminates as no-progress before another review.
 func ApplyRepair(state VerificationState, observation RepairObservation) (VerificationState, error) {
 	if err := ValidateVerification(state); err != nil {
@@ -264,7 +265,7 @@ func ApplyRepair(state VerificationState, observation RepairObservation) (Verifi
 		return VerificationState{}, err
 	}
 	state.Repairs++
-	if state.Repairs > state.Policy.MaxRepairs {
+	if state.Policy.MaxRepairs > 0 && state.Repairs > state.Policy.MaxRepairs {
 		return VerificationState{}, fmt.Errorf("%w: repair budget exhausted", ErrInvalidContract)
 	}
 	state.Events = append(state.Events, VerificationEvent{
@@ -437,14 +438,14 @@ func ValidateVerification(state VerificationState) error {
 			return err
 		}
 	}
-	if state.Policy != DefaultVerificationPolicy() {
-		return fmt.Errorf("%w: verification policy must be exactly two passes and one repair", ErrInvalidContract)
+	if state.Policy.MaxPasses < 0 || state.Policy.MaxRepairs < 0 {
+		return fmt.Errorf("%w: verification policy limits cannot be negative", ErrInvalidContract)
 	}
-	if state.Passes < 0 || state.Passes > state.Policy.MaxPasses || state.Repairs < 0 || state.Repairs > state.Policy.MaxRepairs {
+	if state.Passes < 0 || state.Repairs < 0 || (state.Policy.MaxPasses > 0 && state.Passes > state.Policy.MaxPasses) || (state.Policy.MaxRepairs > 0 && state.Repairs > state.Policy.MaxRepairs) {
 		return fmt.Errorf("%w: verification counters exceed policy", ErrInvalidContract)
 	}
-	if state.Events == nil || len(state.Events) > state.Policy.MaxPasses+state.Policy.MaxRepairs {
-		return fmt.Errorf("%w: verification event sequence is missing or unbounded", ErrInvalidContract)
+	if state.Events == nil {
+		return fmt.Errorf("%w: verification event sequence is missing", ErrInvalidContract)
 	}
 	if err := validateVerificationUsage(state.Budget.Maximum); err != nil {
 		return err

@@ -3,24 +3,51 @@
   "kind": "skill",
   "trigger": {
     "positive": [
-      {"prompt": "Run a repository-wide documentation standards pass and trim bloated instruction files.", "top_k": 3},
-      {"prompt": "Find stale docs, update them coherently, record needed architecture decisions, and run the docs gate.", "top_k": 3},
-      {"prompt": "After deployment, run a documentation-standardization review for stale docs, ADRs, and instruction-file bloat.", "top_k": 3}
+      {
+        "prompt": "Update the API documentation and deliver its validated documentation PR.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Complete a standalone documentation pass for stale README examples and architecture decisions.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Standardize the requested documentation, run its validation, and prepare the final docs pull request.",
+        "top_k": 3
+      }
     ],
     "negative": [
-      {"prompt": "Act as the docs-scoped writer for these README, ADR, and changelog updates; keep them correct and lean.", "owner": "agent:documenter"},
-      {"prompt": "Build a new user feature after interviewing me about its scope and failure behavior.", "owner": "skill:new-feature"}
+      {
+        "prompt": "As the documenter assigned inside this build, update the specified README and return your local docs commit.",
+        "owner": "agent:documenter"
+      },
+      {
+        "prompt": "Implement the approved CSV export feature and verify it.",
+        "owner": "skill:build"
+      }
     ]
   },
   "evals": [
     {
       "id": 1,
       "kind": "dialogue",
-      "prompt": "Standardize the docs, but the requested ownership excludes an obviously stale API guide.",
-      "expected_output": "A bounded docs dispatch that updates owned material and reports the uncovered stale area.",
+      "prompt": "Update this documentation page and open its final PR. The allowed ownership excludes an obviously stale API guide.",
+      "expected_output": "A complete scoped documentation change, independently validated final source, authorized PR, and an explicit unowned gap.",
       "expectations": [
-        "The documenter agent is not authorized to edit outside the supplied ownership paths.",
-        "The stale unowned guide is reported rather than silently ignored or edited."
+        "The documenter edits only authorized paths and reports the unowned stale guide.",
+        "The workflow validates the actual final source before its authorized PR.",
+        "Documentation accuracy is reviewed independently; the structural docs checker alone is insufficient."
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "The build caller has assigned a documenter its docs workspace and requires the local commit before final combined verification.",
+      "expected_output": "An assigned documenter stage that returns source-bound docs evidence to build.",
+      "expectations": [
+        "The documenter does not invoke a standalone docs lifecycle, new plan, or separate PR.",
+        "Documentation is included before the calling build verifies the complete final source.",
+        "The handoff includes the immutable documentation commit and validation commands."
       ]
     }
   ]

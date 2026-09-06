@@ -14,7 +14,7 @@ class TestHarnessTrunkSync(unittest.TestCase):
     """Verifies synchronization of build skill and contracts across all harness replicas."""
 
     def test_sync_skills_reports_zero_drift(self) -> None:
-        """Verify python3 scripts/sync-skills.py --check exits 0 reporting zero drift across all 16 skills."""
+        """Verify python3 scripts/sync-skills.py --check exits 0 reporting zero drift across all registered skills."""
         cmd = [sys.executable, str(ROOT / "scripts" / "sync-skills.py"), "--check"]
         res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False)
         self.assertEqual(
@@ -23,7 +23,7 @@ class TestHarnessTrunkSync(unittest.TestCase):
             f"sync-skills.py --check failed (exit code {res.returncode}):\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}",
         )
         self.assertIn(
-            "16 skills in sync across 4 harnesses",
+            "12 skills in sync across 3 harnesses",
             res.stdout,
             f"Unexpected output from sync-skills.py --check:\n{res.stdout}",
         )
@@ -38,7 +38,7 @@ class TestHarnessTrunkSync(unittest.TestCase):
             f"sync-agents.py --check failed (exit code {res.returncode}):\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}",
         )
         self.assertIn(
-            "10 agents in sync across 4 harnesses",
+            "10 agents in sync across 3 harnesses",
             res.stdout,
             f"Unexpected output from sync-agents.py --check:\n{res.stdout}",
         )

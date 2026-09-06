@@ -230,7 +230,6 @@ class ReleaseTests(unittest.TestCase):
         version = get_guard_version()
         manifest_relpaths = [
             "plugins/claude/.claude-plugin/plugin.json",
-            "plugins/grok/.claude-plugin/plugin.json",
             "plugins/agy/plugin.json",
             "plugins/codex/.codex-plugin/plugin.json",
         ]

@@ -19,11 +19,11 @@
     "negative": [
       {
         "prompt": "Review this pull request through multiple assurance lenses before merge.",
-        "owner": "skill:code-review"
+        "owner": "skill:review"
       },
       {
         "prompt": "Build a responsive accessible form component for the account page.",
-        "owner": "skill:new-feature"
+        "owner": "skill:build"
       }
     ]
   },

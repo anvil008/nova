@@ -196,6 +196,41 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertIn("grader output is not JSON", output.getvalue())
             self.assertFalse(list((root / "evals" / "results").glob("*.json")))
 
+    def test_codex_grader_gets_events_and_observed_files_instead_of_final_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            synthetic_root(root)
+            case = run_evals.load_cases(root)[0]["skill:alpha"]
+            evaluation = case.data["evals"][0]
+            events = '\n'.join(json.dumps(event) for event in [
+                {"type": "item.completed", "item": {"type": "command_execution", "command": "test -f missing", "exit_code": 1}},
+                {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 5}},
+            ])
+            observed = []
+            checked = run_evals._run_checked
+
+            def execute(argv, *, cwd, timeout, input_text=None):
+                if argv[0] == "codex":
+                    self.assertIn("--json", argv)
+                    Path(argv[argv.index("-o") + 1]).write_text("All tests passed.")
+                    (cwd / "result.txt").write_text("Actual artifact")
+                    return subprocess.CompletedProcess(argv, 0, stdout=events, stderr="")
+                if argv[0] == "claude":
+                    observed.append(json.loads(input_text))
+                    grade = {"pass": False, "expectations": [
+                        {"text": text, "pass": False, "evidence": "execution event shows exit 1"}
+                        for text in evaluation["expectations"]
+                    ]}
+                    return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(grade), stderr="")
+                return checked(argv, cwd=cwd, timeout=timeout, input_text=input_text)
+
+            with mock.patch.object(run_evals, "_run_checked", side_effect=execute), mock.patch.object(run_evals.shutil, "which", return_value=None):
+                status = run_evals.run_behavioral_eval(root, case, evaluation, "codex", io.StringIO())
+            self.assertEqual(status, 1)
+            self.assertEqual(observed[0]["executorTrace"], events)
+            self.assertEqual(observed[0]["workspaceEvidence"]["untracked"][0]["content"], "Actual artifact")
+            self.assertEqual(next((root / "evals/results").glob("*.trace.jsonl")).read_text(), events)
+
     def test_invalid_json_grader_shapes_are_rejected_before_result_write(self) -> None:
         expectation = "The response chooses an owner."
         valid_result = {

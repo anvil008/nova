@@ -10,7 +10,7 @@ Get a repository into the shape where agents can work in it safely: instruction 
 Invocation: `/workcell:repo-setup`
 Prompting Reference: [`docs/models/claude-sonnet-5/prompting.md`](../../runtime/docs/models/claude-sonnet-5/prompting.md)
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Claude Code's `Agent` tool, hold the human gates, run `git` / `jj` / `gh` and scripts via the `Bash` tool for branch, merge, and issue-state operations, and read gate output and handoff records using the [`anvil.agent-handoff/v1`](../../runtime/handoff.md) schema. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+The orchestrator owns scope, user decisions, dispatch, and final evaluation. Specialists author plans and changes; independent evidence determines completion. Team size follows useful work and explicit user constraints. See [ADR 0029](../../runtime/docs/adr/0029-composable-workflows-and-native-research.md). Dispatch specialists with Claude Code's `Agent` tool and use `Bash` for commands. Use `agents/models.json` and [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
 
 This orchestrator interviews the human and assigns documentation to `documenter` and code-like configuration to `builder`. Following the Claude Sonnet 5 guide, structure task specifications directly, demand comprehensive reporting, and keep instructions grounded in concrete commands.
 
@@ -63,7 +63,7 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
    scripts/bootstrap-project.sh --install --with-hooks <dir>
    ```
 
-   Everything it writes is added to the repository's `info/exclude`, so none of it shows up in a diff or a commit. Any config that is genuinely code — a CI workflow, a build file, a Bazel target — goes through a `builder` test-first where it is testable, not hand-edited here.
+   Everything it writes is added to the repository's `info/exclude`, so none of it shows up in a diff or a commit. Source configuration changes such as CI workflows, build files, and Bazel targets use [build](../build/SKILL.md), carrying the setup decisions and authorization. Build establishes the missing executable checks, isolation, specifier RED or appropriate protected baseline, implementation, independent review, and final verification. Do not dispatch an unprepared builder directly.
 6. **Prove it.** Dispatch an `integrator` via the `Agent` tool with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) and carrying `mode: baseline`: run the documented verification on the untouched tree at `base`, return command-linked evidence, and perform no merge. It runs the documented build, test, and lint commands exactly as written in the instruction files. This is the whole point of the setup: if the commands in `AGENTS.md` do not run, the file is a liability. Fix and re-run until they do.
 7. **Report** what was set up, what was left alone and why, and what the human still has to decide.
 
@@ -74,3 +74,7 @@ Never overwrite an existing `AGENTS.md`, `CLAUDE.md`, or CI workflow without sho
 ## Harness Limitations
 
 Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.
+
+## Source changes
+
+Route authorized CI, build, and source configuration changes through [build](../build/SKILL.md), carrying the existing goal, decisions, and authorization. Build owns executable checks, workspace isolation, independent test protection, implementation, review, documentation, and final verification. A direct builder dispatch without that preparation is incomplete. Return the verified source to this workflow; deployment still uses the named target and commit authorization.

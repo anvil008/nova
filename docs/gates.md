@@ -44,17 +44,27 @@ In detail, and in the order the wave hits them:
    only legitimate amendment is `tdd-guard reseal --reason <text>`, after proving the amended test
    fails for the intended reason.
 3. **`tdd-guard verify --green-command <argv...>`** accepts the run only if the tests are byte-identical
-   to the seal and the GREEN run _postdates_ it. Optional `--coverage-command` and `--min-coverage`
-   add a coverage floor; `tdd-guard arch-check --assertions <file>` asserts structural invariants.
+   to the seal and the GREEN run _postdates_ it. GREEN also binds the base commit and source diff
+   digest observed before the run; the source must remain unchanged through verification.
+   Every new attempt discards previous GREEN, including on command failure, and ends the
+   specifier's Stop relaxation. Concurrent verification attempts are rejected.
+   Optional `--coverage-command` and `--min-coverage` report advisory coverage, not a blocking
+   floor; `tdd-guard arch-check --assertions <file>` asserts structural invariants.
 4. **`tdd-guard diff-review record --findings <file>`** binds review findings to the current diff. Change
-   the diff afterwards and the record goes stale.
+   the diff or its base afterwards and the record goes stale. Keep the findings file outside
+   the working copy so recording evidence does not itself change the tested tree.
 5. **`tdd-guard handoff --to builder`** ends the `specifier`'s turn. The Stop gate is written for an
    implementer, so without this a sealing agent would deadlock on GREEN evidence it is not allowed to
    produce. It relaxes the Stop gate only — `ready` stays false until the implementation exists.
 6. **The Stop hook refuses to let a builder finish** while any of that is missing: sealed tests changed
-   without a recorded amendment, no green evidence, green evidence older than the current seal, or a
+   without a recorded amendment, no green evidence, green evidence older than the current seal,
+   GREEN for another source tree or base (`greenStale: true`), or a
    missing/stale diff review. `tdd-guard status --json` reports the same state for a human or the
    orchestrator, and it is the gate that decides a merge — a handoff never satisfies it.
+
+Older GREEN records without a source binding require reverification. After final source edits
+or commits, verify and review again before handing off. Local build integration preserves source
+workspaces until the orchestrator accepts a tested candidate; see [build runs](build-runs.md).
 
 Runtime verification is a contract-level gate, not a mechanical one. Between GREEN and its review
 passes the `builder` must run the surface it changed — a browser for UI, `curl` against a started
@@ -74,9 +84,7 @@ belong to the main conversation: Claude Code and Codex stamp the calling subagen
 `agent_type` into the hook payload and omit both for their own top-level session, so the payload —
 not the environment, which is identical either way — is the discriminator, and the rule is uniform
 across those two harnesses. Antigravity registers hooks session-wide and names no caller at all, so
-merges there stay denied whoever asked. Grok wires no hooks at all, so this discrimination does not
-apply there either — nothing mechanical gates a Grok merge, and the same procedural-only caveat
-above holds. `--admin` and `--auto` are denied for everyone, the main
+merges there stay denied whoever asked. `--admin` and `--auto` are denied for everyone, the main
 conversation included: an orchestrator's merge is an ordinary merge of a reviewed, green pull
 request, never an override of a red check nor one armed to fire on checks no human has read. ADR
 0011 records the decision and its residual risk.
@@ -92,10 +100,7 @@ its gates. [Eval runs](eval-runs.md) has the recipe and ADR 0013 the decision.
 
 Claude Code, Antigravity, and Codex wire these to native tool events. Codex plugin hooks remain
 inactive until the user trusts them with `/hooks`, so its agent definitions also document explicit
-`build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions. Grok Build ships no hooks at all — its hook payload is a different dialect the gate scripts would
-misparse — so none of the mechanical gates above are wired there; the seal → implement → verify →
-review → handoff ceremony still applies on Grok, but only as procedure written into the agent
-bodies, with no `PreToolUse`/`PostToolUse`/`Stop` hook enforcing it.
+`build-guard codex` and `tdd-guard` commands as the fallback for untrusted or ad-hoc sessions.
 
 ## Repository Mechanical Gates
 
@@ -115,7 +120,7 @@ In addition to runtime tool-event hooks, Workcell enforces mechanical repository
 
 4. **Contract Parity Gate**:
    `python3 scripts/check-contract-parity.py`
-   Enforces contract parity across all four harness families defined in `contracts/harness-contracts.json`.
+   Enforces contract parity across all three harness families defined in `contracts/harness-contracts.json`.
 
 5. **Harness Body Checker Gate**:
    `python3 scripts/check-harness-bodies.py`
@@ -126,14 +131,12 @@ In addition to runtime tool-event hooks, Workcell enforces mechanical repository
    - `python3 evals/run_evals.py --harness claude`
    - `python3 evals/run_evals.py --harness codex`
    - `python3 evals/run_evals.py --harness agy`
-   - `python3 evals/run_evals.py --harness grok`
 
 7. **Harness Stagers**:
-   Plugin trees are built into standalone distribution directories via four harness stagers:
+   Plugin trees are built into standalone distribution directories via three harness stagers:
    - `python3 scripts/build-claude-plugin.py`
    - `python3 scripts/build-codex-plugin.py`
    - `python3 scripts/build-agy-plugin.py`
-   - `python3 scripts/build-grok-plugin.py`
 
 ### Generated Output Policy
 

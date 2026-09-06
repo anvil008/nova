@@ -3,24 +3,51 @@
   "kind": "agent",
   "trigger": {
     "positive": [
-      {"prompt": "Investigate exactly the storage area and return structured findings with source locations.", "top_k": 3},
-      {"prompt": "Do a read-only evidence pass over the one assigned subsystem and report its gaps.", "top_k": 3},
-      {"prompt": "Gather facts for this bounded research area in the required findings envelope, without drawing the overall conclusion.", "top_k": 3}
+      {
+        "prompt": "Investigate the storage area and return structured findings with source locations.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Do a read-only evidence pass over the assigned subsystem and report its gaps.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Gather facts for the planner in the required findings envelope without choosing the overall implementation plan.",
+        "top_k": 3
+      }
     ],
     "negative": [
-      {"prompt": "Split this question across code, docs, and runtime agents and merge every area's evidence.", "owner": "skill:research"},
-      {"prompt": "Investigate a coding task and author its implementation folio and issue sidecar.", "owner": "agent:planner"}
+      {
+        "prompt": "Direct research questions and synthesize the evidence into the implementation plan.",
+        "owner": "agent:planner"
+      },
+      {
+        "prompt": "Turn this repository change into a reviewed implementation roadmap and strict issue sidecar.",
+        "owner": "skill:plan"
+      }
     ]
   },
   "evals": [
     {
       "id": 1,
       "kind": "dialogue",
-      "prompt": "Research the caching subsystem and hand the evidence back to the orchestrator.",
-      "expected_output": "One anvil.agent-handoff/v1 record whose evidence contains a structured findings envelope.",
+      "prompt": "The planner asks you to investigate caching compatibility. A root orchestrator is relaying this assignment because the harness does not support nested agents. Hand the evidence back through that route.",
+      "expected_output": "One anvil.agent-handoff/v1 record with the assigned research envelope in evidence.",
       "expectations": [
-        "The result is a JSON findings envelope with source-backed evidence for the assigned area.",
-        "No report artifact is written and no cross-area synthesis or final conclusion is claimed."
+        "Keep the assigned area ID and return source-backed findings, coverage, gaps, and open questions.",
+        "Do not edit target files, spawn agents, or claim the overall plan is complete.",
+        "Return evidence to the requesting planner through the orchestrator without invoking a standalone research skill."
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Two inspected sources disagree about the cache lifetime and the runtime endpoint is unavailable. Report what you learned for the assigned cache area.",
+      "expected_output": "A research envelope retaining both source positions and the unavailable runtime coverage.",
+      "expectations": [
+        "Preserve both positions with source links and an explicit contradicts stance on their shared topic where supported.",
+        "Record the access failure as a gap and distinguish inference from inspected facts.",
+        "Do not choose a plan, fabricate runtime evidence, or treat agreement as proof."
       ]
     }
   ]

@@ -5,7 +5,7 @@
 # plugin's hooks call ~/.local/bin/tdd-guard and build-*, which that script provides.
 #
 #   scripts/bootstrap-plugins.sh                    # install into every harness present
-#   scripts/bootstrap-plugins.sh --harness claude   # just one (claude|codex|agy|grok)
+#   scripts/bootstrap-plugins.sh --harness claude   # just one (claude|codex|agy)
 #   scripts/bootstrap-plugins.sh --force            # also replace foreign *symlinks* (never files/dirs)
 #   scripts/bootstrap-plugins.sh --uninstall        # remove everything this script installs
 #
@@ -22,16 +22,9 @@
 #                            bypass hook trust for one invocation with --dangerously-bypass-hook-trust.
 #   Agy      plugins/agy     staged into dist/agy/ first, then installed as an
 #                            owned copy into ~/.gemini/config/plugins/workcell
-#   Grok     plugins/grok    staged into dist/grok/ first (Grok, like Codex, copies a
-#                            plugin on install and DROPS symlinks that leave the plugin
-#                            root), then installed as an owned copy at ~/.grok/plugins/workcell
-#                            via install_owned. Auto-discovered and auto-trusted in user scope;
-#                            no CLI required. No hooks ship: grok's hook payload is its own
-#                            dialect and the gates would misparse it; the tdd-guard ceremony
-#                            in the agent bodies is harness-neutral and still applies.
 #
 # Claude installs through a durable command-source marketplace under $(workcell_share_dir)/claude
-# that runs stage-workcell to refresh dist/claude/workcell on demand. Codex, Grok, and Antigravity
+# that runs stage-workcell to refresh dist/claude/workcell on demand. Codex and Antigravity
 # install from their staged trees under dist/. All four install a copy, so edits here reach
 # them on the next run of this script or the next session.
 #
@@ -44,14 +37,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/scripts/lib.sh"
 HARNESS=all; MODE=install; FORCE=""
 while (($#)); do case "$1" in
-  --harness) HARNESS=${2:?"--harness needs claude|codex|agy|grok"}; shift 2;;
+  --harness) HARNESS=${2:?"--harness needs claude|codex|agy"}; shift 2;;
   --install) MODE=install; shift;;
   --uninstall) MODE=uninstall; shift;;
   --force) FORCE=--force; shift;;
   -h|--help) sed -n '2,30p' "$0"; exit 0;;
   *) echo "unknown arg: $1" >&2; exit 2;;
 esac; done
-case "$HARNESS" in all|claude|codex|agy|grok) ;; *) die "unknown harness: $HARNESS (claude|codex|agy|grok)";; esac
+case "$HARNESS" in all|claude|codex|agy) ;; *) die "unknown harness: $HARNESS (claude|codex|agy)";; esac
 
 want(){ [[ $HARNESS == all || $HARNESS == "$1" ]]; }
 BIN="$HOME/.local/bin"
@@ -61,7 +54,7 @@ BIN="$HOME/.local/bin"
 # listed, so the only structural checks are that both sets are non-empty and that each
 # agent carries usable frontmatter.
 compgen -G "$ROOT/skills/*/" >/dev/null || die "no skills found under $ROOT/skills"
-agent_files(){ ls "$ROOT"/agents/claude/*.md "$ROOT"/agents/codex/*.md "$ROOT"/agents/grok/*.md "$ROOT"/agents/agy/*/agent.md 2>/dev/null; }
+agent_files(){ ls "$ROOT"/agents/claude/*.md "$ROOT"/agents/codex/*.md "$ROOT"/agents/agy/*/agent.md 2>/dev/null; }
 [[ -n $(agent_files) ]] || die "no agent definitions found under $ROOT/agents"
 while read -r f; do
   check_frontmatter "$f" || die "invalid agent frontmatter in $f"
@@ -394,41 +387,6 @@ codex_plugin(){
 }
 codex_plugin
 
-# ---- Grok Build ----
-# Grok consumes the Claude plugin layout (manifest, agents/*.md, skills/) but, like
-# Codex, copies a plugin on install and drops symlinks that leave the plugin root, so
-# it too stages a real tree first. Grok auto-discovers and auto-trusts plugins at
-# ~/.grok/plugins/<name>, so it needs no grok CLI at all to install. When the CLI is
-# present, retire legacy marketplace registrations from earlier versions.
-grok_plugin(){
-  want grok || return 0
-  [[ -d $HOME/.grok ]] || return 0
-  if [[ $MODE == install ]]; then
-    command -v python3 >/dev/null || die "grok: python3 is required to stage the plugin"
-    python3 "$ROOT/scripts/build-grok-plugin.py" >/dev/null || die "grok: staging failed"
-    # Retire legacy marketplace registrations when the grok CLI is available.
-    if command -v grok >/dev/null; then
-      grok plugin uninstall workcell >/dev/null 2>&1 || true
-      grok plugin marketplace remove "$ROOT/dist/grok" >/dev/null 2>&1 || true
-      grok plugin marketplace remove "$ROOT" >/dev/null 2>&1 || true
-    fi
-    local version
-    version=$(repo_semver)
-    if install_owned "$ROOT/dist/grok/plugins/workcell" "$HOME/.grok/plugins/workcell" "$version" $FORCE; then
-      echo "grok: workcell plugin installed at $HOME/.grok/plugins/workcell (start a new session or press 'r' in Grok's Plugins tab to load changes)"
-    else
-      bad=$((bad+1))
-    fi
-  else
-    if command -v grok >/dev/null; then
-      grok plugin uninstall workcell >/dev/null 2>&1 || true
-      grok plugin marketplace remove "$ROOT/dist/grok" >/dev/null 2>&1 || true
-      grok plugin marketplace remove "$ROOT" >/dev/null 2>&1 || true
-    fi
-    uninstall_owned "$HOME/.grok/plugins/workcell"
-  fi
-}
-grok_plugin
 
 # ---- retire the MCP servers this script used to register ----
 # Every browser surface, the debugger's diagnostics included, now runs through the
@@ -453,10 +411,6 @@ register_mcp(){
        && agy mcp list 2>/dev/null | grep "^${name}[[:space:]]" | grep -qF -- "$cmd"; then
       agy mcp remove "$name" >/dev/null 2>&1 && echo "agy: $name MCP server retired"
     fi
-    if want grok && command -v grok >/dev/null \
-       && grok mcp list 2>/dev/null | grep "$name" | grep -qF -- "$cmd"; then
-      grok mcp remove "$name" >/dev/null 2>&1 && echo "grok: $name MCP server retired"
-    fi
   done
 }
 
@@ -468,7 +422,6 @@ if [[ $MODE == install ]]; then
 else
   # Say what was deliberately left behind, using the same ownership test as unlink_owned.
   report_unowned "$HOME/.claude/plugins" "$HOME/.codex/plugins" \
-                 "$HOME/.gemini/config/plugins" "$HOME/.gemini/antigravity-cli/plugins" \
-                 "$HOME/.grok/plugins"
+                 "$HOME/.gemini/config/plugins" "$HOME/.gemini/antigravity-cli/plugins"
   echo "uninstalled."
 fi

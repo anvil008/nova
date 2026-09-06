@@ -49,14 +49,13 @@ Claude the one exception. What that means per harness:
 | ----------- | ------------------------------------ | -------------------------------------------------------------------------------- |
 | Claude Code | `~/.local/share/workcell/claude`     | by itself — the marketplace entry is a command source that re-stages per session |
 | Codex       | `~/.local/share/workcell/codex`      | `scripts/bootstrap-plugins.sh`                                                   |
-| Grok Build  | `~/.grok/plugins/workcell`           | `scripts/bootstrap-plugins.sh`, then a new session                               |
 | Antigravity | `~/.gemini/config/plugins/workcell`  | `scripts/bootstrap-plugins.sh`, then a new session                               |
 
 Claude is the only harness that refreshes itself: its command source re-stages from this
 repository when the repository is there, and replays the last staged tree when it is not, so the
-plugin keeps working on a machine with no checkout at all. Grok and Antigravity find their plugin
+plugin keeps working on a machine with no checkout at all. Antigravity finds its plugin
 by scanning that directory when a session starts, so a session already running will not see a
-refreshed copy — start a new session (in Grok, `r` in the Plugins tab does the same). The tools in
+refreshed copy — start a new session. The tools in
 `~/.local/bin` refresh only on `scripts/bootstrap-tools.sh --install`.
 
 ### Installing `tdd-guard` without a checkout
@@ -79,7 +78,7 @@ tdd-guard version    # tdd-guard 0.6.0+<commit>
 If `gh release download` reports nothing found, the tag's release has not been published yet —
 the assets are still on the workflow run, reachable with `gh run download`. Each binary is stamped
 at link time with the version plus the commit that built it, and `guard/version.go` is the single
-source both the stamp and all four plugin manifests come from — CI fails the build if they
+source both the stamp and all three plugin manifests come from — CI fails the build if they
 disagree. Installed this way the guard carries no receipt, so `bootstrap-tools.sh`'s report says
 nothing about it; the hook wrappers and the plugin itself still come from a checkout.
 
@@ -104,7 +103,6 @@ Each harness gets only the knobs it actually honours, which differ more than the
 | Claude      | `opus` / `sonnet` / `haiku` / `inherit` | `low` – `xhigh`    | agent frontmatter — fully per-agent                                  |
 | Codex       | any model id                            | `low` – `max`      | generated `spawn_agent` routing; profiles for manual launches        |
 | Antigravity | `pro` / `flash` / `inherit`             | _(none per-agent)_ | agent frontmatter                                                    |
-| Grok        | `inherit` / any model id                | _(none per-agent)_ | agent frontmatter; read-only agents also set `permission_mode: plan` |
 
 The Codex plugin manifest has no per-agent model surface, and `agents/openai.yaml` is UI metadata.
 Workcell therefore generates an explicit routing contract into every staged Codex skill: each
@@ -122,9 +120,7 @@ model-and-effort routing table used for subagent dispatch.
 
 Antigravity does have reasoning effort, but session-wide via `/effort` or `--effort` — there is no
 frontmatter key, so the manifest deliberately offers none rather than writing a value that does
-nothing. Grok is a single-model harness today, so its knob is `model` alone (`inherit` follows the
-session); it has no verified per-agent effort surface or per-agent tool list, so read-only Grok
-agents are scoped with `permission_mode: plan` instead. Anything an agent leaves out falls back to
+nothing. Anything an agent leaves out falls back to
 `defaults`. To apply or verify by hand:
 
 ```sh
@@ -178,7 +174,17 @@ marketplace, then re-run `bootstrap-plugins.sh`.
 
 If a previous install ran from a path that no longer exists — a deleted release worktree, for
 example — and the installer's own sweep did not reach it, remove the stale registration by hand
-(`claude`/`codex`/`grok plugin marketplace remove <old-path>`) before re-running
+(`claude`/`codex plugin marketplace remove <old-path>`) before re-running
 `bootstrap-plugins.sh`; otherwise the harness refuses a second registration under the same name,
 or ends up with a duplicate entry that never resolves. See
 [ADR 0021](adr/0021-deploys-serve-plugins-from-a-durable-path.md).
+
+## Locally observed Claude compatibility
+
+On 2026-09-06, Claude Code 2.1.118 rejected the existing marketplace entry using
+`source: command` with `mode: copy` as an invalid schema. In an all-harness install,
+that failure stops the script before Codex registration. The workflow consolidation
+and Grok removal do not change this marketplace mechanism. Staging validates the
+self-contained package layout; it does not prove this CLI accepts the marketplace.
+Treat the registration failure as unresolved compatibility, rather than reporting
+an installed plugin or assuming a newer CLI fixes it without verification.

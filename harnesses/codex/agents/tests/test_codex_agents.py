@@ -2,7 +2,7 @@
 
 Verifies that:
 1. ten-codex-agents-resolve-routes (unit): Ten roles resolve non-empty
-   gpt-5.6-sol/allowed effort; missing or unavailable routes fail rather than inherit.
+   gpt-6-astra/allowed effort; missing or unavailable routes fail rather than inherit.
 2. toml-agents-and-profiles-agree (integration): Generated TOML/profile files parse
    and agree on model/effort/isolation; one mutation makes --check name the file.
 3. dispatches-use-bounded-forks (unit): Every specialist dispatch requires exact
@@ -145,8 +145,8 @@ def _gate_is_represented(gate: str, text: str) -> bool:
         return "green" in t
     elif g == "runtime proof":
         return "runtime" in t or "proof" in t or "evidence" in t
-    elif g == "two reviews":
-        return "two" in t and ("review" in t or "pass" in t)
+    elif g == "independent review":
+        return "independent" in t and "review" in t
     elif g == "pull request":
         return "pull request" in t or " pr" in t
     elif g == "acceptance test":
@@ -172,7 +172,7 @@ def _gate_is_represented(gate: str, text: str) -> bool:
     elif g == "runtime verification":
         return "verification" in t or "verify" in t or "runtime" in t
     elif g == "truth inspection":
-        return "truth" in t or "inspection" in t or "reality" in t
+        return "truth" in t or "inspection" in t or "reality" in t or ("inspect" in t and "source" in t)
     elif g == "scoped edit":
         return "scope" in t or "edit" in t
     elif g == "docs validation":
@@ -221,7 +221,7 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
 
     def test_ten_codex_agents_resolve_routes(self) -> None:
         """ten-codex-agents-resolve-routes (unit):
-        Ten roles resolve non-empty gpt-5.6-sol/allowed effort; missing or
+        Ten roles resolve non-empty gpt-6-astra/allowed effort; missing or
         unavailable routes fail rather than inherit.
         """
         # 1. Exactly ten markdown files exist directly under harnesses/codex/agents/
@@ -239,8 +239,8 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
             resolved = resolve_codex_role(role, models_data)
             self.assertEqual(
                 resolved["model"],
-                "gpt-5.6-sol",
-                f"Role {role} must resolve model 'gpt-5.6-sol', got {resolved['model']}",
+                "gpt-6-astra",
+                f"Role {role} must resolve model 'gpt-6-astra', got {resolved['model']}",
             )
             self.assertIn(
                 resolved["effort"],
@@ -251,7 +251,7 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
             # Frontmatter check
             meta, body = parse_frontmatter(definition_files[role])
             self.assertEqual(meta.get("name"), role)
-            self.assertEqual(meta.get("model"), "gpt-5.6-sol")
+            self.assertEqual(meta.get("model"), "gpt-6-astra")
             self.assertEqual(meta.get("model_reasoning_effort"), resolved["effort"])
             self.assertTrue(
                 bool(meta.get("description")),
@@ -277,10 +277,10 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
         # Unavailable/invalid effort fails rather than inherits
         bad_manifest_bad_effort = {
             "defaults": {
-                "codex": {"model": "gpt-5.6-sol", "effort": "unsupported-effort"}
+                "codex": {"model": "gpt-6-astra", "effort": "unsupported-effort"}
             },
             "agents": {
-                "builder": {"codex": {"model": "gpt-5.6-sol", "effort": "turbo"}}
+                "builder": {"codex": {"model": "gpt-6-astra", "effort": "turbo"}}
             },
         }
         with self.assertRaises(
@@ -319,7 +319,7 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
                         bool(body.strip()), f"Role {role} body must be non-empty"
                     )
                 elif req == "model":
-                    self.assertEqual(meta.get("model"), "gpt-5.6-sol")
+                    self.assertEqual(meta.get("model"), "gpt-6-astra")
                 elif req == "effort":
                     self.assertIn(meta.get("model_reasoning_effort"), ALLOWED_EFFORTS)
 
@@ -334,18 +334,18 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
                     f"Role {role} must represent gate {gate!r}",
                 )
 
-        # 5. Official GPT-5.6 Sol guide citations
+        # 5. Official GPT-6 Astra guide citations
         for role in CODEX_ROLES:
             meta, body = parse_frontmatter(definition_files[role])
-            has_sol_guide = bool(
+            has_astra_guide = bool(
                 re.search(
-                    r"docs/models/gpt-5\.6-sol/prompting\.md|gpt-5\.6-sol/prompting\.md",
+                    r"docs/models/gpt-6-astra/prompting\.md|gpt-6-astra/prompting\.md",
                     body,
                 )
             )
             self.assertTrue(
-                has_sol_guide,
-                f"Role {role} must cite official GPT-5.6 Sol guide (docs/models/gpt-5.6-sol/prompting.md)",
+                has_astra_guide,
+                f"Role {role} must cite official GPT-6 Astra guide (docs/models/gpt-6-astra/prompting.md)",
             )
             self.assertNotIn("claude-fable", body.lower())
             self.assertNotIn("claude-opus", body.lower())
@@ -410,7 +410,7 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
                 meta, body = parse_frontmatter(AGENTS_DIR / f"{role}.md")
 
                 # Agreement on model
-                self.assertEqual(parsed.get("model"), "gpt-5.6-sol")
+                self.assertEqual(parsed.get("model"), "gpt-6-astra")
                 self.assertEqual(parsed.get("model"), expected_route["model"])
                 self.assertEqual(parsed.get("model"), meta.get("model"))
 
@@ -575,7 +575,7 @@ class CodexAgentsAcceptanceTests(unittest.TestCase):
         for role in CODEX_ROLES:
             expected_effort = routing[role]["effort"]
             self.assertIn(
-                f"- `{role}`: `model=gpt-5.6-sol`, `reasoning_effort={expected_effort}`",
+                f"- `{role}`: `model=gpt-6-astra`, `reasoning_effort={expected_effort}`",
                 contract_text,
             )
 

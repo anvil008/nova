@@ -72,15 +72,6 @@ def _real_home_state() -> list[str] | None:
 REAL_HOME_STATE = _real_home_state()
 
 # The paragraph every orchestrator skill carries verbatim (ADR 0007).
-CANONICAL_BOUNDARY = (
-    "You are the orchestrator ([ADR 0007]("
-    "../../docs/adr/"
-    "0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human "
-    "gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read "
-    "gate output and handoff records. You never read or edit the target project's code, run "
-    "its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch "
-    "is orchestration; reading a file's contents to judge it is not."
-)
 
 PROSE_ONE = "The integrator timed out waiting on the sandbox lock."
 PROSE_TWO = "The same lock starved a second wave on a slower runner."
@@ -957,13 +948,11 @@ class SkillContractTests(WikiTestCase):
 
     def test_the_skill_contract_states_its_boundaries(self):
         text = self.skill_text()
-        canonical = CANONICAL_BOUNDARY.replace("../../runtime/docs/", "../../docs/")
-        self.assertIn(
-            canonical,
-            text,
-            "skills/wiki/SKILL.md must carry the canonical ADR-0007 orchestrator "
-            "paragraph verbatim",
-        )
+        self.assertIn("The orchestrator owns scope, user decisions, dispatch", text)
+        self.assertIn("Specialists author plans and source changes", text)
+        self.assertIn("independent evidence determines completion", text)
+        self.assertIn("Serialize updates to shared append-only pages", text)
+        self.assertNotIn("exactly one `documenter` dispatch", text)
         self.sentence(
             text,
             [r"(no|without a|absent) namespace", r"(no|never|not) dispatch"],
@@ -972,7 +961,7 @@ class SkillContractTests(WikiTestCase):
         self.sentence(
             text,
             [
-                r"\b(one|single|exactly one)\b",
+                r"disjoint",
                 r"documenter",
                 r"agents/handoff\.md",
                 r"ownership",

@@ -3,13 +3,60 @@
   "kind": "skill",
   "trigger": {
     "positive": [
-      {"prompt": "Run the approved milestone in dependency waves and keep each issue isolated.", "top_k": 3},
-      {"prompt": "Take this accepted work plan wave by wave; each ticket gets separate test-writing and implementation agents, followed by combined verification.", "top_k": 3},
-      {"prompt": "Resume the remaining planned issues in dependency order, keeping the test writer ahead of the implementer and checking each batch together.", "top_k": 3}
+      {
+        "prompt": "Run the approved milestone in dependency waves and keep each issue isolated.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Take this accepted work plan wave by wave; each ticket gets separate test-writing and implementation agents, followed by combined verification.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Resume the remaining planned issues in dependency order, keeping the test writer ahead of the implementer and checking each batch together.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Implement one small behavior change using the existing API and a concise brief, with sealed tests and one PR.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Add a bounded CSV download for this table; the interface and ownership are already clear.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Use build for a well-understood change without creating a milestone.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Deliver a substantial feature across dependent tasks and ownership areas using resumable waves and one final PR.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Implement a coordinated migration of organization ownership while preserving existing clients.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Use build to plan the architecture and execute an approved multi-issue milestone.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Take this feature idea through a grounded scope interview, planning, and a final PR.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Use build to establish users, scope edges, and failure behavior before implementation.",
+        "top_k": 3
+      }
     ],
     "negative": [
-      {"prompt": "Audit this pull request through correctness, security, and test lenses before merge.", "owner": "skill:code-review"},
-      {"prompt": "A CI job is failing with a stack trace; reproduce it and find the cause.", "owner": "skill:debug"}
+      {
+        "prompt": "Audit this pull request through correctness, security, and test lenses before merge.",
+        "owner": "skill:review"
+      },
+      {
+        "prompt": "A CI job is failing with a stack trace; reproduce it and find the cause.",
+        "owner": "skill:debug"
+      }
     ]
   },
   "evals": [
@@ -31,6 +78,96 @@
       "expectations": [
         "The specifier phase remains before the builder phase.",
         "The builder is dispatched only after a valid red seal exists."
+      ]
+    },
+    {
+      "id": 3,
+      "kind": "dialogue",
+      "prompt": "Add CSV download to the existing filtered orders table. The columns and filter behavior stay the same. Repository investigation confirms one existing export module owns this.",
+      "expected_output": "A concise planner-authored Markdown brief and standard independent specialist gates, without synthetic milestones.",
+      "expectations": [
+        "A planner authors missing executable detail and acceptance specifications; the orchestrator reviews it.",
+        "No mandatory question count, format question, or synthetic GitHub resources; research is managed within planning.",
+        "Specifier RED precedes builder; independent review and final verification remain required."
+      ]
+    },
+    {
+      "id": 4,
+      "kind": "dialogue",
+      "prompt": "Use build to rename this account ID. Inspection shows it is shared by old mobile clients, a public API, and database foreign keys; compatibility is undecided.",
+      "expected_output": "Escalate the coordinated change before implementation, retaining findings and asking the material compatibility question.",
+      "expectations": [
+        "Do not treat a small diff as proof of bounded scope.",
+        "No builder dispatch before the material compatibility decision is resolved.",
+        "Preserve the existing brief and evidence when expanding the task graph inside build."
+      ]
+    },
+    {
+      "id": 5,
+      "kind": "dialogue",
+      "prompt": "Add organization accounts and migrate existing ownership across the API, database, and permissions service. Legacy clients must remain compatible.",
+      "expected_output": "A planner-authored architecture plan with orchestrator review, exact approval, and resumable execution.",
+      "expectations": [
+        "Retain the already-stated legacy-client constraint; do not ask it again.",
+        "Planners author the selected plan and may direct relevant researchers; the orchestrator reviews the result and chooses the team size.",
+        "GitHub reconciliation is optional; preserve the existing authorization and reviewed task breakdown.",
+        "Use source-bound GREEN and candidate prepare/accept receipts, then one final PR.",
+        "Ask one plan or multiple plan ideas only when that choice is not already stated. Default to Markdown; HTML requires an explicit request."
+      ]
+    },
+    {
+      "id": 6,
+      "kind": "dialogue",
+      "prompt": "Add team invitations. The existing repository has email delivery and account membership; whether invitations grant access immediately is unspecified.",
+      "expected_output": "Ask about the material access decision, use repository evidence, and keep the planner responsible for plan authorship.",
+      "expectations": [
+        "No fixed quota of questions or repeated questions answered by the repository.",
+        "Resolve the access decision before finalizing acceptance criteria.",
+        "The orchestrator may investigate directly and delegate when useful."
+      ]
+    },
+    {
+      "id": 7,
+      "kind": "dialogue",
+      "prompt": "Implement the attached approved plan. It has task keys but no GitHub issues; keep this local and use as many builders as are useful.",
+      "expected_output": "Execute the existing plan through local dependency-ready selection and the shared gates without new planning or synthetic GitHub work.",
+      "expectations": [
+        "Reuse the provided executable plan and implementation authorization.",
+        "Select local task keys with null issue numbers and accepted receipts; GitHub issues are optional.",
+        "The orchestrator chooses useful delegation without a required or maximum team size; overlapping writes and unmet dependencies are still serialized."
+      ]
+    },
+    {
+      "id": 8,
+      "kind": "dialogue",
+      "prompt": "The reviewer still finds a high-severity issue after several repair passes. The latest fix is making measurable progress; continue the authorized build.",
+      "expected_output": "Continue the evidence-driven build repair cycle without a fixed pass or redispatch quota.",
+      "expectations": [
+        "Do not stop solely because a fixed pass count elapsed.",
+        "The orchestrator decides the next repair and independent review from current findings and progress.",
+        "The high-severity finding still blocks acceptance; do not invoke a standalone review-to-build cycle."
+      ]
+    },
+    {
+      "id": 9,
+      "kind": "dialogue",
+      "prompt": "The implementation wave is accepted, but the API documentation has not been combined yet. Can we open the final PR as verified?",
+      "expected_output": "Include the documentation before final source verification and deliver from the recorded complete source.",
+      "expectations": [
+        "Required documentation is combined before the final integrator checks.",
+        "Accepted integration bookmark remains bound to its ledger; separate documentation finalization cannot silently move it.",
+        "No verified completion claim applies to source that changed after the checks."
+      ]
+    },
+    {
+      "id": 10,
+      "kind": "dialogue",
+      "prompt": "Optimize the confirmed hot path without changing behavior. A profiler baseline and complete plan are already attached; implement and measure the result.",
+      "expected_output": "Reuse the inputs and run the behavior-preserving build path, with final profiler remeasurement.",
+      "expectations": [
+        "Do not replan complete executable detail or ask again whether to build.",
+        "Integrator GREEN baseline seal precedes refactor-mode builders; baseline tests remain unchanged.",
+        "Profiler remeasurement follows combined source verification using the same harness and baseline conditions."
       ]
     }
   ]

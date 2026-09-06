@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 292" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title diagram-desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 292" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title diagram-desc">
   <title id="diagram-title">Layered architecture of Workcell</title>
-  <desc id="diagram-desc">Workcell root defines shared contracts feeding four harness-owned families alongside shared scripts, tools, and repository tooling.</desc>
+  <desc id="diagram-desc">Workcell defines 12 public skills and 10 roles across Claude Code, Codex with GPT-6 Astra, and Antigravity. Harness-owned agents, skills, and scripts share evidence contracts and repository tooling. Research remains a planner capability rather than a standalone skill.</desc>
   <defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#8b949e"/></marker><marker id="arrow-muted" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#6e7681"/></marker></defs>
   <style>
     text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
@@ -26,26 +26,15 @@
   </style>
   <text class="title" x="20" y="32">Layered architecture of Workcell</text>
   <rect class="k-agent" x="20" y="41" width="28" height="14" rx="3.92"/><text class="legend" text-anchor="start" x="52" y="52">agent</text><path class="k-artifact" d="M 103.21 41 L 126.31 41 L 131.21 45.9 L 131.21 55 L 103.21 55 Z"/><path class="k-artifact crease" d="M 126.31 41 L 126.31 45.9 L 131.21 45.9"/><text class="legend" text-anchor="start" x="135.21" y="52">artifact</text><rect class="k-orchestrator" x="195.74" y="41" width="28" height="14" rx="3.92"/><rect class="k-orchestrator inner" x="197.98" y="43.24" width="23.52" height="9.52" rx="1.68"/><text class="legend" text-anchor="start" x="227.74" y="52">orchestrator</text>
-  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 129 Q 440 136 433 136 L 144 136 Q 137 136 137 143 L 137 150"/>
-  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 129 Q 440 136 433 136 L 346 136 Q 339 136 339 143 L 339 150"/>
-  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 129 Q 440 136 447 136 L 534 136 Q 541 136 541 143 L 541 150"/>
-  <path class="edge" marker-end="url(#arrow)" d="M 440 122 L 440 129 Q 440 136 447 136 L 736 136 Q 743 136 743 143 L 743 150"/>
-  <path class="edge" marker-end="url(#arrow)" d="M 137 198 L 137 205 Q 137 212 144 212 L 433 212 Q 440 212 440 219 L 440 226"/>
-  <path class="edge" marker-end="url(#arrow)" d="M 339 198 L 339 205 Q 339 212 346 212 L 433 212 Q 440 212 440 219 L 440 226"/>
-  <path class="edge" marker-end="url(#arrow)" d="M 541 198 L 541 205 Q 541 212 534 212 L 447 212 Q 440 212 440 219 L 440 226"/>
-  <path class="edge" marker-end="url(#arrow)" d="M 743 198 L 743 205 Q 743 212 736 212 L 447 212 Q 440 212 440 219 L 440 226"/>
-  <rect class="k-orchestrator" x="338" y="74" width="204" height="48" rx="10"/><rect class="k-orchestrator inner" x="342" y="78" width="196" height="40" rx="6"/><text class="label" x="440" y="94.5">Workcell root</text><text class="sub" x="440" y="110">shared contracts and registry</text>
-  <rect class="k-agent" x="51" y="150" width="172" height="48" rx="10"/><text class="label" x="137" y="170.5">Claude Code</text><text class="sub" x="137" y="186">Agents · Skills · Scripts</text>
-  <rect class="k-agent" x="253" y="150" width="172" height="48" rx="10"/><text class="label" x="339" y="170.5">Codex</text><text class="sub" x="339" y="186">Agents · Skills · Scripts</text>
-  <rect class="k-agent" x="455" y="150" width="172" height="48" rx="10"/><text class="label" x="541" y="170.5">Antigravity (agy)</text><text class="sub" x="541" y="186">Agents · Skills · Scripts</text>
-  <rect class="k-agent" x="657" y="150" width="172" height="48" rx="10"/><text class="label" x="743" y="170.5">Grok Build</text><text class="sub" x="743" y="186">Agents · Skills · Scripts</text>
-  <path class="k-artifact" d="M 284 226 L 582 226 L 596 240 L 596 274 L 284 274 Z"/><path class="k-artifact crease" d="M 582 226 L 582 240 L 596 240"/><text class="label" x="440" y="246.5">Scripts, Tools, and everything else</text><text class="sub" x="440" y="262">shared runner, validators, and repository tooling</text>
-  
-  
-  
-  
-  
-  
-  
-  
+  <path class="edge" marker-end="url(#arrow)" d="M 520 122 L 520 129 Q 520 136 513 136 L 221 136 Q 214 136 214 143 L 214 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 520 122 L 520 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 520 122 L 520 129 Q 520 136 527 136 L 819 136 Q 826 136 826 143 L 826 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 214 198 L 214 205 Q 214 212 221 212 L 513 212 Q 520 212 520 219 L 520 226"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 520 198 L 520 226"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 826 198 L 826 205 Q 826 212 819 212 L 527 212 Q 520 212 520 219 L 520 226"/>
+  <rect class="k-orchestrator" x="369" y="74" width="302" height="48" rx="10"/><rect class="k-orchestrator inner" x="373" y="78" width="294" height="40" rx="6"/><text class="label" x="520" y="94.5">Workcell root</text><text class="sub" x="520" y="110">12 skills · 10 roles · shared evidence contracts</text>
+  <rect class="k-agent" x="76" y="150" width="276" height="48" rx="10"/><text class="label" x="214" y="170.5">Claude Code</text><text class="sub" x="214" y="186">Agents · Skills · Scripts · Opus 5</text>
+  <rect class="k-agent" x="382" y="150" width="276" height="48" rx="10"/><text class="label" x="520" y="170.5">Codex</text><text class="sub" x="520" y="186">Agents · Skills · Scripts · GPT-6 Astra</text>
+  <rect class="k-agent" x="688" y="150" width="276" height="48" rx="10"/><text class="label" x="826" y="170.5">Antigravity (agy)</text><text class="sub" x="826" y="186">Agents · Skills · Scripts · Gemini 3.8 Flash</text>
+  <path class="k-artifact" d="M 364 226 L 662 226 L 676 240 L 676 274 L 364 274 Z"/><path class="k-artifact crease" d="M 662 226 L 662 240 L 676 240"/><text class="label" x="520" y="246.5">Scripts, Tools, and everything else</text><text class="sub" x="520" y="262">shared runner, validators, and repository tooling</text>
 </svg>

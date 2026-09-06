@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = str(ROOT / "scripts")
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
-import waves
+import waves  # noqa: E402 - load the skill-local module
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "waves.py"
@@ -35,6 +35,12 @@ GH_RAW = EXAMPLES / "gh-issues-raw.json"
 # The only inputs the documented capture command may assume.
 CAPTURE_ENV = {"REPO": "foundry-zero/workcell", "MILESTONE": "Builder v3 wave demo"}
 AGENT = ROOT.parents[1] / "agents" / "claude" / "builder.md"
+
+
+def build_contract():
+    return "\n".join((ROOT / name).read_text(encoding="utf-8") for name in (
+        "SKILL.md", "references/dependency-runs.md", "references/single-change.md", "references/finalization.md"
+    ))
 
 
 def run_helper(sidecar, snapshot):
@@ -267,7 +273,7 @@ class BuildSkillTests(unittest.TestCase):
         return -1
 
     def _documented_capture_command(self):
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        skill = build_contract()
         blocks = [
             block
             for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
@@ -311,7 +317,7 @@ class BuildSkillTests(unittest.TestCase):
                 cwd=tmp,
                 text=True,
                 capture_output=True,
-                env={**os.environ, **CAPTURE_ENV},
+                env={**os.environ, **CAPTURE_ENV, "WORKCELL_RUN": tmp},
                 check=False,
             )
             self.assertEqual(run.returncode, 0, run.stderr)
@@ -351,10 +357,10 @@ class BuildSkillTests(unittest.TestCase):
         for required in ("name", "description", "tools"):
             self.assertIn(required, keys)
         for phrase in (
-            "exactly one assigned GitHub issue",
+            "assigned task",
             "status:in-progress",
             "sealed tests",
-            "tdd-guard reseal --reason",
+            "specifier",
             "tdd-guard verify",
             "git diff HEAD",
             "diff-review record",
@@ -367,9 +373,9 @@ class BuildSkillTests(unittest.TestCase):
         # Definition of Done, which is the loophole the split exists to close.
         self.assertNotIn("tdd-guard seal", agent)
 
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        skill = build_contract()
         for phrase in (
-            "GitHub is the source of truth",
+            "Remote completion",
             "current wave",
             "jj workspace",
             "combined GREEN",
@@ -379,7 +385,7 @@ class BuildSkillTests(unittest.TestCase):
             self.assertIn(phrase, skill)
 
     def test_every_harness_builder_publishes_the_jj_workspace_lifecycle(self):
-        """jj setup, workspace isolation, runtime proof, bounded review, local commit, teardown — in
+        """jj setup, workspace isolation, runtime proof, independent review, local commit, teardown — in
         that order, identically across harnesses. A builder that skips teardown leaks a working
         copy; one that tears down before committing locally strands the change; one that reviews
         before running the change reviews something nobody has seen work."""
@@ -392,9 +398,9 @@ class BuildSkillTests(unittest.TestCase):
             "jj workspace list",
             "tdd-guard verify",
             "Prove it runs, not just passes",
-            "at most two passes",
+            "independent review",
             "jj describe",
-            "jj workspace forget",
+            "workcell-ws forget",
         ]
         for path in builders:
             with self.subTest(builder=path.name):
@@ -403,7 +409,7 @@ class BuildSkillTests(unittest.TestCase):
                 positions = []
                 for phrase in ordered:
                     self.assertIn(phrase, agent, f"{path}: missing {phrase!r}")
-                    positions.append(agent.index(phrase))
+                    positions.append(agent.index(phrase, positions[-1] if positions else 0))
                 self.assertEqual(
                     positions, sorted(positions), f"{path}: lifecycle out of order"
                 )
@@ -413,7 +419,8 @@ class BuildSkillTests(unittest.TestCase):
                 self.assertNotIn("jj git push", agent)
                 self.assertNotIn("gh pr create", agent)
                 # Teardown must be gated on committing locally.
-                self.assertIn("after committing locally", agent)
+                self.assertIn("integration receipt", agent)
+                self.assertIn("retain", agent.lower())
                 self.assertTrue(
                     "never `jj abandon`" in agent.lower(),
                     f"{path}: missing 'never `jj abandon`'",
@@ -532,16 +539,17 @@ class BuildSkillTests(unittest.TestCase):
         self.assertFalse(waves.globs_overlap("src/[!a]/x.py", "src/a/x.py"))
 
     def _overlap_plan(self, wave):
-        issue = lambda key: {
-            "key": key,
-            "title": f"Issue {key}",
-            "body": f"Body {key}",
-            "labels": ["build"],
-            "dependsOn": [],
-            "ownershipHint": "skills/build/**",
-            "wave": wave,
-            "acceptanceTests": [{"name": "test", "kind": "unit", "oracle": "pass"}],
-        }
+        def issue(key):
+            return {
+                "key": key,
+                "title": f"Issue {key}",
+                "body": f"Body {key}",
+                "labels": ["build"],
+                "dependsOn": [],
+                "ownershipHint": "skills/build/**",
+                "wave": wave,
+                "acceptanceTests": [{"name": "test", "kind": "unit", "oracle": "pass"}],
+            }
         sidecar = {
             "planId": "overlap-test",
             "planName": "Overlap test",
@@ -643,7 +651,7 @@ class BuildSkillTests(unittest.TestCase):
                 positions = []
                 for phrase in ordered:
                     self.assertIn(phrase, agent, f"{path}: missing {phrase!r}")
-                    positions.append(agent.index(phrase))
+                    positions.append(agent.index(phrase, positions[-1] if positions else 0))
                 self.assertEqual(
                     positions, sorted(positions), f"{path}: lifecycle out of order"
                 )
@@ -656,21 +664,44 @@ class BuildSkillTests(unittest.TestCase):
                 self.assertNotIn("tdd-guard verify", agent)
 
     def test_skill_dispatches_the_two_phases_in_order(self):
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        skill = build_contract()
         for phrase in ("`specifier`", "Phase 1", "Phase 2", "integrator"):
             self.assertIn(phrase, skill)
         self.assertLess(skill.index("Phase 1"), skill.index("Phase 2"))
         self.assertIn("never dispatch a builder for an issue with no seal", skill)
 
-    def test_skill_documents_redispatch_cap(self):
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        for phrase in (
-            "`status:done`",
-            "at most twice",
-            "stalled",
-            "escalate to the human",
-        ):
-            self.assertIn(phrase, skill)
+    def test_local_selection_uses_real_task_keys_without_issue_numbers(self):
+        plan = json.loads(SIDECAR.read_text(encoding="utf-8"))
+        plan["repo"] = None
+        snapshot = waves.local_snapshot(plan)
+        first = waves.derive(plan, snapshot)
+        self.assertEqual(first["done"], [])
+        self.assertEqual([item["key"] for item in first["unblocked"]], ["Foundation"])
+        self.assertIsNone(first["unblocked"][0]["number"])
+        resumed = waves.derive(plan, snapshot, frozenset({"Foundation"}))
+        self.assertEqual([item["key"] for item in resumed["unblocked"]], ["API", "UI"])
+        self.assertTrue(all(item["number"] is None for item in resumed["unblocked"]))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "local.json"
+            path.write_text(json.dumps(plan), encoding="utf-8")
+            result = subprocess.run([sys.executable, "-B", str(SCRIPT), str(path), "--local"], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), first)
+
+    def test_local_selection_does_not_invent_external_completion(self):
+        plan = json.loads(SIDECAR.read_text(encoding="utf-8"))
+        plan["issues"][0]["dependsOn"] = ["External"]
+        with self.assertRaisesRegex(waves.BuildError, "unresolved external dependencies: External"):
+            waves.local_snapshot(plan)
+
+    def test_local_selection_has_no_team_size_ceiling(self):
+        plan = {"planId": "many", "planName": "Many tasks", "issues": [
+            {"key": f"Task{i}", "ownershipHint": f"area{i}/**", "wave": 1, "dependsOn": []}
+            for i in range(137)
+        ]}
+        result = waves.derive(plan, waves.local_snapshot(plan))
+        self.assertEqual(len(result["unblocked"]), 137)
+        self.assertEqual(result["deferred"], [])
 
     # --- dependency-gated selection with ownership deferral ----------------
     def _pull_forward(self):
@@ -792,7 +823,7 @@ class BuildSkillTests(unittest.TestCase):
 
     def _documented_waves_command(self, fixture):
         """The `waves.py` invocation SKILL.md actually publishes for a given fixture."""
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        skill = build_contract()
         blocks = [
             block
             for block in re.findall(r"```(?:bash|sh)\n(.*?)```", skill, re.DOTALL)
@@ -845,7 +876,7 @@ class BuildSkillTests(unittest.TestCase):
         """The prose the orchestrator reads has to describe the selection it will actually get:
         dependency-gated, checked for ownership across the whole in-flight set, with collisions
         deferred to a later round rather than serialized by hand."""
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        skill = build_contract()
         retired = (
             "The current wave is every unblocked, not-done issue in the earliest unfinished declared wave.",
             "must be serialized by hand",
@@ -902,7 +933,7 @@ class SpeculativeSpecifierTests(unittest.TestCase):
     """
 
     def skill(self):
-        return (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        return build_contract()
 
     def wave_loop(self):
         parts = self.skill().split("\n## Wave loop\n", 1)
@@ -1123,7 +1154,7 @@ class SpeculativeSpecifierTests(unittest.TestCase):
 
     def test_build_skill_invariants_survive(self):
         """The subsection is an addition, not a rewrite. With it in place, the wave loop
-        still runs 1..6 unrenumbered, the two phases keep their order, the ADR-0007
+        still runs 1..6 unrenumbered, the two phases keep their order, the ADR-0028
         boundary keeps its position, one capture command survives, and no sentence about
         the seal, the phases, or merging on combined GREEN has been softened to make room."""
         self.speculation_subsection()  # the edit landed; now check nothing else moved
@@ -1144,24 +1175,14 @@ class SpeculativeSpecifierTests(unittest.TestCase):
             "sole completion authority",
             "never dispatch a builder for an issue with no seal",
             "Never run the two phases concurrently",
-            "Treat every PR as tested on its old base",
-            "Merge only after combined green",
+            "Verify the combined candidate",
+            "After acceptance, refresh GitHub state",
             "It cannot edit the sealed tests: the guard denies those edits outright.",
         ):
             # `assertIn` would dump the whole SKILL.md into the failure report.
             self.assertTrue(
                 phrase in skill, f"pinned prose lost to the edit: {phrase!r}"
             )
-
-        # ADR 0007's boundary is still the second paragraph after the title.
-        after_title = skill.split("\n# ", 1)[1].split("\n\n", 1)[1]
-        boundary = after_title.split("\n\n")[1]
-        self.assertTrue(
-            boundary.startswith("You are the orchestrator ([ADR 0007]"),
-            "the canonical ADR-0007 paragraph must stay the second paragraph after the "
-            f"title; found instead:\n{boundary}",
-        )
-        self.assertIn("You never read or edit the target project's code", boundary)
 
         # Exactly one `gh ... | jq` capture block, as
         # test_documented_capture_command_produces_a_valid_snapshot requires.
@@ -1184,7 +1205,7 @@ class SpeculativeSpecifierTests(unittest.TestCase):
 CODE_SPAN = re.compile(r"`[^`]*`")
 # The step that accepts the wave: the one carrying the acceptance instruction.
 ACCEPTANCE = re.compile(r"Accept the wave on the")
-MERGE_STEP = re.compile(r"Merge only after combined green")
+MERGE_STEP = re.compile(r"After acceptance, refresh GitHub state")
 
 
 class WikiBuildTraceTests(unittest.TestCase):
@@ -1197,7 +1218,7 @@ class WikiBuildTraceTests(unittest.TestCase):
     """
 
     def skill(self):
-        return (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        return build_contract()
 
     def wave_loop(self):
         parts = self.skill().split("\n## Wave loop\n", 1)
@@ -1391,9 +1412,9 @@ class WikiBuildTraceTests(unittest.TestCase):
         )
         self.sentence(
             skill,
-            [r"combined GREEN", r"tdd-guard status --json", r"gh pr checks"],
+            [r"combined GREEN", r"fresh per-issue guard evidence", r"accepted local receipt"],
             "the merge gate must still be restated in one sentence as combined GREEN plus "
-            "a fresh `tdd-guard status --json` for every issue plus `gh pr checks` passing",
+            "fresh per-issue guard evidence and an accepted local receipt",
         )
 
     def test_wave_acceptance_documents_model_and_effort(self):
@@ -1446,6 +1467,43 @@ class WikiBuildTraceTests(unittest.TestCase):
             "handoff record or dispatch brief",
         )
 
+
+
+class PlannedTestOwnershipTests(unittest.TestCase):
+    def plan(self):
+        return json.loads(SIDECAR.read_text())
+
+    def test_shared_test_file_rejects_same_wave_parallelism(self):
+        plan = self.plan()
+        for issue in plan["issues"]:
+            if issue["key"] in {"API", "UI"}:
+                issue["acceptanceTests"][0]["testPath"] = "tests/test_export.py"
+        with self.assertRaises(waves.BuildError):
+            waves.validate_ownership_overlap(plan)
+
+    def test_test_write_conflicts_with_another_implementation_area(self):
+        plan = self.plan()
+        plan["issues"][1]["acceptanceTests"][0]["testPath"] = "src/ui/test_export.py"
+        with self.assertRaises(waves.BuildError):
+            waves.validate_ownership_overlap(plan)
+
+    def test_separate_test_files_preserve_parallelism(self):
+        plan = self.plan()
+        plan["issues"][1]["acceptanceTests"][0]["testPath"] = "tests/test_api.py"
+        plan["issues"][2]["acceptanceTests"][0]["testPath"] = "tests/test_ui.py"
+        waves.validate_ownership_overlap(plan)
+
+    def test_shared_tests_defer_cross_wave_ready_work(self):
+        plan = self.plan()
+        api, ui = plan["issues"][1:3]
+        for issue in (api, ui):
+            issue["acceptanceTests"][0]["testPath"] = "tests/test_export.py"
+        ui["wave"] = 3
+        snapshot = {issue["key"]: {"number": n, "state": "closed" if n == 1 else "open", "labels": ["status:done"] if n == 1 else []} for n, issue in enumerate(plan["issues"], 1)}
+        result = waves.derive(plan, snapshot)
+        self.assertEqual([entry["key"] for entry in result["unblocked"]], ["API"])
+        self.assertEqual(result["deferred"][0]["key"], "UI")
+        self.assertEqual(result["deferred"][0]["overlapsWith"], "API")
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,7 +28,6 @@ DEFAULT_TARGETS = (
 
 CARRIERS = (
     "plugins/claude/.claude-plugin/plugin.json",
-    "plugins/grok/.claude-plugin/plugin.json",
     "plugins/agy/plugin.json",
     "plugins/codex/.codex-plugin/plugin.json",
 )

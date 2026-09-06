@@ -35,7 +35,7 @@ MODELS = AGENTS / "models.json"
 BODIES = AGENTS / "bodies"
 GATES = AGENTS / "gates"
 
-HARNESSES = ("claude", "codex", "agy", "grok")
+HARNESSES = ("claude", "codex", "agy")
 
 # A body is shared, but harnesses genuinely differ: Codex spawns with
 # `spawn_agent`, Antigravity with `invoke_subagent`, and only Claude wires
@@ -154,33 +154,6 @@ def frontmatter(
             )
         return lines
 
-    if harness == "grok":
-        # Grok Build consumes the Claude plugin agent format. The pinned model comes
-        # from agents/models.json, and read-only
-        # agents are held to it via permission_mode rather than a tool list —
-        # grok's per-agent tool vocabulary is not yet verified, a tool list we
-        # cannot verify would be a lie, and permission_mode: plan is documented.
-        if "model" in tuned:
-            lines.append(f"model: {tuned['model']}")
-        if entry["grok"].get("permission_mode"):
-            lines.append(f"permission_mode: {entry['grok']['permission_mode']}")
-        if entry["grok"].get("capability_mode"):
-            lines.append(f"capability_mode: {entry['grok']['capability_mode']}")
-        if entry["grok"].get("inputs"):
-            lines.append("inputs:")
-            for item in entry["grok"]["inputs"]:
-                lines.append(f"  - name: {item['name']}")
-                lines.append(f"    io_type: {item['io_type']}")
-                lines.append(f"    required: {'true' if item['required'] else 'false'}")
-                lines.append(f"    description: {item['description']}")
-        if entry["grok"].get("outputs"):
-            lines.append("outputs:")
-            for item in entry["grok"]["outputs"]:
-                lines.append(f"  - name: {item['name']}")
-                lines.append(f"    io_type: {item['io_type']}")
-                lines.append(f"    required: {'true' if item['required'] else 'false'}")
-                lines.append(f"    description: {item['description']}")
-        return lines
 
     lines.append("tools:")
     lines.extend(f"  - {tool}" for tool in entry["agy"]["tools"])
@@ -217,7 +190,8 @@ def body_for(agent: str, harness: str, entry: dict, variables: dict) -> str:
     if harness == "agy":
         # agents/agy/<n>/agent.md sits one level deeper than the flat harness files.
         body = body.replace("](../../skills/", "](../../../skills/")
-    return body
+        body = body.replace("](../../docs/", "](../../../docs/")
+    return body.rstrip() + "\n"
 
 
 def render(agent: str, harness: str, entry: dict, models: dict, variables: dict) -> str:

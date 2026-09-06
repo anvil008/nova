@@ -24,7 +24,7 @@ CLAUDE_EFFORT = ("low", "medium", "high", "xhigh")
 CLAUDE_MODES = ("de-prescribed",)
 CODEX_EFFORT = ("low", "medium", "high", "xhigh", "max")
 AGY_MODELS = ("pro", "flash", "gemini-3.8-flash", "gemini-3.7-flash", "inherit")
-HARNESSES = frozenset({"claude", "codex", "agy", "grok"})
+HARNESSES = frozenset({"claude", "codex", "agy"})
 
 # Codex has no per-agent model surface in its plugin manifest. The staged plugin
 # therefore generates an explicit spawn_agent routing contract from this manifest;
@@ -40,7 +40,6 @@ HARNESS_KEYS = {
     "claude": {"model": "model", "effort": "effort", "mode": "mode"},
     "codex": {"model": "model", "effort": "model_reasoning_effort"},
     "agy": {"model": "model"},
-    "grok": {"model": "model"},
 }
 
 # Where a missing key is inserted, most specific anchor first. The frontmatter
@@ -49,7 +48,6 @@ ANCHORS = {
     "claude": ("effort", "model", "disallowedTools", "tools", "description", "name"),
     "codex": ("description", "name"),
     "agy": ("commandExecutionPolicy", "subagent", "mainAgent", "description", "name"),
-    "grok": ("description", "name"),
 }
 
 
@@ -286,7 +284,7 @@ def main() -> int:
     written = 0
 
     for agent, spec in sorted(agents.items()):
-        for harness in ("claude", "codex", "agy", "grok"):
+        for harness in ("claude", "codex", "agy"):
             path = agent_path(agent, harness)
             if not path.exists():
                 raise SyncError(f"{agent}: {path.relative_to(ROOT)} is missing")

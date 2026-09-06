@@ -5,7 +5,7 @@
     "and `--check` fails when a file has drifted. bootstrap-plugins.sh syncs before it",
     "installs, so editing here and re-running the installer is the whole workflow.",
     "",
-    "Fields per harness, and where each one actually takes effect \u2014 verified against",
+    "Fields per harness, and where each one actually takes effect — verified against",
     "each CLI, not assumed. The three harnesses differ in what they can scope per agent:",
     "",
     "  claude -> model: opus | sonnet | haiku | inherit   effort: low|medium|high|xhigh",
@@ -24,12 +24,8 @@
     "  agy    -> model: gemini-3.8-flash | pro | flash | inherit (no per-agent effort)",
     "            `model` is real agent frontmatter, defaulting to `inherit` (the",
     "            parent's model). Antigravity does have reasoning effort, but only",
-    "            session-wide, via the `/effort` command or the `--effort` launch flag \u2014",
+    "            session-wide, via the `/effort` command or the `--effort` launch flag —",
     "            there is no frontmatter key for it, so an effort set here would be a lie.",
-    "",
-    "  grok   -> model: grok-4.6                         (pinned for every agent;",
-    "            no per-agent effort surface is verified,",
-    "            and no per-agent tool list \u2014 read-only roles use permission_mode).",
     "",
     "An agent inherits `defaults` for any field it does not override."
   ],
@@ -39,14 +35,11 @@
       "effort": "medium"
     },
     "codex": {
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6-astra",
       "effort": "medium"
     },
     "agy": {
       "model": "gemini-3.8-flash"
-    },
-    "grok": {
-      "model": "grok-4.6"
     }
   },
   "agents": {
@@ -57,14 +50,11 @@
         "effort": "xhigh"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "high"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "specifier": {
@@ -74,32 +64,26 @@
         "effort": "high"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "high"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "builder": {
-      "_why": "Implements against a fixed target, with the guard and two review passes behind it.",
+      "_why": "Implements against a fixed target, with the guard and independent review behind it.",
       "claude": {
         "model": "claude-fable-5-1",
         "effort": "high",
         "mode": "de-prescribed"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "high"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "reviewer": {
@@ -109,14 +93,11 @@
         "effort": "medium"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "medium"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "integrator": {
@@ -126,31 +107,25 @@
         "effort": "medium"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "medium"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "researcher": {
-      "_why": "Gathers evidence for one area; the orchestrator synthesizes. Breadth matters more than depth per agent.",
+      "_why": "Gathers evidence for one area; the calling planner synthesizes it.",
       "claude": {
         "model": "claude-sonnet-5",
         "effort": "low"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "low"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "documenter": {
@@ -160,14 +135,11 @@
         "effort": "medium"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "medium"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "deployer": {
@@ -177,14 +149,11 @@
         "effort": "high"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "high"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "debugger": {
@@ -195,14 +164,11 @@
         "mode": "de-prescribed"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "high"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     },
     "profiler": {
@@ -212,14 +178,11 @@
         "effort": "medium"
       },
       "codex": {
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "medium"
       },
       "agy": {
         "model": "gemini-3.8-flash"
-      },
-      "grok": {
-        "model": "grok-4.6"
       }
     }
   },
@@ -233,9 +196,6 @@
     },
     "agy": {
       "gemini-3.8-flash": "docs/models/gemini-3.8-flash/prompting.md"
-    },
-    "grok": {
-      "grok-4.6": "grok-4.6"
     }
   }
 }

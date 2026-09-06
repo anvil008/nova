@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = str(ROOT / "scripts")
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
-import reconcile_github
+import reconcile_github  # noqa: E402 - load the skill-local module
 
 ROOT = Path(__file__).resolve().parents[1]
 RENDER = ROOT / "scripts" / "render_plan.py"
@@ -80,8 +80,8 @@ def sample_plan():
 
 
 REPO_ROOT = ROOT.parents[1]
-RECONCILE_FINDINGS = REPO_ROOT / "skills" / "code-review" / "scripts" / "reconcile_findings.py"
-REVIEW_EXAMPLE = REPO_ROOT / "skills" / "code-review" / "examples" / "expected-review.json"
+RECONCILE_FINDINGS = REPO_ROOT / "skills" / "review" / "scripts" / "reconcile_findings.py"
+REVIEW_EXAMPLE = REPO_ROOT / "skills" / "review" / "examples" / "expected-review.json"
 STUB_LOGIN = "real-user"
 STUB_REPO = "stub-owner/stub-repo"
 
@@ -228,6 +228,42 @@ class PlannerSkillTests(unittest.TestCase):
         ]
         positions = [rendered.index(f">{heading}</h2>") for heading in headings]
         self.assertEqual(positions, sorted(positions))
+
+    def test_local_plan_renders_without_a_github_tracking_target(self):
+        plan = sample_plan()
+        plan["repo"] = None
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            output = Path(tmp) / "plan.html"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            result = self.run_script(RENDER, sidecar, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            html_text = output.read_text(encoding="utf-8")
+            markdown = output.with_suffix(".md").read_text(encoding="utf-8")
+        self.assertIn("Local repository", html_text)
+        self.assertIn("Local task ledger", html_text)
+        self.assertIn("Repository: Local repository", markdown)
+        self.assertNotIn("https://github.com/None", html_text)
+        self.assertNotIn("{{MILESTONE", html_text)
+
+    def test_local_plan_reconciliation_stops_before_any_github_call(self):
+        plan = sample_plan()
+        plan["repo"] = None
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            snapshot = Path(tmp) / "snapshot.json"
+            sidecar.write_text(json.dumps(plan), encoding="utf-8")
+            snapshot.write_text(json.dumps({"milestones": [], "issues": []}), encoding="utf-8")
+            environment, log = gh_stub(tmp)
+            for flags in ([], ["--snapshot", str(snapshot)], ["--apply", "--approved-by", "real-user"]):
+                with self.subTest(flags=flags):
+                    result = subprocess.run(
+                        [sys.executable, "-B", str(RECONCILE), str(sidecar), *flags],
+                        cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+                    )
+                    self.assertEqual(result.returncode, 1)
+                    self.assertIn("requires repo owner/name", result.stderr)
+                    self.assertEqual(gh_calls(log), [])
 
     def test_renderer_requires_current_and_proposed_visuals(self):
         for missing in ("currentArchitecture", "targetArchitecture"):
@@ -489,7 +525,7 @@ class PlannerSkillTests(unittest.TestCase):
         self.assertIn("openquestions", result.stderr.lower())
 
         skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("Resolve open questions with the human before writing the plan", skill)
+        self.assertIn("Resolve material open questions before finalizing the plan", skill)
         self.assertNotIn("openQuestions", skill)
 
     def test_risks_are_plotted_on_the_matrix_at_their_likelihood_impact_cell(self):
@@ -510,7 +546,7 @@ class PlannerSkillTests(unittest.TestCase):
         self.assertIn('<div class="cell s9"><span class="pin">R-hi</span></div>', rendered)
         self.assertIn('<div class="cell s1"><span class="pin">R-lo</span></div>', rendered)
 
-    def test_folio_lands_in_docs_plans_with_the_numbered_name(self):
+    def test_markdown_lands_in_docs_plans_with_the_numbered_name(self):
         plan = sample_plan()
         plan["planName"] = "Ship the Offline Plan Folio!"
         plan["generatedAt"] = "2026-08-26T12:00:00Z"
@@ -520,8 +556,8 @@ class PlannerSkillTests(unittest.TestCase):
             sidecar.write_text(json.dumps(plan), encoding="utf-8")
             result = self.run_script(RENDER, sidecar, "--plans-dir", plans)
             self.assertEqual(result.returncode, 0, result.stderr)
-            written = sorted(plans.glob("*.html"))
-            self.assertEqual([p.name for p in written], ["plan01-20260826-ship-the-offline-plan-folio.html"])
+            written = sorted(plans.glob("*.md"))
+            self.assertEqual([p.name for p in written], ["plan01-20260826-ship-the-offline-plan-folio.md"])
 
     def test_rerendering_a_plan_reuses_its_number_and_a_new_plan_takes_the_next(self):
         """Numbers are allocated per planId, not per render: revising a plan must
@@ -537,8 +573,8 @@ class PlannerSkillTests(unittest.TestCase):
             first["summary"] = "A revised summary for the very same plan."
             sidecar.write_text(json.dumps(first), encoding="utf-8")
             self.assertEqual(self.run_script(RENDER, sidecar, "--plans-dir", plans).returncode, 0)
-            self.assertEqual(len(list(plans.glob("*.html"))), 1, "re-render claimed a new number")
-            self.assertIn("A revised summary", next(plans.glob("*.html")).read_text(encoding="utf-8"))
+            self.assertEqual(len(list(plans.glob("*.md"))), 1, "re-render claimed a new number")
+            self.assertIn("A revised summary", next(plans.glob("*.md")).read_text(encoding="utf-8"))
 
             second = sample_plan()
             second["planId"] = "a-second-plan"
@@ -548,11 +584,71 @@ class PlannerSkillTests(unittest.TestCase):
             other.write_text(json.dumps(second), encoding="utf-8")
             self.assertEqual(self.run_script(RENDER, other, "--plans-dir", plans).returncode, 0)
 
-            names = sorted(p.name for p in plans.glob("*.html"))
+            names = sorted(p.name for p in plans.glob("*.md"))
         self.assertEqual(names, [
-            "plan01-20260826-planner-v3.html",
-            "plan02-20260902-a-second-plan.html",
+            "plan01-20260826-planner-v3.md",
+            "plan02-20260902-a-second-plan.md",
         ])
+
+    def test_default_markdown_contains_complete_plan_without_html(self):
+        plan = sample_plan()
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            reports = Path(tmp) / "reports"
+            sidecar.write_text(json.dumps(plan))
+            result = self.run_script(RENDER, sidecar, "--plans-dir", reports)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(list(reports.iterdir())), 1)
+            markdown = next(reports.glob("*.md")).read_text()
+            for issue in plan["issues"]:
+                for text in [issue["title"], issue["body"], issue["ownershipHint"]]:
+                    self.assertIn(text, markdown)
+                for spec in issue["acceptanceTests"]:
+                    self.assertIn(spec["oracle"], markdown)
+            self.assertIn(plan["architecture"]["diagramsMermaid"]["currentArchitecture"], markdown)
+            self.assertIn(plan["risks"][0]["mitigation"], markdown)
+            self.assertFalse(list(reports.glob("*.html")))
+
+    def test_visual_request_adds_companion_and_preserves_identity_on_revision(self):
+        plan = sample_plan()
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            reports = Path(tmp) / "reports"
+            sidecar.write_text(json.dumps(plan))
+            self.assertEqual(self.run_script(RENDER, sidecar, "--plans-dir", reports).returncode, 0)
+            original = next(reports.glob("*.md"))
+            plan["planName"] = "A revised title"
+            plan["summary"] = "The revised evidence supports this approach."
+            sidecar.write_text(json.dumps(plan))
+            result = self.run_script(RENDER, sidecar, "--plans-dir", reports, "--format", "html")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(sorted(p.name for p in reports.iterdir()), sorted([original.name, original.with_suffix(".html").name]))
+            self.assertIn(plan["summary"], original.read_text())
+            self.assertIn(plan["summary"], original.with_suffix(".html").read_text())
+
+    def test_failed_visual_render_does_not_leave_partial_markdown(self):
+        plan = sample_plan()
+        plan["architecture"]["diagramsMermaid"]["currentArchitecture"] = "unsupported diagram language"
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            reports = Path(tmp) / "reports"
+            sidecar.write_text(json.dumps(plan))
+            result = self.run_script(RENDER, sidecar, "--plans-dir", reports, "--format", "html")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(reports.exists())
+            result = self.run_script(RENDER, sidecar, "--plans-dir", reports)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(next(reports.glob("*.md")).is_file())
+
+    def test_explicit_markdown_format_rejects_html_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "plan.sidecar.json"
+            sidecar.write_text(json.dumps(sample_plan()))
+            output = Path(tmp) / "report.html"
+            result = self.run_script(RENDER, sidecar, output, "--format", "md")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(output.exists())
+            self.assertFalse(output.with_suffix(".md").exists())
 
     def test_explicit_output_path_still_overrides_the_convention(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -808,7 +904,7 @@ class PlannerSkillTests(unittest.TestCase):
     def test_shared_report_css_is_byte_identical_across_skills(self):
         repo_root = ROOT.parents[1]
         planner = (repo_root / "skills" / "plan" / "templates" / "report.css").read_bytes()
-        for skill in ("code-review", "research"):
+        for skill in ("review", "plan/research"):
             other = (repo_root / "skills" / skill / "templates" / "report.css").read_bytes()
             self.assertEqual(
                 planner, other,
@@ -836,23 +932,23 @@ class PlannerSkillTests(unittest.TestCase):
         self.assertIn("timed out", str(ctx.exception))
 
     def test_skill_doc_relative_paths(self):
-        import re
-        from pathlib import Path
         repo_root = Path(__file__).resolve().parents[3]
         skill_files = list(repo_root.glob("skills/*/SKILL.md"))
         self.assertGreater(len(skill_files), 0, "No SKILL.md files found")
-        
-        script_pattern = re.compile(r"\b(?:skills/[\w-]+/)?scripts/[\w.-]+\.py\b")
-        
+        script_pattern = re.compile(r"\b(?:skills/(?:[\w-]+/)+)?scripts/[\w.-]+\.py\b")
         for skill_file in skill_files:
             content = skill_file.read_text(encoding="utf-8")
-            matches = script_pattern.findall(content)
-            for match in matches:
-                # Every match must start with "skills/" to be explicit repo-relative
-                self.assertTrue(match.startswith("skills/"), f"Script path {match!r} in {skill_file.relative_to(repo_root)} is not an explicit repo-relative path starting with 'skills/\'")
-                # And the file must exist
-                full_path = repo_root / match
-                self.assertTrue(full_path.exists(), f"Script path {match!r} in {skill_file.relative_to(repo_root)} does not exist on disk")
+            # Commands are run from the repository root. Markdown links instead
+            # resolve from their document, so a valid local helper link must not
+            # be mistaken for a shell command with the wrong working directory.
+            code = "\n".join(re.findall(r"`+([^`]+)`+", content))
+            for match in script_pattern.findall(code):
+                self.assertTrue(match.startswith("skills/"), f"Script path {match!r} in {skill_file.relative_to(repo_root)} is not repo-relative")
+                self.assertTrue((repo_root / match).is_file(), f"Script path {match!r} in {skill_file.relative_to(repo_root)} does not exist")
+            for target in re.findall(r"\[[^\]]*\]\(([^)]+\.py)(?:#[^)]*)?\)", content):
+                if target.startswith(("http://", "https://")):
+                    continue
+                self.assertTrue((skill_file.parent / target).is_file(), f"Helper link {target!r} in {skill_file.relative_to(repo_root)} does not resolve")
 
 
     # --- ownershipHint granularity contract (issue #99) ---------------------------------------
@@ -953,9 +1049,11 @@ class PlannerSkillTests(unittest.TestCase):
         lowered = contract.lower()
         for phrase, rule in (
             ("exactly one path or glob", "the hint is exactly one path or glob, never prose or a list"),
-            ("narrowest glob", "the hint is the narrowest glob covering every file the issue changes"),
-            ("the tests the specifier will write", "the hint also covers the tests the specifier will write"),
-            ("disjoint", "hints are disjoint within a wave"),
+            ("narrowest glob", "the hint is the narrowest glob covering implementation"),
+            ("acceptancetests[].testpath", "external test files are explicitly declared"),
+            ("brief.testownership[]", "declared test paths are carried into specifier ownership"),
+            ("combined write targets", "implementation and test ownership are checked together"),
+            ("disjoint", "write targets are disjoint within a wave"),
             ("split the issue", "an issue spanning unrelated subtrees is split rather than widened"),
         ):
             self.assertIn(phrase, lowered, f"sidecar-contract.md must state that {rule}")

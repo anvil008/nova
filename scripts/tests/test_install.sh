@@ -9,6 +9,19 @@ INSTALL="$ROOT/scripts/bootstrap-plugins.sh"
 BOOTSTRAP="$ROOT/scripts/bootstrap-project.sh"
 REAL_HOME=$HOME
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+# The suite tests Workcell copies and receipts, not third-party installation.
+# Missing optional tools must not cause global package-manager writes or network
+# downloads on a developer machine. Real Go/git/Python/jq remain in use.
+probe_bin="$TMP/tool-probes"
+mkdir -p "$probe_bin"
+for tool in ast-grep jj gh apm agent-browser gopls rust-analyzer pyright \
+  typescript-language-server ruff shellcheck goimports prettier eslint; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$probe_bin/$tool"
+    chmod +x "$probe_bin/$tool"
+  fi
+done
+export PATH="$probe_bin:$PATH"
 pass=0; fail=0
 ok(){ printf 'ok   %s\n' "$1"; pass=$((pass+1)); }
 no(){ printf 'FAIL %s\n' "$1"; fail=$((fail+1)); }
@@ -359,105 +372,6 @@ receipts_for(){ local r; r="$(workcell_state_dir)/receipts"; [[ -n $r && -d $r ]
   grep -rlF -- "$1" "$r" 2>/dev/null || true; }
 
 # --- staged-stamp-agrees-with-the-tracked-manifest (#132) ----------------------------------------
-python3 "$ROOT/scripts/build-grok-plugin.py" >/dev/null 2>&1
-[[ -f $ROOT/dist/grok/.grok-plugin/marketplace.json ]] && ok "grok marketplace staged" || no "grok staged marketplace missing"
-[[ -f $ROOT/dist/grok/plugins/workcell/agents/builder.md && -f $ROOT/dist/grok/plugins/workcell/skills/plan/SKILL.md ]] \
-  && ok "grok staged agents and skills are real files" || no "grok staged content missing"
-grok_staged_links=$(find "$ROOT/dist/grok" -type l)
-[[ -z $grok_staged_links ]] && ok "find dist/grok -type l prints nothing" || no "find dist/grok -type l found symlinks: $grok_staged_links"
-stamp_file="$ROOT/dist/grok/plugins/workcell/.workcell-stamp.json"
-manifest_file="$ROOT/plugins/grok/.claude-plugin/plugin.json"
-stamp_ver=$(jq -r .version "$stamp_file" 2>/dev/null)
-manifest_ver=$(jq -r .version "$manifest_file" 2>/dev/null)
-[[ -n $stamp_ver && $stamp_ver == "$manifest_ver" ]] \
-  && ok "staged grok stamp version agrees with tracked manifest" \
-  || no "staged grok stamp version agrees with tracked manifest (stamp='${stamp_ver:-missing}', manifest='$manifest_ver')"
-
-# --- install-places-an-owned-auto-trusted-copy (#132) --------------------------------------------
-fresh_home grok_install
-mkdir -p "$HOME/.grok"
-stubs="$TMP/stubs-grok"; log="$TMP/grok-calls.log"
-stub_cli grok "$stubs" "$log"
-out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness grok 2>&1); rc=$?
-[[ $rc -eq 0 ]] && ok "grok-only install exits zero" || no "grok-only install failed (rc=$rc): $out"
-GROK_PLUGIN="$HOME/.grok/plugins/workcell"
-[[ -d $GROK_PLUGIN && ! -L $GROK_PLUGIN ]] \
-  && ok "grok plugin is a real directory, not a symlink" \
-  || no "grok plugin is a real directory, not a symlink"
-[[ -f $GROK_PLUGIN/.claude-plugin/plugin.json && -f $GROK_PLUGIN/agents/builder.md && -f $GROK_PLUGIN/skills/plan/SKILL.md && -f $GROK_PLUGIN/.workcell-stamp.json ]] \
-  && ok "grok plugin contains manifest, agents, skills, and stamp" \
-  || no "grok plugin contains manifest, agents, skills, and stamp"
-grok_links=$(links_into_root "$HOME")
-[[ -z $grok_links ]] \
-  && ok "grok install leaves no symlink under HOME pointing into ROOT" \
-  || no "grok install leaves symlinks pointing into ROOT: $grok_links"
-
-# --- migration-retires-the-marketplace-flow-and-never-reinstalls-through-it (#132) ---------------
-grep -q 'plugin uninstall workcell' "$log" \
-  && ok "grok migration calls plugin uninstall workcell" \
-  || no "grok migration did not call plugin uninstall workcell"
-grep -q "plugin marketplace remove $ROOT/dist/grok" "$log" \
-  && ok "grok migration calls plugin marketplace remove for dist path" \
-  || no "grok migration did not call plugin marketplace remove $ROOT/dist/grok"
-grep -q 'plugin install' "$log" \
-  && no "grok install must not reinstall through marketplace plugin install" \
-  || ok "grok install never reinstalls through marketplace plugin install"
-
-# --- install-works-without-the-grok-cli (#132) ---------------------------------------------------
-fresh_home grok_no_cli
-mkdir -p "$HOME/.grok"
-out=$(PATH="/usr/bin:/bin" "$INSTALL" --install --harness grok 2>&1); rc=$?
-[[ $rc -eq 0 ]] && ok "grok install without CLI exits zero" || no "grok install without CLI exits zero (rc=$rc): $out"
-GROK_NOCLI="$HOME/.grok/plugins/workcell"
-[[ -d $GROK_NOCLI && ! -L $GROK_NOCLI && -f $GROK_NOCLI/.workcell-stamp.json ]] \
-  && ok "grok owned copy placed at grok plugins directory without grok CLI" \
-  || no "grok owned copy placed at grok plugins directory without grok CLI"
-
-# --- uninstall-removes-ours-and-refuses-foreign (#132) -------------------------------------------
-fresh_home grok_un_refuse
-mkdir -p "$HOME/.grok"
-stubs="$TMP/stubs-grok-un"; log="$TMP/grok-un-calls.log"
-stub_cli grok "$stubs" "$log"
-
-# Foreign directory refused on install
-GROK_FOREIGN="$HOME/.grok/plugins/workcell"
-mkdir -p "$GROK_FOREIGN"
-printf 'user grok plugin\n' > "$GROK_FOREIGN/plugin.json"
-cp "$GROK_FOREIGN/plugin.json" "$TMP/foreign-grok-before"
-out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness grok 2>&1); rc=$?
-[[ $rc -ne 0 ]] && ok "grok install refuses foreign plugin directory" || no "grok install refuses foreign plugin directory (rc=$rc)"
-grep -qF -- "$GROK_FOREIGN" <<<"$out" && ok "grok install refusal names foreign directory" || no "grok install refusal names foreign directory: $out"
-cmp -s "$TMP/foreign-grok-before" "$GROK_FOREIGN/plugin.json" \
-  && ok "foreign grok plugin left byte-identical on refused install" \
-  || no "foreign grok plugin left byte-identical on refused install"
-
-# Foreign directory left in place on uninstall with left/kept message
-out=$(PATH="$stubs:$PATH" "$INSTALL" --uninstall --harness grok 2>&1); rc=$?
-[[ $rc -eq 0 ]] && ok "grok uninstall exits zero with foreign directory" || no "grok uninstall exits zero with foreign directory (rc=$rc): $out"
-cmp -s "$TMP/foreign-grok-before" "$GROK_FOREIGN/plugin.json" \
-  && ok "foreign grok plugin left byte-identical on uninstall" \
-  || no "foreign grok plugin left byte-identical on uninstall"
-grep -E '(left|kept)' <<<"$out" | grep -qF -- "$GROK_FOREIGN" \
-  && ok "grok uninstall reports foreign directory left in place" \
-  || no "grok uninstall reports foreign directory left in place: $out"
-
-# Owned copy installed then uninstalled
-rm -rf "$GROK_FOREIGN"
-out=$(PATH="$stubs:$PATH" "$INSTALL" --install --harness grok 2>&1); rc=$?
-[[ $rc -eq 0 ]] && ok "grok install of owned copy succeeds" || no "grok install of owned copy succeeds (rc=$rc): $out"
-[[ -d $GROK_FOREIGN && -f $GROK_FOREIGN/.workcell-stamp.json ]] \
-  && ok "grok install places owned copy directory" \
-  || no "grok install places owned copy directory"
-GROK_RCPT=$(receipts_for "$GROK_FOREIGN" | head -1)
-[[ -n $GROK_RCPT && -f $GROK_RCPT ]] \
-  && ok "grok install writes receipt" \
-  || no "grok install writes receipt (receipt='$GROK_RCPT')"
-out=$(PATH="$stubs:$PATH" "$INSTALL" --uninstall --harness grok 2>&1); rc=$?
-[[ $rc -eq 0 ]] && ok "grok uninstall of owned copy exits zero" || no "grok uninstall of owned copy exits zero (rc=$rc): $out"
-[[ ! -e $GROK_FOREIGN ]] && ok "grok uninstall removes owned directory" || no "grok uninstall removes owned directory"
-[[ -n $GROK_RCPT && ! -e $GROK_RCPT ]] && ok "grok uninstall removes receipt" || no "grok uninstall removes receipt (receipt='$GROK_RCPT')"
-
-
 # A project-local reinstall also retires marketplace registrations from before
 # the Workcell rename, so the old and new plugin identities cannot coexist.
 fresh_home project_rename
@@ -789,7 +703,7 @@ AGY_CFG_REL=".gemini/config/plugins/workcell"
 AGY_CLI_REL=".gemini/antigravity-cli/plugins/workcell"
 AGY_STAGED="$ROOT/dist/agy/workcell"
 
-# agy-staged-tree-is-symlink-free (mirrors the codex and grok staging assertions above)
+# agy-staged-tree-is-symlink-free (mirrors the Codex staging assertions above)
 python3 "$ROOT/scripts/build-agy-plugin.py" >/dev/null 2>&1
 [[ -d $AGY_STAGED ]] && ok "build-agy-plugin stages dist/agy/workcell" \
   || no "build-agy-plugin stages dist/agy/workcell"

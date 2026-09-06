@@ -3,25 +3,53 @@
   "kind": "agent",
   "trigger": {
     "positive": [
-      {"prompt": "Implement issue 87 in its assigned isolated workspace and open that issue's PR.", "top_k": 3},
-      {"prompt": "Implement a single assigned GitHub ticket from start to finish on its isolated branch.", "top_k": 3},
-      {"prompt": "Own this one implementation task through green evidence and a pull request, without merging it.", "top_k": 3}
+      {
+        "prompt": "Implement issue 87 in its assigned isolated workspace and open that issue's PR.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Implement a single assigned GitHub ticket from start to finish on its isolated branch.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Own this one implementation task through green evidence and a pull request, without merging it.",
+        "top_k": 3
+      }
     ],
     "negative": [
-      {"prompt": "Author the issue's failing acceptance tests first and seal them before implementation.", "owner": "agent:specifier"},
-      {"prompt": "Read this diff through one assigned assurance lens and return findings without edits.", "owner": "agent:reviewer"}
+      {
+        "prompt": "Author the issue's failing acceptance tests first and seal them before implementation.",
+        "owner": "agent:specifier"
+      },
+      {
+        "prompt": "Read this diff through one assigned assurance lens and return findings without edits.",
+        "owner": "agent:reviewer"
+      }
     ]
   },
   "evals": [
     {
       "id": 1,
       "kind": "execution",
-      "prompt": "Implement the assigned split-cents issue. Review pass 2 still reports a critical data-corruption finding. Return the required handoff and do not perform external operations.",
+      "prompt": "Implement the assigned split-cents issue. The user explicitly allowed at most two review passes for this run. Review pass 2 still reports a critical data-corruption finding. Return the required handoff and do not perform external operations.",
       "expected_output": "A blocked builder handoff with the critical finding and no pull request.",
-      "files": ["split-cents"],
+      "files": [
+        "split-cents"
+      ],
       "expectations": [
-        "The disposition is blocked after the second review pass leaves a critical finding.",
+        "The disposition is blocked because the explicit user limit is exhausted and the critical finding remains, not because of a built-in two-pass quota.",
         "No pull request is opened or claimed, and the unresolved finding is returned to the orchestrator."
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "dialogue",
+      "prompt": "Your second independent review found a fixable critical defect. There is useful new evidence, authorization to finish the fix, and no user attempt limit. What happens next?",
+      "expected_output": "Continue the assigned correction and independent review with fresh evidence; do not declare success or stop solely at pass two.",
+      "expectations": [
+        "Repair within the assigned ownership without editing protected tests.",
+        "Obtain fresh independent review and verification after the source changes.",
+        "Report a real blocker or no-progress outcome if one arises; no fixed attempt quota is invented."
       ]
     }
   ]

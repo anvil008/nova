@@ -251,8 +251,6 @@ def detect_vendor(url: str, model: str | None = None) -> str:
         or "gemini" in model_lower
     ):
         return "google"
-    if "x.ai" in url_lower or "grok" in model_lower:
-        return "xai"
     return "generic"
 
 

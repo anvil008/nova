@@ -3,8 +3,8 @@
 Every unit of agent work happens in its own working copy, and there is exactly one way to make
 one, name one, and get rid of one — `scripts/workcell-ws`, installed as a versioned copy at
 `~/.local/bin/workcell-ws` by `bootstrap-tools.sh --install`, never a link, so editing the script
-in a checkout changes nothing until the next `--install`. All four harnesses call it through the
-shell, so the standard is identical on Claude, Codex, Antigravity, and Grok Build.
+in a checkout changes nothing until the next `--install`. All three harnesses call it through the
+shell, so the standard is identical on Claude, Codex, and Antigravity.
 
 ## The standard
 
@@ -41,9 +41,12 @@ shell, so the standard is identical on Claude, Codex, Antigravity, and Grok Buil
   through, `trunk()` degrades to the root commit, and branching there would hand an agent an empty
   tree, so the helper falls back to the local `main` / `master` / `trunk` bookmark and refuses
   outright if there is none. On git the default is `origin/HEAD`, else `main` / `master` / `trunk`.
-- **Teardown after the PR exists, never before.** Forgetting a workspace stops tracking the
-  working copy and removes the directory. It never deletes the bookmark, the branch, or their
-  commits, so the open PR is unaffected. Forgetting first strands the branch.
+- **Teardown after downstream acceptance.** In local build runs, retain builder workspaces
+  until the orchestrator accepts their integration receipt, even though no intermediate PR
+  exists. The orchestrator runs `workcell-ws forget` from the primary workspace after acceptance.
+  Other workflows retain the workspace until their downstream evidence has been accepted.
+  Forgetting removes the working copy but preserves bookmarks and commits. See
+  [local build runs](build-runs.md).
 
 ```sh
 workcell-ws add <key> [--base <rev>] [--repo <dir>]     # create ../<repo>-<key>, bookmark <key>

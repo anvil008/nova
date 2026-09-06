@@ -8,10 +8,10 @@ description: Consolidate what a project's finished runs taught into its own pers
 Turn what a project's finished runs taught into a durable record of that project, kept in
 a namespace outside the repository so it outlives every branch, worktree, and clone of it.
 
-You are the orchestrator ([ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents, hold the human gates, run `git` / `jj` / `gh` for branch, merge, and issue-state operations, and read gate output and handoff records. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+The orchestrator owns scope, user decisions, dispatch, and final evaluation. Specialists author plans and source changes; independent evidence determines completion. Team size follows useful work and explicit user constraints. See [ADR 0029](../../docs/adr/0029-composable-workflows-and-native-research.md).
 
-This orchestrator decides whether the project opted in, dispatches the one agent that
-writes its namespace, and reads `wiki.py check` as the gate.
+This orchestrator decides whether the project opted in, assigns scoped documenters to
+maintain its namespace, and reads `wiki.py check` as the gate.
 
 ## 1. Ask whether the project opted in
 
@@ -52,10 +52,7 @@ collision for a human to settle, never something to work around.
 
 ## 2. Dispatch the consolidation
 
-Consolidation is exactly one `documenter` dispatch conforming to
-[`agents/handoff.md`](../../agents/handoff.md), whose `ownership` is the resolved
-namespace path and nothing else. One dispatch, because the layer's whole value is a
-single coherent reading of the run; a fan-out would race on the same append-only pages.
+The orchestrator sizes the `documenter` team and sends each assignment through [`agents/handoff.md`](../../agents/handoff.md) using `anvil.agent-handoff/v1`, with disjoint `ownership` inside the resolved namespace and nothing outside it. Serialize updates to shared append-only pages and the catalog so writers cannot race; independent evidence inspection and disjoint assignments may run in parallel. Keep final synthesis ownership explicit and run the namespace gate after all assigned writes.
 
 Give the brief:
 

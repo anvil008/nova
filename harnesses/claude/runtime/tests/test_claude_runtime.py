@@ -302,10 +302,10 @@ class ClaudeRuntimeTests(unittest.TestCase):
         contracts_data = json.loads(carrier.read_text(encoding="utf-8"))
         contract = contracts_data.get("contract", {})
 
-        # All 16 skills and 10 agents must load without interactive requirements
+        # All 12 skills and 10 agents must load without interactive requirements
         skills = contract.get("skills", [])
         self.assertEqual(
-            len(skills), 16, f"Expected 16 skills in contracts, got {len(skills)}"
+            len(skills), 12, f"Expected 12 skills in contracts, got {len(skills)}"
         )
         for sk in skills:
             reqs = sk.get("requiredValues", {}).get("claude", [])

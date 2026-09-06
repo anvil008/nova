@@ -1,8 +1,8 @@
 # Workcell
 
-**A multi-agent coding system for Claude Code, Codex, Antigravity, and Grok Build — one agent writes each task's tests, a different one makes them pass, and mechanical gates decide, not promises.**
+**A multi-agent coding system for Claude Code, Codex, and Antigravity — one agent writes each task's tests, a different one makes them pass, and mechanical gates decide, not promises.**
 
-Like an industrial workcell, it organizes specialized operators and mechanical gates around one bounded unit of work. It turns a goal into a reviewable plan, then runs coding agents in parallel without losing human approval, test evidence, ownership boundaries, or a resumable GitHub record. One repository, four harnesses, the same agents and skills in each.
+Like an industrial workcell, it organizes specialized operators and mechanical gates around one bounded unit of work. It turns a goal into a reviewable plan, then runs coding agents in parallel without losing human approval, test evidence, ownership boundaries, or a resumable GitHub record. One repository, three harnesses, the same agents and skills in each.
 
 ## Lifecycle
 
@@ -12,7 +12,7 @@ Plan → Approve → Tests → Build → Review → Integrate → Merge → Docs
 
 | Stage     | Who          | What has to be true before the next stage                                |
 | --------- | ------------ | ------------------------------------------------------------------------ |
-| Plan      | `planner`    | Offline plan + `plan.sidecar.json`, every issue carries acceptance tests |
+| Plan      | `planner`, reviewed by orchestrator | Recorded brief for a bounded change; sidecar and folio for a milestone |
 | Approve   | you (human)  | Explicit approval — silence is never consent                             |
 | Tests     | `specifier`  | RED is real and honest, then sealed                                      |
 | Build     | `builder`    | Implements against tests it cannot edit                                  |
@@ -24,21 +24,11 @@ Plan → Approve → Tests → Build → Review → Integrate → Merge → Docs
 
 ## Workflows
 
-| You're doing                         | Skill             | Key principle                                             |
-| ------------------------------------ | ----------------- | --------------------------------------------------------- |
-| Build a new feature                  | `new-feature`     | Interview before you plan — five questions, minimum       |
-| Sweep for real bugs                  | `code-analysis`   | Every fix ships with a test that failed first             |
-| Simplify without changing behaviour  | `code-refactor`   | Behaviour-preserving only; never touches a test file      |
-| Chase a reported symptom             | `debug`           | No reproduction, no fix                                   |
-| Make something measurably faster     | `perf`            | Refuses to run without a benchmark harness                |
-| Get a repo ready for agents          | `repo-setup`      | Gates before agents                                       |
-| Plan before you build                | `planner`         | No GitHub write before human approval                     |
-| Execute an approved plan             | `build`           | Tests first, then the implementation — never concurrent   |
-| Review before merge                  | `code-review`     | Blocked, not merged, on a standing critical/high finding  |
-| Standardize documentation            | `docs`            | Update in place; one canonical place per topic            |
-| Ship a verified change               | `deploy`          | No deploy without a fresh, explicit approval              |
-| Investigate across areas in parallel | `research`        | Evidence, not conclusions                                 |
-| Bound a review/fix cycle             | `review-fix-loop` | Stops when nothing's left to fix, or fixing stops working |
+Start with the outcome you want. The orchestrator asks whether you want one plan or multiple plan ideas unless you already specified the choice. Planners author approaches and direct researchers; the orchestrator compares and reviews their results. Plans default to Markdown. An explicit visual/HTML request adds a companion.
+
+`build` is the shared implementation workflow for features, fixes, refactors, and optimizations. Standalone `plan`, `review`, and `profile` produce artifacts and offer build for actionable follow-up. Requests that already authorize implementation continue without another question. `docs` also runs independently, and documenters contribute inside build before final verification.
+
+Research remains a specialist capability inside planning; the standalone research skill is retired. Team sizes follow useful independent work and user constraints, with no workflow-imposed count. See the [developer workflow guide](docs/developer-workflows.md).
 
 ## Quick Start
 
@@ -62,7 +52,7 @@ scripts/bootstrap-plugins.sh             # 2. the workcell plugin, into every ha
 Run either script with no flags to see what it _would_ do first. Useful flags for the second:
 
 ```sh
-scripts/bootstrap-plugins.sh --harness claude   # one harness only (claude | codex | agy | grok)
+scripts/bootstrap-plugins.sh --harness claude   # one harness only (claude | codex | agy)
 scripts/bootstrap-plugins.sh --uninstall        # remove everything it installed
 ```
 
@@ -71,42 +61,37 @@ by name, and an uninstall leaves anything you have since edited in place and say
 configuration, a per-project install, and upgrading from an earlier install are covered in
 **[docs/install.md](docs/install.md)**.
 
-## All 16 skills
+## All 12 skills
 
-**Entry points — one PR, start to finish:** `new-feature`, `code-analysis`, `code-refactor`,
-`debug`, `perf`, `repo-setup` (see [Workflows](#workflows) for what each guarantees).
+Ten workflows and two auxiliary skills share ten specialist roles.
 
-| Phase    | Skill                                                    | One line                                                                                                    |
-| -------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Plan     | [`plan`](skills/plan/SKILL.md)                           | Investigates, then produces an offline plan and each issue's acceptance tests                               |
-| Build    | [`build`](skills/build/SKILL.md)                         | Runs an approved milestone as resumable dependency waves, in single-PR mode when an entry workflow needs it |
-| Review   | [`code-review`](skills/code-review/SKILL.md)             | Multi-lens, adversarially verified review of a PR, diff, or change-set                                      |
-| Review   | [`review-fix-loop`](skills/review-fix-loop/SKILL.md)     | Bounded review-then-fix cycle on a dedicated loop branch                                                    |
-| Research | [`research`](skills/research/SKILL.md)                   | Parallel read-only investigation merged into one evidence packet                                            |
-| Docs     | [`docs`](skills/docs/SKILL.md)                           | Standardizes and updates documentation, records ADRs, runs the docs gate                                    |
-| Deploy   | [`deploy`](skills/deploy/SKILL.md)                       | Preflight, approved release, post-deploy verification, rollback path                                        |
-| Memory   | [`wiki`](skills/wiki/SKILL.md)                           | Consolidates a project's finished runs into a persistent namespace outside the repository                   |
-| Support  | [`jj`](skills/jj/SKILL.md)                               | Jujutsu version control for repositories that use it                                                        |
-| Support  | [`use-other-harness`](skills/use-other-harness/SKILL.md) | Explicit, user-triggered escape hatch to run a subagent in a different harness                              |
+| Type | Skill | Outcome |
+| --- | --- | --- |
+| Plan | [`plan`](skills/plan/SKILL.md) | One plan or alternative ideas, with planner-owned research |
+| Change | [`build`](skills/build/SKILL.md) | Shared implementation, independent review, documentation, and final verification |
+| Change | [`debug`](skills/debug/SKILL.md) | Reproduce and isolate a cause, then build the fix |
+| Change | [`refactor`](skills/refactor/SKILL.md) | Preserve behavior through the shared build path |
+| Change | [`review`](skills/review/SKILL.md) | Independently verified diff or codebase findings |
+| Change | [`profile`](skills/profile/SKILL.md) | Reproducible performance baseline and hotspot report |
+| Change | [`docs`](skills/docs/SKILL.md) | Independently validated documentation |
+| Prepare | [`repo-setup`](skills/repo-setup/SKILL.md) | Repository instructions, runners, and quality gates |
+| Operate | [`deploy`](skills/deploy/SKILL.md) | Authorized release, verification, and rollback readiness |
+| Operate | [`wiki`](skills/wiki/SKILL.md) | Opted-in project knowledge and immutable evidence |
+| Auxiliary | [`jj`](skills/jj/SKILL.md) | Jujutsu version control |
+| Auxiliary | [`use-other-harness`](skills/use-other-harness/SKILL.md) | Explicit user-requested execution in another harness |
 
-**The wiki layer** is what one project remembers about itself: write-once evidence from finished
-runs, append-only pages about the failure modes and strategies that recur, and a catalog over
-them. It lives outside every repository — at `$WORKCELL_WIKI_HOME`, default `~/.workcell/wiki/`,
-one namespace per project — so it outlives every branch, worktree, and clone, and no working
-copy, pull request, or scored eval patch can carry it. It is deliberately not a memory the
-runtime agents read, not a shared brain across projects, and not a back door into Workcell's own
-shared workflows, which keep changing only through evidence-backed pull requests. A project opts
-in when a human creates its namespace; without one, nothing is recorded and nothing changes.
-The decision is [ADR 0019](docs/adr/0019-the-wiki-lives-outside-every-repository.md).
+Single changes and dependency runs are build's internal execution shapes. The old simple-build, complex-build, new-feature, code-refactor, code-analysis, code-review, perf, research, and review-fix-loop entrypoints are retired. Codebase audits live in review; review and profile use the same authorized build transition.
+
+The wiki records project knowledge outside the repository only after opt-in. Immutable raw traces and append-only patterns preserve evidence; shared workflows change through reviewed source changes.
 
 ## Who does what
 
 | Agent                              | Writes                                    | Owns                                                      | Never                                                            |
 | ---------------------------------- | ----------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
-| orchestrator (you, in the harness) | nothing                                   | dispatch, gates, wave scheduling, merges, verdicts        | reads or edits project code, runs test suites, authors artifacts |
-| `planner`                          | plan artifacts                            | investigation, folio, sidecar, acceptance tests           | touches the target project; writes GitHub; answers for the human |
+| orchestrator (you, in the harness) | decisions and run records | requirements, budgets, dispatch, plan review, gates, scheduling, completion | implementation, runnable acceptance tests, independent verification |
+| `planner`                          | draft plan artifacts                            | investigation, folio, sidecar, acceptance tests           | touches the target project; writes GitHub; answers for the human |
 | `specifier`                        | tests                                     | the Definition of Done: real RED, then the seal           | writes an implementation, makes its own test pass                |
-| `builder`                          | implementation                            | one issue, one workspace, one PR                          | edits sealed tests, pushes `main`, merges its own PR             |
+| `builder`                          | implementation                            | one issue, one retained workspace, one local commit                          | edits sealed tests, pushes `main`, merges its own PR             |
 | `reviewer`                         | nothing                                   | one assurance lens over one change-set                    | edits anything it reviews                                        |
 | `debugger`                         | temporary instrumentation only            | reproducing a symptom and finding its cause by experiment | ships the fix, leaves instrumentation behind                     |
 | `profiler`                         | nothing                                   | measurement: distributions, run counts, conditions        | edits anything it measures, reports a single run                 |
@@ -115,57 +100,41 @@ The decision is [ADR 0019](docs/adr/0019-the-wiki-lives-outside-every-repository
 | `documenter`                       | docs                                      | READMEs, ADRs, changelogs, the docs gate                  | product code                                                     |
 | `deployer`                         | release artifacts                         | one approved release, verify, rollback                    | deploys without a fresh, explicit approval                       |
 
-The boundary is written down in [ADR 0007](docs/adr/0007-primary-agent-is-a-pure-orchestrator.md);
+The boundary is written down in [ADR 0029](docs/adr/0029-composable-workflows-and-native-research.md);
 the dispatch and return shape every agent uses is [`agents/handoff.md`](agents/handoff.md)
 ([ADR 0008](docs/adr/0008-agent-handoff-contract.md)).
 
 ## How it works
 
-**The orchestrator writes nothing and merges on gate output.** It dispatches agents, holds human
-gates, and runs `git`/`jj`/`gh` for branch and merge operations — but it never reads or edits
-project code, never runs a test suite, and never authors an artifact. It decides by reading
-evidence a machine produced (`tdd-guard status --json`, `gh pr checks`, CI conclusions), not by
-believing an agent's summary. See [ADR 0007](docs/adr/0007-primary-agent-is-a-pure-orchestrator.md).
+**Planners author plans; the orchestrator reviews evidence and manages completion.** It frames distinct approaches, preserves user choices, and requests revisions or a material decision when needed. Researchers investigate for their planner. Implementation, runnable tests, and independent verification remain specialist responsibilities. GitHub issues are optional; local task IDs and immutable source receipts support dependency runs without them.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-work-moves-dark.svg">
-  <img alt="A goal becomes a plan, the plan waits for human approval, and the resulting GitHub issues move through a specifier, a builder, and reviewers before a pull request opens; the pull request then goes to an integrator and, alongside it, to the documenter, and the one gate output covering both is what the orchestrator reads before merging, after which the deployer runs." src="docs/diagrams/how-work-moves-light.svg" width="100%">
+  <img alt="A new planning request chooses one plan or multiple ideas, with planner-owned research and orchestrator review; existing executable plans enter shared build directly. Authorized work uses RED or baseline seals, builders, and independent reviewers. Relevant documentation joins the source before final integrator verification and performance remeasurement when needed. Fresh evidence gates acceptance, the final PR, authorized merge, and any separately requested deployment." src="docs/diagrams/how-work-moves-light.svg" width="100%">
 </picture>
 
-In words: a goal becomes a plan; the plan waits for your approval; only then does it become a GitHub
-milestone and its issues. Each issue is dispatched as soon as its own `dependsOn` have landed,
-whatever wave it was planned into
-([ADR 0017](docs/adr/0017-the-build-wave-overlaps-where-the-seal-allows.md)) — a `specifier` seals
-its tests, a `builder` implements against tests it cannot edit, and `reviewer`s take one lens each
-over the change-set _before any pull request exists_, at most two passes. Only a change-set with no
-`critical` or `high` finding left standing becomes a pull request. An `integrator` then retests the
-combined wave, and the `documenter` is dispatched alongside the `integrator` rather than after it,
-so the two work at the same time and one gate output covers the code and its documentation
-together. The orchestrator merges only on that gate — the one covering both — and only when it is
-green; `deployer` runs later, on a fresh approval. The documenter overlap is wired in the
-`new-feature` workflow today; `build`'s own loop stops at the merge, and a milestone driven
-straight from it takes its documentation from a separately invoked `docs` pass. An agent's own claim of success is never the
-input to a merge decision — only a gate a machine ran is. Work that fails a gate returns to the
-builder; a finding that still stands after two passes returns as `blocked`, with no PR opened at
-all.
+Dependency runs use single-PR mode with one final delivery. Build reuses its input plan or findings, fills missing executable detail, and schedules independent work by ownership and dependencies. A specifier seals RED for behavior changes; an integrator seals GREEN for behavior-preserving changes. Builders implement and obtain independent review. Review iterations follow the evidence and explicit user limits, without a fixed workflow quota.
+
+The integrator verifies combined source commits. Relevant documentation is combined before the final verification, and performance changes are remeasured against their baseline. The orchestrator records accepted source receipts, preserves recovery workspaces, and checks the exact final PR head before an authorized merge. Deploy remains separate. A model's claim of success cannot replace command evidence.
 
 **Authorship is separated and enforced by `tdd-guard`.** A `specifier` proves RED and seals the
 tests; the `builder` implements against them and is mechanically denied any edit to a sealed path.
-For behaviour-preserving `code-refactor`/`perf` work, an `integrator` instead proves the baseline
+For behaviour-preserving `refactor`/optimization work, an `integrator` instead proves the baseline
 GREEN and takes a **baseline seal** — no `specifier`, no touched tests. Either way the Stop hook
-refuses to let the builder finish without fresh GREEN evidence that postdates the seal.
+refuses to let the builder finish without fresh GREEN evidence that postdates the seal and matches
+the current source and base. A failed verification discards any previous success.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/mechanical-gates-dark.svg">
-  <img alt="A specifier's red seal, or an integrator's green baseline seal, gates the builder, whose work must pass verify and a diff-review record before the Stop hook allows a pull request; an edit of a sealed path is denied instead." src="docs/diagrams/mechanical-gates-light.svg" width="100%">
+  <img alt="A specifier's red seal, or an integrator's green baseline seal, gates the builder, whose work must pass verify and a diff-review record before the Stop hook allows a local handoff; an edit of a sealed path is denied instead." src="docs/diagrams/mechanical-gates-light.svg" width="100%">
 </picture>
 
 In words: the agent judged by the tests is never the agent who wrote them, and the guard — not a
 convention — is what makes that true. A `specifier` proves RED and seals, or for
 behaviour-preserving work an `integrator` seals a green baseline; the `builder` then implements, and
 an edit of a sealed path is denied rather than warned about, amendable only through
-`reseal --reason`. `verify` accepts only a GREEN run that postdates the seal, `diff-review record`
-binds findings to the current diff, and the Stop hook allows a pull request only when all of that
+`reseal --reason`. `verify` binds a passing run to the current source and base, `diff-review record`
+binds findings to the current diff, and the Stop hook allows the builder handoff only when all of that
 evidence is fresh — otherwise it sends the builder back. The full gate-by-gate walkthrough is
 **[docs/gates.md](docs/gates.md)**; the mode is [ADR 0009](docs/adr/0009-skills-are-dispatch-contracts.md).
 
@@ -173,23 +142,22 @@ evidence is fresh — otherwise it sends the builder back. The full gate-by-gate
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/layered-architecture-dark.svg">
-  <img alt="Workcell root architecture showing four harness families (Claude, Codex, Antigravity, and Grok) each with their own Agents, Skills, and Scripts, beside shared Scripts, Tools, and everything else." src="docs/diagrams/layered-architecture-light.svg" width="100%">
+  <img alt="Workcell root architecture showing three harness families (Claude, Codex, and Antigravity) each with their own Agents, Skills, and Scripts, beside shared Scripts, Tools, and everything else." src="docs/diagrams/layered-architecture-light.svg" width="100%">
 </picture>
 
-In words: the Workcell root defines shared contracts feeding four harness families—Claude, Codex, Antigravity (agy), and Grok—where each family owns its native Agents, Skills, and Scripts, operating alongside shared Scripts, Tools, and everything else.
+In words: the Workcell root defines shared contracts feeding three harness families—Claude, Codex, and Antigravity (agy)—where each family owns its native Agents, Skills, and Scripts, operating alongside shared Scripts, Tools, and everything else.
 
 ```
 workcell/
-├── contracts/          harness-contracts.json declaring cross-harness requirements for 10 agents and 16 skills
-├── harnesses/          four harness-owned families: claude/, codex/, agy/, grok/
+├── contracts/          harness-contracts.json declaring cross-harness requirements for 10 agents and 12 skills
+├── harnesses/          three harness-owned families: claude/, codex/, agy/
 │   ├── claude/         harness-native agents, skills, and runtime (.claude-plugin/plugin.json, hooks/)
 │   ├── codex/          harness-native agents, skills, and runtime (.codex-plugin/plugin.json, models.json)
-│   ├── agy/            harness-native agents, skills, and runtime (plugin.json, rules/) — staged, then copied as an owned copy to ~/.gemini/config/plugins/workcell; never linked
-│   └── grok/           harness-native agents, skills, and runtime (.claude-plugin/plugin.json, models.json)
+│   └── agy/            harness-native agents, skills, and runtime (plugin.json, rules/) — staged, then copied as an owned copy to ~/.gemini/config/plugins/workcell; never linked
 ├── agents/             agent source definitions and metadata synced to harnesses via sync-agents.py
 ├── skills/             canonical workflow definitions synced to harnesses via sync-skills.py
 ├── plugins/            thin distribution wrappers
-├── scripts/            stagers (build-claude-plugin.py, build-codex-plugin.py, build-agy-plugin.py, build-grok-plugin.py), synchronization, and validators
+├── scripts/            stagers (build-claude-plugin.py, build-codex-plugin.py, build-agy-plugin.py), synchronization, and validators
 ├── cmd/tdd-guard/      the gate binary binding RED, GREEN, and review evidence to one diff
 ├── docs/adr/           architecture decisions and their consequences
 ├── docs/workspaces.md  the one isolation standard: workcell-ws, sibling paths, the sweep
@@ -197,31 +165,22 @@ workcell/
 └── evals/              structural, routing, and behavioral checks on skills and agents
 ```
 
-`plugins/claude/`, `plugins/codex/`, `plugins/agy/`, and `plugins/grok/` are one thin wrapper per
-harness — a manifest, hooks, and, where the harness's layout needs them, references back to
-`agents/` and `skills/`, with no content of their own (Grok ships no hooks of its own — see
-[docs/gates.md](docs/gates.md)). The Antigravity
-wrapper's per-skill entries regenerate on every install from `skills/` minus the skills owned by
-one of its agents. Grok reads `.claude-plugin/`-style manifests directly and aliases
-`CLAUDE_PLUGIN_ROOT` for hooks
-([ADR 0020](docs/adr/0020-apm-is-a-peer-tool-not-the-distribution-layer.md)), so adding it cost one
-staging script and a bootstrap section, not a new plugin format.
+`plugins/claude/`, `plugins/codex/`, and `plugins/agy/` provide thin native wrappers:
+a manifest, hooks, and references to shared content where the harness layout needs them.
+Antigravity’s per-skill entries regenerate on install from `skills/` minus the skills owned
+by one of its agents. The supported harness set is defined in [ADR 0029](docs/adr/0029-composable-workflows-and-native-research.md).
 
-Every harness install is an installer-owned copy of a staged tree; no harness loads code out of
-this checkout. `scripts/build-claude-plugin.py`, `build-codex-plugin.py`, `build-agy-plugin.py`,
-and `build-grok-plugin.py` each stage a tree with no links escaping it, and
-`scripts/bootstrap-plugins.sh` copies that tree to a path it owns. Claude and Codex resolve
-theirs through a durable marketplace under `~/.local/share/workcell/`; Antigravity and Grok
-register nothing, because each already scans its own plugin directory, so they get one owned copy
-at `~/.gemini/config/plugins/workcell` and one at `~/.grok/plugins/workcell` — a real directory
-each, not a link. The `~/.gemini/antigravity-cli/plugins/` location earlier versions also wrote
-to is retired and never recreated, so Antigravity has one loadable copy rather than two. The
-`.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` manifests that used to
-sit at the repository root are retired.
-[ADR 0023](docs/adr/0023-installs-are-self-contained-copies.md) records the decision,
-[docs/install.md](docs/install.md) the refresh story that comes with it, and
-[the Codex installation details](docs/install.md#choosing-models-and-thinking-levels) how its
-agents and shared skills are packaged and named.
+Codex routes use **GPT-6 Astra**, preserving each role's reasoning effort in
+[`agents/models.json`](agents/models.json). See the [Astra prompting guide](docs/models/gpt-6-astra/prompting.md).
+The executable [local build protocol](docs/build-runs.md) documents prepare, accept, resume, and cleanup.
+The [interactive system map](docs/diagrams/system-map/README.md) can be served locally.
+
+Every harness install is an installer-owned copy of a staged tree. The three scripts
+`build-claude-plugin.py`, `build-codex-plugin.py`, and `build-agy-plugin.py` stage trees with
+no links escaping them; `scripts/bootstrap-plugins.sh` copies each tree to its owned path.
+Claude and Codex use a durable marketplace under `~/.local/share/workcell/`. Antigravity
+scans its owned copy at `~/.gemini/config/plugins/workcell`. These are real directories,
+not links to this checkout. The former `~/.gemini/antigravity-cli/plugins/workcell` path is retired; refresh and removal details are in [docs/install.md](docs/install.md).
 
 ## Evals
 
@@ -258,6 +217,7 @@ python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 ruff check skills/ evals/ scripts/render-diagrams.py
 shellcheck -S warning scripts/*.sh scripts/hooks/build-* scripts/workcell-ws
 for d in skills/*/tests; do python3 -m unittest discover -s "$d" -p 'test_*.py'; done
+python3 -m unittest discover -s skills/plan/research/tests -p 'test_*.py'
 python3 evals/run_evals.py --structural
 python3 evals/run_evals.py --min-rank1 77
 python3 -m unittest discover -s evals/tests -p 'test_*.py'
@@ -276,7 +236,7 @@ Architecture decisions live in [`docs/adr/`](docs/adr/); notable changes are sum
 
 ## Contributing
 
-Workcell uses a layered architecture across four harness families: Claude Code, Codex, Antigravity (`agy`), and Grok Build ([ADR 0025](docs/adr/0025-layered-architecture-and-harness-owned-instructions.md)). Shared contracts in [`contracts/harness-contracts.json`](contracts/harness-contracts.json) define machine-readable requirements, while each harness family owns native instruction bodies and runtime adapters under `harnesses/<harness>/{agents,skills,runtime}`.
+Workcell uses a layered architecture across three harness families: Claude Code, Codex, and Antigravity (`agy`) ([ADR 0025](docs/adr/0025-layered-architecture-and-harness-owned-instructions.md)). Shared contracts in [`contracts/harness-contracts.json`](contracts/harness-contracts.json) define machine-readable requirements, while each harness family owns native instruction bodies and runtime adapters under `harnesses/<harness>/{agents,skills,runtime}`.
 
 **Adding or modifying an agent:**
 
@@ -302,12 +262,11 @@ Workcell uses a layered architecture across four harness families: Claude Code, 
   python3 scripts/sync-agents.py --check --diff
   python3 scripts/sync-skills.py --check --diff
   ```
-- Stage standalone distribution plugin trees for each harness via the four stagers:
+- Stage standalone distribution plugin trees for each harness via the three stagers:
   ```sh
   python3 scripts/build-claude-plugin.py
   python3 scripts/build-codex-plugin.py
   python3 scripts/build-agy-plugin.py
-  python3 scripts/build-grok-plugin.py
   ```
 
 **Generated output policy:**

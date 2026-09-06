@@ -57,7 +57,7 @@ def copied_tree() -> tuple[tempfile.TemporaryDirectory, Path]:
 
 
 class ContractParityTests(unittest.TestCase):
-    """Test contract parity verification across all four harnesses."""
+    """Test contract parity verification across all three harnesses."""
 
     def test_real_tree_contract_parity_passes(self) -> None:
         """Real tree passes contract parity check."""
@@ -109,8 +109,8 @@ class ContractParityTests(unittest.TestCase):
             self.assertTrue(target.is_file())
             content = target.read_text(encoding="utf-8")
             # Swap gates 1 and 2 in Ordered Gates
-            gate1 = "1. **approved plan**: Validate `plan.sidecar.json` and snapshot GitHub issue state to schedule dependency waves."
-            gate2 = "2. **specifier RED seal**: Specifier authors failing acceptance tests and seals them with `tdd-guard seal`."
+            section = content.split("## Ordered Gates", 1)[1].split("\n## ", 1)[0]
+            gate1, gate2 = re.findall(r"^\d+\..+$", section, re.MULTILINE)[:2]
             self.assertIn(gate1, content)
             self.assertIn(gate2, content)
             swapped_content = content.replace(gate1, "TMP_GATE").replace(gate2, gate1).replace("TMP_GATE", gate2)
@@ -129,11 +129,11 @@ class ContractParityTests(unittest.TestCase):
                 f"failure must name field 'gate order' or 'orderedGates':\n{output}",
             )
             self.assertTrue(
-                "approved plan" in output or "expected" in output.lower(),
+                "scope and reuse" in output or "expected" in output.lower(),
                 f"failure must name expected gate order:\n{output}",
             )
             self.assertTrue(
-                "specifier RED seal" in output or "actual" in output.lower(),
+                "execution contract" in output or "actual" in output.lower(),
                 f"failure must name actual gate order:\n{output}",
             )
 

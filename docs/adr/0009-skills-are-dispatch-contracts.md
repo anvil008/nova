@@ -1,8 +1,10 @@
 # 9. Skills are dispatch contracts
 
+Planning ownership is superseded by [ADR 0028](0028-planner-owned-research-and-three-harnesses.md): one planner authors the plan; the orchestrator frames and reviews it. The execution boundaries below remain applicable.
+
 ## Status
 
-Accepted
+Superseded for planning and source access by [ADR 0027](0027-developer-workflows-and-orchestrator-owned-planning.md). Historical decision follows.
 
 ## Context
 

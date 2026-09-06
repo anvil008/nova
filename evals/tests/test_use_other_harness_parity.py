@@ -3,7 +3,7 @@
 Covers acceptance test:
 - use-other-harness-means-the-same (e2e)
   Oracle: Explicit harness/model/effort requests route natively and implicit cross-harness
-  suggestions are refused across all four, with identical handoff fields and no silent fallback.
+  suggestions are refused across all three, with identical handoff fields and no silent fallback.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ run_evals = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = run_evals
 SPEC.loader.exec_module(run_evals)
 
-HARNESSES = ("claude", "codex", "agy", "grok")
+HARNESSES = ("claude", "codex", "agy")
 
 
 def run_main(*args: str) -> tuple[int, str]:
@@ -48,8 +48,8 @@ def run_main(*args: str) -> tuple[int, str]:
 class UseOtherHarnessParityTests(unittest.TestCase):
     """Test use-other-harness semantics, routing, refusal, and handoff parity across harnesses."""
 
-    def test_explicit_requests_route_natively_across_all_four(self) -> None:
-        """Explicit harness/model/effort requests route natively across all four harnesses."""
+    def test_explicit_requests_route_natively_across_all_three(self) -> None:
+        """Explicit harness/model/effort requests route natively across all three harnesses."""
         for harness in HARNESSES:
             skill_doc = (
                 ROOT
@@ -73,7 +73,6 @@ class UseOtherHarnessParityTests(unittest.TestCase):
                 "codex exec", content, f"missing codex native syntax in {harness}"
             )
             self.assertIn("agy -p", content, f"missing agy native syntax in {harness}")
-            self.assertIn("grok", content, f"missing grok native syntax in {harness}")
 
             # Behavioral dry-run for use-other-harness must emit native commands
             status, output = run_main(
@@ -96,14 +95,10 @@ class UseOtherHarnessParityTests(unittest.TestCase):
                 self.assertIn("-o", output)
             elif harness == "agy":
                 self.assertIn("agy -p", output)
-            elif harness == "grok":
-                self.assertIn("grok", output)
-                self.assertIn("--no-auto-update", output)
-                self.assertIn("-p", output)
 
-    def test_implicit_cross_harness_suggestions_refused_across_all_four(self) -> None:
-        """Implicit cross-harness suggestions are refused across all four harnesses."""
-        # 1. Structural/textual refusal rules across all 4 generated skill files
+    def test_implicit_cross_harness_suggestions_refused_across_all_three(self) -> None:
+        """Implicit cross-harness suggestions are refused across all three harnesses."""
+        # 1. Structural/textual refusal rules across all 3 generated skill files
         for harness in HARNESSES:
             skill_doc = (
                 ROOT
@@ -166,8 +161,8 @@ class UseOtherHarnessParityTests(unittest.TestCase):
                 f"evals output must name harness {harness}:\n{output}",
             )
 
-    def test_identical_handoff_fields_across_all_four(self) -> None:
-        """Handoff schema is identically anvil.agent-handoff/v1 across all four harnesses."""
+    def test_identical_handoff_fields_across_all_three(self) -> None:
+        """Handoff schema is identically anvil.agent-handoff/v1 across all three harnesses."""
         contracts_path = ROOT / "contracts" / "harness-contracts.json"
         self.assertTrue(
             contracts_path.is_file(), f"missing contracts registry: {contracts_path}"
@@ -201,8 +196,8 @@ class UseOtherHarnessParityTests(unittest.TestCase):
             status, 0, f"contract parity on real tree must pass:\n{output}"
         )
 
-    def test_no_silent_fallback_across_all_four(self) -> None:
-        """No silent fallback is permitted across all four harnesses."""
+    def test_no_silent_fallback_across_all_three(self) -> None:
+        """No silent fallback is permitted across all three harnesses."""
         for harness in HARNESSES:
             skill_doc = (
                 ROOT
@@ -236,7 +231,7 @@ class UseOtherHarnessParityTests(unittest.TestCase):
             target = (
                 temp_root
                 / "harnesses"
-                / "grok"
+                / "codex"
                 / "skills"
                 / "use-other-harness"
                 / "SKILL.md"
@@ -245,9 +240,10 @@ class UseOtherHarnessParityTests(unittest.TestCase):
             # Replace no-fallback rule with silent fallback instruction
             original_text = target.read_text(encoding="utf-8")
             tampered = original_text.replace(
-                "Do not guess a model or effort, and do not\npick a harness on the user's behalf.",
+                "Do not guess a model or effort, and do not pick a harness on the user's behalf.",
                 "If unavailable, silently fall back to host harness execution.",
             )
+            self.assertNotEqual(original_text, tampered, "tamper fixture must change the actual contract")
             target.write_text(tampered, encoding="utf-8")
             status, output = run_main("--root", str(temp_root), "--contract-parity")
             self.assertNotEqual(

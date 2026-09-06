@@ -85,16 +85,6 @@ class DocsCheckTests(unittest.TestCase):
             out = json.loads(r.stdout)
             self.assertTrue(any("my-decision.md" in v for v in out["violations"]))
 
-    def test_documenter_agent_and_docs_skill_declare_the_standard(self):
-        agent = (ROOT.parents[1] / "agents" / "claude" / "documenter.md").read_text(
-            encoding="utf-8"
-        )
-        self.assertTrue(agent.startswith("---\nname: documenter\n"))
-        for phrase in ("Update, don't duplicate", "lean", "ADR", "docs_check"):
-            self.assertIn(phrase, agent)
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertTrue(skill.startswith("---\nname: docs\n"))
-        self.assertIn("docs_check", skill)
 
     def test_no_dangling_skill_refs(self):
         with tempfile.TemporaryDirectory() as t:
@@ -154,7 +144,7 @@ class DocsCheckTests(unittest.TestCase):
             )
             self.assertEqual(len(out["violations"]), 6)
         out = json.loads(run(ROOT.parents[1]).stdout)
-        self.assertGreaterEqual(len(out["skillRefs"]), 9)
+        self.assertGreaterEqual(len(out["skillRefs"]), 8)
         self.assertEqual([s for s in out["skillRefs"] if not s["ok"]], [])
         agent_dir = ROOT.parents[1] / "agents"
         for name in (
@@ -270,59 +260,6 @@ class DocsCheckTests(unittest.TestCase):
                 description = re.search(r"(?m)^description:\s*(\S.*)$", front)
                 self.assertIsNotNone(description, f"{path}: no description")
 
-    def test_entry_point_skills_publish_their_distinguishing_contract(self):
-        """The four entry points differ by what they refuse to do. If those clauses
-        drift out, they collapse into four names for the same pipeline."""
-        skills = ROOT.parents[1] / "skills"
-        required = {
-            "code-refactor": (
-                "Behaviour does not change",
-                "no test file is modified",
-                "same `tdd-guard` state machine",
-                "`kind: baseline` seal",
-                "code-analysis",
-            ),
-            "code-analysis": (
-                "failure scenario",
-                "specifier",
-                "refute",
-                "code-refactor",
-            ),
-            "new-feature": (
-                "at least five clarifying questions",
-                "Skip this only when the user explicitly says to skip",
-                "needs-decision",
-            ),
-            "repo-setup": (
-                "AGENTS.md",
-                "bootstrap-project.sh",
-                "jj git init --colocate",
-            ),
-            "debug": (
-                # Reproduction is the gate: without it a "fix" is a guess that shipped.
-                "No reproduction, no fix",
-                "debugger",
-                "specifier",
-                "code-analysis",
-            ),
-            "perf": (
-                # A benchmark harness is a precondition, not a nice-to-have.
-                "No harness, no run",
-                "outside the baseline's spread",
-                "profiler",
-                "no write tools",
-            ),
-        }
-        for skill, phrases in required.items():
-            path = skills / skill / "SKILL.md"
-            with self.subTest(skill=skill):
-                self.assertTrue(path.exists(), path)
-                text = path.read_text(encoding="utf-8")
-                for phrase in phrases:
-                    self.assertIn(phrase, text, f"{skill}: missing {phrase!r}")
-                # Every entry point is orchestration: it dispatches, it does not do.
-                self.assertIn("You are the orchestrator", text)
-                self.assertIn("0007-primary-agent-is-a-pure-orchestrator", text)
 
     def test_gemini_instruction_file_budget(self):
         with tempfile.TemporaryDirectory() as t:
@@ -493,12 +430,11 @@ class DocsCheckTests(unittest.TestCase):
             "python3 -m unittest discover -s scripts/tests -p 'test_*.py'", content
         )
 
-        # Every present and future skill suite is discovered; none is hard-coded.
+        # Discover public skill suites and the retained nested research capability.
         self.assertIn("for d in skills/*/tests; do", content)
         self.assertIn("python3 -m unittest discover -s \"$d\" -p 'test_*.py'", content)
-        self.assertNotRegex(
-            content, r"python3 -m unittest discover -s skills/[^\s]+/tests"
-        )
+        explicit_suites = re.findall(r"python3 -m unittest discover -s (skills/[^\s]+/tests)", content)
+        self.assertEqual(explicit_suites, ["skills/plan/research/tests"])
 
         # Python and lint tooling are explicit CI gates.
         self.assertIn("actions/setup-python@v5", content)
@@ -547,9 +483,10 @@ class DocsCheckTests(unittest.TestCase):
             self.assertTrue(light.group(1).strip(), "empty alt text")
             for reference in (dark.group(1), light.group(2)):
                 self.assertTrue((repo / reference).is_file(), reference)
-            following = readme[readme.index(block) + len(block) :].split("\n")[:11]
+            following = readme[readme.index(block) + len(block) :].strip().split("\n\n", 1)[0]
             self.assertTrue(
-                any("In words" in line for line in following),
+                following and not following.startswith(("#", "<", "![", "```"))
+                and len(following.split()) >= 8,
                 f"no text equivalent near {light.group(2)}",
             )
 
