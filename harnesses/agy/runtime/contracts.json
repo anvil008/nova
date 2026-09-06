@@ -4,22 +4,23 @@
     "harnesses": [
       "claude",
       "codex",
-      "agy",
-      "grok"
+      "agy"
     ],
     "skills": [
       {
         "name": "build",
         "invocation": "/workcell:build",
         "orderedGates": [
-          "approved plan",
-          "specifier RED seal",
-          "builder GREEN",
-          "review passes",
-          "integration"
+          "scope and reuse",
+          "execution contract",
+          "protected tests",
+          "implementation and review",
+          "documentation",
+          "final verification",
+          "delivery"
         ],
         "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The approved milestone issues and their sealed acceptance tests are authoritative.",
+        "acceptanceOracle": "The requested change meets its acceptance criteria on the exact final source, with independent review, appropriate protected tests, and fresh combined verification.",
         "requiredValues": {
           "claude": [
             "body"
@@ -28,92 +29,6 @@
             "body"
           ],
           "agy": [
-            "body"
-          ],
-          "grok": [
-            "body"
-          ]
-        },
-        "optionalSurfaces": []
-      },
-      {
-        "name": "code-analysis",
-        "invocation": "/workcell:code-analysis",
-        "orderedGates": [
-          "reproduction",
-          "RED seal",
-          "GREEN",
-          "review",
-          "pull request"
-        ],
-        "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "Every reported defect has an honest failing test followed by a verified fix.",
-        "requiredValues": {
-          "claude": [
-            "body"
-          ],
-          "codex": [
-            "body"
-          ],
-          "agy": [
-            "body"
-          ],
-          "grok": [
-            "body"
-          ]
-        },
-        "optionalSurfaces": []
-      },
-      {
-        "name": "code-refactor",
-        "invocation": "/workcell:code-refactor",
-        "orderedGates": [
-          "green baseline",
-          "behaviour-preserving change",
-          "GREEN",
-          "review",
-          "pull request"
-        ],
-        "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The project baseline stays green and observable behaviour does not change.",
-        "requiredValues": {
-          "claude": [
-            "body"
-          ],
-          "codex": [
-            "body"
-          ],
-          "agy": [
-            "body"
-          ],
-          "grok": [
-            "body"
-          ]
-        },
-        "optionalSurfaces": []
-      },
-      {
-        "name": "code-review",
-        "invocation": "/workcell:code-review",
-        "orderedGates": [
-          "lens reviews",
-          "adversarial verification",
-          "deduplication",
-          "report"
-        ],
-        "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "Every finding is evidence-backed and independently verified before reporting.",
-        "requiredValues": {
-          "claude": [
-            "body"
-          ],
-          "codex": [
-            "body"
-          ],
-          "agy": [
-            "body"
-          ],
-          "grok": [
             "body"
           ]
         },
@@ -125,13 +40,11 @@
         "orderedGates": [
           "reproduce symptom",
           "isolate cause",
-          "RED seal",
-          "GREEN",
-          "review",
-          "pull request"
+          "shared build",
+          "reproduction verification"
         ],
         "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The known symptom is reproduced, fixed test-first, and verified in the real surface.",
+        "acceptanceOracle": "A reproduced cause feeds the shared build workflow and the original symptom is verified resolved.",
         "requiredValues": {
           "claude": [
             "body"
@@ -140,9 +53,6 @@
             "body"
           ],
           "agy": [
-            "body"
-          ],
-          "grok": [
             "body"
           ]
         },
@@ -169,9 +79,6 @@
           ],
           "agy": [
             "body"
-          ],
-          "grok": [
-            "body"
           ]
         },
         "optionalSurfaces": []
@@ -181,12 +88,12 @@
         "invocation": "/workcell:docs",
         "orderedGates": [
           "truth audit",
-          "documentation update",
-          "docs check",
-          "review"
+          "scoped documentation",
+          "independent validation",
+          "delivery"
         ],
         "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "Documentation matches the shipped system and passes the repository documentation standard.",
+        "acceptanceOracle": "Documentation matches the final source and passes independent repository documentation checks before authorized delivery.",
         "requiredValues": {
           "claude": [
             "body"
@@ -195,9 +102,6 @@
             "body"
           ],
           "agy": [
-            "body"
-          ],
-          "grok": [
             "body"
           ]
         },
@@ -222,65 +126,6 @@
           ],
           "agy": [
             "body"
-          ],
-          "grok": [
-            "body"
-          ]
-        },
-        "optionalSurfaces": []
-      },
-      {
-        "name": "new-feature",
-        "invocation": "/workcell:new-feature",
-        "orderedGates": [
-          "interview",
-          "approved plan",
-          "sealed tests",
-          "implementation",
-          "review",
-          "pull request"
-        ],
-        "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The interviewed feature is implemented against approved, sealed acceptance criteria.",
-        "requiredValues": {
-          "claude": [
-            "body"
-          ],
-          "codex": [
-            "body"
-          ],
-          "agy": [
-            "body"
-          ],
-          "grok": [
-            "body"
-          ]
-        },
-        "optionalSurfaces": []
-      },
-      {
-        "name": "perf",
-        "invocation": "/workcell:perf",
-        "orderedGates": [
-          "benchmark baseline",
-          "optimization",
-          "benchmark comparison",
-          "review"
-        ],
-        "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The measured improvement exceeds benchmark noise without a correctness regression.",
-        "requiredValues": {
-          "claude": [
-            "body"
-          ],
-          "codex": [
-            "body"
-          ],
-          "agy": [
-            "body"
-          ],
-          "grok": [
-            "body"
           ]
         },
         "optionalSurfaces": []
@@ -289,14 +134,14 @@
         "name": "plan",
         "invocation": "/workcell:plan",
         "orderedGates": [
-          "investigation",
-          "offline folio",
-          "strict sidecar",
-          "human approval",
-          "GitHub reconciliation"
+          "plan choice",
+          "planner investigation",
+          "plan artifacts",
+          "orchestrator review",
+          "build transition"
         ],
         "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The plan is evidence-backed, independently executable, and explicitly approved before reconciliation.",
+        "acceptanceOracle": "The selected plan is evidence-backed, executable, and reviewed; standalone planning ends with artifacts and an optional authorized build transition.",
         "requiredValues": {
           "claude": [
             "body"
@@ -306,8 +151,53 @@
           ],
           "agy": [
             "body"
+          ]
+        },
+        "optionalSurfaces": []
+      },
+      {
+        "name": "profile",
+        "invocation": "/workcell:profile",
+        "orderedGates": [
+          "measurement scope",
+          "benchmark baseline",
+          "hotspot analysis",
+          "report",
+          "build transition"
+        ],
+        "handoffSchema": "anvil.agent-handoff/v1",
+        "acceptanceOracle": "Performance findings have a reproducible baseline and uncertainty; selected optimizations are remeasured after build.",
+        "requiredValues": {
+          "claude": [
+            "body"
           ],
-          "grok": [
+          "codex": [
+            "body"
+          ],
+          "agy": [
+            "body"
+          ]
+        },
+        "optionalSurfaces": []
+      },
+      {
+        "name": "refactor",
+        "invocation": "/workcell:refactor",
+        "orderedGates": [
+          "scope and invariants",
+          "shared build",
+          "baseline comparison"
+        ],
+        "handoffSchema": "anvil.agent-handoff/v1",
+        "acceptanceOracle": "Behavior-preserving changes use the shared build workflow with a protected GREEN baseline and final unchanged-behavior verification.",
+        "requiredValues": {
+          "claude": [
+            "body"
+          ],
+          "codex": [
+            "body"
+          ],
+          "agy": [
             "body"
           ]
         },
@@ -334,24 +224,21 @@
           ],
           "agy": [
             "body"
-          ],
-          "grok": [
-            "body"
           ]
         },
         "optionalSurfaces": []
       },
       {
-        "name": "research",
-        "invocation": "/workcell:research",
+        "name": "review",
+        "invocation": "/workcell:review",
         "orderedGates": [
-          "area briefs",
-          "read-only evidence",
-          "deduplication",
-          "packet"
+          "scope and lenses",
+          "evidence verification",
+          "report",
+          "build transition"
         ],
         "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The final packet covers every assigned area with attributable, deduplicated evidence.",
+        "acceptanceOracle": "Reported findings are evidence-backed and independently verified; remediation only follows an authorized build transition.",
         "requiredValues": {
           "claude": [
             "body"
@@ -360,36 +247,6 @@
             "body"
           ],
           "agy": [
-            "body"
-          ],
-          "grok": [
-            "body"
-          ]
-        },
-        "optionalSurfaces": []
-      },
-      {
-        "name": "review-fix-loop",
-        "invocation": "/workcell:review-fix-loop",
-        "orderedGates": [
-          "review",
-          "fix",
-          "verify",
-          "bounded stop"
-        ],
-        "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "Every blocking finding is fixed or surfaced when the bounded loop stops.",
-        "requiredValues": {
-          "claude": [
-            "body"
-          ],
-          "codex": [
-            "body"
-          ],
-          "agy": [
-            "body"
-          ],
-          "grok": [
             "body"
           ]
         },
@@ -415,9 +272,6 @@
           ],
           "agy": [
             "body"
-          ],
-          "grok": [
-            "body"
           ]
         },
         "optionalSurfaces": []
@@ -442,9 +296,6 @@
           ],
           "agy": [
             "body"
-          ],
-          "grok": [
-            "body"
           ]
         },
         "optionalSurfaces": []
@@ -455,13 +306,13 @@
         "name": "planner",
         "invocation": "workcell:planner",
         "orderedGates": [
-          "read-only investigation",
-          "plan folio",
-          "strict sidecar",
-          "human approval"
+          "assigned approach",
+          "planner investigation",
+          "plan artifacts",
+          "handoff"
         ],
         "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The plan and issue acceptance tests are complete enough for independent execution.",
+        "acceptanceOracle": "The assigned approach and its acceptance criteria are evidence-backed and executable, with uncertainties explicit.",
         "requiredValues": {
           "claude": [
             "body",
@@ -476,20 +327,9 @@
           "agy": [
             "body",
             "model"
-          ],
-          "grok": [
-            "body",
-            "model"
           ]
         },
-        "optionalSurfaces": [
-          {
-            "harness": "grok",
-            "name": "effort",
-            "supported": false,
-            "limitationNote": "Grok Build does not expose a verified per-agent effort surface; effort stays a headless launch argument."
-          }
-        ]
+        "optionalSurfaces": []
       },
       {
         "name": "specifier",
@@ -501,7 +341,7 @@
           "builder handoff"
         ],
         "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The assigned issue has honest failing tests sealed on the agreed base.",
+        "acceptanceOracle": "The assigned change has honest failing tests sealed on the agreed base.",
         "requiredValues": {
           "claude": [
             "body",
@@ -514,10 +354,6 @@
             "effort"
           ],
           "agy": [
-            "body",
-            "model"
-          ],
-          "grok": [
             "body",
             "model"
           ]
@@ -535,14 +371,14 @@
         "name": "builder",
         "invocation": "workcell:builder",
         "orderedGates": [
-          "sealed tests",
+          "protected tests",
           "GREEN",
           "runtime proof",
-          "two reviews",
-          "pull request"
+          "independent review",
+          "handoff"
         ],
         "handoffSchema": "anvil.agent-handoff/v1",
-        "acceptanceOracle": "The assigned issue passes sealed tests and real-surface verification without changing the oracle.",
+        "acceptanceOracle": "The assigned change passes its protected tests and real-surface verification without changing the oracle.",
         "requiredValues": {
           "claude": [
             "body",
@@ -555,10 +391,6 @@
             "effort"
           ],
           "agy": [
-            "body",
-            "model"
-          ],
-          "grok": [
             "body",
             "model"
           ]
@@ -581,12 +413,6 @@
             "name": "mode",
             "supported": false,
             "limitationNote": "Antigravity does not expose a per-agent mode surface; mode stays a Claude frontmatter field."
-          },
-          {
-            "harness": "grok",
-            "name": "mode",
-            "supported": false,
-            "limitationNote": "Grok Build does not expose a per-agent mode surface; mode stays a Claude frontmatter field."
           }
         ]
       },
@@ -613,10 +439,6 @@
             "effort"
           ],
           "agy": [
-            "body",
-            "model"
-          ],
-          "grok": [
             "body",
             "model"
           ]
@@ -648,10 +470,6 @@
           "agy": [
             "body",
             "model"
-          ],
-          "grok": [
-            "body",
-            "model"
           ]
         },
         "optionalSurfaces": []
@@ -660,7 +478,7 @@
         "name": "researcher",
         "invocation": "workcell:researcher",
         "orderedGates": [
-          "one area",
+          "assigned area",
           "read-only evidence",
           "structured findings"
         ],
@@ -678,10 +496,6 @@
             "effort"
           ],
           "agy": [
-            "body",
-            "model"
-          ],
-          "grok": [
             "body",
             "model"
           ]
@@ -711,10 +525,6 @@
             "effort"
           ],
           "agy": [
-            "body",
-            "model"
-          ],
-          "grok": [
             "body",
             "model"
           ]
@@ -747,10 +557,6 @@
           "agy": [
             "body",
             "model"
-          ],
-          "grok": [
-            "body",
-            "model"
           ]
         },
         "optionalSurfaces": []
@@ -780,10 +586,6 @@
           "agy": [
             "body",
             "model"
-          ],
-          "grok": [
-            "body",
-            "model"
           ]
         },
         "optionalSurfaces": [
@@ -798,12 +600,6 @@
             "name": "mode",
             "supported": false,
             "limitationNote": "Antigravity does not expose a per-agent mode surface; mode stays a Claude frontmatter field."
-          },
-          {
-            "harness": "grok",
-            "name": "mode",
-            "supported": false,
-            "limitationNote": "Grok Build does not expose a per-agent mode surface; mode stays a Claude frontmatter field."
           }
         ]
       },
@@ -830,10 +626,6 @@
             "effort"
           ],
           "agy": [
-            "body",
-            "model"
-          ],
-          "grok": [
             "body",
             "model"
           ]

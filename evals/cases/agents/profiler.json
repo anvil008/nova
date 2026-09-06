@@ -3,13 +3,28 @@
   "kind": "agent",
   "trigger": {
     "positive": [
-      {"prompt": "Measure this benchmark repeatedly and return its median, spread, run count, and environment.", "top_k": 3},
-      {"prompt": "Compare these two revisions using the existing performance harness and report distributions.", "top_k": 3},
-      {"prompt": "Report the project's benchmark results as a distribution instead of one number.", "top_k": 3}
+      {
+        "prompt": "Measure this benchmark repeatedly and return its median, spread, run count, and environment.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Compare these two revisions using the existing performance harness and report distributions.",
+        "top_k": 3
+      },
+      {
+        "prompt": "Report the project's benchmark results as a distribution instead of one number.",
+        "top_k": 3
+      }
     ],
     "negative": [
-      {"prompt": "Coordinate the full optimization workflow from baseline through a proven faster PR.", "owner": "skill:perf"},
-      {"prompt": "Reproduce this reported crash by experiment and return the root-cause diagnosis.", "owner": "agent:debugger"}
+      {
+        "prompt": "Coordinate the full optimization workflow from baseline through a proven faster PR.",
+        "owner": "skill:profile"
+      },
+      {
+        "prompt": "Reproduce this reported crash by experiment and return the root-cause diagnosis.",
+        "owner": "agent:debugger"
+      }
     ]
   },
   "evals": [

@@ -1,6 +1,6 @@
 {
   "title": "The mechanical gates a build wave passes through",
-  "description": "tdd-guard turns TDD into a state machine two different agents pass through: one seals the tests, the other implements against them, and the Stop hook releases a pull request only on fresh evidence.",
+  "description": "tdd-guard turns TDD into a state machine two different agents pass through: one seals the tests, the other implements against them, and the Stop hook allows a local handoff only on fresh evidence.",
   "direction": "TB",
   "width": 880,
   "nodes": [
@@ -32,7 +32,7 @@
       "id": "verify",
       "kind": "gate",
       "label": "tdd-guard verify",
-      "sub": "GREEN must postdate the seal"
+      "sub": "GREEN bound to the tested source and base"
     },
     {
       "id": "denied",
@@ -55,29 +55,55 @@
     {
       "id": "pr",
       "kind": "artifact",
-      "label": "PR allowed",
-      "sub": "the gate decides the merge, never a handoff"
+      "label": "local handoff allowed",
+      "sub": "retain the source workspace until acceptance"
     }
   ],
   "edges": [
-    { "from": "testauthor", "to": "seal", "label": "RED is real and non-zero" },
+    {
+      "from": "testauthor",
+      "to": "seal",
+      "label": "RED is real and non-zero"
+    },
     {
       "from": "integrator",
       "to": "seal",
       "label": "the baseline run is green"
     },
-    { "from": "seal", "to": "builder", "label": "handoff --to builder" },
-    { "from": "builder", "to": "verify" },
+    {
+      "from": "seal",
+      "to": "builder",
+      "label": "handoff --to builder"
+    },
+    {
+      "from": "builder",
+      "to": "verify"
+    },
     {
       "from": "builder",
       "to": "denied",
       "label": "edits a sealed test",
       "dashed": true
     },
-    { "from": "denied", "to": "builder", "dashed": true, "side": "right" },
-    { "from": "verify", "to": "review" },
-    { "from": "review", "to": "stop" },
-    { "from": "stop", "to": "pr", "label": "yes" },
+    {
+      "from": "denied",
+      "to": "builder",
+      "dashed": true,
+      "side": "right"
+    },
+    {
+      "from": "verify",
+      "to": "review"
+    },
+    {
+      "from": "review",
+      "to": "stop"
+    },
+    {
+      "from": "stop",
+      "to": "pr",
+      "label": "yes"
+    },
     {
       "from": "stop",
       "to": "builder",

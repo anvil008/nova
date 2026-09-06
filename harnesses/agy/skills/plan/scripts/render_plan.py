@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a strict planner sidecar as a self-contained HTML folio."""
+"""Render a strict planner sidecar as Markdown, with an optional HTML companion."""
 
 from __future__ import annotations
 
@@ -67,6 +67,27 @@ def nonempty_string(value: object, where: str) -> str:
     return value.strip()
 
 
+def canonical_write_target(value: object, where: str) -> str:
+    """Keep ownership and test writes in one lexical, repository-relative namespace."""
+    target = nonempty_string(value, where)
+    if "," in target or target.split() != [target]:
+        raise PlanError(f"{where} takes one path or glob, not {value!r}")
+    # PurePath collapses dot/empty components but preserves '..'; neither behavior
+    # is suitable before the scheduler compares ownership strings. Reject aliases
+    # instead of silently changing a write target the user reviewed.
+    if (
+        target != value
+        or "\\" in target
+        or re.match(r"^[A-Za-z]:", target)
+        or any(ord(character) < 32 or ord(character) == 127 for character in target)
+        or any(part in {"", ".", ".."} for part in target.split("/"))
+    ):
+        raise PlanError(
+            f"{where} must be a canonical relative POSIX path or glob, not {value!r}"
+        )
+    return target
+
+
 def validate_plan(plan: object) -> dict:
     if not isinstance(plan, dict):
         raise PlanError("sidecar must be a JSON object")
@@ -78,9 +99,11 @@ def validate_plan(plan: object) -> dict:
     # re-run of an unchanged plan is a no-op even if the sidecar carries padding.
     plan["planId"] = plan_id
     nonempty_string(plan["planName"], "planName")
-    repo = nonempty_string(plan["repo"], "repo")
-    if not REPOSITORY.fullmatch(repo):
-        raise PlanError("repo must be owner/name")
+    if plan["repo"] is not None:
+        repo = nonempty_string(plan["repo"], "repo")
+        if not REPOSITORY.fullmatch(repo):
+            raise PlanError("repo must be owner/name or null for local-only plans")
+        plan["repo"] = repo
     generated_at = nonempty_string(plan["generatedAt"], "generatedAt")
     try:
         datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
@@ -142,14 +165,9 @@ def validate_plan(plan: object) -> dict:
         issue["key"] = key
         nonempty_string(issue["title"], f"issues[{index}].title")
         nonempty_string(issue["body"], f"issues[{index}].body")
-        # One token only: every consumer (waves.py's overlap check, the ownership an
-        # agent is handed) treats the value as a single literal path or glob.
-        hint = nonempty_string(issue["ownershipHint"], f"issues[{index}].ownershipHint")
-        if "," in hint or hint.split() != [hint]:
-            raise PlanError(
-                f"issues[{index}].ownershipHint takes one path or glob, not {hint!r}"
-            )
-        issue["ownershipHint"] = hint
+        issue["ownershipHint"] = canonical_write_target(
+            issue["ownershipHint"], f"issues[{index}].ownershipHint"
+        )
         if not isinstance(issue["labels"], list) or any(
             not isinstance(label, str) or not label for label in issue["labels"]
         ):
@@ -201,7 +219,13 @@ def validate_plan(plan: object) -> dict:
                 )
             nonempty_string(spec["oracle"], f"{twhere}.oracle")
             if "testPath" in spec:
-                nonempty_string(spec["testPath"], f"{twhere}.testPath")
+                spec["testPath"] = canonical_write_target(
+                    spec["testPath"], f"{twhere}.testPath"
+                )
+                if any(character in spec["testPath"] for character in "*?["):
+                    raise PlanError(
+                        f"{twhere}.testPath must name one concrete test file without glob metacharacters, not {spec['testPath']!r}"
+                    )
             if "stub" in spec:
                 nonempty_string(spec["stub"], f"{twhere}.stub")
 
@@ -240,7 +264,7 @@ def validate_risks(risks: object) -> None:
 
 
 PLAN_MARKER = "<!-- workcell-planner planId={plan_id} -->"
-PLAN_FILE = re.compile(r"^plan(\d+)-\d{8}-.*\.html$")
+PLAN_FILE = re.compile(r"^plan(\d+)-\d{8}-.*\.(?:md|html)$")
 SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 
 
@@ -272,8 +296,8 @@ def title_slug(plan_name: str, limit: int = 60) -> str:
     return slug or "plan"
 
 
-def plan_path(plan: dict, plans_dir: Path) -> Path:
-    """docs/plans/plan<NN>-<YYYYMMDD>-<title>.html
+def plan_path(plan: dict, plans_dir: Path, extension: str = "md") -> Path:
+    """Allocate a stable plan filename shared by its Markdown and HTML versions.
 
     The number is allocated once per plan and then reused: a re-render of the
     same planId overwrites its existing file rather than claiming a new number,
@@ -282,21 +306,84 @@ def plan_path(plan: dict, plans_dir: Path) -> Path:
     marker = PLAN_MARKER.format(plan_id=plan["planId"])
     taken: set[int] = set()
     if plans_dir.is_dir():
-        for existing in sorted(plans_dir.glob("plan*.html")):
+        for existing in sorted(plans_dir.glob("plan*")):
             match = PLAN_FILE.match(existing.name)
             if not match:
                 continue
             taken.add(int(match.group(1)))
             try:
                 if marker in existing.read_text(encoding="utf-8"):
-                    return existing
+                    return existing.with_suffix(f".{extension}")
             except OSError:
                 continue
     number = next(n for n in range(1, len(taken) + 2) if n not in taken)
     date = datetime.fromisoformat(plan["generatedAt"].replace("Z", "+00:00")).strftime(
         "%Y%m%d"
     )
-    return plans_dir / f"plan{number:02d}-{date}-{title_slug(plan['planName'])}.html"
+    return plans_dir / f"plan{number:02d}-{date}-{title_slug(plan['planName'])}.{extension}"
+
+
+def markdown_fence(value: str, language: str = "") -> str:
+    """Keep authored diagrams and test skeletons inside their code block."""
+    longest = max((len(run) for run in re.findall(r"`+", value)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return f"{fence}{language}\n{value}\n{fence}"
+
+
+def render_markdown(plan: dict) -> str:
+    """Include every acceptance criterion and implementation detail in the plan."""
+    sections = [
+        PLAN_MARKER.format(plan_id=plan["planId"]),
+        f"# {plan['planName']}",
+        f"Repository: {plan['repo'] or 'Local repository'}  \nPlan: {plan['planId']}  \nGenerated: {plan['generatedAt']}",
+        "## Goal and decisions", plan["summary"],
+        "## Architecture change", plan["architecture"]["changeSummary"],
+    ]
+    components = []
+    for component in plan["architecture"]["components"]:
+        components.append(
+            f"- {component}" if isinstance(component, str)
+            else f"- **{component['name']}**: {component['purpose']}"
+        )
+    sections.append("\n".join(components))
+    sources = plan["architecture"]["diagramsMermaid"]
+    for key, title in (("currentArchitecture", "Current"), ("targetArchitecture", "Proposed")):
+        sections.extend([f"### {title}", markdown_fence(sources[key], "mermaid")])
+    for key, source in sources.items():
+        if key not in {"currentArchitecture", "targetArchitecture"}:
+            sections.extend([f"### {key}", markdown_fence(source, "mermaid")])
+    sections.append("## Implementation issues")
+    for issue in plan["issues"]:
+        sections.extend([
+            f"### {issue['key']}: {issue['title']}", issue["body"],
+            f"- Wave: {issue['wave']}\n"
+            f"- Ownership: {issue['ownershipHint']}\n"
+            f"- Dependencies: {', '.join(issue['dependsOn']) or 'None'}\n"
+            f"- Labels: {', '.join(issue['labels']) or 'None'}",
+            "Acceptance criteria:",
+        ])
+        tests = []
+        for spec in issue["acceptanceTests"]:
+            tests.append(f"- [ ] **{spec['name']}** ({spec['kind']}): {spec['oracle']}")
+            if "testPath" in spec:
+                tests.append(f"  Test path: {spec['testPath']}")
+            if "stub" in spec:
+                tests.append("\n" + markdown_fence(spec["stub"]))
+        sections.append("\n".join(tests))
+    sections.append("## Execution waves")
+    for wave in sorted({issue["wave"] for issue in plan["issues"]}):
+        keys = ", ".join(issue["key"] for issue in plan["issues"] if issue["wave"] == wave)
+        sections.append(f"- Wave {wave}: {keys}")
+    sections.append("## Risks")
+    if not plan["risks"]:
+        sections.append("No identified risks were recorded for this plan.")
+    for risk in plan["risks"]:
+        sections.extend([
+            f"### {risk['id']}: {risk['title']}",
+            f"- Likelihood: {risk['likelihood']}/3\n- Impact: {risk['impact']}/3\n"
+            f"- Owner: {risk['owner']}\n- Mitigation: {risk['mitigation']}",
+        ])
+    return "\n\n".join(sections) + "\n"
 
 
 def node_id(key: str) -> str:
@@ -550,8 +637,11 @@ def render(plan: dict) -> str:
         "SUMMARY": prose(plan["summary"]),
         "GENERATED_AT": escaped(plan["generatedAt"]),
         "DISPLAY_DATE": escaped(generated.strftime("%B %d, %Y")),
-        "MILESTONE_URL": escaped(f"https://github.com/{plan['repo']}/milestones"),
-        "REPO": escaped(plan["repo"]),
+        "MILESTONE_TARGET": (
+            f'<a href="https://github.com/{escaped(plan["repo"])}/milestones">{escaped(plan["planName"])}</a>'
+            if plan["repo"] is not None else "Local task ledger"
+        ),
+        "REPO": escaped(plan["repo"] or "Local repository"),
         "ISSUE_COUNT": escaped(len(plan["issues"])),
         "WAVE_COUNT": escaped(len(waves)),
         "RISK_COUNT": escaped(len(plan["risks"])),
@@ -610,20 +700,29 @@ def main() -> int:
         "output",
         type=Path,
         nargs="?",
-        help="explicit output path; omit to use <plans-dir>/plan<NN>-<YYYYMMDD>-<title>.html",
+        help="explicit .md or .html path; .html requests both formats",
     )
     parser.add_argument("--plans-dir", type=Path, default=Path("docs/plans"))
+    parser.add_argument("--format", choices=("md", "html"), help="default: md; html adds a visual companion")
     args = parser.parse_args()
     try:
         plan = validate_plan(json.loads(args.sidecar.read_text(encoding="utf-8")))
-        output = args.output or plan_path(plan, args.plans_dir)
-        rendered = render(plan)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(rendered, encoding="utf-8")
+        requested_format = args.format or ("html" if args.output and args.output.suffix == ".html" else "md")
+        output = args.output or plan_path(plan, args.plans_dir, requested_format)
+        if output.suffix != f".{requested_format}":
+            raise PlanError(f"output must end in .{requested_format} for the requested format")
+        outputs = {output.with_suffix(".md"): render_markdown(plan)}
+        if requested_format == "html":
+            outputs[output] = render(plan)
+        # Validate/render every requested artifact before writing any of them.
+        for path, content in outputs.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
     except (OSError, json.JSONDecodeError, PlanError, diagrams.DiagramError) as error:
         print(f"planner render error: {error}", file=sys.stderr)
         return 1
-    print(f"rendered {output}")
+    for path in outputs:
+        print(f"rendered {path}")
     return 0
 
 

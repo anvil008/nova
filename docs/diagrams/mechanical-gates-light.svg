@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 596" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title diagram-desc">
   <title id="diagram-title">The mechanical gates a build wave passes through</title>
-  <desc id="diagram-desc">tdd-guard turns TDD into a state machine two different agents pass through: one seals the tests, the other implements against them, and the Stop hook releases a pull request only on fresh evidence.</desc>
+  <desc id="diagram-desc">tdd-guard turns TDD into a state machine two different agents pass through: one seals the tests, the other implements against them, and the Stop hook allows a local handoff only on fresh evidence.</desc>
   <defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#4b5563"/></marker><marker id="arrow-muted" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#7b8494"/></marker></defs>
   <style>
     text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
@@ -40,19 +40,15 @@
   <rect class="k-agent" x="455" y="74" width="310" height="48" rx="10"/><text class="label" x="610" y="94.5">integrator (baseline)</text><text class="sub" x="610" y="110">behaviour-preserving work: proves the suite green</text>
   <polygon class="k-gate" points="305,150 575,150 591,174 575,198 305,198 289,174"/><text class="label" x="440" y="170.5">tdd-guard seal</text><text class="sub" x="440" y="186">kind: red, or kind: baseline for refactor work</text>
   <rect class="k-agent" x="285" y="226" width="310" height="48" rx="10"/><text class="label" x="440" y="246.5">builder implements</text><text class="sub" x="440" y="262">a different agent from the one that wrote the tests</text>
-  <polygon class="k-gate" points="139,302 409,302 425,326 409,350 139,350 123,326"/><text class="label" x="274" y="322.5">tdd-guard verify</text><text class="sub" x="274" y="338">GREEN must postdate the seal</text>
+  <polygon class="k-gate" points="139,302 409,302 425,326 409,350 139,350 123,326"/><text class="label" x="274" y="322.5">tdd-guard verify</text><text class="sub" x="274" y="338">GREEN bound to the tested source and base</text>
   <polygon class="k-gate" points="471,302 741,302 757,326 741,350 471,350 455,326"/><text class="label" x="606" y="322.5">sealed path denied</text><text class="sub" x="606" y="338">amend only via reseal --reason</text>
   <polygon class="k-gate" points="305,378 575,378 591,402 575,426 305,426 289,402"/><text class="label" x="440" y="398.5">tdd-guard diff-review record</text><text class="sub" x="440" y="414">findings bound to the current diff</text>
   <polygon class="k-gate" points="305,454 575,454 591,478 575,502 305,502 289,478"/><text class="label" x="440" y="474.5">Stop hook</text><text class="sub" x="440" y="490">is every piece of evidence fresh?</text>
-  <path class="k-artifact" d="M 295 530 L 571 530 L 585 544 L 585 578 L 295 578 Z"/><path class="k-artifact crease" d="M 571 530 L 571 544 L 585 544"/><text class="label" x="440" y="550.5">PR allowed</text><text class="sub" x="440" y="566">the gate decides the merge, never a handoff</text>
+  <path class="k-artifact" d="M 290 530 L 576 530 L 590 544 L 590 578 L 290 578 Z"/><path class="k-artifact crease" d="M 576 530 L 576 544 L 590 544"/><text class="label" x="440" y="550.5">local handoff allowed</text><text class="sub" x="440" y="566">retain the source workspace until acceptance</text>
   <rect class="chip" x="282.3" y="127" width="145.4" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="355" y="140">RED is real and non-zero</text>
   <rect class="chip" x="452.93" y="127" width="144.14" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="525" y="140">the baseline run is green</text>
   <rect class="chip" x="383.29" y="203" width="113.43" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="216">handoff --to builder</text>
-  
   <rect class="chip" x="467.26" y="279" width="111.47" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="523" y="292">edits a sealed test</text>
-  
-  
-  
   <rect class="chip" x="424.51" y="507" width="30.98" height="18" rx="5"/><text class="edgelabel" text-anchor="middle" x="440" y="520">yes</text>
   <rect class="chip" x="92" y="355" width="99.63" height="18" rx="5"/><text class="edgelabel" text-anchor="start" x="98" y="368">missing or stale</text>
 </svg>

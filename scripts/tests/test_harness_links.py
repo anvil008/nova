@@ -25,7 +25,6 @@ STAGED_ROOTS = {
     "claude": Path("dist/claude/workcell"),
     "codex": Path("dist/codex/plugins/workcell"),
     "agy": Path("dist/agy/workcell"),
-    "grok": Path("dist/grok/plugins/workcell"),
 }
 
 

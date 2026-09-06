@@ -8,9 +8,9 @@ description: Consolidate what a project's finished runs taught into its own pers
 Turn what a project's finished runs taught into a durable record of that project, kept in a namespace outside the repository so it outlives every branch, worktree, and clone.
 
 Invocation: `/workcell:wiki`
-Prompting Reference: [`docs/models/gpt-5.6-sol/prompting.md`](../../runtime/docs/models/gpt-5.6-sol/prompting.md)
+Prompting Reference: [`docs/models/gpt-6-astra/prompting.md`](../../runtime/docs/models/gpt-6-astra/prompting.md)
 
-You are the orchestrator ([`ADR 0007`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch specialists using `spawn_agent` with native specialist routing from `agents/models.json`, hold human gates, run VCS and shell operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code directly. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+The orchestrator owns scope, user decisions, dispatch, and final evaluation. Specialists author plans and changes; independent evidence determines completion. Team size follows useful work and explicit user constraints. See [ADR 0029](../../runtime/docs/adr/0029-composable-workflows-and-native-research.md). Dispatch specialists with Codex's `spawn_agent` and native messaging; use shell execution for commands. Use `agents/models.json` and [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
 
 ## Outcome, Constraints, and Success Criteria
 
@@ -49,7 +49,7 @@ Two more answers end the workflow before any dispatch. A repository carrying `.w
 
 ## 2. Dispatch the consolidation
 
-Consolidation is exactly one `documenter` dispatch via `spawn_agent` conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md), whose `ownership` is the resolved namespace path and nothing else. One dispatch, because the layer's whole value is a single coherent reading of the run; a fan-out would race on the same append-only pages.
+The orchestrator sizes the `documenter` team and sends each assignment through [`agents/handoff.md`](../../runtime/handoff.md) using `anvil.agent-handoff/v1`, with disjoint `ownership` inside the resolved namespace and nothing outside it. Serialize updates to shared append-only pages and the catalog so writers cannot race; independent evidence inspection and disjoint assignments may run in parallel. Keep final synthesis ownership explicit and run the namespace gate after all assigned writes.
 
 Give the brief:
 

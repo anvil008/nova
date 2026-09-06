@@ -284,6 +284,8 @@ def main() -> int:
     try:
         approved_bytes = args.sidecar.read_bytes()
         plan = validate_plan(json.loads(approved_bytes.decode("utf-8")))
+        if plan["repo"] is None:
+            raise ReconcileError("GitHub reconciliation requires repo owner/name; this plan uses local task tracking")
         if args.apply:
             require_approver(args.approved_by)
         if args.snapshot:

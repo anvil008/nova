@@ -303,3 +303,47 @@ func TestTestSealRejectsDuplicateSealedPaths(t *testing.T) {
 		t.Fatal("an amendment listing the same path twice was accepted")
 	}
 }
+
+// A useful correction must not be rejected solely because a former default
+// capped the loop at two reviews. Explicit caller limits still terminate it.
+func TestVerificationUsesCallerLimitsWithoutDefaultAttemptQuota(t *testing.T) {
+	for _, limited := range []bool{false, true} {
+		state := newTestVerification(t)
+		if limited {
+			state.Policy = VerificationPolicy{MaxPasses: 3, MaxRepairs: 2}
+			if err := SealVerification(&state); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for step := 0; step < 5; step++ {
+			next, err := ApplyVerification(state, VerificationObservation{
+				VerifierRoleID: "independent-reviewer", Decision: VerificationReject, Repairable: true,
+				RepositoryDigest: state.RepositoryDigest, EvidenceDigest: testDigest("review"), ResultDigest: testDigest("review-result"),
+				Reason: "a further correction is warranted", At: "2026-08-23T20:01:00Z",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if limited && step == 2 {
+				if next.Outcome != VerificationExhausted {
+					t.Fatalf("explicit limit ignored: %+v", next)
+				}
+				break
+			}
+			if next.Phase != VerificationAwaitingRepair {
+				t.Fatalf("unexpected automatic stop: %+v", next)
+			}
+			state, err = ApplyRepair(next, RepairObservation{
+				WriterRoleID: state.WriterRoleID, RepositoryDigest: testDigest(string(rune('a' + step))),
+				EvidenceDigest: testDigest("repair-evidence"), ResultDigest: testDigest("repair-result"),
+				Reason: "changed the implementation", At: "2026-08-23T20:02:00Z",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if !limited && (state.Passes != 5 || state.Repairs != 5) {
+			t.Fatalf("work was capped: %+v", state)
+		}
+	}
+}

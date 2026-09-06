@@ -11,28 +11,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "contracts" / "harness-contracts.json"
-HARNESSES = ("claude", "codex", "agy", "grok")
-HARNESS_OWNED_SKILLS = frozenset({"claude", "codex", "agy", "grok"})
+HARNESSES = ("claude", "codex", "agy")
+HARNESS_OWNED_SKILLS = frozenset({"claude", "codex", "agy"})
 KINDS = ("skills", "agents")
 EXPECTED_SKILLS = frozenset(
-    {
-        "build",
-        "code-analysis",
-        "code-refactor",
-        "code-review",
-        "debug",
-        "deploy",
-        "docs",
-        "jj",
-        "new-feature",
-        "perf",
-        "plan",
-        "repo-setup",
-        "research",
-        "review-fix-loop",
-        "use-other-harness",
-        "wiki",
-    }
+    {'debug', 'profile', 'review', 'plan', 'jj', 'wiki', 'deploy', 'docs', 'use-other-harness', 'refactor', 'build', 'repo-setup'}
 )
 EXPECTED_AGENTS = frozenset(
     {
@@ -69,7 +52,6 @@ HARNESS_LABELS = {
     "claude": "Claude Code",
     "codex": "Codex",
     "agy": "Antigravity",
-    "grok": "Grok Build",
 }
 
 
@@ -295,14 +277,6 @@ def validate_required(root: Path, registry: dict, kind: str) -> None:
                     raise GenerationError(
                         f"missing required value: {harness}/{name}/{value}"
                     )
-            if (
-                kind == "agents"
-                and harness == "grok"
-                and resolved.get("model") != "grok-4.6"
-            ):
-                raise GenerationError(
-                    f"agents/models.json: grok/{name}/model must resolve to grok-4.6"
-                )
 
 
 def _mode(path: Path) -> int:
@@ -354,11 +328,6 @@ LAUNCH_FRAMING = {
         "external process: it is not an Antigravity subagent and nothing in this session manages "
         "its lifetime, so wait for it and collect its output yourself."
     ),
-    "grok": (
-        "Run the target harness's command below in the shell. No hook reports a foreign process "
-        "back to this session, so capture its exit status and its output explicitly before you "
-        "report anything about it."
-    ),
 }
 
 
@@ -368,7 +337,7 @@ def _other_harness_body(harness: str, source: str) -> str:
     The frontmatter description is carried through verbatim because it is the
     explicit-only trigger a harness reads to decide whether to load the skill at
     all, and the body below it is the shared source's, so an edit to
-    `skills/use-other-harness/SKILL.md` reaches all four copies.
+    `skills/use-other-harness/SKILL.md` reaches all three copies.
     """
     if not source.startswith("---\n"):
         raise GenerationError("skills/use-other-harness/SKILL.md: no frontmatter")
@@ -376,7 +345,7 @@ def _other_harness_body(harness: str, source: str) -> str:
     front = source[4:end]
     body = source[end + len("\n---\n") :].lstrip("\n")
     # The shared title is replaced by the owning harness's; everything the source
-    # says about the four targets stays as written.
+    # says about the three targets stays as written.
     lines = body.splitlines(keepends=True)
     if lines and lines[0].startswith("# "):
         body = "".join(lines[1:]).lstrip("\n")
@@ -414,17 +383,20 @@ def desired_skills(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 except UnicodeDecodeError:
                     resource_text = ""
                 if resource_text:
-                    resource_text = resource_text.replace(
-                        "](../../agents/handoff.md)",
-                        "](../../runtime/handoff.md)",
-                    ).replace("](../../docs/", "](../../runtime/docs/")
+                    resource_text = re.sub(
+                        r"\]\(((?:\.\./)+)agents/handoff\.md\)",
+                        lambda match: "](" + match[1] + "runtime/handoff.md)", resource_text,
+                    )
+                    resource_text = re.sub(
+                        r"\]\(((?:\.\./)+)docs/",
+                        lambda match: "](" + match[1] + "runtime/docs/", resource_text,
+                    )
                     content = resource_text.encode("utf-8")
                 if "agents/bodies/documenter.md" in resource_text:
                     replacement = {
                         "claude": "agents/documenter.md",
                         "codex": "skills/agent-documenter/SKILL.md",
                         "agy": "agents/documenter/agent.md",
-                        "grok": "agents/documenter.md",
                     }[harness]
                     resource_text = resource_text.replace(
                         "agents/bodies/documenter.md", replacement
@@ -465,9 +437,11 @@ def desired_agents(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 source = root / "agents" / harness / f"{name}.md"
                 target = base / f"{name}.md"
                 text = source.read_text(encoding="utf-8")
-                if harness in {"claude", "codex", "grok"}:
+                if harness in {"claude", "codex"}:
                     text = text.replace("](../../skills/", "](../skills/")
                 text = text.replace("](../handoff.md)", "](../runtime/handoff.md)")
+            runtime_prefix = "../../" if harness == "agy" else "../"
+            text = re.sub(r"\]\((?:\.\./)+docs/", "](" + runtime_prefix + "runtime/docs/", text)
             text = text.rstrip() + _limitations(entry, harness)
             desired[target] = GeneratedFile(text.encode("utf-8"), _mode(source))
             if harness == "agy":
@@ -519,10 +493,6 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
             (root / "agents/handoff.md", Path("handoff.md")),
         ),
         "agy": ((root / "agents/handoff.md", Path("handoff.md")),),
-        "grok": (
-            (root / "scripts/hooks", Path("scripts")),
-            (root / "agents/handoff.md", Path("handoff.md")),
-        ),
     }
     for harness in HARNESSES:
         base = root / "harnesses" / harness / "runtime"
@@ -539,7 +509,13 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                 Path("docs/adr/0010-readme-diagrams-are-generated-svg.md"),
             ),
             (root / "docs/workspaces.md", Path("docs/workspaces.md")),
+            (root / "docs/build-runs.md", Path("docs/build-runs.md")),
+            (root / "docs/developer-workflows.md", Path("docs/developer-workflows.md")),
+            (root / "docs/adr/0027-developer-workflows-and-orchestrator-owned-planning.md", Path("docs/adr/0027-developer-workflows-and-orchestrator-owned-planning.md")),
         ]
+        for decision in ("0028-planner-owned-research-and-three-harnesses", "0029-composable-workflows-and-native-research"):
+            relative = Path(f"docs/adr/{decision}.md")
+            runtime_docs.append((root / relative, relative))
         if harness == "claude":
             runtime_docs.extend(
                 [
@@ -560,8 +536,8 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
         elif harness == "codex":
             runtime_docs.append(
                 (
-                    root / "docs/models/gpt-5.6-sol/prompting.md",
-                    Path("docs/models/gpt-5.6-sol/prompting.md"),
+                    root / "docs/models/gpt-6-astra/prompting.md",
+                    Path("docs/models/gpt-6-astra/prompting.md"),
                 )
             )
         elif harness == "agy":
@@ -573,15 +549,18 @@ def desired_runtime(root: Path, registry: dict) -> dict[Path, GeneratedFile]:
                     ),
                 ]
             )
-        elif harness == "grok":
-            runtime_docs.append(
-                (
-                    root / "docs/models/grok-4.6/prompting.md",
-                    Path("docs/models/grok-4.6/prompting.md"),
-                )
-            )
         for source, relative in runtime_docs:
-            _add_tree(desired, source, base / relative)
+            text = source.read_text(encoding="utf-8")
+            text = re.sub(r"\]\(((?:\.\./)+)skills/", lambda match: "](" + "../" + match[1] + "skills/", text)
+            desired[base / relative] = GeneratedFile(text.encode("utf-8"), _mode(source))
+            if relative == Path("docs/developer-workflows.md"):
+                # Runtime docs sit one level deeper than repository docs.
+                target = base / relative
+                generated = desired[target]
+                desired[target] = GeneratedFile(
+                    generated.content.replace(b"](../skills/", b"](../../skills/"),
+                    generated.mode,
+                )
     return desired
 
 
@@ -710,10 +689,6 @@ HARNESS_OWNED_RUNTIME: dict[str, tuple[Path, ...]] = {
         Path("plugin.json"),
         Path("hooks.json"),
         Path("rules"),
-        Path("capabilities.json"),
-    ),
-    "grok": (
-        Path(".claude-plugin"),
         Path("capabilities.json"),
     ),
 }

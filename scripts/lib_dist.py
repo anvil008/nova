@@ -1,11 +1,7 @@
-"""The staging steps `build-codex-plugin.py` and `build-grok-plugin.py` share.
+"""Shared helpers for staging self-contained plugin trees and release manifests.
 
-Both scripts exist for the same reason (Codex and Grok copy a plugin in and drop
-every symlink that leaves its root, so each harness gets a real staged tree), and
-both therefore start by clearing `dist/<harness>/` and end by writing manifests
-as pretty-printed JSON. Everything between those two points is harness-specific —
-Codex wraps agents as skills and validates its sources first, Grok rewrites the
-relative links in agent bodies — so only the two ends live here.
+Stagers copy real files, rewrite local resource links, and stamp the resulting
+content. Runtime-specific packaging remains in each build-*-plugin.py entrypoint.
 """
 
 from __future__ import annotations

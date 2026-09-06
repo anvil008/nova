@@ -119,7 +119,7 @@ class ContractParityMissingFieldsTests(unittest.TestCase):
                 "gate order" in output.lower() or "gates" in output.lower(),
                 f"failure must name gate field:\n{output}",
             )
-            self.assertIn("'approved plan'", output, "failure must name expected gates")
+            self.assertIn("'scope and reuse'", output, "failure must name expected gates")
             self.assertIn(
                 "'missing'", output.lower(), "failure must name actual as 'missing'"
             )
@@ -136,7 +136,7 @@ class ContractParityMissingFieldsTests(unittest.TestCase):
             # Replace the 5 ordered gates with only the first 1
             section = content.split("## Ordered Gates", 1)[1].split("\n## ", 1)[0]
             truncated_section = (
-                "\n\n1. **approved plan** - required before implementation\n\n"
+                "\n\n1. **scope and reuse** - required before implementation\n\n"
             )
             modified = content.replace(section, truncated_section)
             self.assertNotEqual(content, modified)
@@ -153,12 +153,12 @@ class ContractParityMissingFieldsTests(unittest.TestCase):
                 f"failure must name gate field:\n{output}",
             )
             self.assertIn(
-                "'integration'",
+                "'delivery'",
                 output,
                 "failure must name expected gates missing from actual",
             )
             self.assertIn(
-                "['approved plan']", output, "failure must name actual truncated gates"
+                "['scope and reuse']", output, "failure must name actual truncated gates"
             )
 
     def test_parity_detects_missing_handoff_schema(self) -> None:

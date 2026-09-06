@@ -5,49 +5,38 @@ description: Ship a verified change safely — pre-flight checks, versioning, CI
 
 # Deploy
 
-Safely deploy verified changes to production or target environments with human approval, post-deploy verification, and verified rollback readiness.
-
 Invocation: `/workcell:deploy`
 Prompting Reference: [`docs/models/gemini-3.8-flash/prompting.md`](../../runtime/docs/models/gemini-3.8-flash/prompting.md)
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Antigravity's `invoke_subagent`, hold the human gates, run `git` / `jj` / `gh` and scripts via `run_command` for branch, merge, and issue-state operations, and read gate output and handoff records using the [`anvil.agent-handoff/v1`](../../runtime/handoff.md) schema. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
-
-This orchestrator enforces mandatory human approval gates, coordinates pre-flight validation, and dispatches the deployer. Per the Gemini 3.8 Flash guide, place critical constraints first, never bypass explicit human sign-offs, and maintain operational transparency.
-
-## Critical Constraints
-
-- **Goal:** Execute a safe, zero-downtime deployment of approved software revisions with verified health checks and an intact rollback plan.
-- **Constraints:** Never deploy without explicit human approval. Never skip pre-flight checks or post-deploy health verification. A verified rollback path is mandatory before proceeding.
-- **Success Criteria:** Pre-flight checks green, explicit human approval obtained, deployment successful, post-deploy smoke tests passing, and rollback readiness verified.
+Dispatch specialists with Antigravity's `invoke_subagent` and use `run_command` for commands. Follow `agents/models.json` and [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
 
 ## Ordered Gates
 
-Execution proceeds through five strict, ordered gates:
+1. **approval**
+2. **preflight**
+3. **release**
+4. **verification**
+5. **rollback readiness**
 
-1. **approval**: Obtain explicit human approval for release target and version.
-2. **preflight**: Run preflight checks ensuring clean tree, passed CI, and release readiness.
-3. **release**: Deploy verified build to named target environment.
-4. **verification**: Run post-deploy smoke tests and health checks to confirm availability.
-5. **rollback readiness**: Confirm rollback artifacts and instructions are verified and intact.
+Prepare and release the exact verified source to the named environment. The orchestrator owns scope, user decisions, dispatch, and final evaluation. Specialists perform source changes and verification; team size follows useful work and explicit user constraints. See [ADR 0029](../../runtime/docs/adr/0029-composable-workflows-and-native-research.md).
 
 ## Human gate
 
-Deployment is outward-facing and hard to reverse. **Never deploy without explicit approval**, and approval for one deploy is not standing. Production deploys always require a fresh, explicit go. Never echo secrets; confirm the target (staging vs prod) before every deploy.
+Deployment requires explicit authorization naming the target environment and exact final commit. Reuse applicable authorization already supplied for that target and commit; a different commit or target needs a new decision. A green preflight is evidence, not release permission. Production releases require an explicit go. Never echo secrets.
+
+## Source changes
+
+Route authorized version changes, CI pipelines, build files, and source configuration through [build](../build/SKILL.md), carrying existing requirements and decisions. Package manifests and version constants are source configuration; a documenter does not edit them. Build establishes workspace isolation, independently protected tests, implementation, review, relevant documentation, and final combined verification. Do not dispatch an unprepared builder directly.
 
 ## Procedure
 
-1. **Pre-flight verification.** Dispatch an `integrator` agent via `invoke_subagent` to confirm that all target CI checks pass, the git working tree is clean, and the target release revision is fully green.
-2. **Human approval.** Present release details, changelog, target environment, and rollback instructions for explicit human approval. Stop until sign-off is granted. The orchestrator never infers approval, never deploys secrets, and never treats a green pre-flight as permission to deploy.
-3. **Execute release.** Dispatch the `deployer` agent via `invoke_subagent` with a brief conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) to execute the release. Where the release needs a branch of its own, it is `release/<slug>` ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). Tag the release yourself, then publish the GitHub release for that tag:
-   ```bash
-   gh release create vX.Y.Z --title "<project> vX.Y.Z" --notes-file <notes>
-   ```
-   from the documenter's release notes. The release title is exactly `<project> vX.Y.Z`: the descriptive strapline belongs to the changelog entry heading, not the title, and the notes never repeat the title as their own first heading. Tagging and publishing a release are git/`gh` operations, not authorship. When the project publishes packages (GitHub Packages, npm, a container registry), that publish is part of this gated deploy — never a separate, unapproved step.
-4. **Post-deploy verification.** The deployer agent returns exact commands with `commandId`s, what it observed in the verification window, and whether it rolled back. A claim that the deploy "looks good" is not verification.
-5. **Confirm rollback readiness.** Verify that previous revision artifacts and rollback procedures are accessible and ready. A rollback is a successful outcome of the procedure, not a failure of it. Dispatch the `documenter` agent for an ADR on any non-trivial release decision and for the handover entry.
+1. **Prepare the release source.** Inspect the requested target and source, version policy, existing CI/CD, and rollback mechanism. If a semver bump or pipeline change is required, use the shared build path above. Reuse the verified source otherwise. Relevant CHANGELOG and migration-guide changes are documenter assignments inside build and must be included before its final verification. A release-specific branch uses `release/<slug>` ([workspaces](../../runtime/docs/workspaces.md)).
+2. **Prepare release notes.** Dispatch documenters for prose artifacts only, using [`agents/handoff.md`](../../runtime/handoff.md) and `anvil.agent-handoff/v1`. Notes contain a short summary of what the release delivers, the changelog entries for this version, and breaking-change or upgrade callouts. The release title is exactly `<project> vX.Y.Z`; the descriptive strapline belongs in the changelog heading. Notes do not repeat the title as their first heading. Verify CI against the exact combined source, including version and documentation changes; capture that immutable commit.
+3. **Authorize the concrete release.** Present the final source commit, target, version, notes, publishing actions, and rollback steps. Obtain any missing authorization before tagging, publishing a GitHub release or package, or deploying. Earlier approval of the base commit does not authorize a newly built commit automatically.
+4. **Preflight, publish, and deploy.** Dispatch deployers with the final commit, target, approval, checks, and verification window. Confirm preflight and rollback readiness before release. Tag the approved commit and publish its release with `gh release create vX.Y.Z --target <approved-commit> --title "<project> vX.Y.Z" --notes-file <notes>` when those actions are authorized. Package publishing belongs to this gated release. Use the project's actual commands and targets; never invent them.
+5. **Verify and recover.** Deployer checks the running release throughout the specified window and executes the rollback procedure on failure. Return command IDs, observed health, the deployed source, and any rollback result. Report a rollback as recovery rather than claiming the intended release succeeded.
+6. **Record the handover.** Documenters record release evidence and non-trivial decisions. Keep reports outside the tested source or deliver later repository documentation through its own validated docs change. Do not add an unverified source commit to the completed release.
 
 ## Boundaries
 
-The orchestrator never infers approval, never deploys secrets, and never treats a green pre-flight as permission to deploy. Deploy targets, credentials, and rollback steps come from the project — never invented. If any post-deployment check fails, trigger rollback immediately rather than attempting hot-fixes in place.
-
-Based on the requirements and constraints above, execute the deploy workflow systematically.
+The orchestrator judges command-linked evidence and preserves user authorization. Source changes use build; release prose uses documenters; deployers operate the named target. No source mutation, model summary, or stale green result can replace verification of the final release commit.

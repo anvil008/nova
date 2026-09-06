@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Consolidate the public menu to ten workflows and two auxiliary skills. Build owns shared implementation; review, profile, and docs retain independent outcomes.
+- Retire the research skill while retaining planner-owned researchers and shared evidence helpers. Planning offers one plan or multiple ideas, writes Markdown by default, and adds HTML only on request.
+- Preserve existing implementation authorization through workflow transitions. Choose agent counts and review iterations from useful work without built-in quotas; keep explicit user limits and evidence gates.
+- Support local dependency tasks without GitHub issues. Combine documentation before final verification and remeasure performance changes.
+- Retire Grok; ship Claude Code, Codex, and Antigravity. Codex role routes and prompting documentation use GPT-6 Astra.
+- Reject noncanonical plan write targets and require approved ownership as well as a seal for test changes. Fix workspace sweeping so removing merged directories also removes their Jujutsu registrations.
+- Update the interactive local architecture explorer to show the implemented design alongside the original sketches.
+
+
 All notable changes to Workcell will be documented in this file.
 
 ## [Unreleased — installs are self-contained copies on every harness]

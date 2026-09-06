@@ -1,11 +1,14 @@
 # Planner artifact and sidecar contract
 
-The planner agent writes both artifacts together:
+The assigned final planner authors the reviewed executable plan from a strict sidecar. Early alternative ideas and concise task briefs need no synthetic sidecar. Substantial plans produce:
 
-- `docs/plans/plan<NN>-<YYYYMMDD>-<title>.html`: the self-contained Foundry Zero plan folio.
-- `plan.sidecar.json`: the machine-readable source used to render the folio and reconcile GitHub.
+- `docs/plans/plan<NN>-<YYYYMMDD>-<title>.md`: the default readable plan, including acceptance criteria.
+- `plan.sidecar.json`: the machine-readable source for rendering and optional GitHub reconciliation.
+- `docs/plans/plan<NN>-<YYYYMMDD>-<title>.html`: an additional self-contained visual folio, only when the user explicitly requests visual/HTML output.
 
-The folio filename is derived, not chosen. `<NN>` is a zero-padded sequence number allocated from the plans directory, `<YYYYMMDD>` comes from `generatedAt` (not from the clock, so a render is reproducible), and `<title>` is a slug of `planName`. The renderer stamps `<!-- workcell-planner planId=... -->` into the HTML and reuses the number of any existing folio carrying the same `planId`, so revising a plan **overwrites its own file** instead of scattering `plan02`, `plan03`, … copies of the same plan across the directory.
+Do not ask a format question. Markdown is always included; an explicit Markdown-only request creates no HTML. The orchestrator reviews the artifacts, returns revisions to the planner, and holds user approval for external writes.
+
+The report filename is derived. `<NN>` is a zero-padded sequence allocated across both Markdown and HTML plans; `<YYYYMMDD>` comes from `generatedAt`, and `<title>` from `planName`. Both formats carry the `<!-- workcell-planner planId=... -->` marker. Revisions and format changes reuse the existing basename for that identity rather than claiming a new number. Render both requested formats from the same sidecar so they agree. Adding HTML later requires an explicit format request and preserves the existing plan identity and execution scope.
 
 The sidecar has exactly these top-level fields:
 
@@ -47,15 +50,19 @@ The sidecar has exactly these top-level fields:
 }
 ```
 
+`repo` is a GitHub `owner/name` when tracking that repository, or `null` for local-only plans. Do not invent a GitHub identity to satisfy the schema. The build workflow can select sidecar tasks and record completion in its local ledger; GitHub reconciliation rejects `repo: null` before any API call.
+
 `risks` is a required key and may be an empty array — an explicit "no risks" is a statement a reviewer can act on, silence is not. `likelihood` and `impact` are `1` (low), `2` (med), or `3` (high); the folio plots each risk at that cell and treats the `>= 6` band as needing a named owner. Risk ids use the same mixed-case ASCII slug format as issue keys and must be unique. A risk is something that may go wrong during execution and has a mitigation. It is not a question you have not asked yet.
 
 `ownershipHint` is exactly one path or glob — a single token, never prose, a comma list, or two paths joined by "and". The renderer rejects a value containing whitespace or a comma, naming the offending `issues[i].ownershipHint` and its value, because every consumer treats the field as one literal path: `skills/build/scripts/waves.py` matches globs against it, and it becomes the `ownership` boundary an agent is handed.
 
-Choose the narrowest glob that covers every file the issue changes **and the tests the specifier will write for it**, so place an issue's tests inside the subtree it owns. `skills/build/scripts/**` beats `skills/**`; a pass over root-level documentation declares `*.md`, not `**`.
+`ownershipHint` and `acceptanceTests[].testPath` must use canonical relative POSIX paths: `/` separates components, and no component may be empty, `.` or `..`. Absolute paths, Windows drive prefixes, backslashes, control characters, surrounding whitespace, and trailing or repeated separators are rejected before rendering or scheduling. `ownershipHint` may contain a glob; `testPath` names one concrete test file and rejects glob metacharacters (`*`, `?`, `[`), so sealed test evidence can authorize the exact file.
 
-Hints must be disjoint within a wave. A collision is not merely untidy — it costs the parallelism the wave was for: `waves.py` rejects a declared same-wave overlap outright and defers an overlapping candidate it had pulled forward. When an issue's files span unrelated subtrees, split the issue rather than widening the glob to their common parent. A pass that genuinely spans the repository (documentation across `docs/`, the README, and the changelog) declares the common parent and, because a coarse hint overlaps everything, serializes itself.
+Choose the narrowest glob covering the implementation. Tests can live inside it, or name each external test file in `acceptanceTests[].testPath`; the orchestrator copies those approved paths into the specifier's `brief.testOwnership[]`. Do not widen implementation ownership solely to reach a separate test directory. `skills/build/scripts/**` beats `skills/**`; a pass over root-level documentation declares `*.md`, not `**`.
 
-Each issue carries a non-empty `acceptanceTests` list — its TDD **Definition of Done**. Each entry needs `name`, `kind` (`unit`/`integration`/`e2e`), and `oracle` (the observable pass condition); `testPath` and `stub` are optional. These are specifications, not runnable code: they render into the **GitHub issue body** as a "Definition of Done (tests)" checklist (never into the HTML folio), and the `specifier` turns exactly these into real failing tests, proves RED, and seals them before any builder starts.
+Implementation hints and declared test paths must be disjoint within a wave. The selector checks their combined write targets, including a test file overlapping another issue's implementation hint. A collision is not merely untidy — it costs the parallelism the wave was for: `waves.py` rejects a declared same-wave overlap outright and defers an overlapping candidate it had pulled forward. When an issue's files span unrelated subtrees, split the issue rather than widening the glob to their common parent. A pass that genuinely spans the repository (documentation across `docs/`, the README, and the changelog) declares the common parent and, because a coarse hint overlaps everything, serializes itself.
+
+Each issue carries a non-empty `acceptanceTests` list — its observable **Definition of Done**. Each entry needs `name`, `kind` (`unit`/`integration`/`e2e`), and `oracle` (the observable pass condition); `testPath` and `stub` are optional. These are specifications, not runnable code: they render into the **GitHub issue body** as a "Definition of Done (tests)" checklist (also into the Markdown plan; the HTML folio stays concise), Feature and bug tasks use the `specifier` to turn these into runnable failing tests, prove RED, and seal them before implementation. Behavior-preserving refactors and optimizations use the build workflow's verified baseline path and appropriate regression or performance oracles; they do not manufacture failing tests for unchanged behavior.
 
 Keep `planId` and every issue `key` stable across revisions. `planId` uses the lowercase slug format `[a-z0-9]+(?:-[a-z0-9]+)*`. Issue keys and every `dependsOn` entry use the conservative mixed-case ASCII slug format `[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*`, so identifiers such as `T0` and `T1` are valid. Dependencies name issue keys, not issue numbers. A syntactically valid dependency key that is absent from `issues` is allowed as an external dependency and renders as an unknown neutral node using the `--mut` theme token. Malformed dependency text is rejected before Mermaid source is generated. Each issue body sent to GitHub receives `<!-- workcell-planner planId=<planId> issue=<key> -->`; that marker is the durable reconciliation identity. Validation stores `planId`, issue keys, `dependsOn` entries, and risk ids stripped of surrounding whitespace, so a padded value never reaches a marker and re-running an unchanged sidecar stays a no-op.
 

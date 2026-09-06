@@ -2,7 +2,7 @@
 
 Tests that:
 1. codex-runtime-stages-only-codex (integration):
-   A parseable plugin/marketplace stages hooks, 16 skills and ten agent
+   A parseable plugin/marketplace stages hooks, 12 skills and ten agent
    skills/metadata with no symlink or other harness path.
 2. content-hash-is-sensitive-only-to-codex (unit):
    Unchanged builds keep <semver>+codex.<12hex>; changing Codex content changes it;
@@ -36,19 +36,15 @@ if str(REPO_ROOT) not in sys.path:
 # All 16 Workcell skills
 EXPECTED_SKILLS = (
     "build",
-    "jj",
-    "code-analysis",
-    "code-refactor",
-    "code-review",
     "debug",
     "deploy",
     "docs",
-    "new-feature",
-    "perf",
+    "jj",
     "plan",
+    "profile",
+    "refactor",
     "repo-setup",
-    "research",
-    "review-fix-loop",
+    "review",
     "use-other-harness",
     "wiki",
 )
@@ -113,7 +109,7 @@ class CodexRuntimeTests(unittest.TestCase):
     def test_codex_runtime_stages_only_codex(self) -> None:
         """codex-runtime-stages-only-codex (integration):
 
-        A parseable plugin/marketplace stages hooks, 16 skills and ten agent
+        A parseable plugin/marketplace stages hooks, 12 skills and ten agent
         skills/metadata with no symlink or other harness path.
         """
         # 1. Plugin manifest resolves inside the family and is valid JSON
@@ -304,7 +300,7 @@ class CodexRuntimeTests(unittest.TestCase):
         staged_hooks = json.loads(staged_hooks_file.read_text(encoding="utf-8"))
         self.assertIn("hooks", staged_hooks)
 
-        # 16 skills staged under skills/<skill>/SKILL.md
+        # 12 skills staged under skills/<skill>/SKILL.md
         for skill in EXPECTED_SKILLS:
             skill_md = staged_plugin / "skills" / skill / "SKILL.md"
             self.assertTrue(

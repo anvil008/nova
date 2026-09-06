@@ -67,18 +67,18 @@ class ClaudeSkillsAcceptanceTests(unittest.TestCase):
     def test_all_claude_skills_are_owned(self) -> None:
         """all-claude-skills-are-owned (unit):
 
-        Exactly 16 Claude skill sources/outputs exist, cite applicable guide(s),
+        Exactly 12 Claude skill sources/outputs exist, cite applicable guide(s),
         contain no fallback marker, and read no other harness body.
         """
         registry = load_contracts()
         expected_skills = [entry["name"] for entry in registry["skills"]]
         self.assertEqual(
             len(expected_skills),
-            16,
-            f"Expected exactly 16 skills in registry, got {len(expected_skills)}",
+            12,
+            f"Expected exactly 12 skills in registry, got {len(expected_skills)}",
         )
 
-        # 1. Exactly 16 Claude skill directories exist with SKILL.md
+        # 1. Exactly 12 Claude skill directories exist with SKILL.md
         found_dirs = {
             p.name
             for p in CLAUDE_SKILLS_DIR.iterdir()
@@ -87,7 +87,7 @@ class ClaudeSkillsAcceptanceTests(unittest.TestCase):
         self.assertEqual(
             found_dirs,
             set(expected_skills),
-            f"Directories under {CLAUDE_SKILLS_DIR.relative_to(ROOT)} must match exactly the 16 skills",
+            f"Directories under {CLAUDE_SKILLS_DIR.relative_to(ROOT)} must match exactly the 12 skills",
         )
 
         for skill_name in expected_skills:
@@ -172,10 +172,11 @@ class ClaudeSkillsAcceptanceTests(unittest.TestCase):
                 expected_schema = entry["handoffSchema"]
                 if skill_name in {
                     "build",
-                    "code-analysis",
-                    "code-refactor",
                     "debug",
-                    "new-feature",
+                    "docs",
+                    "refactor",
+                    "review",
+                    "profile",
                     "plan",
                     "use-other-harness",
                 }:
@@ -270,24 +271,9 @@ class ClaudeSkillsAcceptanceTests(unittest.TestCase):
                         f"Claude skill {skill_name} is missing deterministic limitation note: {note!r}",
                     )
 
-            # 3. Deterministic notes for omitted native surfaces:
-            # Per issue #154, Claude headless CLI does not support native context forks or
-            # native workflow files. These surfaces must be omitted with deterministic notes.
-            has_omission_notes = (
-                "harness limitations" in content.lower()
-                or "omitted with notes" in content.lower()
-                or "limitation" in content.lower()
-                or any(
-                    surface.get("limitationNote", "") in content
-                    for surface in entry.get("optionalSurfaces", [])
-                    if surface.get("harness") == "claude" and surface.get("supported") is False
-                )
-            )
-            self.assertTrue(
-                has_omission_notes,
-                f"Claude skill {skill_name} must omit unsupported native surfaces "
-                "(such as context forks or native workflows) with deterministic limitation notes",
-            )
+            # No generic limitations paragraph is required when the registry
+            # declares no unsupported surface. Actual declared omissions above
+            # still require their deterministic notes.
 
 
 if __name__ == "__main__":

@@ -69,8 +69,9 @@ is_state(){ [[ $(state_of "$1" "$2") == "$3" ]]; }
 listed(){ "$WS" list --repo "$1" | grep -q "^$2 "; }
 has_ref(){  # has_ref REPO NAME -> the bookmark / branch still exists
   if [[ -d $1/.jj ]]; then
+    # Drain jj output so pipefail cannot turn an early grep match into a miss.
     jj -R "$1" --ignore-working-copy bookmark list --all-remotes \
-      -T 'if(remote, "", name ++ "\n")' 2>/dev/null | grep -qxF "$2"
+      -T 'if(remote, "", name ++ "\n")' 2>/dev/null | grep -xF "$2" >/dev/null
   else
     git -C "$1" show-ref --verify --quiet "refs/heads/$2"
   fi
@@ -223,6 +224,8 @@ suite(){
   "$WS" sweep --apply --repo "$repo" > "$TMP/$vcs-apply.out" 2>&1; rc=$?
   name="$tag sweep --apply exits zero";                      check test "$rc" -eq 0
   name="$tag sweep --apply removes the merged workspace";    check nope test -d "$repo-gone-one"
+  name="$tag sweep --apply deregisters the merged workspace"
+  check test "$(state_of "$repo" gone-one)" = ""
   name="$tag sweep --apply deregisters the stale registration"
   check nope listed "$repo" stale-one
   # DEFECT 1/2: an unvouchable directory and a foreign repository both survive a plain --apply.
@@ -234,6 +237,8 @@ suite(){
   check test -e "$repo-other-one/seed.txt"
   name="$tag sweep --apply removes the merged type-prefixed workspace and its branch"
   check nope test -d "$repo-bug-gone-two"
+  name="$tag ... deregistering both slashed and dashed workspace identities"
+  check test "$(state_of "$repo" bug/gone-two)$(state_of "$repo" bug-gone-two)" = ""
   name="$tag ... deleting the slashed bookmark/branch with it"
   check nope has_ref "$repo" bug/gone-two
   name="$tag sweep --apply --force does reclaim the stale directory"

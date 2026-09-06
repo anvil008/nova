@@ -11,7 +11,7 @@ metadata:
 Jujutsu is a Git-compatible VCS with mutable commits, automatic change tracking, and an operation log that makes every action undoable.
 
 Invocation: `/workcell:jj`
-Prompting Reference: [`docs/models/gpt-5.6-sol/prompting.md`](../../runtime/docs/models/gpt-5.6-sol/prompting.md)
+Prompting Reference: [`docs/models/gpt-6-astra/prompting.md`](../../runtime/docs/models/gpt-6-astra/prompting.md)
 
 **Target version: jj 0.36+**
 

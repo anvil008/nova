@@ -10,7 +10,7 @@ Get a repository into the shape where agents can work in it safely: instruction 
 Invocation: `/workcell:repo-setup`
 Prompting Reference: [`docs/models/gemini-3.8-flash/prompting.md`](../../runtime/docs/models/gemini-3.8-flash/prompting.md)
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Antigravity's `invoke_subagent`, hold the human gates, run `git` / `jj` / `gh` and scripts via `run_command` for branch, merge, and issue-state operations, and read gate output and handoff records using the [`anvil.agent-handoff/v1`](../../runtime/handoff.md) schema. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+The orchestrator owns scope, user decisions, dispatch, and final evaluation. Specialists author plans and changes; independent evidence determines completion. Team size follows useful work and explicit user constraints. See [ADR 0029](../../runtime/docs/adr/0029-composable-workflows-and-native-research.md). Dispatch specialists with Antigravity's `invoke_subagent` and use `run_command` for commands. Use `agents/models.json` and [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
 
 This orchestrator surveys the repository, interviews the human, and coordinates setup agents. Per the Gemini 3.8 Flash guide, place critical constraints first, demand verified execution commands, and keep instruction files lean.
 
@@ -55,7 +55,7 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
    ```
 3. **Build runner.** Configure build and test runners based on repo size and architecture.
 4. **Version control.** When adopting jj, run `jj git init --colocate` at the repo root via `run_command` to enable operation logging and conflict recovery while preserving `.git/` compatibility.
-5. **Lint and format gates.** Wire formatters, linters, and advisory hooks via `scripts/bootstrap-project.sh --install --with-hooks <dir>`. Everything it writes is added to the repository's `.git/info/exclude`, so none of it shows up in a diff or a commit. Any config that is genuinely code — a CI workflow, a build file, a Bazel target — goes through a `builder` test-first where it is testable, not hand-edited here.
+5. **Lint and format gates.** Wire formatters, linters, and advisory hooks via `scripts/bootstrap-project.sh --install --with-hooks <dir>`. Everything it writes is added to the repository's `.git/info/exclude`, so none of it shows up in a diff or a commit. Source configuration changes such as CI workflows, build files, and Bazel targets use [build](../build/SKILL.md), carrying the setup decisions and authorization. Build establishes the missing executable checks, isolation, specifier RED or appropriate protected baseline, implementation, independent review, and final verification. Do not dispatch an unprepared builder directly.
 6. **Verify with baseline.** Dispatch an `integrator` agent with `mode: baseline` via `invoke_subagent` to execute every command documented in `AGENTS.md`. Every documented command must run green.
 7. **Report.** Report what was set up, what was left alone and why, and what the human still has to decide.
 
@@ -64,3 +64,7 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
 Never overwrite an existing `AGENTS.md`, `CLAUDE.md`, or CI workflow without showing the human what changes — these encode decisions you were not present for. Never invent a build or test command to fill a section; if none exists, say so and offer to create one. Never adopt jj or Bazel because they are available: both are answers to specific problems, and imposing them on a repo that does not have those problems is a cost with no return. This skill sets a repository up; it does not implement features in it.
 
 Based on the requirements and constraints above, execute the repo-setup workflow systematically.
+
+## Source changes
+
+Route authorized CI, build, and source configuration changes through [build](../build/SKILL.md), carrying the existing goal, decisions, and authorization. Build owns executable checks, workspace isolation, independent test protection, implementation, review, documentation, and final verification. A direct builder dispatch without that preparation is incomplete. Return the verified source to this workflow; deployment still uses the named target and commit authorization.

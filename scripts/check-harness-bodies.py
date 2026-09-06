@@ -21,7 +21,7 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-HARNESSES = ("claude", "codex", "agy", "grok")
+HARNESSES = ("claude", "codex", "agy")
 HARNESS_OWNED_SKILLS = frozenset({"claude", "codex"})
 
 # Conditionals used in agent shared bodies

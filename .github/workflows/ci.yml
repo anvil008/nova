@@ -135,12 +135,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Install Jujutsu for executable integration regressions
+        uses: taiki-e/install-action@v2
+        with:
+          tool: jj-cli@0.45.1
       - name: Skill unit tests
         timeout-minutes: 10
         run: |
           for d in skills/*/tests; do
             python3 -m unittest discover -s "$d" -p 'test_*.py'
           done
+          python3 -m unittest discover -s skills/plan/research/tests -p 'test_*.py'
 
   release:
     needs: [go, shell, test, skills]

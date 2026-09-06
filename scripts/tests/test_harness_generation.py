@@ -17,22 +17,18 @@ if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 import harness_generation
 
-HARNESSES = ("claude", "codex", "agy", "grok")
+HARNESSES = ("claude", "codex", "agy")
 EXPECTED_SKILLS = {
     "build",
-    "code-analysis",
-    "code-refactor",
-    "code-review",
     "debug",
     "deploy",
     "docs",
     "jj",
-    "new-feature",
-    "perf",
     "plan",
+    "profile",
+    "refactor",
     "repo-setup",
-    "research",
-    "review-fix-loop",
+    "review",
     "use-other-harness",
     "wiki",
 }
@@ -61,13 +57,11 @@ DIST_PLUGIN_ROOTS = {
     "claude": Path("dist/claude/workcell"),
     "codex": Path("dist/codex/plugins/workcell"),
     "agy": Path("dist/agy/workcell"),
-    "grok": Path("dist/grok/plugins/workcell"),
 }
 NATIVE_HEADLESS_TOKENS = {
     "claude": ("claude", "-p", "--model", "--effort", "--dangerously-skip-permissions"),
     "codex": ("codex exec", "--cd", "-m", "model_reasoning_effort", "--approve-for-me"),
     "agy": ("agy", "-p", "--model", "--effort", "--dangerously-skip-permissions"),
-    "grok": ("grok", "-p", "-m", "--effort", "--always-approve"),
 }
 
 
@@ -308,17 +302,17 @@ class HarnessGenerationTests(unittest.TestCase):
         with temporary:
             models_path = root / "agents" / "models.json"
             models = json.loads(models_path.read_text(encoding="utf-8"))
-            models["defaults"]["grok"].pop("model", None)
+            models["defaults"]["claude"].pop("model", None)
             for agent in models["agents"].values():
                 if isinstance(agent, dict):
-                    agent.setdefault("grok", {}).pop("model", None)
+                    agent.setdefault("claude", {}).pop("model", None)
             models_path.write_text(
                 json.dumps(models, indent=2) + "\n", encoding="utf-8"
             )
             missing = run(root, "scripts/sync-agents.py", "--check")
             missing_output = missing.stdout + missing.stderr
             self.assertEqual(missing.returncode, 2, missing_output)
-            for value in ("grok", "planner", "model"):
+            for value in ("claude", "planner", "model"):
                 self.assertIn(value, missing_output, missing_output)
 
         _, data = registry(ROOT)
@@ -445,8 +439,8 @@ class HarnessGenerationTests(unittest.TestCase):
             )
             self.assertEqual(
                 len(set(bodies.values())),
-                4,
-                "the four harness-owned use-other-harness bodies must be non-identical",
+                len(harness_generation.HARNESSES),
+                "the three harness-owned use-other-harness bodies must be non-identical",
             )
 
     def test_each_stager_uses_only_its_family(self) -> None:
@@ -524,29 +518,6 @@ class HarnessGenerationTests(unittest.TestCase):
                                     f"{path.relative_to(fixture)} refers to another harness family",
                                 )
 
-    def test_grok_roster_is_pinned_to_grok_4_6(self) -> None:
-        """grok-roster-is-pinned-to-grok-4-6 (unit)."""
-        models = json.loads((ROOT / "agents/models.json").read_text(encoding="utf-8"))
-        self.assertEqual(models["defaults"]["grok"]["model"], "grok-4.6")
-        for agent, values in models["agents"].items():
-            if not isinstance(values, dict):
-                continue
-            grok = values.get("grok", {})
-            self.assertNotEqual(grok.get("model"), "inherit", f"{agent}/grok")
-        grok_json = json.dumps(
-            {
-                "defaults": models["defaults"].get("grok", {}),
-                "agents": {
-                    name: values.get("grok", {})
-                    for name, values in models["agents"].items()
-                    if isinstance(values, dict)
-                },
-            }
-        )
-        self.assertNotIn('"inherit"', grok_json)
-        for kind in ("agents", "skills"):
-            result = run_sync(ROOT, kind, "--check")
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

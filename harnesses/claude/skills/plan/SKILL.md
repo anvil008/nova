@@ -1,77 +1,58 @@
 ---
 name: plan
-description: Investigate a repository task and produce an offline HTML implementation plan plus a strict JSON sidecar, then—only after explicit human approval—idempotently reconcile the plan into a GitHub milestone and issues. Use for substantial coding work that should be reviewed before GitHub tracking is created; do not use for direct implementation or GitHub Projects.
+description: Develop a repository change plan before execution. Ask whether the user wants one plan or multiple plan ideas, delegate authorship and supporting research, and return a reviewed Markdown plan with a strict sidecar for substantial work. Add HTML only when requested; hand the accepted plan to build when authorized.
 ---
 
-# Planner
-
-Turn a repository change into an evidence-backed, reviewable plan.
+# Plan
 
 Invocation: `/workcell:plan`
 Prompting Reference: [`docs/models/claude-opus-5/prompting.md`](../../runtime/docs/models/claude-opus-5/prompting.md)
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Claude Code's `Agent` tool, hold the human gates, run `git` / `jj` / `gh` and scripts via the `Bash` tool for branch, merge, and issue-state operations, and read gate output and handoff records using the [`anvil.agent-handoff/v1`](../../runtime/handoff.md) schema. You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+Dispatch planner agents with Claude Code's `Agent` tool and use the available native messaging tools for follow-ups. Planner-owned researchers use nested `Agent` calls only when the active runtime exposes that capability; otherwise the orchestrator dispatches the planner's assignments and routes findings back. Run commands with `Bash`. Use `agents/models.json` and [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
 
-This orchestrator dispatches the planner agent, relays its open questions to the human, holds approval, and is the only participant that applies the approved plan to GitHub. Following the Claude Opus 5 guide, structure task specifications comprehensively up front, state exact requirements, and enforce explicit human checkpoints.
+Turn a repository change into a reviewable plan. The orchestrator frames the goal, carries user decisions, chooses the team, compares proposals, and judges the result. Planner agents own investigation, research direction, and plan authorship ([ADR 0029](../../runtime/docs/adr/0029-composable-workflows-and-native-research.md)).
 
-## Goals and Constraints
+Follow the [planning choice and resume contract](references/planning-modes.md). Ask **one plan or multiple plan ideas** unless the request or saved choice already answers it. This chooses the output, not a prescribed number of agents. The orchestrator decides how many planners and researchers the work needs, using available capacity and any limits the user actually supplied.
 
-- **Goal:** Transform a complex feature, refactor, or overhaul into an evidence-backed HTML folio, strict JSON sidecar, and idempotent GitHub tracking.
-- **Constraints:** Stop for explicit human approval before running `--apply`; never infer approval. Each planned issue must have disjoint `ownershipHint` globs. Milestones only; never touch GitHub Projects.
-- **Success Criteria:** Verified offline folio and sidecar, explicit human sign-off, and idempotent reconciliation into GitHub milestone and issues.
+Markdown is the default: **do not ask a format question**. An explicit visual/HTML request adds an HTML companion; an explicit Markdown-only request does not.
 
 ## Ordered Gates
 
-Execution proceeds through five strict, ordered gates:
+1. **plan choice**: Reuse the request or saved choice; otherwise ask one plan versus multiple plan ideas.
+2. **planner investigation**: The orchestrator chooses the team; planners direct research and author the proposed approaches.
+3. **plan artifacts**: Produce Markdown and the applicable strict sidecar; add HTML only when requested.
+4. **orchestrator review**: Compare proposals, assign coherent final plan authorship, and accept, revise, or raise a material user decision.
+5. **build transition**: Present artifacts, then ask a standalone planning user about build or continue under an existing plan-and-implement request.
 
-1. **investigation**: Planner investigates repository read-only to identify architecture delta and issues.
-2. **offline folio**: Generate self-contained HTML implementation plan with `render_plan.py`.
-3. **strict sidecar**: Produce machine-readable `plan.sidecar.json` with narrow disjoint ownership hints.
-4. **human approval**: Stop and present HTML folio for explicit human approval before any external writes.
-5. **GitHub reconciliation**: Reconcile approved plan idempotently into GitHub milestone and issues via `reconcile_github.py`.
+## Workflow
 
-The planner agent follows the [artifact and sidecar contract](references/sidecar-contract.md). Renderer maintainers follow the [report-rendering contract](references/report-rendering.md).
+1. **Frame and delegate.** Supply the goal, non-goals, constraints, user decisions, pinned source, relevant paths, output ownership, planning choice, and review criteria. For multiple ideas, give planners distinct design directions and common constraints. Planner-owned research uses the [evidence contract](references/research.md); the standalone research skill is retired. Use the actual harness delegation capability, with orchestrator dispatch on the planner's behalf where nested delegation is unavailable.
+2. **Collect proposals and evidence.** Planners return source-backed approaches, tradeoffs, and gaps. Reuse shared evidence instead of repeating the same investigation for every proposal. For multiple ideas, the orchestrator compares them, explains its recommendation or combination, and sends material user decisions through the human. Assign a planner to author the coherent final plan from that decision.
+3. **Review the executable plan.** Follow the [artifact and sidecar contract](references/sidecar-contract.md). Substantial plans include a strict sidecar and Markdown report; a concise task brief needs no synthetic milestone or multi-issue sidecar. Check requirements, evidence, feasibility, dependencies, narrow ownership, risks, and observable acceptance criteria. The planner authors test specifications, never runnable tests. Accept the result, return concrete revisions, or surface a material unresolved decision. Resolve material open questions before finalizing the plan. A polished report is not verification evidence.
+4. **Present artifacts and transition.** Link the reviewed Markdown and requested HTML. For standalone `/plan`, ask whether to proceed to `/build` after the artifacts are ready. If the user already requested planning and implementation, continue to build without asking again. Carry the existing plan, source revision, evidence, decisions, and authorization into build; do not restart planning. Plan acceptance alone does not authorize external writes or deployment.
 
-## Plan Workflow
+The planner renders substantial plans using:
 
-1. **Dispatch the `planner` agent** via the `Agent` tool with the goal and any decisions the human has already made. It investigates read-only, defines the architecture delta and dependency-ordered issues, authors each issue's `acceptanceTests`, writes the strict sidecar, renders the folio, and runs the read-only reconciliation preview.
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/render_plan.py plan.sidecar.json
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/render_plan.py plan.sidecar.json --format html
+```
 
-   ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/render_plan.py plan.sidecar.json
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/render_plan.py plan.sidecar.json --plans-dir docs/plans
-   ```
+The first command writes Markdown. The second writes Markdown and HTML with the same stable plan number. Use `--plans-dir` for an alternate directory. Renderer maintainers follow the [report-rendering contract](references/report-rendering.md).
 
-   Omit the output path to get the `docs/plans/` naming convention; pass one explicitly only for a scratch render nobody intends to keep.
+## Optional GitHub reconciliation
 
-   Reviewing the folio, treat a coarse `ownershipHint` as a reason to send the plan back: each issue owns [exactly one narrow path or glob](references/sidecar-contract.md), disjoint from its wave-mates, or the wave's parallelism is lost.
+Local plans use `repo: null` and need no GitHub resources. Use milestones only; never create or modify a GitHub Project. Tracking uses a GitHub milestone. When tracking is requested, preview the exact sidecar read-only, using a captured snapshot when available:
 
-   The plan also assigns each issue its **branch type**, carried as a `type:feature` or `type:bug` label in the sidecar: new behaviour is `type:feature`, a defect being repaired is `type:bug`, and [`build`](../build/SKILL.md) branches the issue as `<type>/<issue-key>` from it ([`docs/workspaces.md`](../../runtime/docs/workspaces.md)). An issue with no such label is built as `feature/`.
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/reconcile_github.py plan.sidecar.json --snapshot github-state.json
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/reconcile_github.py plan.sidecar.json
+```
 
-2. **Resolve open questions with the human before writing the plan.** Carry them yourself — the agent cannot. An agent that returns disposition `needs-decision` found something material undecided — scope boundaries, a choice between two approaches, an unowned dependency, an ambiguous requirement. Put the question to the human, wait for the answer, and re-dispatch the agent with it. Never answer on the human's behalf, and never let an unanswered question through: a plan carrying one is not ready for approval, and the sidecar has nowhere to put it by design.
-3. Present the HTML folio for review. You **must stop** here for explicit human approval. Approval to plan is not approval to write GitHub resources.
-4. Before approval, a read-only reconciliation preview is allowed — the agent runs one, and you may run another against a captured snapshot:
+The orchestrator alone applies the reviewed sidecar after explicit human approval of that write:
 
-   ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/reconcile_github.py plan.sidecar.json --snapshot github-state.json
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/reconcile_github.py plan.sidecar.json
-   ```
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<github-login>"
+```
 
-5. **Only after the human approves the reviewed artifacts**, apply the exact approved sidecar yourself with an approval identity. This write is the orchestrator's, never the agent's:
-
-   ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/plan/scripts/reconcile_github.py plan.sidecar.json --apply --approved-by "<github-login>"
-   ```
-
-   `--approved-by` must equal the login `gh` is authenticated as (`gh api user`). Apply output records that login as `approvedBy` and the exact approved sidecar bytes as `approvedSha256`.
-
-Do not infer approval from silence, prior approval of another revision, or a request to investigate. If the sidecar changes after approval, present the changed plan and stop for fresh human approval.
-
-## GitHub Reconciliation
-
-Use milestones only; never create or modify a GitHub Project. The reconciliation identity, done-state rules, and exact `gh` command shapes are part of the [sidecar contract](references/sidecar-contract.md).
-
-Never run `--apply` merely to test the skill. Use snapshot preview and local rendering for validation.
-
-## Harness Limitations
-
-Native context forks and workflows are omitted with notes in Claude Code; procedures execute sequentially within the primary session.
+`--approved-by` must match `gh api user`; the receipt records that login and the exact sidecar digest. Planning approval does not by itself authorize GitHub resources. You must stop before an unapproved write. If the approved sidecar changes, present it for fresh approval before applying. Never run `--apply` to test the skill.

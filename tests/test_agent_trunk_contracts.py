@@ -87,22 +87,9 @@ class TestAgentTrunkContracts(unittest.TestCase):
         )
 
         # 2. Instructs builders to verify ONLY sealed acceptance tests
-        has_only_sealed = (
-            re.search(
-                r"(?:verify|run)\s+(?:only|ONLY)\s+(?:the\s+)?sealed\s+(?:acceptance\s+)?tests?",
-                builder_text,
-                re.IGNORECASE,
-            )
-            is not None
-            or "only the sealed acceptance test" in builder_text.lower()
-            or "only sealed acceptance test" in builder_text.lower()
-            or "only the sealed test" in builder_text.lower()
-            or "only sealed test" in builder_text.lower()
-        )
-        self.assertTrue(
-            has_only_sealed,
-            "agents/bodies/builder.md must instruct builders to verify ONLY sealed acceptance tests",
-        )
+        self.assertIn("sealed acceptance tests", builder_text)
+        self.assertIn("targeted regression", builder_text)
+        self.assertNotIn("verify ONLY", builder_text)
 
         # 3. Forbids broad test suites or whole-project test runners
         forbids_broad = (

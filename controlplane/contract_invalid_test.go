@@ -131,7 +131,7 @@ func TestVerificationStateFailClosedCorpus(t *testing.T) {
 		"version":         func(v *VerificationState) { v.APIVersion = "wrong" },
 		"identity":        func(v *VerificationState) { v.VerificationID = "" },
 		"digest":          func(v *VerificationState) { v.InitialResultDigest = "bad" },
-		"policy":          func(v *VerificationState) { v.Policy.MaxPasses++ },
+		"policy":          func(v *VerificationState) { v.Policy.MaxPasses = -1 },
 		"passes":          func(v *VerificationState) { v.Passes = 3 },
 		"nil-events":      func(v *VerificationState) { v.Events = nil },
 		"negative-budget": func(v *VerificationState) { v.Budget.Maximum.Tokens = -1 },

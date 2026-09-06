@@ -3,67 +3,42 @@
     "reviewerDispatch": {
       "claude": "a read-only `reviewer`",
       "codex": "a read-only `reviewer` with Codex's `spawn_agent` tool \u2014 the `reviewer` agent the workcell plugin ships \u2014 one lens per spawn,",
-      "agy": "read-only `reviewer` agents via `invoke_subagent` in a fresh context (the `reviewer` custom subagent, one lens per invocation, workspace: 'inherit')",
-      "grok": "a read-only `reviewer` with Grok's `spawn_subagent` tool \u2014 the `workcell:reviewer` plugin agent \u2014 one lens per spawn,"
+      "agy": "read-only `reviewer` agents via `invoke_subagent` in a fresh context (the `reviewer` custom subagent, one lens per invocation, workspace: 'inherit')"
     },
     "reviewerSpawn": {
       "claude": "read-only `reviewer` agents",
       "codex": "read-only `reviewer` agents with `spawn_agent`",
-      "agy": "read-only `reviewer` subagents with `invoke_subagent`",
-      "grok": "read-only `reviewer` agents with `spawn_subagent`"
+      "agy": "read-only `reviewer` subagents with `invoke_subagent`"
     },
     "instructionFiles": {
       "claude": "the `CLAUDE.md` / `AGENTS.md` instruction files",
       "codex": "instruction files",
-      "agy": "the instruction files",
-      "grok": "instruction files"
+      "agy": "the instruction files"
     },
     "instructionFilesPlain": {
       "claude": "the CLAUDE.md / AGENTS.md instruction files",
       "codex": "instruction files",
-      "agy": "the instruction files",
-      "grok": "instruction files"
+      "agy": "the instruction files"
     },
     "readTools": {
       "claude": " (Read / Grep / Glob)",
       "codex": "",
-      "agy": " (`view_file`, `grep_search`, `find_by_name`)",
-      "grok": ""
+      "agy": " (`view_file`, `grep_search`, `find_by_name`)"
     },
     "neverBloat": {
       "claude": " never bloat `CLAUDE.md` / `AGENTS.md`;",
       "codex": "",
-      "agy": "",
-      "grok": ""
+      "agy": ""
     }
   },
   "agents": {
     "builder": {
-      "description": "Use when implementing one assigned GitHub issue end-to-end in an isolated branch and pull request.",
+      "description": "Use when implementing one assigned task, GitHub issue, or ticket in its isolated workspace or branch. Own implementation through GREEN tests, runtime proof, independent review, and an immutable local handoff or authorized pull request. Never merge or edit protected tests.",
       "claude": {
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill, Agent"
       },
       "codex": {
         "gates": "codex-builder"
-      },
-      "grok": {
-        "capability_mode": "all",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The builder task brief with issue or goal, acceptance tests, and workspace path."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record citing PR, commits, tests, and review passes."
-          }
-        ]
       },
       "agy": {
         "tools": [
@@ -87,25 +62,6 @@
       "codex": {
         "gates": "codex-debugger"
       },
-      "grok": {
-        "capability_mode": "all",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The reported symptom, reproduction hints, and target workspace."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record containing root cause diagnosis and reproducer evidence."
-          }
-        ]
-      },
       "agy": {
         "tools": [
           "view_file",
@@ -125,25 +81,6 @@
         "tools": "Read, Grep, Glob, Bash, Skill"
       },
       "codex": {},
-      "grok": {
-        "capability_mode": "execute",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The approved release brief with target, version, and pre-flight criteria."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record with release verification evidence and rollback status."
-          }
-        ]
-      },
       "agy": {
         "tools": [
           "view_file",
@@ -156,30 +93,11 @@
       }
     },
     "documenter": {
-      "description": "Use when creating, updating, standardizing, or reviewing documentation — READMEs, ADRs, changelogs, and {{instructionFilesPlain}}. The docs-scoped writer; keeps docs correct, current, and lean. Not for product code.",
+      "description": "Use as the assigned documenter and docs-scoped writer inside a build or documentation workflow. Update the specified README, changelog, release notes, architecture decision records, or instruction files; run the checker and return a local docs commit with evidence. Never touch product code or start another delivery lifecycle.",
       "claude": {
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
       },
       "codex": {},
-      "grok": {
-        "capability_mode": "all",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The documentation scope, stale docs list, or instruction files to update."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record with doc updates and docs_check validation evidence."
-          }
-        ]
-      },
       "agy": {
         "tools": [
           "view_file",
@@ -194,31 +112,12 @@
       }
     },
     "integrator": {
-      "description": "Use when verifying one wave of pull requests as a combined change-set and returning command-linked evidence.",
+      "description": "Use when combining a wave of source commits or pull requests and verifying the joint change-set. Rerun the full suite and return command-linked evidence, naming the first offender on failure. For refactor baseline mode, prove untouched code GREEN and seal existing tests before the builder starts.",
       "claude": {
         "tools": "Read, Grep, Glob, Bash, Skill"
       },
       "codex": {
         "gates": "codex-integrator"
-      },
-      "grok": {
-        "capability_mode": "execute",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The wave brief naming pull requests to combine, verify, and merge."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record with wave integration verification evidence."
-          }
-        ]
       },
       "agy": {
         "tools": [
@@ -232,30 +131,11 @@
       }
     },
     "planner": {
-      "description": "Use when investigating one planning goal read-only and producing the plan folio, sidecar, and per-issue acceptance tests for human approval.",
+      "description": "Use when assigned an approach or a brief: direct research across relevant unknowns, synthesize evidence, and author Markdown plan artifacts and executable acceptance criteria. Add HTML only when requested. Return the plan to the orchestrator without target changes or GitHub writes.",
       "claude": {
-        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
+        "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill, Agent, SendMessage"
       },
       "codex": {},
-      "grok": {
-        "capability_mode": "all",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The planning goal, repository context, and requirements."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record with plan folio, strict sidecar, and per-issue acceptance tests."
-          }
-        ]
-      },
       "agy": {
         "tools": [
           "view_file",
@@ -264,7 +144,8 @@
           "list_dir",
           "replace_file_content",
           "write_to_file",
-          "run_command"
+          "run_command",
+          "invoke_subagent"
         ],
         "commandExecutionPolicy": "sandbox"
       }
@@ -275,25 +156,6 @@
         "tools": "Read, Grep, Glob, Bash, Skill"
       },
       "codex": {},
-      "grok": {
-        "capability_mode": "execute",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The benchmark harness target, baseline parameters, and measurement command."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record with benchmark measurement distributions and comparison evidence."
-          }
-        ]
-      },
       "agy": {
         "tools": [
           "view_file",
@@ -306,33 +168,12 @@
       }
     },
     "researcher": {
-      "description": "Use when investigating exactly one assigned research area and returning a structured, evidence-backed findings envelope.",
+      "description": "Use for a read-only evidence pass over the planner-assigned question, subsystem, or research area. Inspect sources and return structured findings, coverage, gaps, conflicting evidence, and uncertainty to the planner. Do not edit source or author the implementation plan.",
       "claude": {
         "tools": "Read, Grep, Glob, Bash, Skill",
-        "disallowedTools": "Edit, Write, NotebookEdit, Task",
-        "maxTurns": 30
+        "disallowedTools": "Edit, Write, NotebookEdit, Task"
       },
       "codex": {},
-      "grok": {
-        "permission_mode": "plan",
-        "capability_mode": "read-only",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The assigned research area, investigation question, and search boundaries."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record with structured evidence envelope and findings."
-          }
-        ]
-      },
       "agy": {
         "tools": [
           "view_file",
@@ -348,30 +189,9 @@
       "description": "Use when reviewing a diff, pull request, or change-set through one assigned assurance lens, returning evidence-backed findings.",
       "claude": {
         "tools": "Read, Grep, Glob, Bash, Skill",
-        "disallowedTools": "Edit, Write, NotebookEdit, Task",
-        "maxTurns": 30
+        "disallowedTools": "Edit, Write, NotebookEdit, Task"
       },
       "codex": {},
-      "grok": {
-        "permission_mode": "plan",
-        "capability_mode": "read-only",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The diff, pull request, or change-set and the assigned review lens."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record with ranked findings and quoted evidence."
-          }
-        ]
-      },
       "agy": {
         "tools": [
           "view_file",
@@ -384,31 +204,12 @@
       }
     },
     "specifier": {
-      "description": "Use when authoring and sealing the failing tests for one assigned GitHub issue, before any implementation exists.",
+      "description": "Use when turning assigned acceptance oracles into runnable failing tests before implementation: create the isolated workspace, prove honest RED on assertions, and hand the sealed tests to the implementer.",
       "claude": {
         "tools": "Read, Grep, Glob, Edit, Write, Bash, Skill"
       },
       "codex": {
         "gates": "codex-specifier"
-      },
-      "grok": {
-        "capability_mode": "all",
-        "inputs": [
-          {
-            "name": "brief",
-            "io_type": "dispatch",
-            "required": true,
-            "description": "The assigned GitHub issue number and acceptance criteria requirements."
-          }
-        ],
-        "outputs": [
-          {
-            "name": "handoff",
-            "io_type": "file",
-            "required": true,
-            "description": "The anvil.agent-handoff/v1 record with sealed failing test suite and RED proof."
-          }
-        ]
       },
       "agy": {
         "tools": [

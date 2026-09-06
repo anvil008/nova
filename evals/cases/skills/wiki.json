@@ -22,8 +22,8 @@
         "owner": "skill:docs"
       },
       {
-        "prompt": "Investigate this question across several areas with parallel read-only agents and merge their findings into one deduplicated evidence packet.",
-        "owner": "skill:research"
+        "prompt": "Investigate the planner-assigned compatibility question read-only and return a structured evidence envelope to the planner.",
+        "owner": "agent:researcher"
       }
     ]
   },

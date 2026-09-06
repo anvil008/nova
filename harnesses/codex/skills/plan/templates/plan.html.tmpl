@@ -71,7 +71,7 @@
         <div><dt>Generated</dt><dd>{{GENERATED_AT}}</dd></div>
         <div><dt>Issues</dt><dd>{{ISSUE_COUNT}}</dd></div>
         <div><dt>Waves</dt><dd>{{WAVE_COUNT}}</dd></div>
-        <div><dt>Milestone</dt><dd><a href="{{MILESTONE_URL}}">{{PLAN_NAME}}</a></dd></div>
+        <div><dt>Milestone</dt><dd>{{MILESTONE_TARGET}}</dd></div>
       </div>
     </section>
 
@@ -81,7 +81,7 @@
         <div><b>metrics + goal</b> &mdash; headline counts a reviewer can scan, then the outcome this plan buys. Lead with the decision, not the process.</div>
       </div>
       {{METRICS}}
-      <p class="muted">Nothing is written to GitHub until a human approves this plan. Approval is bound to the sidecar, not to this page: if the sidecar changes after approval, the changed plan must be presented again.</p>
+      <p class="muted">GitHub tracking is optional. Nothing is written to GitHub until a human approves that write. Approval is bound to the sidecar, not to this page: if the sidecar changes after approval, the changed plan must be presented again.</p>
     </section>
 
     <section class="section" id="architecture">
@@ -136,14 +136,14 @@
     <section class="section" id="execution">
       <div class="section-head"><span class="num">06</span><h2>Milestone &amp; Execution</h2></div>
       <div class="callout note"><span class="mark">&#9679;</span>
-        <p>After review, explicit human approval is required before the milestone or any issue is written to GitHub. Reconciliation uses stable plan and issue markers, updates changed work, and closes removed work. Re-running an unchanged plan produces no mutations.</p>
+        <p>Build can use local task tracking. When GitHub tracking is requested, explicit human approval is required before the milestone or any issue is written to GitHub. Reconciliation uses stable plan and issue markers, updates changed work, and closes removed work. Re-running an unchanged plan produces no mutations.</p>
       </div>
       <div class="cards">
         <article class="card"><h3>1 &middot; Review</h3><p>Read this folio and the sidecar together. They must describe the same scope.</p></article>
         <article class="card"><h3>2 &middot; Approve</h3><p>Approval names a human identity and applies to this exact sidecar. A changed sidecar needs fresh approval.</p></article>
         <article class="card"><h3>3 &middot; Reconcile</h3><p>Milestones only, never a GitHub Project. Preview read-only first, then apply.</p></article>
       </div>
-      <p class="muted" style="margin-top:18px;">Milestone target: <a href="{{MILESTONE_URL}}">{{PLAN_NAME}}</a> in {{REPO}}.</p>
+      <p class="muted" style="margin-top:18px;">Tracking target: {{MILESTONE_TARGET}} in {{REPO}}.</p>
     </section>
 
   </main>

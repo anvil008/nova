@@ -96,10 +96,7 @@ func TestLegacySealWithoutKindBehavesAsRed(t *testing.T) {
 	}
 
 	h.verify()
-	h.write("findings.txt", "reviewed legacy red seal\n")
-	if code, _, stderr := h.run("diff-review", "record", "--findings", "findings.txt"); code != 0 {
-		t.Fatalf("diff-review exit %d: %s", code, stderr)
-	}
+	h.review()
 	if code, stdout, stderr := h.stop(); code != 0 || stdout != "" || stderr != "" {
 		t.Fatalf("verified legacy red seal refused Stop: exit %d stdout %q stderr %q", code, stdout, stderr)
 	}
@@ -126,10 +123,7 @@ func TestBaselineSealUsesTheOrdinaryVerifyAndStopGate(t *testing.T) {
 	if code, _, stderr := h.run("verify", "--green-command", "true"); code != 0 {
 		t.Fatalf("baseline verify exit %d: %s", code, stderr)
 	}
-	h.write("findings.txt", "reviewed baseline-sealed refactor\n")
-	if code, _, stderr := h.run("diff-review", "record", "--findings", "findings.txt"); code != 0 {
-		t.Fatalf("diff-review exit %d: %s", code, stderr)
-	}
+	h.review()
 	if code, stdout, stderr := h.stop(); code != 0 || stdout != "" || stderr != "" {
 		t.Fatalf("satisfied baseline contract refused Stop: exit %d stdout %q stderr %q", code, stdout, stderr)
 	}

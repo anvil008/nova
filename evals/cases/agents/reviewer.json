@@ -19,7 +19,7 @@
     "negative": [
       {
         "prompt": "Orchestrate the entire multi-lens PR review and produce the consolidated verdict.",
-        "owner": "skill:code-review"
+        "owner": "skill:review"
       },
       {
         "prompt": "Implement the assigned GitHub issue in its workspace and create the pull request.",

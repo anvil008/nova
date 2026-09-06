@@ -1,16 +1,16 @@
 # Agent handoff contract
 
-This contract defines the one brief an orchestrator sends to a Workcell agent and the one record the agent returns. Fields that do not apply to a dispatch are `null` or empty as described below; they are not silently reinterpreted.
+This contract defines the brief a caller sends to a Workcell agent and the one record the agent returns. The caller is the orchestrator, or the authorized planner for its researcher children. Fields that do not apply to a dispatch are `null` or empty as described below; they are not silently reinterpreted.
 
 ## Dispatch brief
 
 - `issue`: the GitHub issue number, or `null` when the work has no issue.
-- `brief`: an object whose `goal` is the goal in prose. For a no-issue dispatch, it also carries `acceptanceTests[]`, each with `name`, `kind`, and `oracle`.
+- `brief`: an object whose `goal` is the goal in prose. For a no-issue dispatch, it also carries `acceptanceTests[]`, each with `name`, `kind`, and `oracle`. `brief.testOwnership[]` optionally authorizes explicit test-only paths or globs for the specifier outside implementation ownership. For planned issues, derive these from approved `acceptanceTests[].testPath`. Include them in scheduling collision checks; they never authorize the builder to edit sealed tests.
 - `workspace`: the assigned workspace path. A standard specifier creates it; agents dispatched after that creation and non-standard modes receive an existing path. Whoever creates a jj workspace names it with the dispatch's `branch`.
 - `branch`: the branch or bookmark assigned to the work and, when a jj workspace is created for it, that workspace's name. A standard specifier creates both; other agents receive them pre-created.
-- `base`: `trunk()` or the named integration branch from which the work was based.
+- `base`: the pinned source commit, `trunk()`, or named integration branch from which the work was based. Single-change records pin an immutable commit; milestone runs also record the accepted integration ref.
 - `ownership`: the glob delimiting files the agent may change. For an issue dispatch it is copied from the issue's `ownershipHint`; for a no-issue dispatch it is authoritative on its own.
-- `mode`: `standard` by default; a builder may instead receive `refactor` or `loop`, and an integrator may instead receive `baseline`.
+- `mode`: `standard` by default; builders may use `refactor` or internal repair mode `loop`, and integrators may use `baseline`. `brief.planning` carries `choicePath` and artifact ownership from `skills/plan/references/planning-modes.md`. Its saved single/multiple choice controls plan output, not researcher count. Planners direct research within the user's scope and constraints; the orchestrator proxies dispatch where needed. Target source stays read-only during planning.
 - `sealedTests`: the sealed test globs, or an empty array when the dispatch has no seal. A seal records `kind: red|baseline`; both kinds protect the same paths and use the same downstream verification and Stop gates.
 - `redCommand`: the argv that demonstrated RED for a `kind: red` seal, or `null` when RED does not apply.
 - `baselineCommand`: the argv that demonstrated GREEN and is bound by a `kind: baseline` seal for a refactor/baseline dispatch, or `null` when a green baseline seal does not apply.
@@ -64,6 +64,7 @@ Every agent returns one `anvil.agent-handoff/v1` JSON object with these fields:
 - `result`: one paragraph stating the outcome.
 - `branch`: the assigned branch or bookmark, or `null` when the agent has none.
 - `changeId`: the Jujutsu commit change ID (e.g. from `jj log -r @ -T "change_id\n"`), optional or `null` when unset.
+- `commitId`: the immutable source commit ID from `jj log --no-graph -r @ -T commit_id` or `git rev-parse HEAD` for a plain Git single change; required for local builder handoffs consumed by `build_run.py`, optional for other agents. A stable `changeId` alone does not pin the tested revision.
 - `pr`: the pull-request URL or number, or `null` when the agent does not open one (in local trunk handoff, `pr` is `null`).
 - `workspace`: the workspace path used for the work.
 - `changedFiles[]`: repository-relative paths changed by the agent.
@@ -73,6 +74,8 @@ Every agent returns one `anvil.agent-handoff/v1` JSON object with these fields:
 - `openQuestions[]`: unresolved questions for the orchestrator; use an empty array when there are none.
 
 A record with a `disposition` outside that enum, or a command entry without a `commandId`, is malformed and the orchestrator treats it as `blocked`.
+
+Local builders retain their workspace until the orchestrator accepts the integration receipt. A single change instead records completion against its exact verified source and retains its workspace until PR merge or explicit abandonment; see `skills/build/references/single-change.md`. Keep handoff files and review findings outside source workspaces. The integrator verifies fresh guard status against `commitId`; the orchestrator records accepted local completion separately from GitHub closure. See `docs/build-runs.md`.
 
 Runtime evidence is judged apart from that: its absence makes a record **incomplete**, not malformed, and the orchestrator re-dispatches the builder with a `runtime` hint rather than blocking. A record is incomplete when `evidence.runtime` is missing, when `surface: "none"` carries no justification in `observations`, or when `surface: "none"` is claimed while `changedFiles` contains a file under the brief's `ownership` that is an entrypoint, route, page, component, or CLI command.
 

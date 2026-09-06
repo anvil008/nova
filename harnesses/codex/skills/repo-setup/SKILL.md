@@ -8,9 +8,9 @@ description: Make a repository ready for agentic development — interview the u
 Get a repository into the shape where agents can work in it safely: instruction files that say what the project is and how to verify it, working build and test commands, and mechanical lint and format gates. Works on an established codebase or an empty directory.
 
 Invocation: `/workcell:repo-setup`
-Prompting Reference: [`docs/models/gpt-5.6-sol/prompting.md`](../../runtime/docs/models/gpt-5.6-sol/prompting.md)
+Prompting Reference: [`docs/models/gpt-6-astra/prompting.md`](../../runtime/docs/models/gpt-6-astra/prompting.md)
 
-You are the orchestrator ([`ADR 0007`](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch specialists using `spawn_agent` with native specialist routing from `agents/models.json`, hold human gates, run VCS and setup scripts using shell execution, and read gate evidence and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never author project code or documentation directly. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+The orchestrator owns scope, user decisions, dispatch, and final evaluation. Specialists author plans and changes; independent evidence determines completion. Team size follows useful work and explicit user constraints. See [ADR 0029](../../runtime/docs/adr/0029-composable-workflows-and-native-research.md). Dispatch specialists with Codex's `spawn_agent` and native messaging; use shell execution for commands. Use `agents/models.json` and [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
 
 ## Outcome, Constraints, and Success Criteria
 
@@ -54,7 +54,7 @@ Recommend defaults for each rather than presenting a blank form, and mark which 
    scripts/bootstrap-project.sh --install --with-hooks <dir>
    ```
 
-   Everything it writes is added to the repository's `info/exclude`, so none of it shows up in a diff or a commit. Any config that is genuinely code — a CI workflow, a build file, a Bazel target — goes through a `builder` test-first where it is testable, not hand-edited here.
+   Everything it writes is added to the repository's `info/exclude`, so none of it shows up in a diff or a commit. Source configuration changes such as CI workflows, build files, and Bazel targets use [build](../build/SKILL.md), carrying the setup decisions and authorization. Build establishes the missing executable checks, isolation, specifier RED or appropriate protected baseline, implementation, independent review, and final verification. Do not dispatch an unprepared builder directly.
 
 5. **Baseline verification.** Dispatch an `integrator` via `spawn_agent` with `mode: baseline` conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md) to confirm documented build, test, and lint commands run cleanly.
 
@@ -65,3 +65,7 @@ Never overwrite an existing `AGENTS.md`, `CLAUDE.md`, or CI workflow without sho
 ## Harness Limitations
 
 API-only model controls (such as dynamic request-level reasoning effort or pro mode toggles) and API-only orchestration features are unsupported in Codex skill prompts; execution relies on native harness tooling and specialist dispatch.
+
+## Source changes
+
+Route authorized CI, build, and source configuration changes through [build](../build/SKILL.md), carrying the existing goal, decisions, and authorization. Build owns executable checks, workspace isolation, independent test protection, implementation, review, documentation, and final verification. A direct builder dispatch without that preparation is incomplete. Return the verified source to this workflow; deployment still uses the named target and commit authorization.

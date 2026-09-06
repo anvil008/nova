@@ -1,12 +1,12 @@
-"""Acceptance tests for GPT-5.6-native Codex skill bodies (issue #158).
+"""Acceptance tests for Astra-native Codex skill bodies (issue #158).
 
 Verifies that:
 1. all-codex-skills-are-owned (unit):
-   Exactly 16 sources/outputs cite the GPT guide, contain no fallback,
+   Exactly 12 sources/outputs cite the GPT guide, contain no fallback,
    and read no other harness.
 2. codex-prompts-are-lean-and-complete (unit):
-   Every body has one outcome/constraints/success section, no duplicated
-   contract/routing table, and only relevant declared tools.
+   Every body preserves invocation, gates, and handoff contracts, has no
+   duplicated routing table, and uses only relevant declared tools.
 3. codex-skill-gates-are-green (integration):
    Skill sync, Codex evals and parity exit 0.
 """
@@ -42,10 +42,10 @@ CODEX_SKILLS_DIR = ROOT / "harnesses" / "codex" / "skills"
 CONTRACTS_FILE = ROOT / "contracts" / "harness-contracts.json"
 
 VALID_CODEX_GUIDES = {
-    "gpt-5.6-sol",
-    "gpt-5.6",
-    "docs/models/gpt-5.6-sol/prompting.md",
-    "docs/models/gpt-5.6-sol",
+    "gpt-6-astra",
+    "GPT-6 Astra",
+    "docs/models/gpt-6-astra/prompting.md",
+    "docs/models/gpt-6-astra",
 }
 
 FALLBACK_MARKERS = (
@@ -66,15 +66,12 @@ OTHER_HARNESS_PATTERNS = (
 
 MULTI_AGENT_SKILLS = {
     "build",
-    "code-analysis",
-    "code-refactor",
-    "code-review",
     "debug",
-    "new-feature",
+    "refactor",
+    "review",
+    "profile",
     "plan",
     "repo-setup",
-    "research",
-    "review-fix-loop",
 }
 
 
@@ -115,55 +112,25 @@ def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     return values, body
 
 
-def find_outcome_constraints_sections(body: str) -> list[str]:
-    """Find sections dedicated to outcome/goals, constraints/boundaries, and success criteria."""
-    sections = re.split(r"(?m)^(?=##+ )", body)
-    matching = []
-    for section in sections:
-        header_match = re.match(r"^##+\s+(.*)", section)
-        if not header_match:
-            continue
-        header = header_match.group(1).lower()
-        has_relevant_header = (
-            any(w in header for w in ("goal", "outcome"))
-            and any(w in header for w in ("constraint", "boundar"))
-        ) or (
-            "goal" in header
-            or "outcome" in header
-            or "success criteria" in header
-            or "constraints" in header
-        )
-        if not has_relevant_header:
-            continue
-
-        has_goal = bool(re.search(r"(?i)\b(?:goal|outcome)\b", section))
-        has_constraints = bool(
-            re.search(r"(?i)\b(?:constraints?|boundaries)\b", section)
-        )
-        has_success = bool(re.search(r"(?i)\b(?:success(?:\s+criteria)?)\b", section))
-        if has_goal and has_constraints and has_success:
-            matching.append(section)
-    return matching
-
 
 class CodexSkillsAcceptanceTests(unittest.TestCase):
-    """Acceptance test suite for GPT-5.6-native Codex skills (#158)."""
+    """Acceptance test suite for Astra-native Codex skills (#158)."""
 
     def test_all_codex_skills_are_owned(self) -> None:
         """all-codex-skills-are-owned (unit):
 
-        Exactly 16 sources/outputs cite the GPT guide, contain no fallback,
+        Exactly 12 sources/outputs cite the GPT guide, contain no fallback,
         and read no other harness.
         """
         registry = load_contracts()
         expected_skills = [entry["name"] for entry in registry["skills"]]
         self.assertEqual(
             len(expected_skills),
-            16,
-            f"Expected exactly 16 skills in registry, got {len(expected_skills)}",
+            12,
+            f"Expected exactly 12 skills in registry, got {len(expected_skills)}",
         )
 
-        # 1. Exactly 16 Codex skill sources exist under harnesses/codex/skills
+        # 1. Exactly 12 Codex skill sources exist under harnesses/codex/skills
         found_dirs = {
             p.name
             for p in CODEX_SKILLS_DIR.iterdir()
@@ -172,7 +139,7 @@ class CodexSkillsAcceptanceTests(unittest.TestCase):
         self.assertEqual(
             found_dirs,
             set(expected_skills),
-            f"Directories under {CODEX_SKILLS_DIR.relative_to(ROOT)} must match exactly the 16 skills",
+            f"Directories under {CODEX_SKILLS_DIR.relative_to(ROOT)} must match exactly the 12 skills",
         )
 
         for skill_name in expected_skills:
@@ -186,13 +153,12 @@ class CodexSkillsAcceptanceTests(unittest.TestCase):
             # Cite the GPT guide
             cites_guide = (
                 any(guide in content for guide in VALID_CODEX_GUIDES)
-                or "docs/models/gpt-5.6" in content
-                or "docs/models/gpt-5.6-sol" in content
+                or "docs/models/gpt-6-astra" in content
             )
             self.assertTrue(
                 cites_guide,
                 f"Codex skill source {skill_name} does not cite the GPT guide "
-                f"({', '.join(sorted(VALID_CODEX_GUIDES))} or docs/models/gpt-5.6-sol/prompting.md)",
+                f"({', '.join(sorted(VALID_CODEX_GUIDES))} or docs/models/gpt-6-astra/prompting.md)",
             )
 
             # Contain no fallback marker
@@ -212,7 +178,7 @@ class CodexSkillsAcceptanceTests(unittest.TestCase):
                     f"Codex skill source {skill_name} must not read another harness body; found {pattern!r}",
                 )
 
-        # 2. Exactly 16 staged outputs cite the GPT guide, contain no fallback, and read no other harness
+        # 2. Exactly 12 staged outputs cite the GPT guide, contain no fallback, and read no other harness
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_root = Path(tmp_dir) / "workcell"
             shutil.copytree(
@@ -253,8 +219,7 @@ class CodexSkillsAcceptanceTests(unittest.TestCase):
 
                 cites_guide = (
                     any(guide in staged_content for guide in VALID_CODEX_GUIDES)
-                    or "docs/models/gpt-5.6" in staged_content
-                    or "docs/models/gpt-5.6-sol" in staged_content
+                    or "docs/models/gpt-6-astra" in staged_content
                 )
                 self.assertTrue(
                     cites_guide,
@@ -278,8 +243,8 @@ class CodexSkillsAcceptanceTests(unittest.TestCase):
     def test_codex_prompts_are_lean_and_complete(self) -> None:
         """codex-prompts-are-lean-and-complete (unit):
 
-        Every body has one outcome/constraints/success section, no duplicated
-        contract/routing table, and only relevant declared tools.
+        Every body preserves invocation, gates, and handoff contracts, has no
+        duplicated routing table, and uses only relevant declared tools.
         """
         registry = load_contracts()
         entries_by_name = {entry["name"]: entry for entry in registry["skills"]}
@@ -318,11 +283,12 @@ class CodexSkillsAcceptanceTests(unittest.TestCase):
             # Contract fidelity: handoff schema
             if entry.get("handoffSchema") and skill_name in {
                 "build",
-                "code-analysis",
-                "code-refactor",
                 "debug",
-                "new-feature",
+                "docs",
                 "plan",
+                "profile",
+                "refactor",
+                "review",
                 "use-other-harness",
             }:
                 self.assertIn(
@@ -331,15 +297,9 @@ class CodexSkillsAcceptanceTests(unittest.TestCase):
                     f"Codex skill {skill_name} must reference handoff schema {entry['handoffSchema']!r}",
                 )
 
-            # 1. Every body has one outcome/constraints/success section
-            outcome_sections = find_outcome_constraints_sections(body)
-            self.assertEqual(
-                len(outcome_sections),
-                1,
-                f"Codex skill {skill_name} must have exactly one outcome/constraints/success section "
-                f"(stating goals, constraints, and success criteria once per GPT-5.6 Sol guidance); "
-                f"found {len(outcome_sections)}",
-            )
+            # A skill can use prose or relevant references instead of a fixed
+            # heading template. Contract identity and gates above remain required.
+            self.assertTrue(front.get("description", "").strip())
 
             # 2. No duplicated contract/routing table
             # Must not duplicate agent routing tables (model/effort assignments)

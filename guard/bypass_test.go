@@ -139,10 +139,7 @@ func TestResealInvalidatesEarlierGreenEvidence(t *testing.T) {
 	h := newHarness(t)
 	h.seal()
 	h.verify()
-	h.write("findings.txt", "reviewed\n")
-	if code, _, stderr := h.run("diff-review", "record", "--findings", "findings.txt"); code != 0 {
-		t.Fatalf("diff-review exit %d: %s", code, stderr)
-	}
+	h.review()
 	stopPayload := `{"hook_event_name":"Stop","cwd":"` + h.repository + `"}`
 	if code, _, stderr := h.runStdin(stopPayload, "hook", "--harness", "claude", "--event", "Stop"); code != 0 {
 		t.Fatalf("satisfied contract refused before the amendment: exit %d stderr %q", code, stderr)
@@ -154,9 +151,7 @@ func TestResealInvalidatesEarlierGreenEvidence(t *testing.T) {
 	}
 	// Re-record the review so the only remaining question is whether the green
 	// run that never executed the amended tests still counts.
-	if code, _, stderr := h.run("diff-review", "record", "--findings", "findings.txt"); code != 0 {
-		t.Fatalf("diff-review exit %d: %s", code, stderr)
-	}
+	h.review()
 	code, _, stderr := h.runStdin(stopPayload, "hook", "--harness", "claude", "--event", "Stop")
 	if code != 2 {
 		t.Fatalf("Stop accepted a green run that predates the amendment: exit %d stderr %q", code, stderr)

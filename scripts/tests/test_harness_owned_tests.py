@@ -156,11 +156,10 @@ class HarnessOwnedTestsDirectories(unittest.TestCase):
         )
 
     def test_all_stagers_omit_harness_owned_tests(self) -> None:
-        """Verify codex, agy, and grok stagers also never stage harness-owned tests/."""
+        """Verify Codex and Antigravity stagers also never stage harness-owned tests/."""
         harness_roots = {
             "codex": (self.root / "dist/codex/plugins/workcell", "build-codex-plugin.py"),
             "agy": (self.root / "dist/agy/workcell", "build-agy-plugin.py"),
-            "grok": (self.root / "dist/grok/plugins/workcell", "build-grok-plugin.py"),
         }
         for harness, (staged_root, script) in harness_roots.items():
             for family in ("agents", "skills", "runtime"):

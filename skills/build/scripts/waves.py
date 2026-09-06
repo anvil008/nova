@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive deterministic build waves from a planner sidecar and issue snapshot."""
+"""Derive dependency-ready build tasks from a sidecar and optional GitHub snapshot."""
 
 from __future__ import annotations
 
@@ -64,6 +64,8 @@ def issue_key(body: str, index: int, plan_id: str) -> str:
 
 
 def validate_snapshot(value: object, plan: dict) -> dict[str, dict]:
+    if plan["repo"] is None:
+        raise BuildError("a local-only plan has no GitHub snapshot; use --local")
     if not isinstance(value, dict):
         raise BuildError("snapshot must be a JSON object")
     exact_fields(value, SNAPSHOT_FIELDS, "snapshot")
@@ -104,6 +106,19 @@ def validate_snapshot(value: object, plan: dict) -> dict[str, dict]:
     return by_key
 
 
+def local_snapshot(plan: dict) -> dict[str, dict]:
+    """Track real plan keys locally; only accepted receipts can complete them.
+
+    External dependencies cannot be inferred locally. They need a GitHub state
+    snapshot or a revised plan that explicitly includes the required work.
+    """
+    keys = {issue["key"] for issue in plan["issues"]}
+    external = {dependency for issue in plan["issues"] for dependency in issue["dependsOn"]} - keys
+    if external:
+        raise BuildError(f"local tasks have unresolved external dependencies: {', '.join(sorted(external))}")
+    return {key: {"number": None, "state": "open", "labels": []} for key in keys}
+
+
 def validate_acyclic(plan: dict) -> None:
     dependencies = {issue["key"]: [key for key in issue["dependsOn"] if key in {item["key"] for item in plan["issues"]}] for issue in plan["issues"]}
     visiting: set[str] = set()
@@ -139,37 +154,6 @@ def is_done(issue: dict) -> bool:
 
 
 GLOB_CHARS = frozenset("*?[")
-
-
-def generate_witnesses(glob_pattern: str) -> list[str]:
-    """Concrete paths a glob would match; a plain path is its own only witness."""
-    if not GLOB_CHARS & set(glob_pattern):
-        return [glob_pattern]
-    parts = glob_pattern.split("/")
-    results: set[str] = set()
-
-    def builder(idx: int, current: list[str]) -> None:
-        if idx == len(parts):
-            results.add("/".join(p for p in current if p) or ".")
-            return
-        part = parts[idx]
-        if part == "**":
-            builder(idx + 1, current)
-            builder(idx + 1, current + ["sub"])
-            builder(idx + 1, current + ["sub", "sub2"])
-        else:
-            p = re.sub(r"\[([^\]]+)\]", _class_witness, part.replace("*", "file").replace("?", "a"))
-            builder(idx + 1, current + [p])
-
-    builder(0, [])
-    return sorted(results)
-
-
-def _class_witness(match: re.Match[str]) -> str:
-    body = match.group(1)
-    if not body.startswith("!"):
-        return body[0]
-    return next(c for c in "abcxyz0" if c not in body)
 
 
 def _glob_to_regex(pattern: str) -> re.Pattern[str]:
@@ -219,8 +203,37 @@ def path_matches(path: str, pattern: str) -> bool:
 
 
 def globs_overlap(g1: str, g2: str) -> bool:
-    return any(path_matches(w, g2) for w in generate_witnesses(g1)) or any(
-        path_matches(w, g1) for w in generate_witnesses(g2)
+    """Prove disjointness, otherwise serialize. Sampling cannot prove it.
+
+    Literal paths can be matched exactly. With two patterns, incompatible
+    fixed prefixes or suffixes prove disjointness; uncertain intersections
+    conservatively overlap, including character classes and recursive globs.
+    """
+    g1, g2 = str(PurePath(g1)), str(PurePath(g2))
+    if not GLOB_CHARS.intersection(g1):
+        return path_matches(g1, g2)
+    if not GLOB_CHARS.intersection(g2):
+        return path_matches(g2, g1)
+    prefix1, prefix2 = (re.split(r"[*?\[]", g, maxsplit=1)[0] for g in (g1, g2))
+    if not (prefix1.startswith(prefix2) or prefix2.startswith(prefix1)):
+        return False
+    suffix1, suffix2 = (re.split(r"[*?\[\]]", g)[-1] for g in (g1, g2))
+    return suffix1.endswith(suffix2) or suffix2.endswith(suffix1)
+
+
+def write_targets(issue: dict) -> list[str]:
+    """Implementation ownership plus explicitly planned acceptance-test files."""
+    return [issue["ownershipHint"]] + [
+        test["testPath"] for test in issue.get("acceptanceTests", [])
+        if test.get("testPath")
+    ]
+
+
+def ownership_collision(first: dict, second: dict) -> tuple[str, str] | None:
+    return next(
+        ((a, b) for a in write_targets(first) for b in write_targets(second)
+         if globs_overlap(a, b)),
+        None,
     )
 
 
@@ -234,9 +247,10 @@ def validate_ownership_overlap(plan: dict) -> None:
     for wave, issues in waves_dict.items():
         for i, issue1 in enumerate(issues):
             for issue2 in issues[i + 1:]:
-                h1, h2 = issue1["ownershipHint"], issue2["ownershipHint"]
-                if not globs_overlap(h1, h2):
+                collision = ownership_collision(issue1, issue2)
+                if collision is None:
                     continue
+                h1, h2 = collision
                 msg = (
                     f"Parallel issues '{issue1['key']}' and '{issue2['key']}' in wave {wave} "
                     f"have overlapping ownershipHint paths: '{h1}' and '{h2}'"
@@ -247,7 +261,7 @@ def validate_ownership_overlap(plan: dict) -> None:
                     raise BuildError(msg)
 
 
-def derive(plan: dict, snapshot: dict[str, dict]) -> dict:
+def derive(plan: dict, snapshot: dict[str, dict], integrated: frozenset[str] = frozenset()) -> dict:
     validate_acyclic(plan)
     validate_ownership_overlap(plan)
     planned = {issue["key"]: issue for issue in plan["issues"]}
@@ -261,7 +275,10 @@ def derive(plan: dict, snapshot: dict[str, dict]) -> dict:
     for issue in plan["issues"]:
         ordered_waves.setdefault(issue["wave"], []).append(issue["key"])
     waves = [{"wave": wave, "issues": keys} for wave, keys in sorted(ordered_waves.items())]
-    done = [issue["key"] for issue in plan["issues"] if is_done(snapshot[issue["key"]])]
+    unknown = integrated - planned.keys()
+    if unknown:
+        raise BuildError(f"integrated receipts name unknown issues: {sorted(unknown)}")
+    done = [issue["key"] for issue in plan["issues"] if issue["key"] in integrated or is_done(snapshot[issue["key"]])]
     unfinished = [issue for issue in plan["issues"] if issue["key"] not in done]
     # Reporting only: the earliest declared wave still holding an unfinished issue. It is what
     # `pulledForward` is measured against, never a filter on selection.
@@ -272,7 +289,7 @@ def derive(plan: dict, snapshot: dict[str, dict]) -> dict:
     # documentation pass, say) defers itself rather than starving the issues it overlaps;
     # sorted() is stable, so sidecar order breaks ties inside a wave.
     ready = sorted(
-        (issue for issue in unfinished if all(is_done(snapshot[dep]) for dep in issue["dependsOn"])),
+        (issue for issue in unfinished if all(dep in integrated or is_done(snapshot[dep]) for dep in issue["dependsOn"])),
         key=lambda issue: issue["wave"],
     )
     unblocked: list[dict] = []
@@ -287,7 +304,8 @@ def derive(plan: dict, snapshot: dict[str, dict]) -> dict:
         # Ownership is checked across the whole in-flight set, not per declared wave: an
         # overlapping candidate is deferred to a later round, never dispatched concurrently.
         clash = next(
-            (chosen for chosen in unblocked if globs_overlap(chosen["ownershipHint"], entry["ownershipHint"])),
+            (chosen for chosen in unblocked
+             if ownership_collision(planned[chosen["key"]], issue)),
             None,
         )
         if clash:
@@ -309,11 +327,14 @@ def derive(plan: dict, snapshot: dict[str, dict]) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sidecar", type=Path)
-    parser.add_argument("snapshot", type=Path)
+    parser.add_argument("snapshot", type=Path, nargs="?")
+    parser.add_argument("--local", action="store_true", help="select local task keys without GitHub issues")
     args = parser.parse_args()
     try:
         plan = plan_sidecar.validate_plan(json.loads(args.sidecar.read_text(encoding="utf-8")))
-        snapshot = validate_snapshot(json.loads(args.snapshot.read_text(encoding="utf-8")), plan)
+        if args.local == bool(args.snapshot):
+            raise BuildError("provide a snapshot or --local, exclusively")
+        snapshot = local_snapshot(plan) if args.local else validate_snapshot(json.loads(args.snapshot.read_text(encoding="utf-8")), plan)
         print(json.dumps(derive(plan, snapshot), indent=2, sort_keys=False))
     except (OSError, json.JSONDecodeError, BuildError, ValueError) as error:
         print(f"build waves error: {error}", file=sys.stderr)

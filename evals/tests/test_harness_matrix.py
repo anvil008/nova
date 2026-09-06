@@ -25,7 +25,7 @@ run_evals = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = run_evals
 SPEC.loader.exec_module(run_evals)
 
-HARNESSES = ("claude", "codex", "agy", "grok")
+HARNESSES = ("claude", "codex", "agy")
 
 
 def run_main(*args: str) -> tuple[int, str]:
@@ -46,10 +46,10 @@ def run_main(*args: str) -> tuple[int, str]:
 
 
 class HarnessMatrixTests(unittest.TestCase):
-    """Test run_evals matrix across all four harness families."""
+    """Test run_evals matrix across all three harness families."""
 
-    def test_free_evals_run_for_four_families(self) -> None:
-        """run_evals.py --harness <h> exits 0 for all four and prints harness/document/case totals."""
+    def test_free_evals_run_for_three_families(self) -> None:
+        """run_evals.py --harness <h> exits 0 for all three and prints harness/document/case totals."""
         for harness in HARNESSES:
             status, output = run_main("--root", str(ROOT), "--harness", harness)
             self.assertEqual(
@@ -62,18 +62,18 @@ class HarnessMatrixTests(unittest.TestCase):
                 output.lower(),
                 f"run_evals --harness {harness} output must name the harness family:\n{output}",
             )
-            # Must print document totals from that generated family (25 or 26 documents/descriptions)
+            # Must print document totals from that generated family (28 or 29 documents/descriptions)
             self.assertTrue(
-                re.search(r"(?:25|26)\s*(?:documents?|descriptions?)", output, re.IGNORECASE),
+                re.search(r"22\s*(?:documents?|descriptions?)", output, re.IGNORECASE),
                 f"run_evals --harness {harness} output must report document totals from that generated family:\n{output}",
             )
-            # Must print case totals (26 cases)
+            # Must print case totals (29 cases)
             self.assertTrue(
-                re.search(r"26\s*cases?", output, re.IGNORECASE),
+                re.search(r"22\s*cases?", output, re.IGNORECASE),
                 f"run_evals --harness {harness} output must report case totals:\n{output}",
             )
 
-    def test_free_evals_structural_run_for_four_families(self) -> None:
+    def test_free_evals_structural_run_for_three_families(self) -> None:
         """run_evals.py --harness <h> --structural exits 0 and prints totals for all four."""
         for harness in HARNESSES:
             status, output = run_main(
@@ -90,11 +90,11 @@ class HarnessMatrixTests(unittest.TestCase):
                 f"run_evals --harness {harness} --structural output must name the harness:\n{output}",
             )
             self.assertTrue(
-                re.search(r"(?:25|26)\s*(?:documents?|descriptions?)", output, re.IGNORECASE),
+                re.search(r"22\s*(?:documents?|descriptions?)", output, re.IGNORECASE),
                 f"run_evals --harness {harness} --structural must report document totals:\n{output}",
             )
             self.assertTrue(
-                re.search(r"26\s*cases?", output, re.IGNORECASE),
+                re.search(r"22\s*cases?", output, re.IGNORECASE),
                 f"run_evals --harness {harness} --structural must report case totals:\n{output}",
             )
 
@@ -124,8 +124,8 @@ class HarnessMatrixTests(unittest.TestCase):
 class NativeBehavioralDryRunTests(unittest.TestCase):
     """Test behavioral dry-run command generation across harnesses."""
 
-    def test_four_native_behavioral_dry_runs(self) -> None:
-        """Dry runs emit claude -p, codex exec, agy -p, or grok --no-auto-update -p with workspace/trace options."""
+    def test_three_native_behavioral_dry_runs(self) -> None:
+        """Dry runs emit claude -p, codex exec, or agy -p with workspace/trace options."""
         # claude: emits claude -p
         status, output = run_main(
             "--root", str(ROOT), "--behavioral", "build", "--harness", "claude", "--dry-run"
@@ -148,15 +148,6 @@ class NativeBehavioralDryRunTests(unittest.TestCase):
         )
         self.assertEqual(status, 0, output)
         self.assertIn("agy -p", output)
-
-        # grok: emits grok --no-auto-update -p with workspace/trace options
-        status, output = run_main(
-            "--root", str(ROOT), "--behavioral", "build", "--harness", "grok", "--dry-run"
-        )
-        self.assertEqual(status, 0, output)
-        self.assertIn("grok", output)
-        self.assertIn("--no-auto-update", output)
-        self.assertIn("-p", output)
 
     def test_behavioral_dry_run_unknown_harness_fails(self) -> None:
         """Unknown harness fails for behavioral dry runs."""

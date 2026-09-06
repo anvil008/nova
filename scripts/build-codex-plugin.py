@@ -147,7 +147,7 @@ def plugin_manifest(version: str) -> dict:
             "category": "Developer Tools",
             "capabilities": ["Interactive", "Write"],
             "defaultPrompt": [
-                "Use $new-feature to plan and build this change.",
+                "Use $build to plan and build this change.",
                 "Use $code-analysis to hunt defects in this package.",
                 "Use $debug to reproduce and fix this stack trace.",
             ],
@@ -163,6 +163,7 @@ def agent_skill(
     body = FRONTMATTER.sub("", text).lstrip("\n")
     body = body.replace("](../runtime/handoff.md)", "](../../handoff.md)")
     body = body.replace("](../skills/", "](../../skills/")
+    body = body.replace("](../runtime/docs/", "](../../runtime/docs/")
     skill = (
         f"---\nname: {AGENT_PREFIX}{name}\ndescription: {description}\n---\n\n"
         f"{body.rstrip()}\n{dispatch_contract}"

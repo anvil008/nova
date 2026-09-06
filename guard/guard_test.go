@@ -560,10 +560,7 @@ func TestStopRefusesUntilTheContractIsSatisfied(t *testing.T) {
 		t.Fatalf("missing diff review: exit %d stderr %q", code, stderr)
 	}
 
-	h.write("findings.txt", "reviewed\n")
-	if code, _, stderr := h.run("diff-review", "record", "--findings", "findings.txt"); code != 0 {
-		t.Fatalf("diff-review exit %d: %s", code, stderr)
-	}
+	h.review()
 	if code, stdout, stderr := h.runStdin(stopPayload, "hook", "--harness", "claude", "--event", "Stop"); code != 0 || stdout != "" || stderr != "" {
 		t.Fatalf("satisfied contract still refused: exit %d stdout %q stderr %q", code, stdout, stderr)
 	}

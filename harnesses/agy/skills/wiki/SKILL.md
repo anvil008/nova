@@ -10,9 +10,9 @@ Turn what a project's finished runs taught into a durable record of that project
 Invocation: `/workcell:wiki`
 Prompting Reference: [`docs/models/gemini-3.8-flash/prompting.md`](../../runtime/docs/models/gemini-3.8-flash/prompting.md)
 
-You are the orchestrator ([ADR 0007](../../runtime/docs/adr/0007-primary-agent-is-a-pure-orchestrator.md)): you dispatch agents via Antigravity's `invoke_subagent`, hold the human gates, run `git` / `jj` / `gh` and scripts via `run_command` for branch, merge, and issue-state operations, and read gate output and handoff records conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md). You never read or edit the target project's code, run its suites, or author its artifacts. Reading a file list or diffstat to choose a dispatch is orchestration; reading a file's contents to judge it is not.
+The orchestrator owns scope, user decisions, dispatch, and final evaluation. Specialists author plans and changes; independent evidence determines completion. Team size follows useful work and explicit user constraints. See [ADR 0029](../../runtime/docs/adr/0029-composable-workflows-and-native-research.md). Dispatch specialists with Antigravity's `invoke_subagent` and use `run_command` for commands. Use `agents/models.json` and [`anvil.agent-handoff/v1`](../../runtime/handoff.md).
 
-This orchestrator decides whether the project opted in, dispatches the one agent that writes its namespace, and reads `wiki.py check` as the gate. Per the Gemini 3.8 Flash guide, place critical constraints first, demand explicit human opt-in before namespace creation, and enforce strict CLI boundary contracts.
+This orchestrator decides whether the project opted in, assigns scoped documenters to maintain its namespace, and reads `wiki.py check` as the gate. Per the Gemini 3.8 Flash guide, place critical constraints first, demand explicit human opt-in before namespace creation, and enforce strict CLI boundary contracts.
 
 ## Critical Constraints
 
@@ -53,7 +53,7 @@ Two more answers end the workflow before any dispatch. A repository carrying `.w
 
 ## 2. Dispatch the Consolidation
 
-Consolidation is exactly one `documenter` dispatch via `invoke_subagent` conforming to [`anvil.agent-handoff/v1`](../../runtime/handoff.md), whose `ownership` is the resolved namespace path and nothing else. One dispatch, because the layer's whole value is a single coherent reading of the run; a fan-out would race on the same append-only pages.
+The orchestrator sizes the `documenter` team and sends each assignment through [`agents/handoff.md`](../../runtime/handoff.md) using `anvil.agent-handoff/v1`, with disjoint `ownership` inside the resolved namespace and nothing outside it. Serialize updates to shared append-only pages and the catalog so writers cannot race; independent evidence inspection and disjoint assignments may run in parallel. Keep final synthesis ownership explicit and run the namespace gate after all assigned writes.
 
 Give the brief:
 

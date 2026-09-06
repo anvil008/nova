@@ -1,125 +1,270 @@
 {
   "title": "How work moves through Workcell",
-  "description": "A goal becomes a reviewed plan, then sealed tests, an implementation, review, and a merge the orchestrator makes on gate output — with the documenter working alongside the integrator so one gate covers both, blocked work returning to the human, and failed gates returning to the builder.",
+  "description": "The orchestrator reuses existing plans or delegates one plan or multiple ideas to planner agents with internal research. Authorized work enters shared build with optional GitHub tracking, RED or baseline verification, builders and independent reviewers. Relevant documentation enters the combined source before final integrator verification; optimization is remeasured. Fresh evidence gates final acceptance and authorized delivery. Team sizes are chosen by the orchestrator.",
   "direction": "TB",
-  "width": 880,
+  "width": 1040,
   "nodes": [
     {
       "id": "goal",
       "kind": "artifact",
-      "label": "Goal",
-      "sub": "a feature · a bug · a refactor · a reported symptom"
+      "label": "Goal or existing evidence",
+      "sub": "request · selected plan · review or profile findings"
+    },
+    {
+      "id": "route",
+      "kind": "orchestrator",
+      "label": "orchestrator frames the work",
+      "sub": "reuse scope, decisions, source, and authorization"
+    },
+    {
+      "id": "choice",
+      "kind": "human",
+      "label": "one plan or multiple ideas?",
+      "sub": "ask only when a new plan choice is missing"
     },
     {
       "id": "planner",
       "kind": "agent",
-      "label": "planner",
-      "sub": "investigates read-only · writes the plan and its sidecar"
+      "label": "planners × N",
+      "sub": "distinct approaches · orchestrator chooses the team"
+    },
+    {
+      "id": "research",
+      "kind": "agent",
+      "label": "researchers × N when useful",
+      "sub": "planner-owned questions · native or proxy dispatch"
+    },
+    {
+      "id": "plan",
+      "kind": "artifact",
+      "label": "planner-authored plan",
+      "sub": "Markdown default · requested HTML companion"
     },
     {
       "id": "approval",
+      "kind": "orchestrator",
+      "label": "compare and review the plan",
+      "sub": "accept · revise · resolve material user decisions"
+    },
+    {
+      "id": "transition",
       "kind": "human",
-      "label": "you approve",
-      "sub": "the plan, and every blocked or needs-decision return"
+      "label": "continue to build?",
+      "sub": "ask for standalone plans; reuse existing authorization"
     },
     {
       "id": "issues",
       "kind": "artifact",
-      "label": "GitHub milestone and issues",
-      "sub": "every issue carries its acceptance tests"
+      "label": "executable tasks",
+      "sub": "local task keys · optional approved GitHub issues"
+    },
+    {
+      "id": "verification",
+      "kind": "orchestrator",
+      "label": "choose verification per task",
+      "sub": "schedule independent work; preserve dependencies"
     },
     {
       "id": "testauthor",
       "kind": "agent",
-      "label": "specifier",
-      "sub": "proves RED is real, then seals the tests"
+      "label": "specifiers × N",
+      "sub": "feature or fix: real RED and sealed acceptance tests"
+    },
+    {
+      "id": "baseline",
+      "kind": "agent",
+      "label": "integrators × N: baseline",
+      "sub": "preserve behavior: GREEN on protected existing tests"
     },
     {
       "id": "builder",
       "kind": "agent",
-      "label": "builder",
-      "sub": "implements against tests it cannot edit"
+      "label": "builders × N",
+      "sub": "separate ownership · implement against protected tests"
     },
     {
       "id": "reviewer",
       "kind": "agent",
-      "label": "reviewer",
-      "sub": "read-only, one lens each · at most two passes"
+      "label": "reviewers × N",
+      "sub": "independent findings · orchestrator directs repairs"
     },
     {
       "id": "pr",
       "kind": "artifact",
-      "label": "pull request",
-      "sub": "one issue · one workspace · one PR"
+      "label": "accepted task handoffs",
+      "sub": "immutable commits · source-bound evidence"
     },
     {
-      "id": "integrator",
-      "kind": "agent",
-      "label": "integrator",
-      "sub": "retests the combined wave, returns the evidence"
-    },
-    {
-      "id": "gate",
-      "kind": "gate",
-      "label": "gate output",
-      "sub": "tdd-guard status · gh pr checks · CI conclusions"
-    },
-    {
-      "id": "merge",
+      "id": "combine",
       "kind": "orchestrator",
-      "label": "orchestrator merges",
-      "sub": "reads the gate output, never an agent's claim"
+      "label": "coordinate combined source",
+      "sub": "preserve accepted commits and their provenance"
     },
     {
       "id": "docs",
       "kind": "agent",
       "label": "documenter",
-      "sub": "alongside the integrator · docs match reality"
+      "sub": "relevant documentation before final verification"
+    },
+    {
+      "id": "integrator",
+      "kind": "agent",
+      "label": "integrators × N: final verification",
+      "sub": "exact combined source · tests, docs, and runtime"
+    },
+    {
+      "id": "measurement",
+      "kind": "agent",
+      "label": "profilers × N when optimizing",
+      "sub": "repeat a comparable benchmark after the change"
+    },
+    {
+      "id": "gate",
+      "kind": "gate",
+      "label": "prepared receipt",
+      "sub": "fresh source gates · final checks · current commit"
+    },
+    {
+      "id": "merge",
+      "kind": "orchestrator",
+      "label": "orchestrator accepts",
+      "sub": "durable completion · final PR · authorized merge"
     },
     {
       "id": "deploy",
       "kind": "agent",
-      "label": "deployer",
-      "sub": "a fresh explicit approval · verified · reversible"
+      "label": "deployer when requested",
+      "sub": "approved target and commit · verification and rollback"
     }
   ],
   "edges": [
-    { "from": "goal", "to": "planner" },
-    { "from": "planner", "to": "approval", "label": "plan folio + sidecar" },
-    { "from": "approval", "to": "issues", "label": "approved" },
+    {
+      "from": "goal",
+      "to": "route"
+    },
+    {
+      "from": "route",
+      "to": "choice",
+      "label": "planning detail is missing"
+    },
+    {
+      "from": "route",
+      "to": "issues",
+      "label": "reuse an executable plan"
+    },
+    {
+      "from": "choice",
+      "to": "planner"
+    },
+    {
+      "from": "planner",
+      "to": "research",
+      "label": "internal evidence stage"
+    },
+    {
+      "from": "research",
+      "to": "plan"
+    },
+    {
+      "from": "plan",
+      "to": "approval"
+    },
+    {
+      "from": "approval",
+      "to": "transition"
+    },
+    {
+      "from": "transition",
+      "to": "issues",
+      "label": "implementation is authorized"
+    },
     {
       "from": "issues",
-      "to": "testauthor",
-      "label": "dispatched in dependency waves"
+      "to": "verification"
     },
-    { "from": "testauthor", "to": "builder", "label": "handoff --to builder" },
+    {
+      "from": "verification",
+      "to": "testauthor",
+      "label": "feature or fix"
+    },
+    {
+      "from": "verification",
+      "to": "baseline",
+      "label": "behavior-preserving"
+    },
+    {
+      "from": "testauthor",
+      "to": "builder",
+      "label": "RED seal"
+    },
+    {
+      "from": "baseline",
+      "to": "builder",
+      "label": "baseline seal"
+    },
     {
       "from": "builder",
-      "to": "reviewer",
-      "label": "the change-set, before any PR exists"
+      "to": "reviewer"
     },
     {
       "from": "reviewer",
       "to": "pr",
-      "label": "nothing critical or high stands · the builder opens it"
+      "label": "blocking findings resolved"
     },
-    { "from": "pr", "to": "integrator" },
-    { "from": "pr", "to": "docs" },
-    { "from": "integrator", "to": "gate" },
-    { "from": "docs", "to": "gate" },
-    { "from": "gate", "to": "merge", "label": "green" },
-    { "from": "merge", "to": "deploy" },
+    {
+      "from": "pr",
+      "to": "combine"
+    },
+    {
+      "from": "combine",
+      "to": "docs"
+    },
+    {
+      "from": "docs",
+      "to": "integrator"
+    },
+    {
+      "from": "integrator",
+      "to": "measurement",
+      "label": "performance changes"
+    },
+    {
+      "from": "integrator",
+      "to": "gate",
+      "label": "other changes"
+    },
+    {
+      "from": "measurement",
+      "to": "gate"
+    },
     {
       "from": "gate",
+      "to": "merge",
+      "label": "verified"
+    },
+    {
+      "from": "merge",
+      "to": "deploy",
+      "label": "deployment is authorized"
+    },
+    {
+      "from": "reviewer",
       "to": "builder",
-      "label": "not green",
+      "label": "actionable repair",
       "dashed": true,
       "side": "right"
     },
     {
-      "from": "reviewer",
-      "to": "approval",
-      "label": "critical or high stands: blocked, no PR",
+      "from": "gate",
+      "to": "builder",
+      "label": "missing or stale evidence",
+      "dashed": true,
+      "side": "right"
+    },
+    {
+      "from": "approval",
+      "to": "planner",
+      "label": "specific plan revisions",
       "dashed": true,
       "side": "left"
     }
@@ -127,19 +272,27 @@
   "groups": [
     {
       "kind": "orchestrator",
-      "label": "the orchestrator dispatches, holds the human gates, and merges — it writes nothing",
+      "label": "Team sizes follow useful work and runtime capacity; existing decisions and evidence are retained",
       "nodes": [
+        "choice",
         "planner",
+        "research",
+        "plan",
         "approval",
+        "transition",
         "issues",
+        "verification",
         "testauthor",
+        "baseline",
         "builder",
-        "pr",
         "reviewer",
+        "pr",
+        "combine",
+        "docs",
         "integrator",
+        "measurement",
         "gate",
         "merge",
-        "docs",
         "deploy"
       ]
     }

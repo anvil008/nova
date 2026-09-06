@@ -48,7 +48,7 @@ EXPECTED_ROLES = (
     "specifier",
 )
 
-ALLOWED_DELEGATION_ROLES = {"builder"}
+ALLOWED_DELEGATION_ROLES = {"builder", "planner"}
 READ_ONLY_ROLES = {"reviewer", "researcher"}
 
 VALID_AGY_TOOLS = {
@@ -135,8 +135,8 @@ def _gate_is_represented(gate: str, text: str) -> bool:
         return "green" in t
     elif g == "runtime proof":
         return "runtime" in t or "proof" in t or "evidence" in t
-    elif g == "two reviews":
-        return "two" in t and ("review" in t or "pass" in t)
+    elif g == "independent review":
+        return "independent" in t and "review" in t
     elif g == "pull request":
         return "pull request" in t or " pr" in t
     elif g == "acceptance test":
@@ -162,7 +162,7 @@ def _gate_is_represented(gate: str, text: str) -> bool:
     elif g == "runtime verification":
         return "verification" in t or "verify" in t or "runtime" in t
     elif g == "truth inspection":
-        return "truth" in t or "inspection" in t or "reality" in t
+        return "truth" in t or "inspection" in t or "reality" in t or ("inspect" in t and "source" in t)
     elif g == "scoped edit":
         return "scope" in t or "edit" in t
     elif g == "docs validation":
@@ -311,7 +311,7 @@ class AntigravityAgentsAcceptanceTests(unittest.TestCase):
             # Body must contain a note explaining why effort is omitted / session-wide
             has_effort_note = bool(
                 re.search(
-                    r"effort.*(?:session-wide|session wide|session-level)|(?:session-wide|session wide).*effort|/effort|--effort",
+                    r"effort.*(?:session-wide|session wide|session-level)|session.{0,24}(?:configured|wide).*effort|(?:session-wide|session wide).*effort|/effort|--effort",
                     body,
                     re.IGNORECASE,
                 )
@@ -433,7 +433,7 @@ class AntigravityAgentsAcceptanceTests(unittest.TestCase):
                 )
                 has_cannot_request_edits = bool(
                     re.search(
-                        r"cannot request edits",
+                        r"cannot request edits|never edit (?:target|product)|never.*(?:modify|mutate).*source|do not edit.*code",
                         body,
                         re.IGNORECASE,
                     )
