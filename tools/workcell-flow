@@ -1,0 +1,1137 @@
+#!/usr/bin/env python3
+"""Workcell run tracking: milestones, tasks, agents, and immutable archived runs."""
+import argparse
+import copy
+from contextlib import contextmanager, nullcontext
+from datetime import datetime, timezone
+import fcntl
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import tempfile
+import time
+from urllib.parse import parse_qs, urlparse
+import uuid
+
+TOKEN_FIELDS = ('input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens', 'reasoning_tokens')
+MAX_BYTES = 16 * 1024 * 1024
+MAX_ITEMS = 4096
+MAX_EVENTS = 32768
+SCHEMA = 1
+TASK_STATES = ('pending', 'working', 'blocked', 'done', 'failed', 'canceled')
+AGENT_STATES = ('idle', 'working', 'waiting', 'done', 'failed')
+TERMINAL = {'done', 'failed', 'canceled'}
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+
+
+def identifier(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}', value):
+        raise ValueError('IDs must be 1–80 letters, digits, underscores, or hyphens')
+    return value
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def find(items, key):
+    return next((item for item in items if item['id'] == key), None)
+
+
+def acyclic(items, links):
+    by_id = {x['id']: x for x in items}; done = set(); active = set()
+    for key in by_id:
+        stack = [(key, False)]
+        while stack:
+            node, leaving = stack.pop()
+            require(node in by_id, f'Unknown dependency or parent: {node}')
+            if leaving:
+                active.remove(node); done.add(node); continue
+            if node in done: continue
+            require(node not in active, f'Cycle at {node}')
+            active.add(node);stack.append((node,True))
+            stack.extend((other,False) for other in reversed(links(by_id[node])))
+
+
+def timestamp(value):
+    require(isinstance(value, str), 'Timestamp must be a string')
+    parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    require(parsed.tzinfo is not None, 'Timestamps must include a timezone')
+    return parsed
+
+
+def validate_usage(usage, usage_ids):
+    identifier(usage['id'])
+    require(usage['id'] not in usage_ids, 'Duplicate usage record ID across attempts')
+    usage_ids.add(usage['id'])
+    timestamp(usage['updated_at'])
+    for key in ('source', 'agent', 'harness', 'model', 'effort'):
+        require(isinstance(usage[key], str), f'Usage {key} must be a string')
+    require(usage['source'].strip(), 'Usage needs a source reference')
+    require(any(key in usage for key in TOKEN_FIELDS), 'Usage needs token counts')
+    for key in TOKEN_FIELDS:
+        if key in usage:
+            require(type(usage[key]) is int and usage[key] >= 0, f'{key} must be a nonnegative integer')
+
+
+def validate(data):
+    require(isinstance(data, dict) and data.get('workcell_dagr') == SCHEMA, 'Unsupported Workcell Flow schema')
+    require(len(data.get('events',[])) <= MAX_EVENTS, 'Too many events; archive this run before continuing')
+    require(sum(len(data.get(k,[])) for k in ('tasks','agents','milestones')) + sum(len(t.get('attempts',[])) for t in data.get('tasks',[])) <= MAX_ITEMS, 'Run exceeds graph item limit')
+    run = data['run']; identifier(run['id'])
+    timestamp(run['created_at']); timestamp(data['updated_at'])
+    require(isinstance(run['phase'], str) and run['phase'].strip(), 'Run phase is required')
+    require(isinstance(data['revision'], int) and not isinstance(data['revision'], bool), 'Revision must be an integer')
+    require(run['state'] in {'active', 'done', 'failed', 'canceled'}, 'Invalid run state')
+    require(isinstance(run['title'], str) and run['title'].strip(), 'Run title is required')
+    for collection in ('milestones', 'tasks', 'agents', 'events'):
+        require(isinstance(data[collection], list), f'{collection} must be an array')
+    for collection in ('milestones', 'tasks', 'agents'):
+        ids = [identifier(x['id']) for x in data[collection]]
+        require(len(ids) == len(set(ids)), f'Duplicate {collection} ID')
+    for milestone in data['milestones']:
+        require(isinstance(milestone['title'], str) and milestone['title'].strip(), 'Milestone title is required')
+    usage_ids = set()
+    for task in data['tasks']:
+        require(task['state'] in TASK_STATES, 'Invalid task state')
+        require(isinstance(task.get('kind','task'),str) and task.get('kind','task').strip(), 'Task kind must be nonempty')
+        if task.get('kind')=='gate': require(task['deps'], 'A gate needs at least one input')
+        if task.get('issue'):
+            require(isinstance(task['issue'], str) and re.fullmatch(r'https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*',task['issue']), 'Issue must be a full GitHub issue URL')
+        require(isinstance(task['phase'], str) and task['phase'].strip(), 'Task phase is required')
+        require(isinstance(task['note'], str), 'Task note must be a string')
+        require(isinstance(task['title'], str) and task['title'].strip(), 'Task title is required')
+        require(task['milestone'] is None or find(data['milestones'], task['milestone']), f'Unknown milestone: {task["milestone"]}')
+        require(isinstance(task['deps'], list), 'Task dependencies must be an array')
+        require(len(task['deps']) == len(set(task['deps'])), 'Duplicate dependency')
+        attempts = task['attempts']
+        require(isinstance(attempts, list), 'Attempts must be an array')
+        for n, attempt in enumerate(attempts, 1):
+            require(attempt['number'] == n, 'Attempt numbers must be consecutive')
+            require(attempt['state'] in TASK_STATES and attempt['state'] != 'pending', 'Invalid attempt state')
+            timestamp(attempt['started_at'])
+            if 'progress' in attempt:
+                progress = attempt['progress']
+                require(isinstance(progress,dict), 'Progress must be an object')
+                require(type(progress['done']) is int and type(progress['total']) is int and 0 <= progress['done'] <= progress['total'] and progress['total'] > 0, 'Progress must satisfy 0 <= done <= total, total > 0')
+                require(isinstance(progress.get('note',''),str), 'Progress note must be text')
+            for usage in attempt.get('usage', []):
+                validate_usage(usage, usage_ids)
+
+            if n < len(attempts):
+                require(attempt['state'] in TERMINAL, 'Earlier attempts must be settled')
+            if attempt['state'] in TERMINAL:
+                require(timestamp(attempt.get('ended_at')) >= timestamp(attempt['started_at']), 'Invalid attempt end time')
+            if attempt['state'] == 'done':
+                require(attempt.get('evidence') and attempt.get('evidence_level') in ('reported', 'verified'), 'Done attempts need evidence')
+        if task['state'] not in ('pending', 'canceled'):
+            require(attempts and attempts[-1]['state'] == task['state'], 'Task state must match latest attempt')
+        if task['state'] == 'canceled' and attempts:
+            require(attempts[-1]['state'] == 'canceled', 'Canceled task must settle its last attempt')
+        if task['state'] == 'pending':
+            require(not attempts, 'Pending task cannot have attempts')
+    attempts_by_id = {t['id']+'.a'+str(a['number']): a for t in data['tasks'] for a in t['attempts']}
+    for ident, attempt in attempts_by_id.items():
+        if 'inputs' in attempt:
+            require(isinstance(attempt['inputs'],list) and len(attempt['inputs'])==len(set(attempt['inputs'])), 'Attempt inputs must be distinct references')
+            for ref in attempt['inputs']:
+                require(ref in attempts_by_id, 'Unknown attempt input')
+                source = attempts_by_id[ref]
+                require(source['state']=='done' and timestamp(source['ended_at'])<=timestamp(attempt['started_at']), 'Attempt input must have completed before work started')
+        cause = attempt.get('cause')
+        if cause:
+            require(isinstance(cause,dict) and cause.get('ref') in attempts_by_id, 'Retry cause must reference an existing attempt')
+            previous = attempts_by_id[cause['ref']]
+            require(cause['ref'] != ident and previous['state'] in TERMINAL and timestamp(previous['ended_at']) <= timestamp(attempt['started_at']), 'Retry cause must reference an earlier settled attempt')
+    acyclic([{'id':k,'refs':a.get('inputs',[])+([a['cause']['ref']] if a.get('cause') else [])} for k,a in attempts_by_id.items()],lambda a:a['refs'])
+    acyclic(data['tasks'], lambda x: x['deps'])
+    acyclic(data['tasks'], lambda x: [x['parent_id']] if x.get('parent_id') else [])
+    for agent in data['agents']:
+        for usage in agent.get('usage', []):
+            validate_usage(usage, usage_ids)
+        if 'session_id' in agent:
+            require(isinstance(agent['session_id'], str) and agent['session_id'], 'Session ID required')
+        require(agent['state'] in AGENT_STATES, 'Invalid agent state')
+        timestamp(agent['updated_at'])
+        for key in ('role', 'harness', 'model', 'effort', 'phase', 'activity'):
+            require(isinstance(agent[key], str), f'Agent {key} must be a string')
+        if agent.get('task'):
+            require(find(data['tasks'], agent['task']), f'Unknown assigned task: {agent["task"]}')
+    acyclic(data['agents'], lambda x: [x['parent']] if x.get('parent') else [])
+    for e in data['events']:
+        timestamp(e['at'])
+        require(isinstance(e['type'], str) and isinstance(e['detail'], str), 'Invalid event')
+    require([e['seq'] for e in data['events']] == list(range(1, len(data['events']) + 1)), 'Event sequence is invalid')
+    require(data['revision'] == len(data['events']), 'Revision must match the event sequence')
+    if run['state'] == 'done':
+        require(all(t['state'] in ('done', 'canceled') for t in data['tasks']), 'Completed run has unfinished tasks')
+    if run['state'] != 'active':
+        timestamp(run['ended_at'])
+        require(not any(t['state'] == 'working' for t in data['tasks']), 'Terminal run has working tasks')
+        require(not any(a['state'] in ('working', 'waiting') for a in data['agents']), 'Terminal run has active agents')
+    return data
+
+
+def read(path):
+    require(not path.is_symlink() and not path.parent.is_symlink(), f'Refusing run symlink: {path}')
+    try:
+        require(path.stat().st_size <= MAX_BYTES, 'Run file exceeds 16 MiB limit')
+        with path.open('rb') as stream: raw = stream.read(MAX_BYTES + 1)
+        require(len(raw) <= MAX_BYTES, 'Run file exceeds 16 MiB limit')
+        return validate(json.loads(raw))
+    except (KeyError, TypeError, RecursionError) as error:
+        raise ValueError(f'Malformed run: {error}') from error
+
+
+def sync_directory(path):
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def atomic(path, data):
+    validate(data)
+    encoded = json.dumps(data, indent=2, ensure_ascii=False) + '\n'
+    require(len(encoded.encode('utf-8')) <= MAX_BYTES, 'Run exceeds 16 MiB limit')
+    require(not path.is_symlink(), f'Refusing run symlink: {path}')
+    fd, name = tempfile.mkstemp(prefix='.run-', suffix='.tmp', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+            handle.write(encoded); handle.flush(); os.fsync(handle.fileno())
+        os.replace(name, path)
+        sync_directory(path.parent)
+    finally:
+        Path(name).unlink(missing_ok=True)
+
+
+@contextmanager
+def locked(directory):
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / '.lock'
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+
+
+def event(data, kind, detail, **refs):
+    data['revision'] += 1
+    data['updated_at'] = now()
+    data['events'].append({'seq': data['revision'], 'at': data['updated_at'],
+                           'type': kind, 'detail': detail, **refs})
+
+
+def create(title, run_id=None):
+    stamp = now()
+    data = {'workcell_dagr': SCHEMA, 'revision': 0,
+            'run': {'id': identifier(run_id or 'run-' + uuid.uuid4().hex[:12]),
+                    'title': title, 'state': 'active', 'phase': 'spec', 'created_at': stamp},
+            'updated_at': stamp, 'milestones': [], 'tasks': [], 'agents': [], 'events': []}
+    event(data, 'run_created', title)
+    return data
+
+
+def change(data, args):
+    require(data['run']['state'] == 'active', 'Run is finished; archive it and start a new run')
+    if args.command == 'phase':
+        data['run']['phase'] = args.name
+        event(data, 'phase_changed', args.name)
+    elif args.command == 'milestone':
+        identifier(args.id)
+        require(not find(data['milestones'], args.id), 'Milestone ID already exists')
+        data['milestones'].append({'id': args.id, 'title': args.title})
+        event(data, 'milestone_added', args.title, milestone=args.id)
+    elif args.command == 'task':
+        if args.action == 'add':
+            identifier(args.id)
+            require(not find(data['tasks'], args.id), 'Task ID already exists')
+            require(args.milestone is None or find(data['milestones'], args.milestone), 'Milestone does not exist')
+            data['tasks'].append({'id': args.id, 'title': args.title, 'milestone': args.milestone,
+                                  'phase': args.phase or data['run']['phase'], 'deps': args.after,
+                                  'state': 'pending', 'note': '', 'attempts': [], 'issue': args.issue, 'kind': args.kind, 'parent_id':args.parent})
+            event(data, 'task_added', args.title, task=args.id)
+        elif args.action == 'rename':
+            task=find(data['tasks'],args.id);require(task,'Task not found')
+            task['title']=args.title;task.pop('provisional',None)
+            event(data,'task_renamed',args.title,task=args.id)
+        elif args.action == 'parent':
+            task=find(data['tasks'],args.id);require(task,'Task not found')
+            task['parent_id']=None if args.parent=='-' else args.parent
+            event(data,'task_parent',args.parent,task=args.id)
+        elif args.action == 'progress':
+            task = find(data['tasks'],args.id)
+            require(task and task['state'] in ('working','blocked') and task['attempts'], 'Progress needs an active attempt')
+            task['attempts'][-1]['progress'] = {'done':args.done,'total':args.total,'note':args.note or ''}
+            task['note'] = args.note or task['note']
+            event(data,'task_progress',f'{args.done}/{args.total} '+(args.note or ''),task=args.id)
+        elif args.action in ('edit', 'note'):
+            task = find(data['tasks'], args.id)
+            require(task, 'Task does not exist')
+            if args.action == 'note':
+                require(task['state'] not in TERMINAL, 'Settled task notes are retained; create follow-up work')
+                task['note'] = args.text
+            else:
+                require(task['state'] == 'pending', 'Only pending tasks can be replanned')
+                for key in ('title', 'milestone', 'phase', 'issue'):
+                    if getattr(args, key) is not None:
+                        task[key] = getattr(args, key)
+                if args.after is not None:
+                    task['deps'] = args.after
+                elif args.clear_deps:
+                    task['deps'] = []
+            event(data, 'task_' + args.action, task['note'] if args.action == 'note' else task['title'], task=args.id)
+        else:
+            task = find(data['tasks'], args.id)
+            require(task, 'Task does not exist')
+            if args.action == 'retry':
+                require(task['state'] in ('failed', 'done', 'canceled'), 'Retry requires a settled task')
+                require(args.note, 'Retry requires a reason')
+                # Reopening a prerequisite would invalidate already-started downstream work.
+                require(not any(args.id in t['deps'] and t['state'] not in ('pending', 'canceled') and not (args.cause and t.get('kind')=='review' and args.cause.rsplit('.a',1)[0]==t['id']) for t in data['tasks']),
+                        'Settle/replan downstream work before reopening this dependency')
+                state = 'working'
+                fresh = True
+            else:
+                state = args.state
+                allowed = {'pending': {'working', 'canceled'}, 'working': {'blocked', 'done', 'failed', 'canceled'},
+                           'blocked': {'working', 'failed', 'canceled'}, 'done': set(), 'failed': set(), 'canceled': set()}
+                require(state in allowed[task['state']], f'Invalid transition {task["state"]} → {state}; use retry for settled tasks')
+                fresh = task['state'] == 'pending' and state == 'working'
+            if state in ('working', 'done'):
+                require(all(find(data['tasks'], d)['state'] == 'done' for d in task['deps']), 'Dependencies are not done')
+            if state in ('blocked', 'failed', 'canceled'):
+                require(args.note, 'This state requires a note')
+            if state == 'done':
+                require(args.evidence, 'Done requires --evidence (a check result or artifact reference)')
+            if fresh:
+                task['attempts'].append({'number': len(task['attempts']) + 1, 'state': 'working',
+                                         'started_at': now(), 'reason': args.note or 'Initial attempt',
+                                         'inputs': [d+'.a'+str(find(data['tasks'],d)['attempts'][-1]['number']) for d in task['deps']]})
+                if args.action=='retry' and args.cause:
+                    task['attempts'][-1]['cause'] = {'ref':args.cause}
+            task['state'] = state
+            task['note'] = args.note or ''
+            if task['attempts']:
+                attempt = task['attempts'][-1]
+                attempt['state'] = state
+                if state in TERMINAL:
+                    attempt.update(ended_at=now(), outcome_note=args.note or '', evidence=args.evidence or '',
+                                   evidence_level='verified' if args.verified else 'reported',
+                                   source_revision=args.source_revision or '')
+            if args.agent:
+                agent = find(data['agents'], args.agent)
+                require(agent, 'Register the agent before assigning a task')
+                require(not agent.get('task') or agent['task'] == task['id'], 'Agent is assigned to another task')
+                if task['attempts']:
+                    task['attempts'][-1].setdefault('workers', {})[agent['id']] = {k: agent[k] for k in ('harness', 'model', 'effort')}
+                agent.update(task=task['id'], state='working' if state == 'working' else 'waiting', updated_at=now())
+            if state in ('working', 'blocked'):
+                for agent in data['agents']:
+                    if agent.get('task') == task['id']:
+                        agent.update(state='working' if state == 'working' else 'waiting', updated_at=now())
+            if state in TERMINAL:
+                for agent in data['agents']:
+                    if agent.get('task') == task['id']:
+                        agent.update(task=None, state='idle', updated_at=now())
+            event(data, 'task_' + ('retried' if args.action == 'retry' else state), args.note or task['title'], task=args.id)
+    elif args.command == 'usage':
+        task = find(data['tasks'], args.task)
+        require(task and task['attempts'], 'Start a task attempt before reporting usage')
+        attempt = task['attempts'][-1]
+        identifier(args.record)
+        for other in data['tasks']:
+            for past in other['attempts']:
+                if past is not attempt:
+                    require(not any(u['id'] == args.record for u in past.get('usage', [])), 'Usage record already belongs to another attempt')
+        counts = {key: getattr(args, key) for key in TOKEN_FIELDS if getattr(args, key) is not None}
+        require(counts, 'Supply at least one token count')
+        agent = find(data['agents'], args.agent) if args.agent else None
+        require(not args.agent or agent, 'Unknown usage agent')
+        record = {'id': args.record, 'source': args.source, 'updated_at': now(), 'agent': args.agent or '',
+                  **{key: getattr(args, key) or (agent[key] if agent else '') for key in ('harness', 'model', 'effort')}, **counts}
+        records = attempt.setdefault('usage', [])
+        existing = find(records, args.record)
+        if existing:
+            # Repeated provider reports replace this record, never add its counters twice.
+            record = {**existing, **counts, 'updated_at': now(), 'source': args.source,
+                      **{key: value for key, value in record.items() if key in ('agent', 'harness', 'model', 'effort') and value}}
+            records[records.index(existing)] = record
+        else:
+            records.append(record)
+        event(data, 'usage_reported', args.record + ' / ' + (record['model'] or 'model not reported'), task=args.task)
+    elif args.command == 'session':
+        agent = next((a for a in data['agents'] if a.get('session_id') == args.session), None)
+        if args.action == 'attach':
+            require(not agent, 'Session is already attached to this run')
+            old = next((a for a in args.archived_data['agents'] if a.get('session_id') == args.session), None)
+            require(old, 'Session not present in the named archive')
+            agent = {k: copy.deepcopy(v) for k, v in old.items() if k not in ('usage', 'binding', 'task', 'activity')}
+            agent.update(task=None, state='idle', activity='Explicitly attached from archive', updated_at=now())
+            if not find(data['agents'], agent.get('parent')): agent['parent'] = None
+            data['agents'].append(agent)
+            event(data, 'session_attached', args.archive, agent=agent['id'])
+            return
+        require(agent, 'Session not registered; run the lifecycle adapter first')
+        if args.action=='context':
+            require(args.parent=='-' or find(data['tasks'],args.parent),'Parent task not found')
+            agent['parent_task']=None if args.parent=='-' else args.parent
+            event(data,'session_context',args.parent,agent=agent['id']);return
+        require(args.task is not None, 'Binding requires --task')
+        if args.task == '-':
+            agent.pop('binding', None); agent['task'] = None
+        else:
+            task = find(data['tasks'], args.task)
+            require(task and task['state'] in ('working', 'blocked') and task['attempts'], 'Bind a started task attempt')
+            agent['binding'] = {'task': args.task, 'attempt': task['attempts'][-1]['number'], 'at': now()}
+            agent['task'] = args.task
+            task['attempts'][-1].setdefault('workers', {})[agent['id']] = {k: agent[k] for k in ('harness', 'model', 'effort')}
+        agent['updated_at'] = now()
+        event(data, 'session_bound', args.task, agent=agent['id'])
+    elif args.command == 'agent':
+        identifier(args.id)
+        agent = find(data['agents'], args.id)
+        if not agent:
+            agent = {'id': args.id, 'parent': None, 'role': 'main', 'harness': '', 'model': '',
+                     'effort': '', 'phase': data['run']['phase'], 'state': 'idle', 'task': None, 'activity': ''}
+            data['agents'].append(agent)
+        for key in ('parent', 'role', 'harness', 'model', 'effort', 'phase', 'state', 'task', 'activity'):
+            value = getattr(args, key)
+            if value is not None:
+                agent[key] = None if key in ('parent', 'task') and value == '-' else value
+        agent['updated_at'] = now()
+        if agent.get('task'):
+            task = find(data['tasks'], agent['task'])
+            if task and task['attempts'] and task['state'] not in TERMINAL:
+                task['attempts'][-1].setdefault('workers', {})[agent['id']] = {k: agent[k] for k in ('harness', 'model', 'effort')}
+        event(data, 'agent_updated', agent['activity'] or agent['state'], agent=args.id)
+    elif args.command == 'finish':
+        require(args.note, 'Finish requires a summary note')
+        require(not any(t['state'] == 'working' for t in data['tasks']), 'Settle working tasks first')
+        data['run'].update(state=args.state, ended_at=now(), summary=args.note)
+        event(data, 'run_finished', args.note)
+    validate(data)
+
+
+def archive(directory):
+    path = directory / 'run.json'
+    data = read(path)
+    require(data['run']['state'] in TERMINAL, 'Only finished runs can be archived')
+    destination = directory / 'archive' / data['run']['id']
+    require(not (directory / 'archive').is_symlink() and not destination.is_symlink(), 'Refusing archive directory symlink')
+    destination.mkdir(parents=True, exist_ok=True)
+    target = destination / 'run.json'
+    require(not target.is_symlink(), 'Refusing archive symlink')
+    # Same-filesystem hard link atomically preserves the complete validated snapshot.
+    # If interruption occurs before unlink, an identical existing snapshot permits retry.
+    try:
+        os.link(path, target, follow_symlinks=False)
+    except FileExistsError:
+        require(target.read_bytes() == path.read_bytes(), 'Archive ID collision; existing archive preserved')
+    sync_directory(destination)
+    sync_directory(destination.parent)
+    sync_directory(directory)
+    path.unlink()
+    sync_directory(directory)
+    return target
+
+
+def project_store(cwd):
+    """Resolve shared repository identity, never merge unrelated clones by remote URL."""
+    import subprocess
+    cwd = Path(cwd).resolve()
+    for parent in (cwd,*cwd.parents):
+        repo = parent/'.jj/repo'
+        if repo.exists():
+            shared = (repo.parent / repo.read_text().strip()).resolve() if repo.is_file() else repo.resolve()
+            return shared.parent.parent/'.workcell'
+        if (parent/'.git').exists():
+            result = subprocess.run(['git','-C',str(parent),'rev-parse','--path-format=absolute','--git-common-dir'],capture_output=True,text=True)
+            if result.returncode: return parent/'.workcell'
+            shared = Path(result.stdout.strip()).resolve()
+            return (shared.parent if shared.name=='.git' else shared)/'.workcell'
+    return cwd/'.workcell'
+
+
+def run_paths(directory):
+    return ([directory/'run.json'] if (directory/'run.json').exists() else []) + sorted((directory/'runs').glob('*/run.json'))
+
+
+def session_store(directory, harness, session, join=None, create_run=False, workspace=None):
+    """Call with the project lock held. Session identities are harness-qualified."""
+    for path in run_paths(directory):
+        data=read(path)
+        if data['run'].get('owner')==harness+':'+session or any(a.get('session_id')==session and a['harness']==harness for a in data['agents']):
+            require(not join or join==data['run']['id'], 'Session already belongs to another run')
+            return path.parent
+    if join:
+        identifier(join)
+        matches=[p.parent for p in run_paths(directory) if read(p)['run']['id']==join]
+        require(len(matches)==1,'Shared run not found or ambiguous')
+        return matches[0]
+    if not create_run: return None
+    import hashlib
+    ident=harness+'-'+hashlib.sha256(session.encode()).hexdigest()[:20]
+    destination=directory/'runs'/ident
+    require(not (destination/'archive'/ident/'run.json').exists(), 'Session run is archived; start a new session')
+    destination.mkdir(parents=True,exist_ok=True)
+    data=create((Path(workspace).name if workspace else 'Project')+' · '+harness,ident)
+    data['run'].update(owner=harness+':'+session,lifecycle='active')
+    atomic(destination/'run.json',data)
+    return destination
+
+
+def lifecycle(directory,harness,session,action,join=None,workspace=None):
+    """Portable session adapter; only confirmed exits close a participant."""
+    import hashlib
+    identifier(harness)
+    with locked(directory):
+        destination=session_store(directory,harness,session,join,action=='start',workspace)
+        require(destination is not None,'Session is not registered')
+        with locked(destination) if destination!=directory else nullcontext():
+            data=read(destination/'run.json')
+            ident=harness+'-'+hashlib.sha256(session.encode()).hexdigest()[:20]
+            agent=find(data['agents'],ident)
+            if not agent:
+                agent=dict(id=ident,session_id=session,parent=None,role='main',harness=harness,model='',effort='',phase=data['run']['phase'],state='idle',task=None,activity='',updated_at=now())
+                data['agents'].append(agent)
+            agent.update(session_closed=action=='end',workspace=str(Path(workspace or '.').resolve()),updated_at=now())
+            if action=='end': agent.update(state='idle',activity='Session exited')
+            else: agent.update(state='working',activity='Session connected')
+            if action=='end':
+                for child in data['agents']:
+                    if child.get('launcher_session')==session:child.update(session_closed=True,state='idle')
+            sessions=[a for a in data['agents'] if a.get('session_id')]
+            closed=bool(sessions) and all(a.get('session_closed',False) for a in sessions)
+            settled=all(t['state'] in TERMINAL for t in data['tasks'])
+            data['run']['lifecycle']='interrupted' if closed and not settled else 'active'
+            event(data,'session_'+action,harness+' session '+action,agent=ident)
+            if closed and settled and not any(a['state'] in ('working','waiting') for a in data['agents']):
+                data['run'].update(state='failed' if any(t['state']=='failed' for t in data['tasks']) else 'done',ended_at=now(),summary='All participating sessions closed; tasks settled',lifecycle='archived')
+                atomic(destination/'run.json',data)
+                return archive(destination)
+            atomic(destination/'run.json',data)
+            return destination
+
+
+def selected_run(directory,key=None):
+    if key:
+        identifier(key)
+        candidates=[p for p in run_paths(directory) if read(p)['run']['id']==key]
+        candidates += list((directory/'archive'/key).glob('run.json'))
+        candidates += list((directory/'runs').glob('*/archive/'+key+'/run.json'))
+        require(len(candidates)==1,'Run not found or ambiguous')
+        return read(candidates[0])
+    paths=run_paths(directory)
+    if not paths: raise FileNotFoundError('No active runs')
+    if len(paths)==1:return read(paths[0])
+    # Read-only projection. Source facts and IDs remain in each run store.
+    combined=create('Repository · '+str(len(paths))+' runs','repository')
+    for n,path in enumerate(paths):
+        data=copy.deepcopy(read(path));prefix='r'+str(n+1)+'--'
+        for m in data['milestones']:m['id']=prefix+m['id']
+        for t in data['tasks']:
+            t['title']=data['run']['title']+' / '+t['title'];t['id']=prefix+t['id'];t['deps']=[prefix+d for d in t['deps']]
+            if t.get('parent_id'):t['parent_id']=prefix+t['parent_id']
+            if t['milestone']:t['milestone']=prefix+t['milestone']
+            for a in t['attempts']:
+                if a.get('cause'):a['cause']['ref']=prefix+a['cause']['ref']
+                if 'inputs' in a:a['inputs']=[prefix+i for i in a['inputs']]
+                a['workers']={prefix+k:v for k,v in a.get('workers',{}).items()}
+                for u in a.get('usage',[]):
+                    if u.get('agent'):u['agent']=prefix+u['agent']
+        for a in data['agents']:
+            a['id']=prefix+a['id']
+            if a.get('parent'):a['parent']=prefix+a['parent']
+            if a.get('task'):a['task']=prefix+a['task']
+        for field in ('tasks','milestones','agents'):combined[field].extend(data[field])
+        combined['updated_at']=max(combined['updated_at'],data['updated_at'])
+    return combined
+
+
+def summaries(directory):
+    results = []
+    paths = run_paths(directory)
+    paths += sorted((directory / 'archive').glob('*/run.json')) + sorted((directory/'runs').glob('*/archive/*/run.json'))
+    for path in paths:
+        data = read(path)
+        results.append({**data['run'], 'archived': 'archive' in path.relative_to(directory).parts, 'updated_at': data['updated_at']})
+    return results
+
+
+def terminal(data):
+    def clean(text):
+        return ''.join(c if c.isprintable() else ' ' for c in str(text))
+    lines = [f'{data["run"]["title"]}  [{data["run"]["state"]}]  phase: {data["run"]["phase"]}',
+             f'Run {data["run"]["id"]} · revision {data["revision"]} · updated {data["updated_at"]}']
+    for milestone in data['milestones'] + ([{'id': None, 'title': 'Ungrouped'}] if any(t['milestone'] is None for t in data['tasks']) else []):
+        tasks = [t for t in data['tasks'] if t['milestone'] == milestone['id']]
+        done = sum(t['state'] == 'done' for t in tasks)
+        if milestone['id'] is not None: lines.append(f'\n{milestone["id"]} · {milestone["title"]} ({done}/{len(tasks)} done)')
+        for task in tasks:
+            agents = ', '.join(a['id'] for a in data['agents'] if a.get('task') == task.get('_task_id',task['id']) and not task.get('_historical'))
+            deps = ' ← ' + ', '.join(task['deps']) if task['deps'] else ''
+            lines.append(f'  {task["state"]:9} {task["id"]} · {task_tags(task)}{task["title"]} [{task["phase"]}]{deps}' + (f' · {agents}' if agents else ''))
+            if task['note']:
+                lines.append('            ' + task['note'])
+    lines.append('\nAgents (reported activity)')
+    for agent in data['agents']:
+        parent = f' ↳ {agent["parent"]}' if agent['parent'] else ''
+        lines.append(f'  {agent["id"]}{parent} · {agent["role"]} · {agent["state"]} · {agent["phase"]} · {agent["harness"]} {agent["model"]}')
+        if agent['activity']:
+            lines.append('    ' + agent['activity'])
+        lines.extend('    Session-only '+k.replace('_', ' ')+': '+str(sum(u.get(k,0) for u in agent.get('usage',[]))) for k in TOKEN_FIELDS if any(k in u for u in agent.get('usage',[])))
+    for task in data['tasks']:
+        lines.append('\n' + task['id'] + ' / models & tokens')
+        lines.extend(usage_lines(task))
+    return '\n'.join(clean(line) for line in lines)
+
+
+def usage_lines(task, compact=False):
+    if compact:
+        records = [u for a in task['attempts'] for u in a.get('usage', [])]
+        if not records: return ['Tokens: not reported for this attempt']
+        def total(key):
+            values = [r[key] for r in records if key in r]
+            return (f'{sum(values):,}' + (' (partial)' if len(values)<len(records) else '')) if values else '—'
+        return ['Tokens: '+total('input_tokens')+' in / '+total('output_tokens')+' out',
+                'Cache read '+total('cache_read_tokens')+' · write '+total('cache_write_tokens')+' · reasoning '+total('reasoning_tokens')]
+
+    lines = []
+    records = [u for a in task['attempts'] for u in a.get('usage', [])]
+    if records:
+        lines.append('Reported task totals (all attempts)')
+        for key in TOKEN_FIELDS:
+            values = [r[key] for r in records if key in r]
+            value = f'{sum(values):,}' if values else 'not reported'
+            if values and len(values) < len(records): value += ' (partial)'
+            lines.append('  ' + key.replace('_', ' ') + ': ' + value)
+        lines.append('Cache/reasoning breakdowns are not added to input/output.')
+    for attempt in task['attempts']:
+        for agent, runtime in attempt.get('workers', {}).items():
+            lines.append(f'Attempt {attempt["number"]} · {agent} · ' + ' / '.join(runtime.get(k) or 'not reported' for k in ('harness', 'model', 'effort')))
+        for record in attempt.get('usage', []):
+            lines.append(f'Attempt {attempt["number"]} · {record["agent"] or "unassigned"} · {record["model"] or "model not reported"}')
+            lines.append(' / '.join(record.get(k) or 'not reported' for k in ('harness', 'effort')))
+            for key in TOKEN_FIELDS:
+                value = f'{record[key]:,}' if key in record else 'not reported'
+                lines.append('  ' + key.replace('_', ' ') + ': ' + value)
+            lines.append('  Source: ' + record['source'])
+    if not any(a.get('usage') for a in task['attempts']):
+        lines.append('Token usage: not reported')
+    return lines
+
+
+def task_rows(data):
+    """Topological task order and a separate track for each dependency edge."""
+    pending = list(data['tasks']); tasks = []; seen = set()
+    while pending:
+        ready = next((t for t in pending if all(d in seen for d in ([t['parent_id']] if t.get('parent_id') else []))), None)
+        if ready is None:
+            raise ValueError('Task dependency cycle')
+        pending.remove(ready); tasks.append(ready); seen.add(ready['id'])
+    positions = {t['id']: i for i, t in enumerate(tasks)}
+    # One displayed parent keeps the graph compact. All other DAG edges are
+    # explicit in the dependency annotation rather than invented tree links.
+    parents = {t['id']:t.get('parent_id') for t in tasks}
+    rows = []
+    for t in tasks:
+        ancestors = []; parent = parents[t['id']]
+        while parent:
+            ancestors.insert(0, parent); parent = parents[parent]
+        prefix = ''
+        for ancestor in ancestors[:-1]:
+            remaining = any(parents[o['id']] == ancestor and positions[o['id']] > positions[t['id']] for o in tasks)
+            prefix += '│ ' if remaining else '  '
+        if ancestors:
+            siblings = any(parents[o['id']] == parents[t['id']] and positions[o['id']] > positions[t['id']] for o in tasks)
+            prefix += '├─' if siblings else '└─'
+        rows.append((prefix, t))
+    return rows
+
+
+def task_tags(task):
+    labels = []
+    if task.get('milestone'): labels.append(task['milestone'])
+    if task.get('issue'): labels.append('#'+task['issue'].rsplit('/',1)[-1])
+    return ('['+' · '.join(labels)+'] ') if labels else ''
+
+
+def task_runtime(data, task, model_only=False):
+    attempt = task['attempts'][-1] if task['attempts'] else {}
+    runtimes = list(attempt.get('workers', {}).values()) + attempt.get('usage', [])
+    runtimes += [a for a in data['agents'] if a.get('task') == task.get('_task_id',task['id']) and not task.get('_historical')]
+    if model_only: return ', '.join(dict.fromkeys(r['model'] for r in runtimes if r.get('model'))) or '—'
+    labels = list(dict.fromkeys('·'.join(filter(None, (r.get('model'), r.get('effort') or 'effort —'))) for r in runtimes if r.get('model')))
+    return ', '.join(labels) or 'model/effort —'
+
+
+def task_tokens(task):
+    records = [u for a in task['attempts'] for u in a.get('usage', [])]
+    def field(key):
+        values = [u[key] for u in records if key in u]
+        if not values: return '—'
+        count = sum(values)
+        text = f'{count/1000000:.1f}m' if count >= 1000000 else f'{count/1000:.1f}k' if count >= 1000 else str(count)
+        return text + ('*' if len(values) < len(records) else '')
+    return field('input_tokens') + '/' + field('output_tokens')
+
+
+def age_text(start, end=None):
+    if not start:
+        return 'unknown'
+    seconds = max(0, int((timestamp(end) if end else datetime.now(timezone.utc)).timestamp() - timestamp(start).timestamp()))
+    return f'{seconds//86400}d {seconds%86400//3600}h' if seconds>=86400 else f'{seconds//3600}h {seconds%3600//60}m' if seconds>=3600 else f'{seconds//60}m {seconds%60}s'
+
+
+def view_rows(data, query='', folded=False):
+    """Derived presentation only: stable attempt identities, no new run facts."""
+    result = []
+    for prefix, original in task_rows(data):
+        if folded and original['state'] in ('done','canceled'):
+            continue
+        search = ' '.join([original['id'], original['title'], original['milestone'] or '', original.get('issue') or '',
+                          *[a['id'] for a in data['agents'] if a.get('task')==original['id']],
+                          *[who for a in original['attempts'] for who in a.get('workers', {})],
+                          *[r.get('model','') for a in original['attempts'] for r in a.get('workers', {}).values()],
+                          *[u.get('model','') for a in original['attempts'] for u in a.get('usage', [])]])
+        if query.casefold() not in search.casefold(): continue
+        blockers = [d for d in original['deps'] if find(data['tasks'],d)['state']!='done']
+        attempts = original['attempts'] or [None]
+        for attempt in attempts:
+            task = {**original, '_task_id': original['id'], '_blockers': blockers,
+                    '_progress_age': age_text(next((e['at'] for e in reversed(data['events']) if e.get('task')==original['id'] and e['type'].startswith('task_')),None)),
+                    '_join': original.get('kind')=='gate' or ('kind' not in original and len(original['deps'])>1), '_historical': bool(attempt and attempt is not original['attempts'][-1])}
+            if attempt:
+                task.update(id=original['id']+'.a'+str(attempt['number']), attempts=[attempt], state=attempt['state'])
+                task['_cause'] = attempt.get('cause',{}).get('ref')
+                task['_inputs'] = attempt.get('inputs', [d+'.a'+str(matches[-1]['number']) for d in original['deps'] if (matches := [a for a in find(data['tasks'],d)['attempts'] if a.get('ended_at') and a['state']=='done' and timestamp(a['ended_at'])<=timestamp(attempt['started_at'])])])
+                task['_blockers'] = []
+                task['_progress'] = attempt.get('progress')
+                task['_elapsed'] = age_text(attempt['started_at'],attempt.get('ended_at'))
+                ending = original['attempts'][attempt['number']]['started_at'] if task['_historical'] else None
+                outcome = next((e['detail'] for e in reversed(data['events']) if e.get('task')==original['id'] and e['type']=='task_'+attempt['state'] and timestamp(e['at'])>=timestamp(attempt['started_at']) and (not ending or timestamp(e['at'])<timestamp(ending))), '')
+                task['_row_note'] = (attempt.get('outcome_note') or outcome or attempt.get('reason','')) if task['_historical'] else original['note']
+            else:
+                task['_elapsed'] = 'not started';task['_row_note'] = original['note']
+            # Fan-in is a join boundary, never a child of an arbitrary prerequisite.
+            result.append(('⋈ ' if task['_join'] else prefix+('↩ ' if attempt and attempt['number']>1 else ''), task))
+    latest = {t['id']: t['id']+'.a'+str(t['attempts'][-1]['number']) if t['attempts'] else t['id'] for t in data['tasks']}
+    for _, task in result:
+        if not task['attempts']: task['_inputs'] = [latest[d] for d in task['deps']]
+        prior = task['_task_id']+'.a'+str(task['attempts'][0]['number']-1) if task['attempts'] and task['attempts'][0]['number']>1 else None
+        task['_parent_ref'] = latest.get(task.get('parent_id'))
+        task['_edges'] = list(dict.fromkeys(task['_inputs']+([task.get('_cause') or prior] if task.get('_cause') or prior else [])))
+    pending = result[:]; ordered = []; visible = {t['id'] for _,t in result}; seen = set()
+    while pending:
+        row = next((r for r in pending if all(d not in visible or d in seen for d in r[1]['_edges'])),None)
+        require(row is not None, 'Attempt dependency cycle')
+        pending.remove(row); ordered.append(row); seen.add(row[1]['id'])
+    return ordered
+
+
+def diagnostics(directory, data=None, error=None, archived=False):
+    lines = ['Store: '+str(directory), 'Selection: '+('archive' if archived else 'current run'),
+             'Data: '+(str(error) if error else 'valid' if data else 'no run.json'),
+             'Hook installation: not inspected; observed events are the evidence below.']
+    if not data: return lines+['Start work with workcell-flow init TITLE, or browse an archive.']
+    lines += ['Run: '+data['run']['id']+' / '+data['run']['state'], 'Last stored update: '+age_text(data['updated_at'])+' ago',
+              'Freshness measures reports, not process health.']
+    sessions = [a for a in data['agents'] if a.get('session_id')]
+    lines.append('Registered runtime sessions: '+str(len(sessions)))
+    if not sessions: lines.append('No session telemetry observed. Check plugin activation, project cwd, and hook logs.')
+    for a in sessions:
+        binding=a.get('binding');telemetry=a.get('telemetry',{})
+        lines += ['',a['id']+' / '+a['session_id'], 'Model: '+(a['model'] or 'not reported')+' / effort: '+(a['effort'] or 'not reported'),
+                  'Binding: '+(binding['task']+'.a'+str(binding['attempt']) if binding else 'none; usage stays session-only'),
+                  'Last observation: '+age_text(a['updated_at'])+' ago', 'Transcript cursor: '+str(telemetry.get('offset','not observed')),
+                  'Telemetry: '+telemetry.get('warning','no warning reported')]
+    for t in data['tasks']:
+        if not any(a.get('usage') for a in t['attempts']):
+            lines.append(t['id']+': no task usage; needs attributed provider data after a session binding/turn boundary.')
+    return lines
+
+
+def interactive(directory, archive_id=None):
+    """Read-only curses UI; wrapper restores terminal modes on every exit."""
+    import curses
+    import textwrap
+
+    def screen(win):
+        try:
+            curses.curs_set(0)
+        except curses.error:
+            pass
+        win.timeout(200)
+        if curses.has_colors():
+            curses.start_color()
+            curses.use_default_colors()
+            for i, color in enumerate((curses.COLOR_GREEN, curses.COLOR_CYAN, curses.COLOR_YELLOW, curses.COLOR_RED, curses.COLOR_MAGENTA, curses.COLOR_BLUE), 1):
+                curses.init_pair(i, color, -1)
+            if curses.COLORS >= 256:
+                curses.init_pair(6, 75, -1)
+                for i, color in enumerate((81, 80, 79, 114, 147, 141), 7):
+                    curses.init_pair(i, color, -1)
+        accent = curses.color_pair(6) if curses.has_colors() else 0
+        selected = 0; detail_offset = 0; choice = archive_id; data = None
+        inventory = []; error = ''; next_refresh = 0; tab = 0
+        initial_selection = True
+        select_working = True
+        folded = False; selected_id = None; follow_work = True; raw_usage = False
+        def put(y, x, value, width, attr=0):
+            value = ''.join(c if c.isprintable() else ' ' for c in str(value))
+            try:
+                win.addnstr(y, x, value, max(0, width), attr)
+            except curses.error:
+                pass
+        while True:
+            if time.monotonic() >= next_refresh:
+                try:
+                    inventory = summaries(directory)
+                    if initial_selection and choice is None and not run_paths(directory):
+                        archives = [r for r in inventory if r['archived']]
+                        if archives:
+                            choice = max(archives, key=lambda r: r['updated_at'])['id']
+                    initial_selection = False
+                    path = directory / 'archive' / identifier(choice) / 'run.json' if choice else directory / 'run.json'
+                    data = selected_run(directory,choice); error = ''
+                except (OSError, ValueError) as exc:
+                    data = None; error = str(exc)
+                next_refresh = time.monotonic() + 2
+            win.erase(); height, width = win.getmaxyx()
+            put(0, 1, 'WORKCELL FLOW  /  ' + ('ARCHIVE: '+choice if choice else 'active run'), width-2, accent|curses.A_BOLD)
+            put(height-1, 1, '↑↓ select   h hide done   Tab panel   [ ] runs   q quit', width-2, curses.A_REVERSE)
+            rows = view_rows(data,folded=folded) if data else []
+            if selected_id:
+                selected = next((i for i,(_,t) in enumerate(rows) if t['id']==selected_id), min(selected,max(0,len(rows)-1)))
+            if (select_working or follow_work) and rows:
+                selected = next((i for i, (_,t) in enumerate(rows) if t['state']=='working'),len(rows)-1 if select_working else selected)
+                select_working = False
+            selected = min(selected, max(0, len(rows)-1))
+            if rows: selected_id = rows[selected][1]['id']
+            if not data:
+                put(3, 2, 'No readable run: ' + error, width-4)
+                put(5, 2, 'Press ] for archives, or create a run with workcell-flow init TITLE.', width-4)
+                put(7, 2, str(directory), width-4)
+            else:
+                run = data['run']; done = sum(t['state']=='done' for t in data['tasks'])
+                put(1, 1, f'{run["title"]}  [{run["state"]}]  {run["phase"]}  {done}/{len(data["tasks"])} tasks done', width-2)
+                put(2, 1, 'Milestones: '+' · '.join(m['id']+': '+m['title'] for m in data['milestones']) if data['milestones'] else '', width-2,curses.A_DIM)
+                row_stride = 1
+                graph_height = max(2, min(max(len(rows)*row_stride, 7), (height-10)*3//5))
+                visible_tasks = max(1,graph_height//row_stride)
+                put(3, 2, ('GRAPH' if rows and not any(t['_edges'] for _,t in rows) else 'GRAPH ')+(' · settled hidden' if folded else ''), width-4, curses.A_DIM)
+                model_width = min(22,max(5,max((len(task_runtime(data,t,model_only=True)) for _,t in rows),default=5)))
+                model_column = width-15-model_width
+                if width>=60:
+                    put(3,model_column,'MODEL'.rjust(model_width),model_width,curses.A_DIM)
+                    put(3,width-13,'STATE',12,curses.A_DIM)
+                start = max(0, selected-visible_tasks+1)
+                milestones = {m['id']: m['title'] for m in data['milestones']}
+                milestones[None] = ''
+                for offset, (prefix, task) in enumerate(rows[start:start+visible_tasks]):
+                    y = 4+offset*row_stride
+                    index = start+offset
+                    state = task['state']
+                    color = 1 if state=='done' else 2 if state=='working' else 3 if state=='blocked' else 4 if state=='failed' else 0
+                    attr = curses.color_pair(color) if curses.has_colors() else 0
+                    if index==selected: put(y,0,'▌',1,accent|curses.A_BOLD)
+                    symbol = {'done':'●','working':'◐','failed':'×','blocked':'!','pending':'○','canceled':'−'}[state]
+                    graph_width = min(len(prefix), max(2,width//4))
+                    gradient = accent
+                    put(y,2,prefix,graph_width,gradient)
+                    xrow = 2+graph_width
+                    display_id = task['_task_id'] if task['id'].endswith('.a1') else task['id']
+                    put(y,xrow,symbol,1,accent|curses.A_BOLD)
+                    put(y,xrow+2,display_id,width-xrow-2,accent|curses.A_BOLD)
+                    title_x = xrow+len(display_id)+3
+                    status_x = max(title_x+1,width-13)
+                    model_x = max(title_x+1,model_column) if width>=60 else status_x
+                    title = task_tags(task)+task['title']+' · '+task['_elapsed']
+                    if task['_join']: title = 'JOIN '+','.join(task['deps'])+' · '+title
+                    if task.get('_cause'): title = '← '+task['_cause']+' · '+title
+                    if task.get('_progress'): title = str(task['_progress']['done'])+'/'+str(task['_progress']['total'])+' '+title
+                    if task['_historical']: title = task['_row_note']+' · '+title
+                    put(y,title_x,title,max(0,model_x-title_x-1),curses.A_BOLD if index==selected else 0)
+                    if width>=60:
+                        put(y,model_x,task_runtime(data,task,model_only=True)[:model_width].rjust(model_width),max(0,status_x-model_x-1),curses.A_DIM)
+                    evidence = task['attempts'][-1].get('evidence_level') if task['attempts'] else None
+                    mark = '◆' if evidence=='verified' else '◇' if state=='done' else ''
+                    waiting = [d for d in task['deps'] if find(data['tasks'],d)['state']!='done']
+                    label = ('waits '+','.join(waiting) if waiting else 'needs answer' if task.get('kind')=='question' else 'ready' if any(a.get('task')==task['_task_id'] for a in data['agents']) else 'unassigned') if state=='pending' else state
+                    put(y,status_x,label+' '+mark,max(0,width-status_x-1),attr|curses.A_BOLD)
+                activity_y = 4+graph_height
+                free_agents = [a for a in data['agents'] if not a.get('task') and a['state'] in ('working','waiting')]
+                activity = ' · '.join(a['id']+' / '+a['phase']+' / '+(a['model'] or 'model —')+': '+(a['activity'] or a['state']) for a in free_agents)
+                put(activity_y,2,'Unassigned: '+activity if activity else str(sum(t['state'] in ('done','canceled') for t in data['tasks']))+' settled tasks'+(' folded' if folded else '')+' · reports '+age_text(data['updated_at'])+' ago · silence ≠ failure',width-4,curses.A_DIM)
+                top = 6+graph_height
+                x = 3; room = max(1,width-6)
+                panel_color = accent
+                headings = ['TASK DETAILS', 'AGENTS / reported activity', 'EVENT LOG', 'DIAGNOSTICS']
+                heading = headings[tab]
+                if tab==0 and rows:
+                    task = rows[selected][1]
+                    heading = task['id']+' · '+task['state'].upper()+' / TASK DETAILS'
+                content = []
+                if tab==0 and rows:
+                    t = rows[selected][1]
+                    content = [t['phase']+': '+t['title'], task_runtime(data,t)+' · '+t['_elapsed']]
+                    if t['_row_note']: content.append(t['_row_note'])
+                    if t.get('parent_id'):content.append('Parent: '+t['parent_id'])
+                    if t.get('last_activity'):content.append('Activity: '+t['last_activity']['label']+' · '+age_text(t['last_activity']['at'])+' ago')
+                    if t['deps']: content.append('Depends on: '+', '.join(t['deps']))
+                    if t['_blockers']: content.append('Waiting for: '+', '.join(t['_blockers']))
+                    if t.get('_cause'): content.append('Caused by: '+t['_cause'])
+                    if t.get('_progress'): content.append('Progress count: '+str(t['_progress']['done'])+'/'+str(t['_progress']['total']))
+                    if t.get('milestone'): content.append('Milestone: '+t['milestone']+' / '+milestones[t['milestone']])
+                    if t.get('issue'): content.append('GitHub issue: '+t['issue'])
+                    content += ['', *usage_lines(t,compact=not raw_usage)]
+                    content.append('[u] '+('Hide individual usage records' if raw_usage else 'Show individual usage records'))
+                    for attempt in t['attempts']:
+                        if raw_usage: content += ['', f'Attempt {attempt["number"]}: {attempt["state"]}', attempt['started_at'], attempt.get('reason','')]
+                        if attempt.get('evidence'): content += [attempt.get('evidence_level','reported')+': '+attempt['evidence']]
+                        if attempt.get('source_revision'): content += ['Revision: '+attempt['source_revision']]
+                elif tab==1:
+                    def agents(parent, depth):
+                        for a in data['agents']:
+                            if a.get('parent')==parent:
+                                content.extend([' '*depth+'↳ '+a['id']+' / '+a['role']+' / '+a['state'], '  '+a['phase']+' → '+(a.get('task') or 'unassigned'), '  '+' '.join(filter(None,[a['harness'],a['model'],a['effort']])), '  '+a['activity'], '  Last observed '+age_text(a['updated_at'])+' ago / '+a['updated_at']])
+                                content.extend('  Session-only '+k.replace('_', ' ')+': '+str(sum(u.get(k,0) for u in a.get('usage',[]))) for k in TOKEN_FIELDS if any(k in u for u in a.get('usage',[])))
+                                agents(a['id'],depth+2)
+                    agents(None,0)
+                elif tab==3:
+                    content = diagnostics(directory,data,archived=bool(choice))
+                elif tab==2:
+                    for event in reversed(data['events']): content.extend([event['at']+' '+event['type'],event['detail'],''])
+                wrapped = []
+                for line in content:
+                    clean = ''.join(c if c.isprintable() else ' ' for c in str(line))
+                    wrapped.extend(textwrap.wrap(clean,max(1,room)) or [''])
+                # Bottom anchored, content-sized; preserve the graph above.
+                top = max(top, height-4-max(1,len(wrapped)))
+                put(top,1,'┌'+'─'*max(0,width-4)+'┐',width-2,panel_color)
+                put(height-3,1,'└'+'─'*max(0,width-4)+'┘',width-2,panel_color)
+                for y in range(top+1,height-3):
+                    put(y,1,'│',1,panel_color);put(y,width-2,'│',1,panel_color)
+                put(top,x,' '+heading+' ',room,panel_color|curses.A_BOLD)
+                capacity = max(1,height-top-4)
+                if len(wrapped)>capacity: put(top,width-24,' PgUp/PgDn scroll ',20,panel_color)
+                detail_offset = min(detail_offset,max(0,len(wrapped)-capacity))
+                for y,line in enumerate(wrapped[detail_offset:detail_offset+capacity],top+1):put(y,x,line,room)
+            win.refresh()
+            key = win.getch()
+            if key==ord('u'):
+                raw_usage=not raw_usage;tab=0;detail_offset=0;continue
+            if key==ord('f'):
+                follow_work=not follow_work;continue
+            if key==ord('h'):
+                folded=not folded;continue
+            if key==ord('d'):
+                tab=3;detail_offset=0;continue
+            if key in (ord('q'),27):break
+            if key==curses.KEY_DOWN:follow_work=False;selected=min(selected+1,max(0,len(rows)-1));detail_offset=0
+            if key==curses.KEY_UP:follow_work=False;selected=max(0,selected-1);detail_offset=0
+            if key==curses.KEY_NPAGE:detail_offset+=max(1,height//4)
+            if key==curses.KEY_PPAGE:detail_offset=max(0,detail_offset-max(1,height//4))
+            if key==9:tab=(tab+1)%4;detail_offset=0
+            if key==ord('r'):next_refresh=0
+            if key in (ord('['),ord(']')):
+                choices=[None]+[r['id'] for r in inventory]
+                i=choices.index(choice) if choice in choices else 0
+                choice=choices[(i+(1 if key==ord(']') else -1))%len(choices)]
+                selected=0;detail_offset=0;next_refresh=0;select_working=True;selected_id=None
+            if rows and 0<=selected<len(rows): selected_id=rows[selected][1]['id']
+    curses.wrapper(screen)
+
+
+def serve(directory, host, port):
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            route = urlparse(self.path)
+            try:
+                if route.path == '/':
+                    body, content_type = PAGE.encode(), 'text/html; charset=utf-8'
+                elif route.path == '/api/runs':
+                    body, content_type = json.dumps(summaries(directory)).encode(), 'application/json'
+                elif route.path == '/api/run':
+                    key = parse_qs(route.query).get('id', ['active'])[0]
+                    path = directory / 'run.json' if key == 'active' else directory / 'archive' / identifier(key) / 'run.json'
+                    data = selected_run(directory,None if key=='active' else key)
+                    data['_view'] = {'rows': view_rows(data), 'diagnostics': diagnostics(directory,data,archived=key!='active')}
+                    body, content_type = json.dumps(data).encode(), 'application/json'
+                else:
+                    self.send_error(404); return
+                self.send_response(200)
+                self.send_header('Content-Type', content_type)
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'")
+                self.end_headers(); self.wfile.write(body)
+            except FileNotFoundError:
+                self.send_error(404, 'No run found')
+            except (ValueError, KeyError, TypeError) as error:
+                self.send_error(400, 'Invalid run data')
+        def log_message(self, *args):
+            pass
+    server = ThreadingHTTPServer((host, port), Handler)
+    print(f'Workcell Flow: http://{host}:{server.server_port} (read-only)', flush=True)
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+
+
+def report_activity(data, agent, kind, payload):
+    """Persist observable activity; semantic progress and completion remain explicit."""
+    if kind not in ('PostToolUse','PreInvocation','PostInvocation'):return
+    if 'workcell-flow' in json.dumps(payload.get('tool_input',{})):return
+    binding=agent.get('binding',{})
+    task=find(data['tasks'],binding.get('task'))
+    if not task or task['state'] not in ('working','blocked'):
+        parent=find(data['agents'],agent.get('parent'))
+        scope=agent.get('parent_task') or (parent.get('task') or parent.get('parent_task') if parent else None)
+        if not scope or not find(data['tasks'],scope):
+            scope='scope'
+            if not find(data['tasks'],scope):
+                change(data,parser().parse_args(['task','add',scope,data['run']['title'],'--kind','group']))
+            agent['parent_task']=scope
+        number=1
+        while find(data['tasks'],f'work-{number}'):number+=1
+        ident=f'work-{number}'
+        change(data,parser().parse_args(['task','add',ident,'Unclassified work','--parent',scope]))
+        change(data,parser().parse_args(['task','set',ident,'working','--agent',agent['id']]))
+        change(data,parser().parse_args(['session','bind',agent['session_id'],'--task',ident]))
+        task=find(data['tasks'],ident);task['provisional']=True
+        agent['tracking_notice']='Name the provisional task '+ident+' and keep its outcome current.'
+    if not task.get('provisional'):agent.pop('tracking_notice',None)
+    tool=payload.get('tool_name') or (payload.get('toolCall') or {}).get('name')
+    label='Tool: '+tool if isinstance(tool,str) else kind
+    old=task.get('last_activity')
+    if not old or old['label']!=label or (timestamp(now())-timestamp(old['at'])).total_seconds()>=5:
+        task['last_activity']={'label':label,'at':now()}
+        event(data,'task_activity',label,task=task['id'])
+
+
+def parser():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--dir', type=Path, default=None, help='Run store (default: .workcell under cwd)')
+    p.add_argument('--run',default=os.environ.get('WORKCELL_RUN_ID'),help='Select a run for mutations')
+    sub = p.add_subparsers(dest='command', required=True)
+    q=sub.add_parser('track',help='Launch a harness with session lifecycle tracking');q.add_argument('--harness',required=True);q.add_argument('--session',default=None);q.add_argument('program',nargs=argparse.REMAINDER)
+    q=sub.add_parser('lifecycle',help='Portable session start/end adapter');q.add_argument('action',choices=['start','end']);q.add_argument('--harness',required=True);q.add_argument('--session',required=True)
+    q = sub.add_parser('init'); q.add_argument('title'); q.add_argument('--id')
+    q = sub.add_parser('phase'); q.add_argument('name', help='spec, plan, build, review, or another workflow phase')
+    q = sub.add_parser('milestone'); q.add_argument('id'); q.add_argument('title')
+    q = sub.add_parser('task'); commands = q.add_subparsers(dest='action', required=True)
+    q = commands.add_parser('add'); q.add_argument('id'); q.add_argument('title'); q.add_argument('--milestone', help='Optional milestone ID'); q.add_argument('--issue', help='Full GitHub issue URL'); q.add_argument('--parent'); q.add_argument('--kind',default='task',help='task, review, gate, question, or a custom kind'); q.add_argument('--phase'); q.add_argument('--after', action='append', default=[])
+    q = commands.add_parser('rename');q.add_argument('id');q.add_argument('title')
+    q = commands.add_parser('parent'); q.add_argument('id');q.add_argument('parent')
+    q = commands.add_parser('edit'); q.add_argument('id')
+    for key in ('title', 'milestone', 'phase', 'issue'): q.add_argument('--' + key)
+    deps = q.add_mutually_exclusive_group(); deps.add_argument('--after', action='append'); deps.add_argument('--clear-deps', action='store_true')
+    q = commands.add_parser('progress'); q.add_argument('id'); q.add_argument('--done',type=int,required=True); q.add_argument('--total',type=int,required=True); q.add_argument('--note')
+    q = commands.add_parser('note'); q.add_argument('id'); q.add_argument('text')
+    for action in ('set', 'retry'):
+        q = commands.add_parser(action); q.add_argument('id')
+        if action == 'retry': q.add_argument('--cause',help='Earlier settled attempt ID, such as review.a1')
+        if action == 'set': q.add_argument('state', choices=TASK_STATES)
+        q.add_argument('--note'); q.add_argument('--evidence'); q.add_argument('--verified', action='store_true'); q.add_argument('--source-revision'); q.add_argument('--agent')
+    q = sub.add_parser('usage', help='Report task-attempt token counts from an identified source')
+    q.add_argument('task'); q.add_argument('--record', required=True); q.add_argument('--source', required=True)
+    for key in TOKEN_FIELDS: q.add_argument('--' + key.replace('_', '-'), type=int)
+    for key in ('agent', 'harness', 'model', 'effort'): q.add_argument('--' + key)
+    q = sub.add_parser('session'); q.add_argument('action', choices=['bind', 'attach','context']); q.add_argument('session'); q.add_argument('--task', help='Started task ID, or - to unbind'); q.add_argument('--parent'); q.add_argument('--archive', help='Source archive for explicit session attach')
+    q = sub.add_parser('agent'); q.add_argument('id')
+    for key in ('parent', 'role', 'harness', 'model', 'effort', 'phase', 'task', 'activity'):
+        q.add_argument('--' + key)
+    q.add_argument('--state', choices=AGENT_STATES)
+    q = sub.add_parser('finish'); q.add_argument('--state', choices=sorted(TERMINAL), default='done'); q.add_argument('--note', required=True)
+    sub.add_parser('archive'); sub.add_parser('list')
+    for command in ('view', 'check', 'doctor'):
+        q = sub.add_parser(command); q.add_argument('--archive', help='Archived run ID'); q.add_argument('--json', action='store_true')
+        if command == 'view':
+            q.add_argument('--watch', action='store_true')
+            q.add_argument('--plain', action='store_true', help='Print text instead of the interactive terminal UI')
+    q = sub.add_parser('serve'); q.add_argument('--host', default='127.0.0.1'); q.add_argument('--port', type=int, default=8910)
+    return p
+
+
+def main(argv=None):
+    p = parser(); argv = list(sys.argv[1:] if argv is None else argv)
+    args = p.parse_args(argv or ['view']); directory = args.dir.expanduser().absolute() if args.dir else project_store(Path.cwd())
+    try:
+        if args.command=='lifecycle':
+            print(lifecycle(directory,args.harness,args.session,args.action,args.run,Path.cwd()));return
+        if args.command=='track':
+            import subprocess
+            session=args.session or uuid.uuid4().hex
+            program=args.program[1:] if args.program[:1]==['--'] else args.program
+            require(program,'Supply the harness command after --')
+            destination=lifecycle(directory,args.harness,session,'start',args.run,Path.cwd())
+            ident=read(destination/'run.json')['run']['id']
+            try:
+                result=subprocess.run(program,env={**os.environ,'WORKCELL_RUN_ID':ident,'WORKCELL_SESSION_ID':session})
+            finally:lifecycle(directory,args.harness,session,'end',workspace=Path.cwd())
+            sys.exit(result.returncode)
+        if args.run:
+            candidates=[p.parent for p in run_paths(directory) if read(p)['run']['id']==args.run]
+            require(len(candidates)==1,'Run not found or ambiguous');directory=candidates[0]
+        if args.command == 'serve':
+            serve(directory, args.host, args.port); return
+        if args.command == 'list':
+            print(json.dumps(summaries(directory), indent=2)); return
+        if args.command == 'doctor':
+            path = directory / 'archive' / identifier(args.archive) / 'run.json' if args.archive else directory / 'run.json'
+            try: info = diagnostics(directory, read(path), archived=bool(args.archive))
+            except (OSError, ValueError) as error: info = diagnostics(directory, error=error, archived=bool(args.archive))
+            print(json.dumps(info) if args.json else '\n'.join(info)); return
+        if args.command in ('view', 'check'):
+            if args.command == 'view' and not args.json and not args.plain and sys.stdin.isatty() and sys.stdout.isatty():
+                interactive(directory, args.archive); return
+            path = directory / 'archive' / identifier(args.archive) / 'run.json' if args.archive else directory / 'run.json'
+            while True:
+                data = selected_run(directory,args.archive)
+                if args.command == 'check':
+                    print(json.dumps({'valid': True, 'revision': data['revision']}) if args.json else 'Valid Workcell Flow run'); break
+                if args.watch and sys.stdout.isatty(): print('\033[2J\033[H', end='')
+                print(json.dumps(data, indent=2) if args.json else terminal(data), flush=True)
+                if not args.watch: break
+                time.sleep(2)
+            return
+        if not args.run and not (directory/'run.json').exists() and run_paths(directory):
+            require(len(run_paths(directory))==1,'Multiple runs: select --run RUN_ID')
+            directory=run_paths(directory)[0].parent
+        with locked(directory):
+            if args.command == 'archive':
+                print(archive(directory)); return
+            path = directory / 'run.json'
+            if args.command == 'init':
+                require(not path.exists(), 'run.json already exists; finish/archive it or choose another --dir')
+                data = create(args.title, args.id)
+                require(not (directory / 'archive' / data['run']['id']).exists(), 'Run ID already archived; choose a new ID')
+            else:
+                data = read(path)
+                if args.command == 'session' and args.action == 'attach':
+                    require(args.archive, 'Session attach requires --archive')
+                    args.archived_data = read(directory / 'archive' / identifier(args.archive) / 'run.json')
+                change(data, args)
+            atomic(path, data)
+            print(json.dumps({'run': data['run']['id'], 'revision': data['revision'], 'path': str(path)}))
+    except KeyboardInterrupt:
+        pass
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        p.exit(1, f'workcell-flow: {error}\n')
+
+
+PAGE = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workcell Flow</title><style>\n:root{color-scheme:dark;--bg:#0d1318;--paper:#10171c;--ink:#d7d9d7;--muted:#8b9094;--line:#2c393c;--green:#8fd18a;--pale:#23362e}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}header{min-height:58px;padding:12px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:24px}header strong{font-size:15px;color:var(--green)}header small{margin-left:auto}small,.muted{color:var(--muted)}main{padding:22px 24px;max-width:1800px;margin:auto}h1{font-size:21px;line-height:1.4;margin:5px 0}h2{font-size:12px;text-transform:uppercase;letter-spacing:1.3px;color:var(--muted);margin:0 0 14px}h3{font-size:13px;margin:0}.eyebrow{font-size:11px;color:var(--muted)}input{font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:5px}select,button{font:inherit;background:var(--bg);border:1px solid var(--line);border-radius:3px;color:var(--ink);padding:5px 8px;max-width:100%}button{cursor:pointer}button:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--green);outline-offset:2px}.summary{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px}.summary p{margin:4px 0;font-size:12px;max-width:90ch}.badge{font-size:11px;display:inline-block;border-radius:3px;padding:2px 7px;background:var(--pale);margin:2px;color:var(--green)}.working{background:#213547;color:#67d7ef}.failed,.blocked{background:#422d24;color:#e58b64}.done{background:#23362e;color:#91cfa8}.grid{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:16px}.panel{background:var(--paper);border:1px solid var(--line);padding:18px;margin-bottom:16px;min-width:0}.grid>div,aside{min-width:0}.scroll{overflow:auto;max-width:100%}svg{display:block;width:100%;height:auto}svg text{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:var(--ink)}.task-node{cursor:pointer}.task-node .row-bg{fill:transparent}.task-node:hover .row-bg{fill:#1c2929}.task-node.selected .row-bg{fill:#223630}.task-node text{pointer-events:none}.agent{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.agent.child{border-left:1px solid var(--line);padding-left:12px}.agent p{margin:4px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:10px;font:12px/1.6 ui-monospace,monospace}.error{color:#e58b64;padding:15px;border:1px solid #634332;margin-bottom:20px}#task-detail p{overflow-wrap:anywhere}#task-detail details{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}#events p{margin:0;padding:5px 0;border-bottom:1px solid #233034;overflow-wrap:anywhere}#events small{display:inline-block;margin-right:10px}footer{color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}kbd{border:1px solid var(--line);padding:1px 4px;border-radius:3px}.graph-hint{font-size:11px;margin-top:-8px;margin-bottom:16px}@media(max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}header{flex-wrap:wrap;gap:10px}header small{margin-left:0}main{padding:16px 12px}.panel{padding:14px}h1{font-size:18px}header{padding:12px}select{max-width:260px}}\n</style></head><body><header><strong>▸ workcell-flow</strong><label>Run <select id="runs" aria-label="Select active or archived run"><option value="active">Active run</option></select></label><small id="connection">Connecting…</small></header><main><div id="error" role="status" hidden></div><div id="content" hidden><div class="summary"><div><div class="eyebrow" id="run-id"></div><h1 id="title"></h1><p id="summary" class="muted"></p></div><div id="stats"></div></div><div class="grid"><div><section class="panel"><h2>Task graph</h2><p class="muted graph-hint">Top → bottom · attempt rows · ⋈ joins dependencies · dotted lines connect retries</p><div id="milestones"></div><label>Search <input id="filter" type="search" placeholder="Task, milestone, agent, model"></label> <label><input id="fold" type="checkbox"> Fold settled tasks</label><label><input id="follow" type="checkbox" checked> Follow working task</label><p id="fold-count" class="muted"></p><div class="scroll"><svg id="graph" role="img" aria-label="Top-down task dependency graph"></svg></div></section><section class="panel"><h2>Event log</h2><div id="events"></div></section></div><aside><section class="panel" id="task-detail" aria-live="polite"><h2>Task details</h2><p class="muted">Select a task in the graph.</p></section><section class="panel"><h2>Agents</h2><p class="muted">Assignments reported by the run. Timestamps indicate the last report.</p><div id="agents"></div></section></aside></div></div><details class="panel"><summary>Diagnostics · bindings and missing data</summary><pre id="diagnostics">Waiting for run data.</pre></details><footer><span>Read only · polls every 2s · activity is reported, not process monitoring</span><span><kbd>j</kbd> / <kbd>k</kbd> select task · <kbd>↑</kbd> / <kbd>↓</kbd></span></footer></main><script>\nconst $=id=>document.getElementById(id);let current=null,selected=null,requestRevision=0,requestedRun=new URLSearchParams(location.search).get(\'run\')||\'active\';const ns=\'http://www.w3.org/2000/svg\';\nfunction el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}\nfunction svg(tag,attrs,text){const n=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n}\nfunction badge(text,state){return el(\'span\',text,\'badge \'+(state||\'\'))}\nfunction showTask(id){selected=id;const t=current._view.rows.map(r=>r[1]).find(t=>t.id===id)||current.tasks.find(t=>t.id===id);if(!t)return;const box=$(\'task-detail\');box.replaceChildren(el(\'h2\',t.title),el(\'p\',t.id+\' · \'+t.phase+\' · \'+t.state),el(\'p\',t._row_note||t.note||\'No task note.\',\'muted\'),el(\'p\',\'Elapsed: \'+(t._elapsed||\'not started\')+\' · task progress \'+(t._progress_age||\'unknown\')+\' ago\'),el(\'p\',\'Blockers: \'+((t._blockers||[]).join(\', \')||\'none\')));if(t.parent_id)box.append(el(\'p\',\'Parent: \'+t.parent_id));if(t.last_activity)box.append(el(\'p\',\'Activity: \'+t.last_activity.label));if(t._cause)box.append(el(\'p\',\'Caused by: \'+t._cause));if(t._progress)box.append(el(\'p\',\'Progress: \'+t._progress.done+\'/\'+t._progress.total+\' · \'+t._progress.note));if(t._inputs?.length)box.append(el(\'p\',\'Attempt inputs: \'+t._inputs.join(\', \')));if(t.issue){const link=el(\'a\',t.issue);link.href=t.issue;link.target=\'_blank\';link.rel=\'noopener noreferrer\';box.append(link)}if(t.deps.length)box.append(el(\'p\',\'Depends on: \'+t.deps.join(\', \')));for(const a of t.attempts){const d=el(\'details\');d.open=true;d.append(el(\'summary\',\'Attempt \'+a.number+\' · \'+a.state));d.append(el(\'p\',a.reason));d.append(el(\'small\',a.started_at+(a.ended_at?\' → \'+a.ended_at:\'\')));if(a.evidence)d.append(el(\'p\',(a.evidence_level===\'verified\'?\'Verified evidence: \':\'Reported evidence: \')+a.evidence));if(a.source_revision)d.append(el(\'pre\',\'Source revision: \'+a.source_revision));\nfor(const [id,runtime] of Object.entries(a.workers||{}))d.append(el(\'p\',id+\' · \'+[runtime.harness,runtime.model,runtime.effort].filter(Boolean).join(\' / \')));\nconst records=el(\'details\');records.append(el(\'summary\',\'Individual usage records (\'+(a.usage||[]).length+\')\'));const totals=k=>{const values=(a.usage||[]).filter(u=>k in u);return values.length?values.reduce((n,u)=>n+u[k],0).toLocaleString()+(values.length<(a.usage||[]).length?\' (partial)\':\'\'):\'not reported\'};d.append(el(\'p\',\'Tokens: \'+totals(\'input_tokens\')+\' in / \'+totals(\'output_tokens\')+\' out\'));for(const u of a.usage||[]){records.append(el(\'h3\',(u.agent||\'Unassigned\')+\' · \'+(u.model||\'Model not reported\')));records.append(el(\'small\',[u.harness,u.effort].filter(Boolean).join(\' / \')));for(const key of [\'input_tokens\',\'output_tokens\',\'cache_read_tokens\',\'cache_write_tokens\',\'reasoning_tokens\'])records.append(el(\'p\',key.replaceAll(\'_\',\' \')+\': \'+(key in u?u[key].toLocaleString():\'not reported\')));records.append(el(\'small\',\'Source: \'+u.source))}\nif(!(a.usage||[]).length)records.append(el(\'p\',\'Token usage: not reported\',\'muted\'));d.append(records);box.append(d)}if(!t.attempts.length)box.append(el(\'p\',\'No attempt started.\',\'muted\'));document.querySelectorAll(\'.task-node\').forEach(n=>n.classList.toggle(\'selected\',n.dataset.id===id));document.querySelectorAll(\'path[data-to]\').forEach(n=>n.setAttribute(\'stroke-width\',n.dataset.to===id||n.dataset.from===id?\'3\':\'1.4\'))}\nconst colors=[\'#67d7ef\',\'#76ddcf\',\'#94ddb8\',\'#b5cfdf\',\'#b6b3ee\',\'#c6a0e7\'];let taskOrder=[];\nfunction graph(data){\n const g=$(\'graph\');g.replaceChildren();const q=$(\'filter\').value.toLowerCase(),fold=$(\'fold\').checked;\n const all=data._view.rows;const rows=all.filter(([prefix,t])=>{const original=data.tasks.find(x=>x.id===t._task_id);const hay=[t.id,t.title,t.milestone||\'\',...Object.keys((t.attempts[0]||{}).workers||{}),...Object.values((t.attempts[0]||{}).workers||{}).map(r=>r.model||\'\')].join(\' \').toLowerCase();return hay.includes(q)&&!(fold&&[\'done\',\'canceled\'].includes(original.state))});\n taskOrder=rows.map(r=>r[1].id);$(\'fold-count\').textContent=rows.length+\' of \'+all.length+\' attempt/task rows shown\'+(fold?\' · settled tasks folded\':\'\');\n const legend=$(\'milestones\');legend.replaceChildren();for(const [i,m] of data.milestones.entries()){const item=badge(m.id+\' · \'+m.title);item.style.color=colors[i%colors.length];legend.append(item)}\n const width=Math.max(300,g.parentElement.clientWidth),compact=width<1100,stride=compact?112:76,titleX=compact?Math.min(120,width*.2):220;const height=Math.max(100,rows.length*stride+30);g.style.minWidth=\'0\';g.setAttribute(\'viewBox\',`0 0 ${width} ${height}`);\n const positions=new Map(rows.map(([prefix,t],i)=>[t.id,{x:t._join?24:24+Math.min(prefix.length,20)*8,y:32+i*stride}]));\n const latest=new Map();for(const [,t] of all)latest.set(t._task_id,t.id);\n for(const [,t] of rows){const end=positions.get(t.id);const previous=t.attempts[0]&&t.attempts[0].number>1?t._task_id+\'.a\'+(t.attempts[0].number-1):null;\n const sources=[...(t._edges||[]),...(t._parent_ref?[t._parent_ref]:[])];for(const id of sources){const start=positions.get(id);if(!start)continue;g.append(svg(\'path\',{d:`M${start.x} ${start.y} Q${start.x+12} ${start.y+12},${start.x+12} ${start.y+24} L${start.x+12} ${end.y-24} Q${start.x+12} ${end.y-10},${end.x} ${end.y}`,fill:\'none\',stroke:colors[rows.findIndex(r=>r[1].id===id)%colors.length],\'stroke-width\':1.4,\'stroke-dasharray\':(id===t._cause||id===previous)?\'3 3\':\'none\',\'data-from\':id,\'data-to\':t.id}))}}\n for(const [i,[prefix,t]]of rows.entries()){const p=positions.get(t.id),color=({done:\'#8fd18a\',working:\'#67d7ef\',failed:\'#e58b64\',blocked:\'#d3ae72\',pending:\'#8b9094\',canceled:\'#8b9094\'}[t.state]);const n=svg(\'g\',{class:\'task-node\',tabindex:0,role:\'button\',\'aria-label\':t.id+\' \'+t.title+\', \'+t.state});n.dataset.id=t.id;n.append(svg(\'rect\',{class:\'row-bg\',x:titleX-10,y:p.y-24,width:width-titleX,height:stride-6,rx:3}));n.append(svg(\'text\',{x:p.x-5,y:p.y+4,\'font-size\':17,style:\'fill:\'+color},t._join?\'⋈\':t.state===\'done\'?\'●\':t.state===\'failed\'?\'×\':\'○\'));\n n.append(svg(\'text\',{x:titleX,y:p.y-4,\'font-size\':13},(t.id.replace(/\\.a1$/,\'\')+\' \'+(t._join?\'⋈ \':\'\')+([t.milestone,t.issue?\'#\'+t.issue.split(\'/\').at(-1):\'\'].filter(Boolean).length?\'[\'+[t.milestone,t.issue?\'#\'+t.issue.split(\'/\').at(-1):\'\'].filter(Boolean).join(\' · \')+\'] \':\'\')+t.title).slice(0,Math.max(12,Math.floor((width-titleX-16)/8)))));\n n.append(svg(\'text\',{x:titleX,y:p.y+16,\'font-size\':11,style:\'fill:var(--muted)\'},(t.kind===\'question\'&&t.state===\'pending\'&&!t._blockers.length?\'needs answer\':t.state)+\' · \'+t._elapsed+(t._progress?\' · \'+t._progress.done+\'/\'+t._progress.total:\'\')+(t._cause?\' · cause \'+t._cause:\'\')+(t._blockers.length?\' · waits \'+t._blockers.join(\', \'):t.deps.length?\' · inputs \'+t.deps.join(\', \'):\' · root\')));\n if(t._historical)n.append(svg(\'text\',{x:titleX,y:p.y+33,\'font-size\':11,style:\'fill:var(--muted)\'},\'Previous attempt: \'+(t._row_note||\'no reason recorded\')));\n const attempt=t.attempts[0]||{},runtimes=[...Object.values(attempt.workers||{}),...(attempt.usage||[])];if(!t._historical)runtimes.push(...data.agents.filter(a=>a.task===t._task_id));const models=[...new Set(runtimes.filter(r=>r.model).map(r=>r.model+\' · \'+(r.effort||\'effort —\')))];\n const usage=attempt.usage||[],count=k=>{const u=usage.filter(x=>k in x);return u.length?u.reduce((n,x)=>n+x[k],0).toLocaleString()+(u.length<usage.length?\'*\':\'\'):\'—\'};\n n.append(svg(\'text\',{x:compact?titleX:width-335,y:p.y+(compact?50:-4),\'font-size\':11,style:\'fill:\'+color},models.join(\', \')||\'model/effort —\'));n.append(svg(\'text\',{x:compact?titleX:width-335,y:p.y+(compact?68:16),\'font-size\':11,style:\'fill:var(--muted)\'},\'tokens in/out \'+count(\'input_tokens\')+\' / \'+count(\'output_tokens\')));\n n.addEventListener(\'click\',()=>{$(\'follow\').checked=false;showTask(t.id)});n.addEventListener(\'keydown\',e=>{if(e.key===\'Enter\'||e.key===\' \'){e.preventDefault();showTask(t.id)}});g.append(n)}\n if(!rows.length)g.append(svg(\'text\',{x:20,y:40,\'font-size\':13},all.length?\'No matching rows. Clear search or unfold settled tasks.\':\'No tasks defined yet. Agent activity remains in the roster.\'));\n}\nwindow.addEventListener(\'resize\',()=>{if(current)render(current)});$(\'filter\').addEventListener(\'input\',()=>{if(current)render(current)});$(\'fold\').addEventListener(\'change\',()=>{if(current)render(current)});\ndocument.addEventListener(\'keydown\',e=>{if(e.target.closest(\'select,input,textarea,button\')||e.ctrlKey||e.metaKey||e.altKey)return;const step=[\'j\',\'ArrowDown\'].includes(e.key)?1:[\'k\',\'ArrowUp\'].includes(e.key)?-1:0;if(!step||!taskOrder.length)return;e.preventDefault();$(\'follow\').checked=false;const i=taskOrder.indexOf(selected);showTask(taskOrder[Math.max(0,Math.min(taskOrder.length-1,i<0?0:i+step))]);});\nfunction render(data){current=data;$(\'title\').textContent=data.run.title;$(\'run-id\').textContent=data.run.id+\' · revision \'+data.revision;$(\'summary\').textContent=data.run.summary||\'Updated \'+data.updated_at;$(\'stats\').replaceChildren(badge(data.run.state,data.run.state),badge(\'Phase: \'+data.run.phase),badge(data.tasks.filter(t=>t.state===\'done\').length+\'/\'+data.tasks.length+\' tasks done\'));graph(data);const agents=$(\'agents\');agents.replaceChildren();function draw(parent,depth){for(const a of data.agents.filter(a=>(a.parent||null)===parent)){const row=el(\'div\',undefined,\'agent\'+(depth?\' child\':\'\'));row.append(el(\'h3\',a.id+\' · \'+a.role),badge(a.state,a.state),el(\'p\',a.phase+(a.task?\' → \'+a.task:\'\')),el(\'small\',[a.harness,a.model,a.effort].filter(Boolean).join(\' · \')||\'Runtime not supplied\'),el(\'p\',a.activity||\'No activity note.\'),el(\'small\',a.workspace||\'Workspace not reported\'),el(\'small\',\'Last report \'+a.updated_at));for(const k of [\'input_tokens\',\'output_tokens\',\'cache_read_tokens\',\'cache_write_tokens\',\'reasoning_tokens\']){const values=(a.usage||[]).filter(u=>k in u);if(values.length)row.append(el(\'p\',\'Session-only \'+k.replaceAll(\'_\',\' \')+\': \'+values.reduce((n,u)=>n+u[k],0).toLocaleString()))}row.style.marginLeft=(depth*14)+\'px\';agents.append(row);draw(a.id,depth+1)}}draw(null,0);if(!data.agents.length)agents.append(el(\'p\',\'No agents registered.\',\'muted\'));const events=$(\'events\');events.replaceChildren();for(const e of data.events.slice(-12).reverse()){const row=el(\'p\');row.append(el(\'small\',e.at+\' · \'+e.type+\' \'),el(\'span\',e.detail));events.append(row)}$(\'diagnostics\').textContent=data._view.diagnostics.join(\'\\n\');if($(\'follow\').checked){const active=data._view.rows.find(r=>r[1].state===\'working\'&&taskOrder.includes(r[1].id));if(active)selected=active[1].id;}if(!selected&&taskOrder.length)selected=taskOrder[0];if(selected&&data._view.rows.some(r=>r[1].id===selected))showTask(selected);else{$(\'task-detail\').replaceChildren(el(\'h2\',\'Task details\'),el(\'p\',\'Select a task in the graph.\',\'muted\'))}}\nasync function refresh(){const generation=++requestRevision;try{const inventory=await fetch(\'/api/runs\');if(!inventory.ok)throw Error(\'Could not read run inventory\');const runs=await inventory.json();const selectedRun=requestedRun;$(\'runs\').replaceChildren(new Option(\'Repository · all active runs\',\'active\'),...runs.map(r=>new Option(r.title+\' · \'+(r.archived?\'archived\':r.lifecycle||r.state),r.id)));$(\'runs\').value=selectedRun;const response=await fetch(\'/api/run?id=\'+encodeURIComponent(selectedRun));if(!response.ok)throw Error(response.status===404?\'No active run. Create one with workcell-flow init, or select an archived run.\':\'Run data could not be validated.\');const data=await response.json();if(generation!==requestRevision)return;render(data);$(\'error\').hidden=true;$(\'content\').hidden=false;$(\'connection\').textContent=\'Read \'+new Date().toLocaleTimeString()+\' · last report \'+data.updated_at}catch(e){if(generation!==requestRevision)return;$(\'error\').textContent=e.message;$(\'error\').className=\'error\';$(\'error\').hidden=false;$(\'content\').hidden=true;$(\'connection\').textContent=\'Waiting for valid run data\'}}\n$(\'runs\').addEventListener(\'change\',()=>{selected=null;requestedRun=$(\'runs\').value;refresh()});async function poll(){await refresh();setTimeout(poll,2000)}poll();\n</script></body></html>\n'
+
+if __name__ == '__main__':
+    main()

@@ -1,58 +1,19 @@
 ---
 name: use-other-harness
-description: ONLY when the user explicitly asks to run a subagent in a DIFFERENT coding harness (Claude Code, Codex, or Antigravity) via headless mode. The user must name the harness, the model, and the effort. Never invoke this for automatic cross-harness routing — it is an explicit, user-triggered escape hatch, not a router.
+description: Run a bounded task in another coding harness only when the user explicitly requests that harness.
 ---
 
-# Use another harness (headless)
+Read [shared development instructions](../../instructions/development.md) when applying this skill; reuse them if already loaded in this conversation.
 
-Spin up a one-shot subagent in another harness by calling its headless CLI directly.
-This replaces the old `workcell-runplane` run-plane and its MCP: **no service, no control
-plane, no foreign-dispatch protocol** — just a direct headless process you launch, wait
-on, and read back.
 
-## When to use
+# Use another harness
 
-Only when the **user explicitly asks** to run work in another harness, and only after they
-have specified:
+Use only for an explicit request to run Claude Code, Codex, or Agy as another harness. An explicit multiplan invocation also authorizes its three named planning passes; creating or discussing that skill does not execute them. Preserve requested model and effort. If unspecified, use configured defaults unless the task requires a user choice, and disclose the effective setting or that it could not be determined. Never route across harnesses automatically.
 
-- **harness** — `claude` (Claude Code) · `codex` (Codex) · `antigravity` (`agy`)
-- **model** — the exact model id for that harness
-- **effort** — the reasoning effort (where the harness supports it)
+Inspect installed CLI help and version before constructing its headless invocation. Use supported prompt, model, effort, output, and working-directory options; avoid stale flags and invented model identifiers. Honor authentication and permissions. Do not add approval-bypass flags merely to avoid setup problems.
 
-If any of the three is missing, ask for it. Do not guess a model or effort, and do not
-pick a harness on the user's behalf.
+Prepare a bounded assignment containing goal, workspace, allowed edits, existing work, relevant skill path/instructions, verification, and expected output. Supply long prompts through a file or stdin when supported, with proper shell quoting. Isolate overlapping edits; launch one process for the assignment and capture output and exit status.
 
-## Headless invocation per harness
+Keep the user informed during long execution. Reuse supported native continuation for focused follow-ups. Exit zero is not proof of task correctness: inspect changes and evidence and verify material gaps. Stop only processes you created. External actions by the other harness require the same authorization as direct execution.
 
-Run in the target repo/dir; pass the task as the prompt (long briefs via stdin/a file);
-capture the result; launch in the background for long jobs and report back when it exits.
-
-**Claude Code**
-```bash
-claude -p "<task prompt>" --model <model> --effort <low|medium|high> \
-  [--agent <name>] --dangerously-skip-permissions
-```
-
-**Codex**
-```bash
-codex exec --cd <dir> -m <model> \
-  -c model_reasoning_effort="<low|medium|high>" \
-  --approve-for-me -o <out.txt> "<task prompt>"   # long brief: append  < brief.md
-```
-
-**Antigravity (`agy`)**
-```bash
-agy -p "<task prompt>" --model <model> --effort <low|medium|high> \
-  --dangerously-skip-permissions
-```
-
-## Notes
-
-- Each command auto-approves tools inside a workspace sandbox (`--approve-for-me` /
-  `--dangerously-skip-permissions`), so scope it to one repo/dir and review the diff after.
-- For long runs, launch in the background and wait for the process to exit rather than
-  polling; then read the captured output (`-o` file or stdout) and summarize it.
-- Structured result: Codex `-o <file>`; `agy --json-schema <schema>`; Claude
-  `--output-format json`.
-- This is a leaf capability. The spawned agent does one bounded job and returns its output;
-  it does not orchestrate, and you own integrating whatever it produced.
+Return the actual harness/model/effort, workspace, source state, outcome, verification, and limitations. Reuse the owning workflow's report; no separate HTML report or persistent orchestration service is required.

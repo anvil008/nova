@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-dev.1 — shared-skill plugin rewrite
+
+- Promote 14 shared skills, three optional helper roles, common instructions, and advisory post-edit checks.
+- Build self-contained Codex, Claude Code, and Antigravity plugin bundles from one source tree.
+- Replace mandatory orchestration, control-plane/guard runtime, generated harness copies, and bootstrap installers.
+- Keep Markdown-first reports, optional HTML, jj/trunk conventions, project documentation updates, and long-task checkpoints.
+- Separate native plugin installation from project instruction, helper, and hook setup. Existing personal installations are untouched.
+
 ## Unreleased
 
 - Consolidate the public menu to ten workflows and two auxiliary skills. Build owns shared implementation; review, profile, and docs retain independent outcomes.

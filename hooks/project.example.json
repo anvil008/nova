@@ -1,0 +1,10 @@
+{
+  "enabled": false,
+  "root": "/absolute/path/to/target-repository",
+  "exclude": ["vendor/*", "node_modules/*", "generated/*"],
+  "commands": [
+    {"match": ["*.py"], "argv": ["ruff", "format", "--quiet", "{file}"], "timeout": 5},
+    {"match": ["*.py"], "argv": ["ruff", "check", "{file}"], "timeout": 5},
+    {"match": ["*.sh"], "argv": ["shellcheck", "{file}"], "timeout": 5}
+  ]
+}

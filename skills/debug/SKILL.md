@@ -1,18 +1,43 @@
 ---
 name: debug
-description: Reproduce a reported failure, isolate its cause with experiments, and hand the diagnosis to shared build when repair is requested. Use for a known symptom, incident, failing job, or flaky test.
+description: Reproduce a reported failure and isolate its cause through controlled experiments; repair it when requested and report the evidence in Markdown.
 ---
+
+Read [shared development instructions](../../instructions/development.md) when applying this skill; reuse them if already loaded in this conversation.
+
 
 # Debug
 
-Start from a reported symptom and produce an experimentally supported diagnosis. `/debug` is a standalone workflow alongside `/review` and `/profile`. When the user requested a fix, feed that evidence into [/build](../build/SKILL.md). Diagnosis and repair share the same task context; this skill has no separate implementation pipeline.
+Use the current conversation and existing decisions. Follow persistent scope, delegation, verification, and report conventions; this skill requires no custom agent.
 
-The orchestrator owns scope, user decisions, authorization, and the handoff. Dispatch debugger agents for useful independent hypotheses or areas, with a count chosen from the investigation rather than a prescribed team size. Each debugger reproduces the symptom, reduces the case, tests distinguishing hypotheses, and returns commands, environment, outputs, causal `file:line` evidence, and proposed fix location. Temporary probes must be removed without disturbing pre-existing user changes. They implement no product repair.
+# Debugging expertise
 
-No reproduction, no guessed fix. If a debugger cannot establish the failure, return its attempts and the concrete missing condition. For a flaky symptom, preserve the measured failure rate and sampling conditions; one successful retry is not evidence of repair. Scope stays with the reported defect. Related findings can be recorded, but fixing them needs authorization for that additional work.
+Start from the reported symptom and establish an executable reproduction before claiming a cause. Distinguish observation, hypothesis, and demonstrated causality. Source inspection can suggest experiments; it cannot by itself establish an unobserved failure. No reproduction is a valid investigation outcome when attempts and missing conditions are explicit.
 
-Return a Markdown diagnosis report with the symptom, reproduction, tested hypotheses, supported cause, and remaining gaps. Add an HTML companion only when requested. A diagnosis or a documented inability to reproduce is a complete investigation outcome; neither requires entering build. Continue only when the cause is supported and repair is authorized.
+Reduce inputs, state, and execution paths to the smallest case that still exhibits the symptom. Form falsifiable hypotheses and prefer controlled experiments that distinguish competing explanations. Record negative results as well as supporting evidence. Change one relevant condition at a time where practical; distinguish environmental failures from product defects.
 
-Carry a usable diagnosis, exact source revision, reproduction command, minimal case, and existing decisions into `/build` as a fix. The brief conforms to [`agents/handoff.md`](../../agents/handoff.md), with an existing issue number or `issue: null`. Its acceptance criteria reproduce the observed failure; do not invent a milestone or issue. Reuse a complete brief, and dispatch a planner only for missing executable detail. For a request limited to investigation, stop with the report; do not assume permission to repair. A request to debug and fix already authorizes the build transition.
+For web symptoms, reproduce in a real browser and inspect relevant console, network, and page state. Use the available project/browser tooling and its current usage guidance. For regressions, use history or a controlled bisect when a reliable failure oracle exists, preserving the original workspace state. For measured slowdowns, use a supported profiler to attribute cost rather than guessing from code shape.
 
-Shared build owns the specifier's honest RED seal, implementation, independent review, documentation when relevant, final verification, and authorized delivery. It preserves the diagnosis and tests the actual repair against it. A no-issue final PR names the symptom and the reproduction instead of `Closes #<n>`. If the investigation reveals a required design or behavior change outside the requested repair, return that decision to the user before expanding scope.
+Measure flaky failures as failures/trials under stated conditions. One successful retry is not evidence of repair. Inspect shared state, test order, timing, and concurrency only as testable candidate causes. Respect the assigned investigation and runtime budget.
+
+Temporary probes, logging, and test cases are allowed for investigation. Track and remove only your temporary changes and processes, preserving pre-existing work. Retain useful reproduction evidence in the report or assigned artifact directory. Do not weaken tests. A diagnosis-only request ends with the findings. When repair is requested, continue in the same conversation: implement the supported correction, add meaningful regression coverage, reproduce the original case again, and run relevant final checks. Reuse the diagnosis instead of starting discovery over; the build skill is optional guidance, not a required handoff.
+
+## Execution process
+
+1. Inspect the reported failure, applicable instructions, source state, and available reproduction evidence. Record expected versus observed behavior and the relevant environment. Reuse a reliable existing reproduction.
+2. Create one short investigation task list: reproduction, reduction, distinguishing experiments, and causal verification. Resolve only material missing conditions; continue independent investigation where possible.
+3. Run the experiments. Record exact commands or browser actions, inputs, results, and what each rules in or out. If the failure cannot be established, identify what is missing rather than guessing a fix.
+4. Link the supported cause to source locations and the introducing revision if found. Describe the proposed repair location and a regression test that would exercise the symptom, keeping product code unchanged for diagnosis-only requests. Mark uncertainty and competing explanations explicitly.
+5. Recheck workspace state, remove your temporary instrumentation, and verify pre-existing changes remain. Produce the Markdown diagnosis report with reproduction steps, experiment outcomes, causal evidence, failure rates where relevant, cleanup status, and remaining gaps. If repair was requested, complete and verify it before the final report, including before/after reproduction results and actual repair status.
+
+## Report and output format
+
+Write Markdown by default. Generate HTML only when the user explicitly requests a visual or HTML report; do not ask a routine format question. Reuse a combined report where practical instead of generating one per consulted skill. Honor explicit artifact paths/formats and keep small in-conversation work proportional.
+
+Default path: `docs/reports/debug<NN>-<YYYYMMDD>-<title-slug>.md` in the target repository. Allocate the lowest unused positive number for this type across formats, padded to at least two digits. Use the creation date and a lowercase ASCII title slug, replacing non-alphanumeric runs with hyphens and limiting it to 60 characters at a word boundary. Retain the same basename and creation date when revising a confirmed matching artifact; never overwrite an unrelated report.
+
+Use a descriptive title as the Markdown H1. Include the task-specific outcomes above, source references/revisions, actual verification commands and results, remaining gaps, and delivery state. Do not fabricate evidence or label proposed work completed. Check headings, links, and factual claims. Return a concise outcome and the absolute artifact path.
+
+For a requested visual report, read [assets/report.html](assets/report.html) relative to this skill, or an explicitly supplied template. Use the same basename with `.html`; reuse existing Markdown evidence, and keep any companion formats consistent. Preserve the Foundry Zero layout, numbered sections, sidebar, themes, and print styling. Replace placeholders, escape content, and keep CSS/diagrams inline with accessible labels. Verify desktop/mobile rendering in an available browser or disclose the visual-check gap. A missing HTML asset matters only when HTML is requested. Report creation does not authorize serving, publishing, or merging.
+
+For substantial interrupted work, update the existing task checkpoint with decisions, source/workspace state, evidence, active workers, and the next action. On resume, inspect current state before reusing that evidence; do not restart the workflow from its first step.

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1240" viewBox="0 0 1440 1240" role="img" aria-labelledby="title desc">
+<title id="title">Workcell harness connection map</title><desc id="desc">The user directs the main agent. Instructions and skills guide its work. The native harness executes tool calls against the repository. Optional helpers return evidence, configured hooks format and lint edited files, project knowledge supplies retained lessons, and Dagr records explicitly reported run progress. The main agent verifies results and produces reports and authorized delivery.</desc>
+<defs><pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#e7eadd" stroke-width=".6"/></pattern><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#2c6243"/></marker><marker id="optional" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#6a805b"/></marker><linearGradient id="core" x2="1" y2="1"><stop stop-color="#e7efd9"/><stop offset="1" stop-color="#d6edb6"/></linearGradient></defs>
+<style>text{font-family:system-ui,sans-serif;fill:#213c2b}.eyebrow{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:2px;fill:#2c6243}.heading{font-size:22px;font-weight:700}.body{font-size:16px;fill:#596d5d}.label{font-size:13px;fill:#2c6243;paint-order:stroke;stroke:#f6f5ee;stroke-width:6;stroke-linejoin:round}.optlabel{fill:#596d5d}.edge{fill:none;stroke:#2c6243;stroke-width:2;marker-end:url(#arrow)}.opt{stroke:#6a805b;stroke-dasharray:7 6;marker-end:url(#optional)}.box{fill:#fffef9;stroke:#d5dfce;stroke-width:1.5}.optionalbox{stroke:#93a784}.core{fill:url(#core);stroke:#2c6243;stroke-width:2}</style>
+<rect width="1440" height="1240" rx="22" fill="#f6f5ee"/><rect width="1440" height="1240" rx="22" fill="url(#grid)"/>
+<text x="54" y="53" class="eyebrow">WORKCELL / CONNECTION MAP</text><text x="54" y="98" font-size="36" font-weight="700">One agent. A connected working system.</text><text x="54" y="132" class="body">Native harness: Codex · Claude Code · Antigravity — capabilities depend on configuration.</text>
+
+<path d="M720 292V370" class="edge "/>
+<text x="720" y="334" text-anchor="middle" class="label ">request / decisions</text>
+<path d="M414 440H518" class="edge "/>
+<text x="466" y="427" text-anchor="middle" class="label ">guide</text>
+<path d="M414 636H465V492H518" class="edge "/>
+<text x="468" y="572" text-anchor="middle" class="label ">load as needed</text>
+<path d="M414 868H486V531H518" class="edge opt" marker-start="url(#optional)"/>
+<path d="M922 430H1026" class="edge opt" marker-start="url(#optional)"/>
+<text x="1050" y="350" text-anchor="middle" class="label optlabel">assign / return evidence</text>
+<path d="M720 542V626" class="edge " marker-start="url(#arrow)"/>
+<text x="720" y="588" text-anchor="middle" class="label ">tool calls / results</text>
+<path d="M720 778V864" class="edge " marker-start="url(#arrow)"/>
+<text x="720" y="824" text-anchor="middle" class="label ">read · edit · test · inspect</text>
+<path d="M922 702H1026" class="edge opt"/>
+<text x="974" y="688" text-anchor="middle" class="label optlabel">post-edit event</text>
+<path d="M1196 768V803H954V920H922" class="edge opt"/>
+<text x="1088" y="792" text-anchor="middle" class="label optlabel">format / lint files</text>
+<path d="M922 498H992V914H1026" class="edge opt"/>
+<path d="M720 1016V1075" class="edge "/>
+<text x="720" y="1052" text-anchor="middle" class="label ">verified result + evidence</text>
+<g><rect x="520" y="178" width="402" height="114" rx="14" class="box"/><text x="542" y="207" class="eyebrow">YOU</text><text x="542" y="239" class="heading">Request + decisions</text>
+<text x="542" y="269" class="body">Scope, feedback, authorization</text>
+</g>
+<g><rect x="54" y="370" width="360" height="142" rx="14" class="box"/><text x="76" y="399" class="eyebrow">WORKCELL + PROJECT</text><text x="76" y="431" class="heading">Persistent instructions</text>
+<text x="76" y="461" class="body">Task scope, repository conventions,</text>
+<text x="76" y="485" class="body">build commands, verification rules</text>
+</g>
+<g><rect x="54" y="566" width="360" height="164" rx="14" class="box"/><text x="76" y="595" class="eyebrow">WORKCELL</text><text x="76" y="627" class="heading">Skill library</text>
+<text x="76" y="657" class="body">Spec · plan · build · debug · review</text>
+<text x="76" y="681" class="body">Docs · refactor · profile · deploy</text>
+<text x="76" y="705" class="body">Setup · jj · wiki · multiplan · harness</text>
+</g>
+<g><rect x="54" y="800" width="360" height="164" rx="14" class="box optionalbox"/><text x="76" y="829" class="eyebrow">OPTIONAL / OPT-IN</text><text x="76" y="861" class="heading">Project knowledge</text>
+<text x="76" y="891" class="body">Wiki: retrieve relevant evidence;</text>
+<text x="76" y="915" class="body">record completed lessons explicitly.</text>
+<text x="76" y="939" class="body">No automatic transcript capture.</text>
+</g>
+<g><rect x="520" y="370" width="402" height="172" rx="14" class="core"/><text x="542" y="399" class="eyebrow">MAIN CONVERSATION</text><text x="542" y="431" class="heading">Workcell agent</text>
+<text x="542" y="461" class="body">Chooses skills and carries the task.</text>
+<text x="542" y="485" class="body">Combines changes, checks evidence,</text>
+<text x="542" y="509" class="body">and owns the final response.</text>
+</g>
+<g><rect x="1026" y="370" width="360" height="164" rx="14" class="box optionalbox"/><text x="1048" y="399" class="eyebrow">OPTIONAL / NATIVE AGENTS</text><text x="1048" y="431" class="heading">Helpers</text>
+<text x="1048" y="461" class="body">Scout → findings and context</text>
+<text x="1048" y="485" class="body">Implementer → changes and checks</text>
+<text x="1048" y="509" class="body">Reviewer → independent findings</text>
+</g>
+<g><rect x="520" y="626" width="402" height="152" rx="14" class="box"/><text x="542" y="655" class="eyebrow">NATIVE HARNESS</text><text x="542" y="687" class="heading">Tool execution</text>
+<text x="542" y="717" class="body">Shell · file reads and edits · browser</text>
+<text x="542" y="741" class="body">Connected tools / APIs when available</text>
+<text x="542" y="765" class="body">Runtime permissions and tool results</text>
+</g>
+<g><rect x="1026" y="626" width="360" height="142" rx="14" class="box optionalbox"/><text x="1048" y="655" class="eyebrow">OPTIONAL / CONFIGURED</text><text x="1048" y="687" class="heading">Post-edit hooks</text>
+<text x="1048" y="717" class="body">Run project format + lint commands.</text>
+<text x="1048" y="741" class="body">Advisory; final tests still required.</text>
+</g>
+<g><rect x="1026" y="846" width="360" height="170" rx="14" class="box optionalbox"/><text x="1048" y="875" class="eyebrow">OPTIONAL / EXPLICIT UPDATES</text><text x="1048" y="907" class="heading">Dagr run tracking</text>
+<text x="1048" y="937" class="body">Tasks, dependencies, agents, attempts.</text>
+<text x="1048" y="961" class="body">Evidence + reported model/token use.</text>
+<text x="1048" y="985" class="body">Records progress; does not run agents.</text>
+</g>
+<g><rect x="520" y="864" width="402" height="152" rx="14" class="box"/><text x="542" y="893" class="eyebrow">PROJECT WORKSPACE</text><text x="542" y="925" class="heading">Repository + jj</text>
+<text x="542" y="955" class="body">Source changes and meaningful tests</text>
+<text x="542" y="979" class="body">Isolated workspaces when needed</text>
+<text x="542" y="1003" class="body">Trunk → small change → verified state</text>
+</g>
+<g><rect x="310" y="1075" width="820" height="115" rx="14" class="box"/><text x="332" y="1104" class="eyebrow">MAIN AGENT → USER</text><text x="332" y="1136" class="heading">Results, durable notes, and authorized delivery</text>
+<text x="332" y="1166" class="body">Reports / checkpoints in docs · exact tested revision · local, published, or integrated</text>
+</g>
+<text x="982" y="568" class="label optlabel">Dashed paths: optional / configured</text><text x="982" y="591" class="label">Solid paths: primary work and context</text><text x="998" y="835" class="label optlabel">Agent reports progress ↓</text><text x="58" y="779" class="label optlabel">Read / retain evidence ↗</text><text x="54" y="1220" class="body">Workcell supplies workflows and support. The coding harness runs the session, tools, and native helpers.</text></svg>

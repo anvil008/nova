@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/ABSOLUTE/PATH/post-edit.py\" --harness claude --config \"/ABSOLUTE/PATH/project.json\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
