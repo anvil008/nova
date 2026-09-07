@@ -3,14 +3,14 @@
 
 Claude Code installs through a durable command-source marketplace that runs
 stage-workcell to materialize dist/claude/workcell/ as a self-contained,
-symlink-free tree.
+symlink-free tree from the runtime, agents, and skills in harnesses/claude/.
 
     dist/claude/
     └── workcell/
         ├── .claude-plugin/plugin.json
         ├── hooks/hooks.json
-        ├── scripts/                  real copies of scripts/hooks/*
-        ├── agents/                   real copies of agents/claude/*.md
+        ├── scripts/                  real copies of runtime/scripts/*
+        ├── agents/                   real copies of agents/*.md
         └── skills/                   real copies of skills/*, sans caches
 """
 
@@ -29,7 +29,6 @@ ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist" / "claude"
 STAGED = DIST / "workcell"
 HARNESS = ROOT / "harnesses" / "claude"
-LEGACY_SOURCE = ROOT / "plugins" / "claude"
 PLUGIN_NAME = "workcell"
 
 
@@ -37,13 +36,12 @@ class BuildError(Exception):
     pass
 
 
-def validate_sources() -> tuple[str, Path, bool]:
+def validate_sources() -> tuple[str, Path]:
     """Ensure all required sources exist and extract the plugin version."""
     if not HARNESS.is_dir():
         raise BuildError(f"missing plugin source {HARNESS.relative_to(ROOT)}")
 
     source = HARNESS
-    layered = True
     runtime = source / "runtime"
     manifest_path = runtime / ".claude-plugin" / "plugin.json"
     if not manifest_path.is_file():
@@ -74,12 +72,12 @@ def validate_sources() -> tuple[str, Path, bool]:
     if not scripts_dir.is_dir():
         raise BuildError(f"missing scripts directory {scripts_dir.relative_to(ROOT)}")
 
-    return version, source, layered
+    return version, source
 
 
 def build() -> Path:
-    version, source, layered = validate_sources()
-    runtime = source / "runtime" if layered else source
+    version, source = validate_sources()
+    runtime = source / "runtime"
 
     lib_dist.reset_dist(DIST, STAGED)
 
@@ -100,13 +98,12 @@ def build() -> Path:
         symlinks=False,
         ignore=lib_dist.ignore_root_tests(source / "agents"),
     )
-    if layered:
-        shutil.copy2(runtime / "handoff.md", STAGED / "handoff.md")
-        for agent in (STAGED / "agents").glob("*.md"):
-            text = agent.read_text(encoding="utf-8").replace(
-                "](../runtime/handoff.md)", "](../handoff.md)"
-            )
-            agent.write_text(text, encoding="utf-8")
+    shutil.copy2(runtime / "handoff.md", STAGED / "handoff.md")
+    for agent in (STAGED / "agents").glob("*.md"):
+        text = agent.read_text(encoding="utf-8").replace(
+            "](../runtime/handoff.md)", "](../handoff.md)"
+        )
+        agent.write_text(text, encoding="utf-8")
 
     # skills (dereferencing symlinks, ignoring python cache files)
     shutil.copytree(
@@ -124,19 +121,18 @@ def build() -> Path:
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
 
-    if layered:
-        # Only what the staged skills link to. The manifest, hooks and hook scripts
-        # already sit at the plugin root, which is where Claude reads them and where
-        # ${CLAUDE_PLUGIN_ROOT} resolves; copying them again under runtime/ would ship
-        # a second, unread copy of every hook script.
-        shutil.copytree(
-            runtime,
-            STAGED / "runtime",
-            symlinks=False,
-            ignore=lib_dist.ignore_root_tests(
-                runtime, ".claude-plugin", "hooks", "scripts"
-            ),
-        )
+    # Only what the staged skills link to. The manifest, hooks and hook scripts
+    # already sit at the plugin root, which is where Claude reads them and where
+    # ${CLAUDE_PLUGIN_ROOT} resolves; copying them again under runtime/ would ship
+    # a second, unread copy of every hook script.
+    shutil.copytree(
+        runtime,
+        STAGED / "runtime",
+        symlinks=False,
+        ignore=lib_dist.ignore_root_tests(
+            runtime, ".claude-plugin", "hooks", "scripts"
+        ),
+    )
 
     # .workcell-stamp.json
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -146,7 +142,7 @@ def build() -> Path:
             "name": PLUGIN_NAME,
             "version": version,
             "builtAt": now,
-            "sourceRoot": "harnesses/claude" if layered else "plugins/claude",
+            "sourceRoot": "harnesses/claude",
         },
     )
 

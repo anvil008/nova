@@ -2,16 +2,10 @@
 """Stage the Antigravity (agy) plugin as a real directory tree.
 
 Antigravity is served from a self-contained, owned copy at the documented
-auto-scan path ~/.gemini/config/plugins/workcell, rather than live symlinks
-into this repository. The wrapper in plugins/agy/ carries symlinks to
-../../agents/agy and per-skill links in skills/ (ADR 0003).
+auto-scan path ~/.gemini/config/plugins/workcell.
 
-This script stages plugins/agy/ into dist/agy/workcell/ with symlinks=False,
-dereferencing every agent and skill link into real files.
-
-Ordering: sync_agy_skills() (in scripts/bootstrap-plugins.sh) runs before
-staging to regenerate plugins/agy/skills/ minus any agent-owned skills.
-The builder copies through that directory.
+This script stages the runtime, agents, and skills from harnesses/agy/ into
+dist/agy/workcell/, dereferencing symlinks into real files.
 
 Output layout:
     dist/agy/
@@ -39,8 +33,6 @@ import lib_dist
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist" / "agy"
 PLUGIN = DIST / "workcell"
-WRAPPER = ROOT / "plugins" / "agy"
-MANIFEST = WRAPPER / "plugin.json"
 HARNESS = ROOT / "harnesses" / "agy"
 
 
@@ -78,7 +70,6 @@ def compute_tree_digest(root: Path) -> str:
 
 
 def main() -> int:
-    layered = True
     source = HARNESS
     runtime = source / "runtime"
     manifest = runtime / "plugin.json"
@@ -89,9 +80,8 @@ def main() -> int:
         source / "skills",
         runtime / "rules",
         runtime / "hooks.json",
+        runtime / "capabilities.json",
     ]
-    if layered:
-        required_sources.append(runtime / "capabilities.json")
     for required in required_sources:
         if not required.exists():
             return fail(f"missing required source: {required.relative_to(ROOT)}")
@@ -140,44 +130,35 @@ def main() -> int:
 
     lib_dist.reset_dist(DIST, PLUGIN)
 
-    if layered:
-        shutil.copytree(
-            runtime,
-            PLUGIN / "runtime",
-            symlinks=False,
-            ignore=lib_dist.ignore_root_tests(runtime),
+    shutil.copytree(
+        runtime,
+        PLUGIN / "runtime",
+        symlinks=False,
+        ignore=lib_dist.ignore_root_tests(runtime),
+    )
+    shutil.copy2(manifest, PLUGIN / "plugin.json")
+    shutil.copy2(runtime / "hooks.json", PLUGIN / "hooks.json")
+    shutil.copytree(runtime / "rules", PLUGIN / "rules", symlinks=False)
+    handoff = runtime / "handoff.md"
+    if handoff.is_file():
+        shutil.copy2(handoff, PLUGIN / "handoff.md")
+    shutil.copytree(
+        source / "agents",
+        PLUGIN / "agents",
+        symlinks=False,
+        ignore=lib_dist.ignore_root_tests(source / "agents"),
+    )
+    for agent in (PLUGIN / "agents").glob("*/agent.md"):
+        text = agent.read_text(encoding="utf-8").replace(
+            "](../../runtime/handoff.md)", "](../../handoff.md)"
         )
-        shutil.copy2(manifest, PLUGIN / "plugin.json")
-        shutil.copy2(runtime / "hooks.json", PLUGIN / "hooks.json")
-        shutil.copytree(runtime / "rules", PLUGIN / "rules", symlinks=False)
-        handoff = runtime / "handoff.md"
-        if handoff.is_file():
-            shutil.copy2(handoff, PLUGIN / "handoff.md")
-        shutil.copytree(
-            source / "agents",
-            PLUGIN / "agents",
-            symlinks=False,
-            ignore=lib_dist.ignore_root_tests(source / "agents"),
-        )
-        for agent in (PLUGIN / "agents").glob("*/agent.md"):
-            text = agent.read_text(encoding="utf-8").replace(
-                "](../../runtime/handoff.md)", "](../../handoff.md)"
-            )
-            agent.write_text(text, encoding="utf-8")
-        shutil.copytree(
-            source / "skills",
-            PLUGIN / "skills",
-            symlinks=False,
-            ignore=lib_dist.ignore_root_tests(source / "skills"),
-        )
-    else:
-        shutil.copytree(
-            source,
-            PLUGIN,
-            symlinks=False,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-            dirs_exist_ok=True,
-        )
+        agent.write_text(text, encoding="utf-8")
+    shutil.copytree(
+        source / "skills",
+        PLUGIN / "skills",
+        symlinks=False,
+        ignore=lib_dist.ignore_root_tests(source / "skills"),
+    )
 
     escaping = [p for p in DIST.rglob("*") if p.is_symlink()]
     if escaping:
@@ -192,7 +173,7 @@ def main() -> int:
         "name": "workcell",
         "version": version,
         "builtAt": now,
-        "sourceRoot": "harnesses/agy" if layered else "plugins/agy",
+        "sourceRoot": "harnesses/agy",
         "contentDigest": digest,
     }
     lib_dist.write_json(PLUGIN / ".workcell-stamp.json", stamp)

@@ -3,12 +3,8 @@
 
 Codex installs a plugin by *copying* it into
 $CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/ — and it drops any
-symlink that points outside the plugin root. The wrapper in plugins/codex/ links
-back to ../../skills and ../../agents, so every one of those links was silently
-discarded and the installed plugin contained nothing but a manifest. Claude Code
-follows the same links, which is why only Codex was affected.
-
-So Codex gets a staged copy instead of a link farm:
+symlink that points outside the plugin root. This script stages the runtime,
+agents, and skills from harnesses/codex/ as a self-contained tree:
 
     dist/codex/
     ├── .agents/plugins/marketplace.json
@@ -46,9 +42,6 @@ from pathlib import Path
 import lib_dist
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "plugins" / "codex"
-SKILLS = ROOT / "skills"
-AGENTS = ROOT / "agents" / "codex"
 MODELS = ROOT / "agents" / "models.json"
 HARNESS = ROOT / "harnesses" / "codex"
 OUT = ROOT / "dist" / "codex"
@@ -238,29 +231,25 @@ def build() -> Path:
     skills_out = plugin_root / "skills"
     skills_out.mkdir()
 
-    layered = True
     runtime = HARNESS / "runtime"
     hooks = runtime / "hooks" / "hooks.json"
     if hooks.is_file():
         (plugin_root / "hooks").mkdir()
         shutil.copy2(hooks, plugin_root / "hooks" / "hooks.json")
 
-    if layered:
-        shutil.copytree(
-            runtime,
-            plugin_root / "runtime",
-            symlinks=False,
-            ignore=lib_dist.ignore_root_tests(
-                runtime, "tests", ".codex-plugin", "hooks"
-            ),
-        )
-        handoff = runtime / "handoff.md"
-        if handoff.is_file():
-            shutil.copy2(handoff, plugin_root / "handoff.md")
-        agents_out = plugin_root / "agents"
-        agents_out.mkdir(parents=True, exist_ok=True)
-        for agent, _ in agent_sources:
-            shutil.copy2(agent, agents_out / agent.name)
+    shutil.copytree(
+        runtime,
+        plugin_root / "runtime",
+        symlinks=False,
+        ignore=lib_dist.ignore_root_tests(runtime, "tests", ".codex-plugin", "hooks"),
+    )
+    handoff = runtime / "handoff.md"
+    if handoff.is_file():
+        shutil.copy2(handoff, plugin_root / "handoff.md")
+    agents_out = plugin_root / "agents"
+    agents_out.mkdir(parents=True, exist_ok=True)
+    for agent, _ in agent_sources:
+        shutil.copy2(agent, agents_out / agent.name)
 
     # Real copies, never links: a symlink out of the plugin root does not survive
     # the install, and one that resolves inside it would be dereferenced anyway.
