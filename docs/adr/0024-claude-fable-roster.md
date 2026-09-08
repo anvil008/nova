@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted. Records the evaluation findings, role assignments, and prompting constraints for Claude Fable 5.1 in the Workcell Claude fleet.
+Accepted. Records the evaluation findings, role assignments, and prompting constraints for Claude Fable 5.1 in the Nova Claude fleet.
 
 ## Context
 
-With the release of Claude Fable 5.1 (`claude-fable-5-1`), Workcell evaluated whether to update the Claude harness agent roster from the existing Claude Opus 5 (`claude-opus-5`) and Claude Sonnet 5 (`claude-sonnet-5`) baseline. Fable 5.1 introduces refined agentic autonomy and instruction adherence under de-prescribed prompting (`docs/models/claude-fable-5-1/prompting.md`), but requires empirical evaluation across quality, gate discipline, refusal behavior, token efficiency, and latency before adoption.
+With the release of Claude Fable 5.1 (`claude-fable-5-1`), Nova evaluated whether to update the Claude harness agent roster from the existing Claude Opus 5 (`claude-opus-5`) and Claude Sonnet 5 (`claude-sonnet-5`) baseline. Fable 5.1 introduces refined agentic autonomy and instruction adherence under de-prescribed prompting (`docs/models/claude-fable-5-1/prompting.md`), but requires empirical evaluation across quality, gate discipline, refusal behavior, token efficiency, and latency before adoption.
 
 To determine authoritative roster assignments, controlled headless evaluations were executed using the local `claude` CLI:
 `claude -p "<prompt>" --model <id> --effort high --output-format json --dangerously-skip-permissions`
@@ -62,6 +62,6 @@ Full machine-readable run metrics are recorded in `agents/claude-roster-decision
 
 ## Consequences
 
-- The Workcell Claude fleet operates with specialized tiering: Fable 5.1 handles execution and debugging where autonomy within guardrails is paramount, Opus 5 handles high-leverage planning and specification, and Sonnet 5 handles adversarial review and operational verification.
+- The Nova Claude fleet operates with specialized tiering: Fable 5.1 handles execution and debugging where autonomy within guardrails is paramount, Opus 5 handles high-leverage planning and specification, and Sonnet 5 handles adversarial review and operational verification.
 - Agent frontmatter across `agents/claude/*.md` and staged harness artifacts in `harnesses/claude/agents/*.md` are synchronized and verified mechanically via `scripts/sync-agent-models.py` and `scripts/sync-agents.py`.
 - Sealed acceptance tests in `agents/tests/test_claude_roster.py` pass without regression.

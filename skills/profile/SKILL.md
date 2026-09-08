@@ -1,30 +1,45 @@
 ---
 name: profile
-description: "Measure a workload, establish performance baselines and bottlenecks, and report the evidence. Route authorized optimization through build, then repeat comparable benchmarks to establish the result. Compare speedups with the existing benchmark harness using baseline median, spread, and measurement noise."
+description: Measure representative workloads, identify bottlenecks, and verify authorized optimizations with comparable measurements and a Markdown report.
 ---
+
+Read [shared development instructions](../../instructions/development.md) when applying this skill; reuse them if already loaded in this conversation.
+
 
 # Profile
 
-Explain where the requested workload spends time or resources, with measurements that can be repeated. Standalone profiling ends with a Markdown report of the baseline, bottlenecks, and worthwhile next investigations. Produce HTML only when explicitly requested.
+Use the current conversation and existing decisions. Follow persistent scope, delegation, verification, and report conventions; this skill requires no custom agent.
 
-The orchestrator owns the question, scope, dispatch, and final evaluation. Delegate measurement to the [profiler](../../agents/bodies/profiler.md), selecting assignments and concurrency to fit the workload and runtime capacity. Concurrent measurements must not compete for the resources being compared. There is no prescribed team size, iteration count, or optimization quota.
+# Profiling expertise
 
-## Establish the baseline
+Use the project's benchmark harness or supported profiler over a representative reproducible project command. Pin the measured source revisions and identify inputs or dataset, runtime settings, machine, background load, warmup treatment, and exact commands. Keep raw samples and profiles in an assigned artifact directory outside source where practical.
 
-Identify the workload, input or dataset, source commit, performance objective, and existing benchmark or profiling commands. The profiler records exact commands and command IDs, environment, warmup treatment, run count, median, spread, and raw artifact paths outside source workspaces. Use the project's harness and representative inputs. A supported profiler over a reproducible project command can locate costs even when the project has no benchmark suite; distinguish that observation from a repeatable performance baseline.
+Separate three questions: a baseline measures starting behavior; bottleneck analysis attributes measured costs to source; comparison evaluates supplied baseline and candidate under comparable conditions. A baseline does not require a candidate, and an observed hot path is not itself proof that a proposed optimization will help.
 
-If no representative repeatable measurement is possible, report the specific harness or workload gap. Do not invent timing scripts and claim they are an established baseline. Harness creation or product instrumentation belongs to an authorized build; continue useful read-only investigation while that decision is pending.
+Repeat measurements within the user's runtime budget to characterize variability. Report sample count, median, and spread or uncertainty with units and excluded warmups. Retain raw samples and explain exclusions. Compare equivalent inputs, commands, machines, load, and runtime conditions; interleave baseline and candidate when it reduces drift. Avoid concurrent measurements that compete for the same resources.
 
-Ask the profiler to identify measured hot paths, allocations, I/O waits, contention, or other relevant costs and link them to source evidence. Do not require a debugger merely because profiling reveals an expensive path. Record correctness-check results for the measured source, including pre-existing failures; incorrect output cannot support an optimization claim.
+Never describe one timing as a reliable distribution or a difference within measurement noise as a proven improvement. If conditions differ materially, qualify the comparison or obtain comparable evidence. State whether higher or lower is better and make any percentage calculation traceable. Do not extrapolate microbenchmarks to end-to-end performance.
 
-## Report and optional optimization
+Check correctness for measured source. Existing failures remain visible; faster incorrect output cannot support a successful optimization claim. Identify time, allocations, I/O, or contention with profiles and source locations. Separate measured attribution from hypotheses and expected trade-offs.
 
-The report states what was measured, the baseline distribution and conditions, measured bottlenecks, proposed changes and their expected tradeoffs, and what remains unknown. Separate measurements from hypotheses. A microbenchmark result applies to its workload; do not extrapolate it into an end-to-end claim.
+When a representative repeatable workload is unavailable, explain the measurement gap and retain any defensible profiling observations. Do not invent an ad-hoc timing script and call it an established baseline. For measurement-only requests, keep product code, tests, and configuration unchanged. Harness creation and permanent instrumentation need implementation scope. When optimization is requested, use the measured bottleneck to implement a scoped candidate, verify correctness, and repeat comparable measurements in the same conversation. Preserve baseline evidence; no separate implementation agent is required.
 
-Offer [build](../build/SKILL.md) for selected changes. Profiling alone does not authorize optimization. If the user already asked to optimize, continue through build for that scope without reasking. Carry the baseline artifacts, chosen objective, comparison method, and existing decisions into planning. Build owns implementation, independent correctness evidence, review, and final PR delivery; the profiler never edits code to make its numbers improve.
+## Execution process
 
-For behavior-preserving optimizations, build uses its existing GREEN-baseline path and unchanged tests. A behavior or dependency change requires the appropriate approved scope and acceptance criteria; do not disguise it as a refactor.
+1. Identify the performance question, source revision(s), workload, correctness criteria, commands, and measurement budget. Inspect the existing harness and related code.
+2. Make one short measurement task list with configurations, warmups, sampling approach, artifact paths, and relevant environment controls. Keep unrelated workloads out of scope.
+3. Run correctness checks and collect repeated measurements and profiles. Record conditions and raw results; do not hide outliers or failed runs. Avoid altering user work or competing with other benchmarks.
+4. Attribute bottlenecks to source evidence. For a comparison, calculate the observed difference with variability and limitations; report improvement, regression, or no measurable difference equally plainly. Leave unsupported comparisons unresolved.
+5. Produce a Markdown report with workload and environment, task outcomes, raw artifact references, distributions, bottlenecks, correctness results, proposed next investigations, and uncertainty. Use labeled tables or inline charts with units; do not invent samples to fill a chart. For an optimization request, complete the authorized candidate and comparison before the final report; for measurement-only work, report evidence without product edits.
 
-Before accepting an optimization claim, dispatch the profiler on the built candidate using comparable harness, inputs, machine, load, and sampling conditions, preferably interleaving baseline and candidate when practical. Compare distributions and uncertainty, not isolated runs. Report regression or no measurable difference plainly. If conditions differ materially, obtain comparable evidence or leave the claim unresolved. The orchestrator evaluates whether the measured result meets the user's objective and asks build to revise the candidate when needed, without inventing a pass cap or discarding user work automatically.
+## Report and output format
 
-Keep the before/after measurements, correctness evidence, source commits, and remaining limits with the build handoff and final report. Explicit user budgets and runtime limits govern further measurement; stalled work needs an explanation and a decision, not another unexamined repetition.
+Write Markdown by default. Generate HTML only when the user explicitly requests a visual or HTML report; do not ask a routine format question. Reuse a combined report where practical instead of generating one per consulted skill. Honor explicit artifact paths/formats and keep small in-conversation work proportional.
+
+Default path: `docs/reports/profile<NN>-<YYYYMMDD>-<title-slug>.md` in the target repository. Allocate the lowest unused positive number for this type across formats, padded to at least two digits. Use the creation date and a lowercase ASCII title slug, replacing non-alphanumeric runs with hyphens and limiting it to 60 characters at a word boundary. Retain the same basename and creation date when revising a confirmed matching artifact; never overwrite an unrelated report.
+
+Use a descriptive title as the Markdown H1. Include the task-specific outcomes above, source references/revisions, actual verification commands and results, remaining gaps, and delivery state. Do not fabricate evidence or label proposed work completed. Check headings, links, and factual claims. Return a concise outcome and the absolute artifact path.
+
+For a requested visual report, read [assets/report.html](assets/report.html) relative to this skill, or an explicitly supplied template. Use the same basename with `.html`; reuse existing Markdown evidence, and keep any companion formats consistent. Preserve the Foundry Zero layout, numbered sections, sidebar, themes, and print styling. Replace placeholders, escape content, and keep CSS/diagrams inline with accessible labels. Verify desktop/mobile rendering in an available browser or disclose the visual-check gap. A missing HTML asset matters only when HTML is requested. Report creation does not authorize serving, publishing, or merging.
+
+For substantial interrupted work, update the existing task checkpoint with decisions, source/workspace state, evidence, active workers, and the next action. On resume, inspect current state before reusing that evidence; do not restart the workflow from its first step.

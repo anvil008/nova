@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>Unified Cross-Harness Plugin Architecture · Foundry Zero Plan</title>
-  <!-- workcell-planner planId=unified-cross-harness-plugin-architecture -->
+  <!-- nova-planner planId=unified-cross-harness-plugin-architecture -->
   <style>/* Foundry Zero report design system.
    Shared core for the planner folio, the code-review report, and the research packet.
    This file is byte-identical in skills/planner, skills/code-review, and skills/research;
@@ -654,7 +654,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
       <a href="#execution"><span class="num">06</span><span>Milestone &amp; Execution</span></a>
     </nav>
     <div class="rail-foot">
-      <div>repo · anvil008/workcell</div>
+      <div>repo · anvil008/nova</div>
       <div>plan · unified-cross-harness-plugin-architecture</div>
       <div>issues · 4</div>
     </div>
@@ -665,7 +665,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
     <section class="section" id="header">
       <div class="doc-eyebrow">Plan &middot; generated <time datetime="2026-08-29T01:18:00Z">August 29, 2026</time></div>
       <h1>Unified Cross-Harness Plugin Architecture</h1>
-      <p class="lede">Transform Workcell&#x27;s delivery model from flat, individual file symlinks into native, self-contained plugin bundles for Google Antigravity, Anthropic Claude Code, and OpenAI Codex. Package agents, skills, rules, and mechanical hooks into harness-compliant plugin structures while retaining this repository as the single source of truth, enabling cleaner encapsulation, namespacing, and project/global plugin installation.</p>
+      <p class="lede">Transform Nova&#x27;s delivery model from flat, individual file symlinks into native, self-contained plugin bundles for Google Antigravity, Anthropic Claude Code, and OpenAI Codex. Package agents, skills, rules, and mechanical hooks into harness-compliant plugin structures while retaining this repository as the single source of truth, enabling cleaner encapsulation, namespacing, and project/global plugin installation.</p>
 
       <div class="verdict-row">
         <div class="verdict gate-proposed">
@@ -684,12 +684,12 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
       </div>
 
       <div class="meta-grid" style="margin-top: 20px;">
-        <div><dt>Repository</dt><dd>anvil008/workcell</dd></div>
+        <div><dt>Repository</dt><dd>anvil008/nova</dd></div>
         <div><dt>Plan id</dt><dd>unified-cross-harness-plugin-architecture</dd></div>
         <div><dt>Generated</dt><dd>2026-08-29T01:18:00Z</dd></div>
         <div><dt>Issues</dt><dd>4</dd></div>
         <div><dt>Waves</dt><dd>3</dd></div>
-        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/workcell/milestones">Unified Cross-Harness Plugin Architecture</a></dd></div>
+        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/nova/milestones">Unified Cross-Harness Plugin Architecture</a></dd></div>
       </div>
     </section>
 
@@ -748,9 +748,9 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
     H[scripts/hooks/ and bin/tdd-guard]
   end
   subgraph Plugins[Cross-Harness Plugin Bundles]
-    P_AGY[&quot;plugins/agy/workcell/&lt;br/&gt;plugin.json + skills + agents + hooks&quot;]
-    P_CLAUDE[&quot;plugins/claude/workcell/&lt;br/&gt;.claude-plugin/plugin.json + skills + agents&quot;]
-    P_CODEX[&quot;plugins/codex/workcell/&lt;br/&gt;.codex-plugin/plugin.json + skills&quot;]
+    P_AGY[&quot;plugins/agy/nova/&lt;br/&gt;plugin.json + skills + agents + hooks&quot;]
+    P_CLAUDE[&quot;plugins/claude/nova/&lt;br/&gt;.claude-plugin/plugin.json + skills + agents&quot;]
+    P_CODEX[&quot;plugins/codex/nova/&lt;br/&gt;.codex-plugin/plugin.json + skills&quot;]
   end
   subgraph HarnessDeployment[Harness Plugin Directories]
     D_AGY[&quot;~/.gemini/antigravity-cli/plugins/ or .agents/plugins/&quot;]
@@ -766,9 +766,9 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
     H[scripts/hooks/ and bin/tdd-guard]
   end
   subgraph Plugins[Cross-Harness Plugin Bundles]
-    P_AGY[&quot;plugins/agy/workcell/&lt;br/&gt;plugin.json + skills + agents + hooks&quot;]
-    P_CLAUDE[&quot;plugins/claude/workcell/&lt;br/&gt;.claude-plugin/plugin.json + skills + agents&quot;]
-    P_CODEX[&quot;plugins/codex/workcell/&lt;br/&gt;.codex-plugin/plugin.json + skills&quot;]
+    P_AGY[&quot;plugins/agy/nova/&lt;br/&gt;plugin.json + skills + agents + hooks&quot;]
+    P_CLAUDE[&quot;plugins/claude/nova/&lt;br/&gt;.claude-plugin/plugin.json + skills + agents&quot;]
+    P_CODEX[&quot;plugins/codex/nova/&lt;br/&gt;.codex-plugin/plugin.json + skills&quot;]
   end
   subgraph HarnessDeployment[Harness Plugin Directories]
     D_AGY[&quot;~/.gemini/antigravity-cli/plugins/ or .agents/plugins/&quot;]
@@ -788,7 +788,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
       <div class="spec"><span class="mark">&#9671;</span>
         <div><b>issues</b> &mdash; data: issues[]{key, title, body, labels, dependsOn, ownershipHint, wave}. One independently deliverable concern per issue. Acceptance tests are deliberately absent here; they render into the GitHub issue body.</div>
       </div>
-      <div class="rows"><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">plugin-manifests-and-structures</span><strong>Define cross-harness plugin structures and manifest specifications</strong></div><div class="row-meta"><span>Wave 1</span><span>plugins/**, scripts/lib.sh</span><span class="tag">planning</span><span class="tag">plugins</span><span class="tag">architecture</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Establish unified, harness-compliant plugin directory layouts for Antigravity, Claude Code, and Codex. Create plugins/agy/workcell/plugin.json (mapping agents, skills, hooks, and rules), plugins/claude/workcell/.claude-plugin/plugin.json (mapping skills, subagents, commands, and hooks), and plugins/codex/workcell/.codex-plugin/plugin.json (mapping skills and tools). Ensure all skills and agent definitions project cleanly from the centralized skills/ and agents/ directories into their respective plugin structures without duplicate source code.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">plugins/**, scripts/lib.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">installer-plugin-migration</span><strong>Upgrade harness installer to deploy and manage plugins</strong></div><div class="row-meta"><span>Wave 2</span><span>scripts/install-harness.sh, scripts/lib.sh</span><span class="tag">planning</span><span class="tag">installer</span><span class="tag">cli</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Update scripts/install-harness.sh to support deploying Workcell as native plugins into ~/.gemini/antigravity-cli/plugins/workcell, ~/.claude/plugins/workcell, and ~/.codex/plugins/workcell. Support targeting individual harnesses via --harness &lt;agy|claude|codex&gt;, retain strict ownership checks, refuse foreign unowned directories, and provide idempotent --uninstall that removes created plugin symlinks and registrations cleanly.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">plugin-manifests-and-structures</div></div><div><div class="k">Ownership</div><div class="v">scripts/install-harness.sh, scripts/lib.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">guard-and-hook-plugin-integration</span><strong>Integrate mechanical gates and hook configurations into plugins</strong></div><div class="row-meta"><span>Wave 2</span><span>plugins/**/hooks.json, scripts/hooks/**, cmd/tdd-guard/**</span><span class="tag">planning</span><span class="tag">guard</span><span class="tag">hooks</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Wire tdd-guard, build-hooks, build-format, and build-lint into the plugin lifecycle manifests. Ensure Antigravity&#x27;s hooks.json registers pre/post tool hooks within the plugin bundle, Claude Code&#x27;s plugin hooks wire directly to the verification binaries, and Codex configurations reference the guard tools. Ensure that execution inside plugin environments triggers mechanical gates identically to standalone setups.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">plugin-manifests-and-structures</div></div><div><div class="k">Ownership</div><div class="v">plugins/**/hooks.json, scripts/hooks/**, cmd/tdd-guard/**</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">workspace-bootstrap-and-docs</span><strong>Update project bootstrap, verification tests, and documentation</strong></div><div class="row-meta"><span>Wave 3</span><span>scripts/project-bootstrap.sh, scripts/tests/**, README.md, docs/**</span><span class="tag">planning</span><span class="tag">bootstrap</span><span class="tag">documentation</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Update scripts/project-bootstrap.sh to support workspace-scoped plugin installation (.agents/plugins/workcell and .claude/plugins/workcell). Expand the test suite in scripts/tests/test_install.sh to comprehensively test plugin installations across all harnesses. Update README.md and documentation in docs/ to describe plugin architecture, installation steps, and cross-harness namespaces.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">installer-plugin-migration, guard-and-hook-plugin-integration</div></div><div><div class="k">Ownership</div><div class="v">scripts/project-bootstrap.sh, scripts/tests/**, README.md, docs/**</div></div><div><div class="k">Wave</div><div class="v">Wave 3</div></div></div></div></details></div>
+      <div class="rows"><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">plugin-manifests-and-structures</span><strong>Define cross-harness plugin structures and manifest specifications</strong></div><div class="row-meta"><span>Wave 1</span><span>plugins/**, scripts/lib.sh</span><span class="tag">planning</span><span class="tag">plugins</span><span class="tag">architecture</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Establish unified, harness-compliant plugin directory layouts for Antigravity, Claude Code, and Codex. Create plugins/agy/nova/plugin.json (mapping agents, skills, hooks, and rules), plugins/claude/nova/.claude-plugin/plugin.json (mapping skills, subagents, commands, and hooks), and plugins/codex/nova/.codex-plugin/plugin.json (mapping skills and tools). Ensure all skills and agent definitions project cleanly from the centralized skills/ and agents/ directories into their respective plugin structures without duplicate source code.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">—</div></div><div><div class="k">Ownership</div><div class="v">plugins/**, scripts/lib.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 1</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">installer-plugin-migration</span><strong>Upgrade harness installer to deploy and manage plugins</strong></div><div class="row-meta"><span>Wave 2</span><span>scripts/install-harness.sh, scripts/lib.sh</span><span class="tag">planning</span><span class="tag">installer</span><span class="tag">cli</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Update scripts/install-harness.sh to support deploying Nova as native plugins into ~/.gemini/antigravity-cli/plugins/nova, ~/.claude/plugins/nova, and ~/.codex/plugins/nova. Support targeting individual harnesses via --harness &lt;agy|claude|codex&gt;, retain strict ownership checks, refuse foreign unowned directories, and provide idempotent --uninstall that removes created plugin symlinks and registrations cleanly.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">plugin-manifests-and-structures</div></div><div><div class="k">Ownership</div><div class="v">scripts/install-harness.sh, scripts/lib.sh</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">guard-and-hook-plugin-integration</span><strong>Integrate mechanical gates and hook configurations into plugins</strong></div><div class="row-meta"><span>Wave 2</span><span>plugins/**/hooks.json, scripts/hooks/**, cmd/tdd-guard/**</span><span class="tag">planning</span><span class="tag">guard</span><span class="tag">hooks</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Wire tdd-guard, build-hooks, build-format, and build-lint into the plugin lifecycle manifests. Ensure Antigravity&#x27;s hooks.json registers pre/post tool hooks within the plugin bundle, Claude Code&#x27;s plugin hooks wire directly to the verification binaries, and Codex configurations reference the guard tools. Ensure that execution inside plugin environments triggers mechanical gates identically to standalone setups.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">plugin-manifests-and-structures</div></div><div><div class="k">Ownership</div><div class="v">plugins/**/hooks.json, scripts/hooks/**, cmd/tdd-guard/**</div></div><div><div class="k">Wave</div><div class="v">Wave 2</div></div></div></div></details><details class="row"><summary><span class="stripe bar-low"></span><div class="row-body"><div class="row-title"><span class="issue-key">workspace-bootstrap-and-docs</span><strong>Update project bootstrap, verification tests, and documentation</strong></div><div class="row-meta"><span>Wave 3</span><span>scripts/project-bootstrap.sh, scripts/tests/**, README.md, docs/**</span><span class="tag">planning</span><span class="tag">bootstrap</span><span class="tag">documentation</span></div></div><span class="caret">&#9662;</span></summary><div class="row-detail"><p class="issue-body">Update scripts/project-bootstrap.sh to support workspace-scoped plugin installation (.agents/plugins/nova and .claude/plugins/nova). Expand the test suite in scripts/tests/test_install.sh to comprehensively test plugin installations across all harnesses. Update README.md and documentation in docs/ to describe plugin architecture, installation steps, and cross-harness namespaces.</p><div class="issue-facts"><div><div class="k">Depends on</div><div class="v">installer-plugin-migration, guard-and-hook-plugin-integration</div></div><div><div class="k">Ownership</div><div class="v">scripts/project-bootstrap.sh, scripts/tests/**, README.md, docs/**</div></div><div><div class="k">Wave</div><div class="v">Wave 3</div></div></div></div></details></div>
       <h3>Dependency graph</h3>
       <div class="diagram-shell" aria-label="Issue dependency DAG"><pre class="mermaid">flowchart LR
   classDef wave1 fill:transparent
@@ -867,7 +867,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
         <article class="card"><h3>2 &middot; Approve</h3><p>Approval names a human identity and applies to this exact sidecar. A changed sidecar needs fresh approval.</p></article>
         <article class="card"><h3>3 &middot; Reconcile</h3><p>Milestones only, never a GitHub Project. Preview read-only first, then apply.</p></article>
       </div>
-      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/workcell/milestones">Unified Cross-Harness Plugin Architecture</a> in anvil008/workcell.</p>
+      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/nova/milestones">Unified Cross-Harness Plugin Architecture</a> in anvil008/nova.</p>
     </section>
 
   </main>

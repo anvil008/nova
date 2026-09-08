@@ -1,34 +1,45 @@
 ---
 name: docs
-description: "Orchestrate a standalone documentation-standardization pass: audit stale pages, update API documentation, README examples and architecture decisions or ADRs, enforce the repository documentation standard, run independent validation, and deliver the final docs PR. Assign documenters to scoped areas and decide when documentation is complete. Within build, documenter remains an assigned stage."
+description: Write or audit scoped project documentation against current source and reader needs, validate it, and produce a Markdown change report.
 ---
+
+Read [shared development instructions](../../instructions/development.md) when applying this skill; reuse them if already loaded in this conversation.
+
 
 # Docs
 
-Complete the requested documentation change and deliver its verified final source. Use Markdown for documentation and reports by default; create HTML only when explicitly requested.
+Use the current conversation and existing decisions. Follow persistent scope, delegation, verification, and report conventions; this skill requires no custom agent.
 
-The orchestrator owns requirements, authorization, dispatch, and completion. Read source and existing docs to frame the assignment and evaluate the result. Use the shared [planning contract](../plan/SKILL.md) when a new plan or material decision is needed. Delegate documentation writing to the [documenter](../../agents/bodies/documenter.md) and independent verification to suitable specialists. Choose team size and iteration from the work and actual runtime capacity; preserve independent evidence without prescribing an inventory agent, a separate update agent, or a fixed number of passes.
+# Documentation expertise
 
-The documentation standard and README contract live in the documenter body. See [examples/visual-readme.md](examples/visual-readme.md) for a reference shape; do not duplicate the standard here.
+Write for the intended reader and task. Inspect the behavior being documented and use current source, runnable commands, or supplied primary evidence for factual claims. Name uncertainty rather than inventing commands, APIs, output, or capabilities.
 
-## Standalone delivery
+Update the existing canonical page rather than creating competing documentation. Preserve requested structure, terminology, and repository conventions. A page edit does not authorize a repository-wide reorganization. Keep global working conventions, repository instructions, and task expertise in their appropriate locations; do not install or rewrite global configuration as a side effect.
 
-Save a brief outside source workspaces with the documentation goal, user decisions, allowed paths, exact source base, branch, required checks, and external-write authorization. Inspect the affected behavior and existing documentation before expanding scope. A requested page edit does not authorize a repository-wide standardization pass.
+For README work, lead with purpose and the shortest viable quickstart. Move deeper explanation into existing documentation where appropriate. Add a compact visual when relationships benefit from it, with meaningful labels and a nearby text explanation. Prefer existing diagram tooling; do not introduce a rendering stack merely to decorate a page.
 
-Create an isolated `doc/<slug>` workspace through `workcell-ws` using the repository's existing VCS and a pinned base; follow [workspaces](../../docs/workspaces.md). Dispatch the documenter with the brief and existing workspace. It updates the assigned docs, checks them against code or other primary evidence, runs the applicable docs checks, and returns its immutable local commit, changed files, evidence, and unresolved questions. It does not open a separate PR.
+Use plain, concise prose and examples that reflect real entry points. Keep related README, API docs, changelog, and architecture notes aligned only where the requested change affects them. Record a new ADR only for an actual architectural decision; follow repository numbering and status/context/decision/consequences conventions. Preserve accepted decision history and supersede it when appropriate.
 
-Validate the complete final source. Require `python3 -B skills/docs/scripts/docs_check.py <repo-root>` and the repository's applicable documentation build, links, examples, and generated-visual checks. Where README visuals are generated, include the project's `render-diagrams.py --check`. An integrator can verify the exact already-combined ref without a milestone ledger. Review source accuracy, coverage of the request, and relevant rendered output independently; `docs_check` checks structure and instruction-file size, not whether the prose is true. Do not require product RED tests for a documentation-only change.
+Structural checks do not prove prose is true. Validate changed claims against source and relevant examples against actual behavior. Do not run destructive, external, or expensive example commands without the relevant authorization. Product code and tests are read-only during documentation work; report a discovered product defect rather than repairing it as documentation work.
 
-Resolve actionable findings within the authorized documentation scope and reverify changed source. Preserve unresolved or stalled issues with their evidence; the orchestrator chooses useful iterations and respects explicit user limits. Source, base, or documentation changes invalidate evidence that no longer applies.
+When a change makes an actual architectural decision, record it in `docs/adr/NNNN-title.md` using the repository's numbering and Status, Context, Decision, and Consequences sections. Preserve accepted ADRs; supersede them with a new decision record when necessary. Routine implementation choices do not require an ADR. Keep affected README, API docs, changelog, and architecture notes aligned within scope, before final verification. Do not document a proposed spec or plan as an accepted decision.
 
-Record completion outside the workspace with the verified commit and base, handoffs, command IDs and outputs, and the orchestrator's decision. Open or update the final PR only within existing authorization and from that verified head; remote checks must pass before an authorized merge. Local readiness is not a merged PR. Retain workspace and evidence until merge or explicit abandonment, and resume from those records rather than recreating work.
+## Execution process
 
-## Documentation within another workflow
+1. Identify the audience, requested outcome, allowed documentation paths, and authoritative source revision. Inspect the existing pages and relevant code. For an audit-only request, investigate and report without editing documentation.
+2. Develop one proportional task breakdown connecting each requested documentation change to its source evidence and validation. Reuse an existing plan and avoid unrelated standardization.
+3. Make the authorized edits using the project's document format. Markdown remains the default for project prose; the completion report is a separate artifact. Preserve existing useful content and links.
+4. Run applicable docs lint/build/link checks and relevant example or generated-diagram checks. Use the Nova docs checker only when it exists in the target project and applies; do not assume this repository's tooling exists everywhere. Inspect rendered pages at useful viewport sizes. Separate source accuracy, structural validity, and visual checks.
+5. Inspect the final diff for unintended product edits and unresolved claims. Produce a Markdown report covering changed pages, reader benefit, task outcomes, source references, representative before/after prose, validation evidence, and limitations. Follow the user's delivery authorization; do not initiate another docs workflow or an intermediate PR.
 
-A build or deployment dispatches the documenter directly as an assigned stage. That agent follows its role contract and returns control; it does not invoke this standalone `/docs` lifecycle, create another plan, or open another PR. The calling workflow supplies ownership and source evidence, combines the docs commit using its own finalization protocol, and performs final verification after all documentation changes are present. A late docs edit requires verification of the changed final source.
+## Report and output format
 
-## Offline check
+Write Markdown by default. Generate HTML only when the user explicitly requests a visual or HTML report; do not ask a routine format question. Reuse a combined report where practical instead of generating one per consulted skill. Honor explicit artifact paths/formats and keep small in-conversation work proportional.
 
-```bash
-python3 -B skills/docs/scripts/docs_check.py skills/docs/examples/sample-repo
-```
+Default path: `docs/reports/docs<NN>-<YYYYMMDD>-<title-slug>.md` in the target repository. Allocate the lowest unused positive number for this type across formats, padded to at least two digits. Use the creation date and a lowercase ASCII title slug, replacing non-alphanumeric runs with hyphens and limiting it to 60 characters at a word boundary. Retain the same basename and creation date when revising a confirmed matching artifact; never overwrite an unrelated report.
+
+Use a descriptive title as the Markdown H1. Include the task-specific outcomes above, source references/revisions, actual verification commands and results, remaining gaps, and delivery state. Do not fabricate evidence or label proposed work completed. Check headings, links, and factual claims. Return a concise outcome and the absolute artifact path.
+
+For a requested visual report, read [assets/report.html](assets/report.html) relative to this skill, or an explicitly supplied template. Use the same basename with `.html`; reuse existing Markdown evidence, and keep any companion formats consistent. Preserve the Foundry Zero layout, numbered sections, sidebar, themes, and print styling. Replace placeholders, escape content, and keep CSS/diagrams inline with accessible labels. Verify desktop/mobile rendering in an available browser or disclose the visual-check gap. A missing HTML asset matters only when HTML is requested. Report creation does not authorize serving, publishing, or merging.
+
+For substantial interrupted work, update the existing task checkpoint with decisions, source/workspace state, evidence, active workers, and the next action. On resume, inspect current state before reusing that evidence; do not restart the workflow from its first step.

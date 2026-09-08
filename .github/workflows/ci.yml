@@ -1,178 +1,25 @@
 name: CI
-# A bare `push:` alongside `pull_request:` builds every branch twice while a PR is open:
-# once for the branch tip, once for its synthetic merge into the base. Direct pushes are
-# scoped to the default branch; every other branch is covered by its pull request.
 on:
   push:
     branches: [main]
-    tags:
-      - "v*"
   pull_request:
     branches: [main]
 permissions:
   contents: read
 jobs:
-  go:
+  package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Cache Go build
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-build-
-      - name: Go mod tidy
-        timeout-minutes: 5
-        run: |
-          go mod tidy
-          git diff --exit-code -- go.mod go.sum
-      - name: Go build
-        timeout-minutes: 5
-        run: go build ./...
-      - name: Go vet
-        timeout-minutes: 5
-        run: go vet ./...
-      - name: Go tests
-        timeout-minutes: 5
-        run: go test -count=1 -race ./...
-
-  shell:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-      - name: Shell tests
-        timeout-minutes: 10
-        run: |
-          # Discovered suites: scripts/hooks/tests/test_*.sh scripts/tests/test_*.sh
-          # (formerly serial: bash "$test_script")
-          bash scripts/run-tests.sh
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+          python-version: '3.13'
+      - run: python3 -m pip install -r requirements-dev.txt
+      - run: python3 -m unittest discover -s tests -v
+      - run: python3 scripts/update-guide.py --check
+      - run: python3 scripts/package.py
+      - uses: actions/upload-artifact@v4
         with:
-          go-version-file: go.mod
-          cache: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-ruff-pyyaml
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Install Python lint tooling
-        timeout-minutes: 5
-        run: python3 -m pip install ruff pyyaml
-      - name: Script Python tests
-        timeout-minutes: 5
-        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
-      - name: Ruff
-        timeout-minutes: 5
-        run: ruff check skills/ evals/ scripts/render-diagrams.py
-      - name: ShellCheck
-        timeout-minutes: 5
-        run: shellcheck -S warning scripts/*.sh scripts/hooks/build-* scripts/workcell-ws
-      - name: Skill evals
-        timeout-minutes: 5
-        run: |
-          python3 evals/run_evals.py --structural
-          python3 evals/run_evals.py --min-rank1 77
-          python3 -m unittest discover -s evals/tests -p 'test_*.py'
-      - name: Docs check
-        timeout-minutes: 5
-        run: python3 skills/docs/scripts/docs_check.py .
-      - name: Agent definitions in sync
-        timeout-minutes: 5
-        run: python3 scripts/sync-agents.py --check --diff
-      - name: Skill definitions in sync
-        timeout-minutes: 5
-        run: python3 scripts/sync-skills.py --check --diff
-      - name: Contract parity
-        timeout-minutes: 5
-        run: python3 scripts/check-contract-parity.py
-      - name: Harness bodies
-        timeout-minutes: 5
-        run: python3 scripts/check-harness-bodies.py
-      - name: Agent models in sync
-        timeout-minutes: 5
-        run: python3 scripts/sync-agent-models.py --check
-      - name: Model-guide freshness
-        timeout-minutes: 10
-        run: python3 docs/models/check/check_guides.py --check
-      - name: Guard release carrier agreement
-        timeout-minutes: 5
-        run: python3 scripts/build-guard-release.py --check
-      - name: Diagrams in sync
-        timeout-minutes: 5
-        run: python3 scripts/render-diagrams.py --check
-
-  skills:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install Jujutsu for executable integration regressions
-        uses: taiki-e/install-action@v2
-        with:
-          tool: jj-cli@0.45.1
-      - name: Skill unit tests
-        timeout-minutes: 10
-        run: |
-          for d in skills/*/tests; do
-            python3 -m unittest discover -s "$d" -p 'test_*.py'
-          done
-          python3 -m unittest discover -s skills/plan/research/tests -p 'test_*.py'
-
-  release:
-    needs: [go, shell, test, skills]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Build release artifacts
-        timeout-minutes: 10
-        run: python3 scripts/build-guard-release.py
-      - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: tdd-guard-release
-          path: dist/release/*
-      - name: Upload GitHub release assets
-        timeout-minutes: 10
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.ref_name }}" dist/release/* --clobber || true
+          name: nova-plugins
+          path: dist/plugins/
+          include-hidden-files: true

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>Skill instruction review — contracts, disclosure, evals · Foundry Zero Plan</title>
-  <!-- workcell-planner planId=skill-review-20260830 -->
+  <!-- nova-planner planId=skill-review-20260830 -->
   <style>/* Foundry Zero report design system.
    Shared core for the planner folio, the code-review report, and the research packet.
    This file is byte-identical in skills/planner, skills/code-review, and skills/research;
@@ -654,7 +654,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
       <a href="#execution"><span class="num">06</span><span>Milestone &amp; Execution</span></a>
     </nav>
     <div class="rail-foot">
-      <div>repo · anvil008/workcell</div>
+      <div>repo · anvil008/nova</div>
       <div>plan · skill-review-20260830</div>
       <div>issues · 3</div>
     </div>
@@ -684,12 +684,12 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
       </div>
 
       <div class="meta-grid" style="margin-top: 20px;">
-        <div><dt>Repository</dt><dd>anvil008/workcell</dd></div>
+        <div><dt>Repository</dt><dd>anvil008/nova</dd></div>
         <div><dt>Plan id</dt><dd>skill-review-20260830</dd></div>
         <div><dt>Generated</dt><dd>2026-08-30T08:40:00Z</dd></div>
         <div><dt>Issues</dt><dd>3</dd></div>
         <div><dt>Waves</dt><dd>2</dd></div>
-        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/workcell/milestones">Skill instruction review — contracts, disclosure, evals</a></dd></div>
+        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/nova/milestones">Skill instruction review — contracts, disclosure, evals</a></dd></div>
       </div>
     </section>
 
@@ -815,7 +815,7 @@ Rewrite `skills/docs/SKILL.md` &quot;Pass&quot; as dispatch steps (who dispatche
 
 ### 11. `jj` skill refuses its own owners (finding 11)
 
-`skills/jj/SKILL.md`&#x27;s description says &quot;Activate ONLY when a .jj/ directory is present… Do NOT activate for plain git repos&quot;, but the `test-author` must run `jj git init --colocate` in a plain git repo and both writers are told jj is their VCS &quot;always&quot;. Rewrite the description (and the `compatibility` / `metadata.requires-path` fields) so the skill triggers for any Workcell VCS work, including adopting a git repo, and keep the &quot;not for repos where the human chose plain git&quot; exclusion.
+`skills/jj/SKILL.md`&#x27;s description says &quot;Activate ONLY when a .jj/ directory is present… Do NOT activate for plain git repos&quot;, but the `test-author` must run `jj git init --colocate` in a plain git repo and both writers are told jj is their VCS &quot;always&quot;. Rewrite the description (and the `compatibility` / `metadata.requires-path` fields) so the skill triggers for any Nova VCS work, including adopting a git repo, and keep the &quot;not for repos where the human chose plain git&quot; exclusion.
 
 ## Verification you must run before handing off
 
@@ -939,7 +939,7 @@ Positive prompts are paraphrased the way a user talks — never copied from the 
 - `test-author`: an `ImportError` failure is not sealed; a signature-only stub is created so the test fails on its assertion.
 - `builder`: a `critical` finding after pass 2 yields `blocked` and no PR.
 - `perf` / `code-refactor`: no `test-author` is dispatched; the gate is baseline green + untouched tests.
-- `jj`: a plain-git fixture is adopted with `jj git init --colocate` when a Workcell agent needs a workspace.
+- `jj`: a plain-git fixture is adopted with `jj git init --colocate` when a Nova agent needs a workspace.
 
 Orchestrator skills dispatch subagents, so most of their cases are `kind: dialogue` (the transcript of dispatch decisions is the artifact). Agent cases can be `execution` against a small fixture (`evals/fixtures/split-cents/` in Python is enough for `test-author`, `builder`, `debugger`).
 
@@ -1024,7 +1024,7 @@ python3 scripts/sync-agents.py --check --diff
         <article class="card"><h3>2 &middot; Approve</h3><p>Approval names a human identity and applies to this exact sidecar. A changed sidecar needs fresh approval.</p></article>
         <article class="card"><h3>3 &middot; Reconcile</h3><p>Milestones only, never a GitHub Project. Preview read-only first, then apply.</p></article>
       </div>
-      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/workcell/milestones">Skill instruction review — contracts, disclosure, evals</a> in anvil008/workcell.</p>
+      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/nova/milestones">Skill instruction review — contracts, disclosure, evals</a> in anvil008/nova.</p>
     </section>
 
   </main>

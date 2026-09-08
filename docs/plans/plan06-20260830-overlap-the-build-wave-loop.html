@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>Overlap the build wave loop · Foundry Zero Plan</title>
-  <!-- workcell-planner planId=wave-loop-overlap -->
+  <!-- nova-planner planId=wave-loop-overlap -->
   <style>/* Foundry Zero report design system.
    Shared core for the planner folio, the code-review report, and the research packet.
    This file is byte-identical in skills/planner, skills/code-review, and skills/research;
@@ -654,7 +654,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
       <a href="#execution"><span class="num">06</span><span>Milestone &amp; Execution</span></a>
     </nav>
     <div class="rail-foot">
-      <div>repo · anvil008/workcell</div>
+      <div>repo · anvil008/nova</div>
       <div>plan · wave-loop-overlap</div>
       <div>issues · 5</div>
     </div>
@@ -665,7 +665,7 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
     <section class="section" id="header">
       <div class="doc-eyebrow">Plan &middot; generated <time datetime="2026-08-30T22:10:00Z">August 30, 2026</time></div>
       <h1>Overlap the build wave loop</h1>
-      <p class="lede">A Workcell build round is currently gated twice over: `skills/build/scripts/waves.py` selects only issues in the earliest unfinished declared wave, so one straggler holds back later issues whose own `dependsOn` are already merged, and everything after the builders — integration, then documentation — runs strictly serially. This milestone lands the four approved parallelization changes against the workcell repository itself: (1) dependency-gated selection in `waves.py`, with the ownership-overlap check moved from the declared wave to the whole candidate in-flight set and overlapping candidates deferred rather than dispatched concurrently; (2) `skills/new-feature/SKILL.md` step 5 dispatching the `documenter` alongside the `integrator` instead of after the merge; (3) an explicit, opportunistic allowance in `skills/build/SKILL.md` for speculative next-wave `specifier` dispatches while the integrator runs; (4) a granularity rule for `ownershipHint` in the planner&#x27;s sidecar contract, with a mechanical check so a hint is one path or glob rather than prose. What stays serial is stated and untouched: `specifier` -&gt; `builder` per issue, the integrator&#x27;s serial merge, nothing merging before combined GREEN, and the two-phase seal. Assumptions taken rather than asked: (a) `ownershipHint` keeps its string type — &#x27;finer-grained&#x27; means a narrower glob and, where files span unrelated subtrees, more issues, not a list of globs; (b) a wave-0 overlap now defers the second issue instead of only warning and leaving it to hand-serialization, because the deferral machinery this milestone adds is exactly what wave 0 was missing; (c) the shipped offline dry-run keeps its outcome — the demo fixture still selects `API` and `UI` — and gains only the new `pulledForward` and `deferred` fields; (d) plan-time ownership-overlap detection inside `render_plan.py` is deliberately out of scope, because the glob matcher lives in `waves.py` and sharing it would couple two skills&#x27; scripts in a refactor nobody asked for.</p>
+      <p class="lede">A Nova build round is currently gated twice over: `skills/build/scripts/waves.py` selects only issues in the earliest unfinished declared wave, so one straggler holds back later issues whose own `dependsOn` are already merged, and everything after the builders — integration, then documentation — runs strictly serially. This milestone lands the four approved parallelization changes against the nova repository itself: (1) dependency-gated selection in `waves.py`, with the ownership-overlap check moved from the declared wave to the whole candidate in-flight set and overlapping candidates deferred rather than dispatched concurrently; (2) `skills/new-feature/SKILL.md` step 5 dispatching the `documenter` alongside the `integrator` instead of after the merge; (3) an explicit, opportunistic allowance in `skills/build/SKILL.md` for speculative next-wave `specifier` dispatches while the integrator runs; (4) a granularity rule for `ownershipHint` in the planner&#x27;s sidecar contract, with a mechanical check so a hint is one path or glob rather than prose. What stays serial is stated and untouched: `specifier` -&gt; `builder` per issue, the integrator&#x27;s serial merge, nothing merging before combined GREEN, and the two-phase seal. Assumptions taken rather than asked: (a) `ownershipHint` keeps its string type — &#x27;finer-grained&#x27; means a narrower glob and, where files span unrelated subtrees, more issues, not a list of globs; (b) a wave-0 overlap now defers the second issue instead of only warning and leaving it to hand-serialization, because the deferral machinery this milestone adds is exactly what wave 0 was missing; (c) the shipped offline dry-run keeps its outcome — the demo fixture still selects `API` and `UI` — and gains only the new `pulledForward` and `deferred` fields; (d) plan-time ownership-overlap detection inside `render_plan.py` is deliberately out of scope, because the glob matcher lives in `waves.py` and sharing it would couple two skills&#x27; scripts in a refactor nobody asked for.</p>
 
       <div class="verdict-row">
         <div class="verdict gate-proposed">
@@ -684,12 +684,12 @@ td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
       </div>
 
       <div class="meta-grid" style="margin-top: 20px;">
-        <div><dt>Repository</dt><dd>anvil008/workcell</dd></div>
+        <div><dt>Repository</dt><dd>anvil008/nova</dd></div>
         <div><dt>Plan id</dt><dd>wave-loop-overlap</dd></div>
         <div><dt>Generated</dt><dd>2026-08-30T22:10:00Z</dd></div>
         <div><dt>Issues</dt><dd>5</dd></div>
         <div><dt>Waves</dt><dd>3</dd></div>
-        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/workcell/milestones">Overlap the build wave loop</a></dd></div>
+        <div><dt>Milestone</dt><dd><a href="https://github.com/anvil008/nova/milestones">Overlap the build wave loop</a></dd></div>
       </div>
     </section>
 
@@ -812,7 +812,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/build/scripts/waves.py skills/build/exa
 
 Rewrite the step so it says, in this order:
 
-- Dispatch the `integrator` over the wave **and** the `documenter` for whatever the feature changed about how the project is used, at the same time, on the same base, each in its own workspace (`workcell-ws add &lt;name&gt;`).
+- Dispatch the `integrator` over the wave **and** the `documenter` for whatever the feature changed about how the project is used, at the same time, on the same base, each in its own workspace (`nova-ws add &lt;name&gt;`).
 - The documenter&#x27;s brief carries the changed-file and PR list and the docs-only `ownership` glob ([`agents/handoff.md`](../../agents/handoff.md)). Reading a file list or diffstat to choose a dispatch is orchestration under [ADR 0007](../../docs/adr/0007-primary-agent-is-a-pure-orchestrator.md); reading a file&#x27;s contents to judge it is not.
 - The documenter&#x27;s `ownership` must be disjoint from every code issue&#x27;s `ownershipHint`, so its branch can never collide with a builder&#x27;s.
 - Documentation never merges on its own authority. The docs branch merges only inside a combined GREEN that includes it: if the documenter returns before the integrator&#x27;s serial merge begins, its branch joins that round and one combined run covers everything; if it returns later, dispatch one more `integrator` round over the docs branch on the merged base, and that round is also the docs gate (`skills/docs/scripts/docs_check.py`, plus `scripts/render-diagrams.py --check` where the README&#x27;s visuals are generated).
@@ -926,7 +926,7 @@ Today the flow is `gate -&gt; merge -&gt; docs -&gt; deploy`, which says documen
 
 ## Change 3 - `README.md`
 
-Update the &quot;How work moves through Workcell&quot; paragraph and the `&lt;img alt=...&gt;` text so both match the regenerated picture: the `documenter` is dispatched alongside the `integrator`, its work is covered by the same gate, and the orchestrator merges only on that gate&#x27;s output. Remove the &quot;then hands the result to `documenter`&quot; sequencing. [ADR 0004](docs/adr/0004-visuals-require-text-equivalents.md) requires the alt text and the nearby prose to carry the same flow as the picture.
+Update the &quot;How work moves through Nova&quot; paragraph and the `&lt;img alt=...&gt;` text so both match the regenerated picture: the `documenter` is dispatched alongside the `integrator`, its work is covered by the same gate, and the orchestrator merges only on that gate&#x27;s output. Remove the &quot;then hands the result to `documenter`&quot; sequencing. [ADR 0004](docs/adr/0004-visuals-require-text-equivalents.md) requires the alt text and the nearby prose to carry the same flow as the picture.
 
 ## Change 4 - `CHANGELOG.md`
 
@@ -1032,7 +1032,7 @@ python3 -m unittest discover -s scripts/tests -p &#x27;test_*.py&#x27;
         <article class="card"><h3>2 &middot; Approve</h3><p>Approval names a human identity and applies to this exact sidecar. A changed sidecar needs fresh approval.</p></article>
         <article class="card"><h3>3 &middot; Reconcile</h3><p>Milestones only, never a GitHub Project. Preview read-only first, then apply.</p></article>
       </div>
-      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/workcell/milestones">Overlap the build wave loop</a> in anvil008/workcell.</p>
+      <p class="muted" style="margin-top:18px;">Milestone target: <a href="https://github.com/anvil008/nova/milestones">Overlap the build wave loop</a> in anvil008/nova.</p>
     </section>
 
   </main>

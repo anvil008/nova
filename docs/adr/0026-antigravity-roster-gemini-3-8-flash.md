@@ -8,7 +8,7 @@ Accepted. Records the decision to move the Antigravity harness fleet to Gemini 3
 
 Google released Gemini 3.8 Flash and updated its authoritative latest-model documentation (`https://ai.google.dev/gemini-api/docs/latest-model`) to describe Gemini 3.8 Flash. The versioned model page (`https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash`) and prompting strategies guide (`https://ai.google.dev/gemini-api/docs/prompting-strategies`) document the operational characteristics: 1M token context window, thinking levels at low, medium, and high (with minimal unsupported), and structured sequential generation.
 
-Workcell previously operated its Antigravity roster on Gemini 3.7 Flash ([ADR 0025](0025-layered-architecture-and-harness-owned-instructions.md)). With upstream swapping `latest-model` to 3.8 Flash, our automated guide freshness checks require an authoritative guide for 3.8 Flash while preserving the versioned 3.7 Flash documentation for historical stability.
+Nova previously operated its Antigravity roster on Gemini 3.7 Flash ([ADR 0025](0025-layered-architecture-and-harness-owned-instructions.md)). With upstream swapping `latest-model` to 3.8 Flash, our automated guide freshness checks require an authoritative guide for 3.8 Flash while preserving the versioned 3.7 Flash documentation for historical stability.
 
 ## Decision
 

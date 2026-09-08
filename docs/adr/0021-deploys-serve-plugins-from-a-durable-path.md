@@ -5,7 +5,7 @@
 Accepted
 
 Re-grounded by [ADR 0023](0023-installs-are-self-contained-copies.md): the durable paths this ADR
-requires are now installer-owned directories under `~/.local/share/workcell` rather than a
+requires are now installer-owned directories under `~/.local/share/nova` rather than a
 checkout a human has to keep, and the Codex consequence below — that a manifest version cannot
 confirm a release — is resolved there, so a Codex deploy no longer needs a content diff as its
 confirmation step. The rest of this record stands.
@@ -13,9 +13,9 @@ confirmation step. The rest of this record stands.
 ## Context
 
 The v0.4.0 deploy ran the plugin build and install from a temporary worktree,
-`/home/anvil/repos/workcell-v0.4.0-plugins`, then removed it once the deploy step reported
+`/home/anvil/repos/nova-v0.4.0-plugins`, then removed it once the deploy step reported
 success. Claude and Codex both broke immediately after: `claude plugin list` /
-`codex mcp list`-adjacent status reported `✘ failed to load — cache-miss` for `workcell`.
+`codex mcp list`-adjacent status reported `✘ failed to load — cache-miss` for `nova`.
 
 Both harnesses copy plugin content on install, but they do not re-copy it on every load — they
 resolve the installed plugin through the **registered marketplace path**, which for a local
@@ -37,21 +37,21 @@ re-registers the marketplace from a different path. `scripts/bootstrap-plugins.s
 them, not the scripts themselves, since neither script can detect in advance that its caller's
 `cwd` is about to be removed.
 
-v0.4.0 currently serves from `/home/anvil/repos/workcell-v0.4.0-plugins`, which must **not** be
-deleted until a bootstrap run from the primary repository (`/home/anvil/repos/workcell`)
+v0.4.0 currently serves from `/home/anvil/repos/nova-v0.4.0-plugins`, which must **not** be
+deleted until a bootstrap run from the primary repository (`/home/anvil/repos/nova`)
 re-registers the marketplace at that path instead.
 
 ## Consequences
 
 - **The next bootstrap from the primary repository will collide, not merge.** Both harnesses
-  already have a `workcell` marketplace entry pointing at the release worktree: Codex refuses a
+  already have a `nova` marketplace entry pointing at the release worktree: Codex refuses a
   second registration under the same name from a different source ("already added from a
   different source"), and Grok ends up with duplicate marketplace entries rather than one updated
   in place. Whoever re-runs bootstrap from the primary repository must remove the stale
   registration first (`codex plugin marketplace remove` / `grok plugin marketplace remove` for the
   worktree path) — `docs/install.md` carries this as an upgrade note.
 - **Grok has no v0.3.0 to roll back to.** It is net-new in v0.4.0, so its "rollback" is
-  registration-level, not a version downgrade: `grok plugin uninstall workcell` followed by
+  registration-level, not a version downgrade: `grok plugin uninstall nova` followed by
   removing the marketplace entry, not a re-point at an earlier release.
 - **Codex's manifest version cannot confirm a release on its own.** `plugins/codex/.codex-plugin/plugin.json`
   carries an independent build-metadata version (`0.1.0+codex.<buildstamp>`, unrelated to this

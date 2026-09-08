@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-dev.1 — shared-skill plugin rewrite
+
+- Promote 14 shared skills, three optional helper roles, common instructions, and advisory post-edit checks.
+- Build self-contained Codex, Claude Code, and Antigravity plugin bundles from one source tree.
+- Replace mandatory orchestration, control-plane/guard runtime, generated harness copies, and bootstrap installers.
+- Keep Markdown-first reports, optional HTML, jj/trunk conventions, project documentation updates, and long-task checkpoints.
+- Separate native plugin installation from project instruction, helper, and hook setup. Existing personal installations are untouched.
+
 ## Unreleased
 
 - Consolidate the public menu to ten workflows and two auxiliary skills. Build owns shared implementation; review, profile, and docs retain independent outcomes.
@@ -11,7 +19,7 @@
 - Update the interactive local architecture explorer to show the implemented design alongside the original sketches.
 
 
-All notable changes to Workcell will be documented in this file.
+All notable changes to Nova will be documented in this file.
 
 ## [Unreleased — installs are self-contained copies on every harness]
 
@@ -25,25 +33,25 @@ from their Status sections.
 ### Changed
 
 - **Claude Code installs through a durable command-source marketplace.** The marketplace lives at
-  `~/.local/share/workcell/claude` and its plugin entry is a `command` source in `copy` mode whose
-  command is `stage-workcell`, a shim that re-stages from the repository when the repository is
+  `~/.local/share/nova/claude` and its plugin entry is a `command` source in `copy` mode whose
+  command is `stage-nova`, a shim that re-stages from the repository when the repository is
   there and replays the last staged tree when it is not. Claude versions the copy by content, so
   manual version bumps and the destructive uninstall-then-reinstall refresh are both gone.
 - **Codex resolves its marketplace from a durable owned copy** under
-  `~/.local/share/workcell/codex`, not from the gitignored build directory, and its staged manifest
+  `~/.local/share/nova/codex`, not from the gitignored build directory, and its staged manifest
   carries `<semver>+codex.<content hash>` so a content change is always a version change.
 - **Antigravity and Grok load one owned copy each, and register nothing.** Antigravity's sits at
-  `~/.gemini/config/plugins/workcell` and Grok's at `~/.grok/plugins/workcell`, both directories
+  `~/.gemini/config/plugins/nova` and Grok's at `~/.grok/plugins/nova`, both directories
   the harness documents as auto-scanned. The Antigravity symlinks are retired and the
   `antigravity-cli` location is not recreated; Grok's marketplace registration is retired. Both
   need a new session to pick up a refreshed copy.
-- **`tdd-guard`, the four `build-*` hook wrappers and `workcell-ws` install into `~/.local/bin` as
+- **`tdd-guard`, the four `build-*` hook wrappers and `nova-ws` install into `~/.local/bin` as
   versioned copies**, not symlinks, so a hook that fires on every tool call no longer resolves
   through a working tree. `scripts/bootstrap-tools.sh` without `--install` reports one `stale` line
   per drifted destination.
 - **Copy ownership is receipt-backed.** `install_owned` / `uninstall_owned` in `scripts/lib.sh`
-  record a receipt under `~/.local/state/workcell/receipts/` and stamp every staged tree with
-  `.workcell-stamp.json`; an uninstall removes only what still matches, and names anything it
+  record a receipt under `~/.local/state/nova/receipts/` and stamp every staged tree with
+  `.nova-stamp.json`; an uninstall removes only what still matches, and names anything it
   leaves behind.
 - **CI publishes release artifacts and gates version agreement.** `scripts/build-guard-release.py`
   cross-compiles stamped `tdd-guard` binaries for linux and macOS on amd64 and arm64 with a
@@ -64,22 +72,22 @@ Backward-compatible feature, so the bump is a minor.
 
 ### Added
 
-- **`/workcell:wiki init` puts the opt-in question in-session.** Invoked directly as
-  `/workcell:wiki init`, or whenever `status` answers `present: false` and a human is present to
+- **`/nova:wiki init` puts the opt-in question in-session.** Invoked directly as
+  `/nova:wiki init`, or whenever `status` answers `present: false` and a human is present to
   ask, the orchestrator asks one yes/no question naming the resolved `projectKey` and the
   namespace path `status` printed, then runs `wiki.py init --repo .` itself only on an explicit
   yes. A non-interactive run, and a "no," still end at `present: false` — no run creates a
   namespace unasked, so ADR 0019's deliberate-opt-in principle is unchanged. `wiki.py` itself is
   untouched.
 
-## [v0.5.0 — Skills consolidate to 16, MCP servers retire, planner becomes `/workcell:plan`] - 2026-09-01
+## [v0.5.0 — Skills consolidate to 16, MCP servers retire, planner becomes `/nova:plan`] - 2026-09-01
 
 User-facing renames and consolidations, no compatibility kept — this is pre-1.0, so the bump is a
 minor, not a patch.
 
 ### Changed
 
-- **`planner` the skill is now `plan`** — invocation is `/workcell:plan`. The `planner` agent keeps
+- **`planner` the skill is now `plan`** — invocation is `/nova:plan`. The `planner` agent keeps
   its name; only the skill's invocation changed. Every reference, test, and eval case moved with
   it (`evals/cases/skills/plan.json` replaces `planner.json`).
 - **Skills consolidate 18 → 16.** `builder-frontend` becomes `skills/build/references/frontend.md`;
@@ -95,11 +103,11 @@ minor, not a patch.
   `register_mcp` in `bootstrap-plugins.sh` is retirement-only now: it removes any `playwright` or
   `chrome-devtools` MCP entry this repository previously wrote, by exact command match, and
   registers nothing new. ADR 0012 was amended accordingly.
-- **The plugin marketplace is renamed `workcell-local` → `workcell`.** The plugin reference is now
-  `workcell@workcell`. `bootstrap-plugins.sh` retires the old `workcell-local` registration on both
+- **The plugin marketplace is renamed `nova-local` → `nova`.** The plugin reference is now
+  `nova@nova`. `bootstrap-plugins.sh` retires the old `nova-local` registration on both
   install and uninstall, so a machine that installed under the old name converges automatically.
 - **The planner folio renderer was reworked.** The 3.4MB bundled Mermaid JS is replaced by
-  build-time inline SVG (`skills/plan/scripts/diagrams.py`); folios carry the Workcell mark;
+  build-time inline SVG (`skills/plan/scripts/diagrams.py`); folios carry the Nova mark;
   summaries and issue bodies render as real paragraphs instead of raw text blocks; SVGs scale
   responsively; the hints-toggle behavior is documented. `docs/plans/plan07-*` (the wiki-layer
   folio) is archived; `docs/plans/plan08-*` (the APM-migration folio) and its sidecar/issue-state
@@ -118,7 +126,7 @@ minor, not a patch.
 
 ### Removed
 
-- **Root `apm.yml` deleted**, per ADR 0020: Workcell's own plugin does not ship through apm, and a
+- **Root `apm.yml` deleted**, per ADR 0020: Nova's own plugin does not ship through apm, and a
   root manifest is what would incorrectly classify this repository for `apm install`.
 
 ## [v0.4.0 — Grok Build joins as a fourth harness; browsers move off Playwright] - 2026-08-31
@@ -144,8 +152,8 @@ minor, not a patch.
   scope in whichever of Claude, Codex, Antigravity, and Grok are installed, through each harness's
   own CLI — apm's MCP entries are project-scoped only. It retires any `playwright` MCP entry it
   previously registered under that exact command and never touches an entry it did not write.
-- **ADR 0020** records why APM stays a peer tool rather than Workcell's distribution layer: it
-  projects format, not the per-harness content differences Workcell actually has, and its
+- **ADR 0020** records why APM stays a peer tool rather than Nova's distribution layer: it
+  projects format, not the per-harness content differences Nova actually has, and its
   marketplace-first format detection would silently decompose this repository if given an
   `apm.yml` at the root.
 
@@ -169,14 +177,14 @@ recorded as ADR 0021 and here, so they don't repeat on the next release:
 - **Marketplace paths are load-bearing** (ADR 0021). Claude and Codex resolve the installed plugin
   through the registered marketplace _path_, not a content snapshot; deploying from a temporary
   worktree and then deleting it broke both harnesses (`Status: ✘ failed to load — cache-miss`).
-  v0.4.0 currently serves from `/home/anvil/repos/workcell-v0.4.0-plugins`, which must persist
+  v0.4.0 currently serves from `/home/anvil/repos/nova-v0.4.0-plugins`, which must persist
   until the next bootstrap run from the primary repository re-registers the marketplace there.
 - **The next bootstrap from the primary repository will hit stale-registration conflicts** —
-  Codex refuses a second `workcell` registration from a different source, and Grok ends up with a
+  Codex refuses a second `nova` registration from a different source, and Grok ends up with a
   duplicate marketplace entry — so that run must remove the worktree-path registration first
   (`docs/install.md`'s upgrade section carries the one-line note).
 - **Grok has no v0.3.0 to roll back to.** It is net-new in v0.4.0; its rollback is
-  registration-level (`grok plugin uninstall workcell` plus removing the marketplace entry), not a
+  registration-level (`grok plugin uninstall nova` plus removing the marketplace entry), not a
   version downgrade.
 - **Codex's manifest version (`0.1.0+codex.<buildstamp>`) cannot confirm which release is
   installed** — it tracks Codex build metadata, not this repository's semver. The v0.4.0 deploy
@@ -187,11 +195,11 @@ recorded as ADR 0021 and here, so they don't repeat on the next release:
 
 ### Added
 
-- **A persistent knowledge store outside every repository**, at `$WORKCELL_WIKI_HOME`
-  (default `~/.workcell/wiki/`), with one namespace per project key. The key is the normalized
-  `origin` remote — `git@github.com:anvil008/workcell.git` and `https://github.com/anvil008/workcell`
-  collapse to `github-com-anvil008-workcell` — or, with no remote, the toplevel basename plus a hash
-  of its absolute path. It resolves through the primary toplevel exactly as `workcell-ws` does, so
+- **A persistent knowledge store outside every repository**, at `$NOVA_WIKI_HOME`
+  (default `~/.nova/wiki/`), with one namespace per project key. The key is the normalized
+  `origin` remote — `git@github.com:anvil008/nova.git` and `https://github.com/anvil008/nova`
+  collapse to `github-com-anvil008-nova` — or, with no remote, the toplevel basename plus a hash
+  of its absolute path. It resolves through the primary toplevel exactly as `nova-ws` does, so
   every per-issue workspace of one repository answers with one key, and it obeys the same
   `[a-z0-9][a-z0-9-]*` spelling rule.
 - **`skills/wiki/scripts/wiki.py`, the store's only writer** — `key`, `init`, `status`, `record`,
@@ -204,7 +212,7 @@ recorded as ADR 0021 and here, so they don't repeat on the next release:
   dispatch whose `ownership` is the namespace path and which writes only through `wiki.py`,
   `wiki.py check` as the completion gate, an offline demonstration over a shipped sample namespace,
   and the two standing boundaries: runtime agents are never given the wiki, and a project pattern
-  never amends Workcell's shared `skills/`. The artifact contract is
+  never amends Nova's shared `skills/`. The artifact contract is
   `skills/wiki/references/wiki-layout.md`.
 - **The `review-fix-loop` consolidates on its way out.** Every ending — `converged`, `stalled`,
   and `exhausted` alike — records each pass's merged review and the loop state as one write-once
@@ -235,7 +243,7 @@ recorded as ADR 0021 and here, so they don't repeat on the next release:
 
 ### Changed
 
-- **`workcell-ws` accepts one slash in a key.** The bookmark and git branch keep it; the sibling
+- **`nova-ws` accepts one slash in a key.** The bookmark and git branch keep it; the sibling
   directory and the jj workspace name write it as a dash, so `feature/xyz` is bookmark
   `feature/xyz`, jj workspace `feature-xyz`, and directory `../<repo>-feature-xyz`. `list`,
   `forget`, and `sweep` recover the key from the local refs, so a slashed key round-trips and is
@@ -338,7 +346,7 @@ recorded as ADR 0021 and here, so they don't repeat on the next release:
 
 ### Added
 
-- **`scripts/workcell-ws`:** One shell helper owning agent isolation on all three harnesses —
+- **`scripts/nova-ws`:** One shell helper owning agent isolation on all three harnesses —
   `add` / `forget` / `list` / `sweep`. A jj repository gets a jj workspace, a git-only repository a
   git worktree, both at the sibling path `../<repo>-<key>` with the bookmark or branch `<key>`.
   `sweep` names every stranded workspace and every merged local ref and is read-only until
@@ -346,14 +354,14 @@ recorded as ADR 0021 and here, so they don't repeat on the next release:
   the naming convention is `foreign` and never removed, a dirty git worktree is refused by name
   until it is committed or `--force` is passed, a jj workspace is snapshotted into its commit
   before its directory goes, and a workspace the calling shell is standing in is refused outright. `bootstrap-tools.sh --install` links it onto `PATH` beside the `build-*`
-  hooks; `scripts/tests/test_workcell_ws.sh` covers both version-control systems.
+  hooks; `scripts/tests/test_nova_ws.sh` covers both version-control systems.
 - **`docs/workspaces.md`:** The isolation standard — naming, base, teardown after the PR exists,
   and the sweep as the leak check.
 
 ### Changed
 
 - **`test-author` / `builder` bodies, `build`, `code-refactor`, `repo-setup`.** They now name
-  `workcell-ws` where they used to spell out `jj workspace add` / `forget`, keeping the raw jj
+  `nova-ws` where they used to spell out `jj workspace add` / `forget`, keeping the raw jj
   commands as the shown equivalent. Git-only repositories gain isolation parity, so jj adoption is
   an optimisation for parallel waves rather than a prerequisite.
 
@@ -397,11 +405,11 @@ recorded as ADR 0021 and here, so they don't repeat on the next release:
 
 - **Claude Code and Codex now actually load the plugin.** Both discover plugins through a
   registry, never by scanning their plugin directory, so the symlink the installer wrote
-  into `~/.claude/plugins/workcell` was inert: `claude plugin list` did not show it and
+  into `~/.claude/plugins/nova` was inert: `claude plugin list` did not show it and
   none of its agents, skills, or hooks reached a session. Both harnesses now install
   through a local marketplace using their own CLI (ADR-0006).
 - **Claude plugin hooks.** `plugins/claude/hooks.json` was a copy of the Codex file: Codex
-  tool names (`run_command`, `write_to_file`) inside a `workcell-guard` module wrapper, which
+  tool names (`run_command`, `write_to_file`) inside a `nova-guard` module wrapper, which
   Claude Code parsed as zero hooks. Rewritten in Claude's schema at
   `plugins/claude/hooks/hooks.json`, matching `Bash` and `Edit|Write|NotebookEdit`.
 - **Restored files deleted from the working copy.** `agents/agy/builder/agent.md`,
@@ -411,7 +419,7 @@ recorded as ADR 0021 and here, so they don't repeat on the next release:
 
 ### Changed
 
-- **Flatter layout.** Wrappers moved from `plugins/<harness>/workcell` to
+- **Flatter layout.** Wrappers moved from `plugins/<harness>/nova` to
   `plugins/<harness>`, and `plugins/codex-marketplace/` is gone — both marketplace
   manifests now live at the repository root (`.claude-plugin/marketplace.json` and
   `.agents/plugins/marketplace.json`), which is also what keeps each wrapper's `agents/`

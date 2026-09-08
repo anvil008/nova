@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/ABSOLUTE/PATH/post-edit.py\" --harness codex --config \"/ABSOLUTE/PATH/project.json\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

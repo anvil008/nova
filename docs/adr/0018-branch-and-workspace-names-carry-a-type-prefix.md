@@ -27,7 +27,7 @@ bookmark or the git branch, where a slash is ordinary and expected.
 
 **A key is `<type>/<slug>`.** The type is one of `feature`, `bug`, `doc`, `refactor`, `perf`,
 `test`, `release`, `chore`, `review`, `integration`; each part matches `[a-z0-9][a-z0-9-]*`.
-`workcell-ws` accepts at most one slash and refuses anything else by name, so `a/b/c`, a
+`nova-ws` accepts at most one slash and refuses anything else by name, so `a/b/c`, a
 leading slash, and a trailing slash are all rejected before the repository is touched.
 
 **The key is the bookmark and the branch, verbatim.** The directory and the jj workspace

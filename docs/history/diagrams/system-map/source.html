@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nova · Source snapshot</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { display:block; padding:32px; }
+    header { margin-bottom:24px; }
+    h1 { font-size:24px; overflow-wrap:anywhere; }
+    p { color:#a2b2c0; }
+    a { color:#62d9ac; }
+    pre { overflow:auto; padding:20px 12px; background:#101b25; border:1px solid #2c3a45; border-radius:12px; font:13px/1.7 ui-monospace,monospace; }
+    .line { display:block; min-height:1.7em; scroll-margin-top:30px; }
+    .line:target { background:#224638; }
+    .number { display:inline-block; width:4.5em; text-align:right; padding-right:1.5em; color:#9cafbd; text-decoration:none; user-select:none; }
+  </style>
+</head>
+<body>
+  <header><a href="index.html">← Nova system map</a><h1 id="title">Source snapshot</h1><p id="meta">Loading the local source snapshot…</p></header>
+  <pre id="code" aria-label="Source file with line numbers"></pre>
+  <script>
+    (async () => {
+      const title = document.getElementById('title'), meta = document.getElementById('meta'), code = document.getElementById('code');
+      try {
+        const response = await fetch('sources.json');
+        if (!response.ok) throw new Error('Source snapshot is unavailable.');
+        const snapshot = await response.json(), path = new URLSearchParams(location.search).get('path');
+        if (!Object.hasOwn(snapshot.files, path)) throw new Error('This file is not included in the reference snapshot.');
+        title.textContent = path;
+        meta.textContent = `Working tree based on ${snapshot.baseRevision} · captured ${snapshot.capturedAt}. A reference snapshot, not a live file editor.`;
+        for (const [index, text] of snapshot.files[path].split('\n').entries()) {
+          const row = document.createElement('span'), number = document.createElement('a');
+          row.className = 'line'; row.id = `L${index + 1}`;
+          number.className = 'number'; number.href = `#${row.id}`; number.textContent = index + 1;
+          row.append(number, document.createTextNode(text)); code.append(row);
+        }
+        if (/^#L\d+$/.test(location.hash)) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+      } catch (error) { meta.textContent = error.message; }
+    })();
+  </script>
+</body>
+</html>

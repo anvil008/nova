@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 292" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title diagram-desc">
+  <title id="diagram-title">Layered architecture of Nova</title>
+  <desc id="diagram-desc">Nova defines 12 public skills and 10 roles across Claude Code, Codex with GPT-6 Astra, and Antigravity. Harness-owned agents, skills, and scripts share evidence contracts and repository tooling. Research remains a planner capability rather than a standalone skill.</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#4b5563"/></marker><marker id="arrow-muted" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#7b8494"/></marker></defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
+    .label{font-size:14px;font-weight:600;fill:#111827;text-anchor:middle}
+    .sub{font-size:11.5px;font-style:italic;fill:#3d4657;text-anchor:middle}
+    .title{font-size:16px;font-weight:700;fill:#111827}
+    .legend{font-size:11.5px;fill:#3d4657}
+    .edgelabel{font-size:11.5px;fill:#3d4657}
+    .chip{fill:#ffffff;stroke:#d7dce3;stroke-width:1}
+    .plate{fill:#ffffff}
+    .edge{fill:none;stroke:#4b5563;stroke-width:1.6}
+    .edge.dashed{stroke:#7b8494;stroke-dasharray:6 4}
+    .frame{fill:none;stroke:#8a76d6;stroke-width:1.4;stroke-dasharray:1 4;stroke-linecap:round}
+    .frametext{font-size:11.5px;font-weight:600;fill:#4c3a94}
+    .crease{fill:none}
+    .inner{fill:none;stroke-width:1}
+    .k-agent{fill:#e7edfb;stroke:#2b53a8;stroke-width:1.6}
+    .k-gate{fill:#fdf0d5;stroke:#a2701a;stroke-width:1.6}
+    .k-human{fill:#e6f4ea;stroke:#1f7a45;stroke-width:1.6}
+    .k-artifact{fill:#f1f2f5;stroke:#5a6272;stroke-width:1.6}
+    .k-orchestrator{fill:#ece6fb;stroke:#5b3fbf;stroke-width:1.6}
+  </style>
+  <text class="title" x="20" y="32">Layered architecture of Nova</text>
+  <rect class="k-agent" x="20" y="41" width="28" height="14" rx="3.92"/><text class="legend" text-anchor="start" x="52" y="52">agent</text><path class="k-artifact" d="M 103.21 41 L 126.31 41 L 131.21 45.9 L 131.21 55 L 103.21 55 Z"/><path class="k-artifact crease" d="M 126.31 41 L 126.31 45.9 L 131.21 45.9"/><text class="legend" text-anchor="start" x="135.21" y="52">artifact</text><rect class="k-orchestrator" x="195.74" y="41" width="28" height="14" rx="3.92"/><rect class="k-orchestrator inner" x="197.98" y="43.24" width="23.52" height="9.52" rx="1.68"/><text class="legend" text-anchor="start" x="227.74" y="52">orchestrator</text>
+  <path class="edge" marker-end="url(#arrow)" d="M 520 122 L 520 129 Q 520 136 513 136 L 221 136 Q 214 136 214 143 L 214 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 520 122 L 520 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 520 122 L 520 129 Q 520 136 527 136 L 819 136 Q 826 136 826 143 L 826 150"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 214 198 L 214 205 Q 214 212 221 212 L 513 212 Q 520 212 520 219 L 520 226"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 520 198 L 520 226"/>
+  <path class="edge" marker-end="url(#arrow)" d="M 826 198 L 826 205 Q 826 212 819 212 L 527 212 Q 520 212 520 219 L 520 226"/>
+  <rect class="k-orchestrator" x="369" y="74" width="302" height="48" rx="10"/><rect class="k-orchestrator inner" x="373" y="78" width="294" height="40" rx="6"/><text class="label" x="520" y="94.5">Nova root</text><text class="sub" x="520" y="110">12 skills · 10 roles · shared evidence contracts</text>
+  <rect class="k-agent" x="76" y="150" width="276" height="48" rx="10"/><text class="label" x="214" y="170.5">Claude Code</text><text class="sub" x="214" y="186">Agents · Skills · Scripts · Opus 5</text>
+  <rect class="k-agent" x="382" y="150" width="276" height="48" rx="10"/><text class="label" x="520" y="170.5">Codex</text><text class="sub" x="520" y="186">Agents · Skills · Scripts · GPT-6 Astra</text>
+  <rect class="k-agent" x="688" y="150" width="276" height="48" rx="10"/><text class="label" x="826" y="170.5">Antigravity (agy)</text><text class="sub" x="826" y="186">Agents · Skills · Scripts · Gemini 3.8 Flash</text>
+  <path class="k-artifact" d="M 364 226 L 662 226 L 676 240 L 676 274 L 364 274 Z"/><path class="k-artifact crease" d="M 662 226 L 662 240 L 676 240"/><text class="label" x="520" y="246.5">Scripts, Tools, and everything else</text><text class="sub" x="520" y="262">shared runner, validators, and repository tooling</text>
+</svg>

@@ -1,6 +1,6 @@
 {
   "verdict": "advisory",
-  "summary": "Workcell's skills are strong on orchestration process (dispatch contracts, deterministic merge/render scripts, human gates, evals) but carry almost no code-design method: the only architecture vocabulary in the repo is two sentences in code-refactor, code-review has no architecture lens, and reviewer agents get four vague style flags. mattpocock/skills supplies exactly the missing layer — codebase-design is a portable, closed-glossary design method (depth-as-leverage, the deletion test, seam/adapter rules, testability rules, a 4-tier dependency classification) and improve-codebase-architecture is a report-first architecture-audit workflow whose shape (git-history scoping, sub-agent exploration, HTML candidate report for human triage, ADR-conflict policy) maps almost one-to-one onto patterns Workcell already has. Port the content — the glossary, principles, and workflow steps — into Workcell's existing skill shapes (references/ files, lenses, research/refactor survey steps) rather than importing the single-agent skills wholesale.",
+  "summary": "Nova's skills are strong on orchestration process (dispatch contracts, deterministic merge/render scripts, human gates, evals) but carry almost no code-design method: the only architecture vocabulary in the repo is two sentences in code-refactor, code-review has no architecture lens, and reviewer agents get four vague style flags. mattpocock/skills supplies exactly the missing layer — codebase-design is a portable, closed-glossary design method (depth-as-leverage, the deletion test, seam/adapter rules, testability rules, a 4-tier dependency classification) and improve-codebase-architecture is a report-first architecture-audit workflow whose shape (git-history scoping, sub-agent exploration, HTML candidate report for human triage, ADR-conflict policy) maps almost one-to-one onto patterns Nova already has. Port the content — the glossary, principles, and workflow steps — into Nova's existing skill shapes (references/ files, lenses, research/refactor survey steps) rather than importing the single-agent skills wholesale.",
   "recommendations": [
     {
       "priority": "high",
@@ -17,13 +17,13 @@
     {
       "priority": "medium",
       "title": "Adopt improve-codebase-architecture's report-first triage as the front half of code-refactor (or a research preset)",
-      "detail": "Before any refactor work, produce a candidate report for human triage: one card per deepening opportunity with Files/Problem/Solution/Benefits, a recommendation-strength badge (Strong / Worth exploring / Speculative), an explicit ADR-conflict callout policy (only surface a conflict when friction justifies reopening the ADR; offer to record an ADR when the human rejects a candidate), and a hard rule of not designing interfaces before the human picks. Render it with Workcell's existing Foundry Zero report tooling rather than the upstream Tailwind/Mermaid scaffold.",
+      "detail": "Before any refactor work, produce a candidate report for human triage: one card per deepening opportunity with Files/Problem/Solution/Benefits, a recommendation-strength badge (Strong / Worth exploring / Speculative), an explicit ADR-conflict callout policy (only surface a conflict when friction justifies reopening the ADR; offer to record an ADR when the human rejects a candidate), and a hard rule of not designing interfaces before the human picks. Render it with Nova's existing Foundry Zero report tooling rather than the upstream Tailwind/Mermaid scaffold.",
       "refs": ["F3-12", "F3-15", "F3-16", "F3-17", "F1-15"]
     },
     {
       "priority": "medium",
       "title": "Add Design-It-Twice to plan/new-feature for interface decisions",
-      "detail": "The DESIGN-IT-TWICE process — spawn 3+ parallel agents, each forced to design the interface a radically different way (minimal surface, max flexibility, optimise for the common caller, ports & adapters), compare on depth/locality/seam placement, end with one opinionated recommendation — is a natural fit for Workcell's existing fan-out orchestration and would slot into plan or new-feature at the point an interface is being chosen.",
+      "detail": "The DESIGN-IT-TWICE process — spawn 3+ parallel agents, each forced to design the interface a radically different way (minimal surface, max flexibility, optimise for the common caller, ports & adapters), compare on depth/locality/seam placement, end with one opinionated recommendation — is a natural fit for Nova's existing fan-out orchestration and would slot into plan or new-feature at the point an interface is being chosen.",
       "refs": ["F3-10", "F3-11", "F1-14"]
     },
     {
@@ -34,8 +34,8 @@
     },
     {
       "priority": "low",
-      "title": "Borrow small authoring conventions where Workcell lacks them",
-      "detail": "Worth copying: `disable-model-invocation: true` frontmatter on human-gated command skills; the project-memory convention of a domain-vocabulary file that skills read so seam names match domain language (Workcell's wiki/AGENTS.md could carry this); and the glossary-enforced, no-hedging report tone. Not worth copying: the upstream repo has no eval harness for its skills (Workcell's evals/cases is ahead) and its single-agent skill shape conflicts with ADR 0007's pure-orchestrator contract — port content, not process shape.",
+      "title": "Borrow small authoring conventions where Nova lacks them",
+      "detail": "Worth copying: `disable-model-invocation: true` frontmatter on human-gated command skills; the project-memory convention of a domain-vocabulary file that skills read so seam names match domain language (Nova's wiki/AGENTS.md could carry this); and the glossary-enforced, no-hedging report tone. Not worth copying: the upstream repo has no eval harness for its skills (Nova's evals/cases is ahead) and its single-agent skill shape conflicts with ADR 0007's pure-orchestrator contract — port content, not process shape.",
       "refs": ["F2-08", "F2-16", "F2-19", "F3-18", "F1-08"]
     }
   ]

@@ -1,3 +1,0 @@
-## Gates on Codex
-
-Workcell wires Codex `PreToolUse`, `PostToolUse`, and `Stop` hooks for `build-guard`, `build-hooks`, formatting, and linting. Codex runs plugin hooks only after the user trusts them with `/hooks`. In an untrusted or ad-hoc session, use the explicit commands as the fallback: `build-guard codex` before mutating commands, `tdd-guard seal` after RED, `tdd-guard verify` after GREEN (and again after each review-fix pass), and `tdd-guard diff-review record` before the PR. Run `tdd-guard status` before handing off; a hand-off whose status shows no GREEN evidence postdating the seal is incomplete.
