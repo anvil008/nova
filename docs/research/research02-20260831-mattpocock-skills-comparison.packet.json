@@ -122,7 +122,7 @@
           "finding": "the ADR corpus (21 ADRs) is entirely about agent/skill/harness architecture (orchestrator role, dispatch contracts, workspace naming, plugin distribution) \u2014 none is a design-quality or code-architecture standards doc for target-project code.",
           "evidence": "ls docs/adr: 0007-primary-agent-is-a-pure-orchestrator, 0009-skills-are-dispatch-contracts, 0012-builders-verify-runtime-before-review, 0017-the-build-wave-overlaps..., 0021-deploys-serve-plugins-from-a-durable-path (no ADR titled on code design/architecture standards)",
           "topic": "repo-standards-docs",
-          "position": "docs/adr/ documents Workcell's own meta-architecture (how agents/skills work), not design standards that reviewer/refactor agents apply to a target codebase's code",
+          "position": "docs/adr/ documents Nova's own meta-architecture (how agents/skills work), not design standards that reviewer/refactor agents apply to a target codebase's code",
           "stance": "supports"
         }
       ]

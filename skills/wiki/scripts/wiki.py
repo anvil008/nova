@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The persistent per-project knowledge store, and its only writer.
 
-One store lives outside every repository — `$WORKCELL_WIKI_HOME`, defaulting to
-`~/.workcell/wiki/` — with one namespace per project at `<root>/<project-key>/`. This
+One store lives outside every repository — `$NOVA_WIKI_HOME`, defaulting to
+`~/.nova/wiki/` — with one namespace per project at `<root>/<project-key>/`. This
 script is the only thing that writes into a namespace: an agent that edits a page with an
 editor tool bypasses the write-once, append-only, and identity rules enforced here.
 
@@ -175,7 +175,7 @@ def append_line(path: Path, line: str) -> None:
 
 
 def key_part(text: str) -> str:
-    """The character class `workcell-ws` enforces: `[a-z0-9][a-z0-9-]*`, no separator."""
+    """The character class `nova-ws` enforces: `[a-z0-9][a-z0-9-]*`, no separator."""
     reduced = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return reduced
 
@@ -188,7 +188,7 @@ def find_up(start: Path, name: str) -> Path | None:
 
 
 def resolve_toplevel(repo: Path) -> Path:
-    """The repository's *primary* toplevel, resolved exactly as `workcell-ws` does.
+    """The repository's *primary* toplevel, resolved exactly as `nova-ws` does.
 
     A secondary jj workspace carries a `.jj/repo` *file* holding the path of the
     primary's `.jj/repo`; a git worktree is named by the first `git worktree list
@@ -262,8 +262,8 @@ def origin_url(toplevel: Path) -> str | None:
 
 
 def normalize_remote(url: str) -> str:
-    """`git@github.com:anvil008/workcell.git` and `https://github.com/anvil008/workcell`
-    are one project, so both collapse to `github-com-anvil008-workcell`."""
+    """`git@github.com:anvil008/nova.git` and `https://github.com/anvil008/nova`
+    are one project, so both collapse to `github-com-anvil008-nova`."""
     text = SCHEME.sub("", url.strip())
     text = USERINFO.sub("", text)
     text = text.removesuffix(".git")
@@ -294,10 +294,10 @@ def derive_key(toplevel: Path) -> tuple[str, str, str]:
 
 
 def store_root() -> Path:
-    configured = os.environ.get("WORKCELL_WIKI_HOME", "").strip()
+    configured = os.environ.get("NOVA_WIKI_HOME", "").strip()
     if configured:
         return Path(configured).expanduser()
-    return Path.home() / ".workcell" / "wiki"
+    return Path.home() / ".nova" / "wiki"
 
 
 class Target:
@@ -333,7 +333,7 @@ def refuse_eval_mode(repo: Path, toplevel: Path) -> None:
     """A benchmark run neither records into nor reads from a persistent namespace. The
     marker is read from the repository `--repo` names, never from the store."""
     for candidate in dict.fromkeys((repo, toplevel)):
-        marker = candidate / ".workcell" / "eval-mode.json"
+        marker = candidate / ".nova" / "eval-mode.json"
         if marker.is_file():
             raise WikiError(
                 f"refusing: {candidate} is in eval mode ({marker}). A repository in "

@@ -1,55 +1,30 @@
 ---
 name: review
-description: "Orchestrate an entire multi-lens review of a PR, diff, change-set, or scoped codebase audit. Assign read-only reviewers, independently verify candidate defects, deduplicate findings, and produce a consolidated verdict and Markdown report. Include correctness, security, frontend, and test lenses as relevant. Selected fixes continue through build only when authorized."
+description: Review a diff, pull request, or scoped codebase for concrete defects, verify findings, and produce a Markdown review report.
 ---
+
+Read [shared development instructions](../../instructions/development.md) when applying this skill; reuse them if already loaded in this conversation.
+
 
 # Review
 
-Deliver an evidence-backed review of the requested change or code area. The report is the standalone outcome. Produce Markdown by default; render HTML only when explicitly requested.
+When independent delegation is useful and authorized, the optional reviewer helper can inspect a bounded candidate without modifying it. Pass the exact source/base, requirements, evidence, and relevant review criteria; do not dispatch its author as an independent reviewer. Scout may answer a separate discovery question. Native workers or direct review remain available if helper definitions are absent, but direct review must not be mislabeled independent. The main conversation consolidates findings and owns the report and any authorized repairs.
 
-The orchestrator owns scope, dispatch, user decisions, and the final verdict. Choose reviewers, lenses, and verification work from the actual risks and available runtime capacity. Assignments may cover several bounded lenses or areas; there is no prescribed team size, fan-out, or pass count. Specialists provide independent evidence and do not change the reviewed source.
+Work in the current conversation. Preserve the user's scope, decisions, and authorization. Delegate independent investigation only when useful and permitted; no prescribed team or role pipeline is required.
 
-## Scope and evidence
+1. Pin the reviewed source and comparison base. Identify scope, exclusions, public contracts, and relevant risks. Choose lenses such as correctness, security, tests, compatibility, performance, and frontend behavior from the actual change. An audit is not permission to repair the repository.
+2. Trace candidates through callers, data flow, configuration, and tests. Each finding needs a reachable failure scenario, precise source location, impact, severity, confidence, and evidence. Check counterexamples and existing mitigations. Distinguish demonstrated defects from preferences and unresolved questions. Exercise relevant UI interactions in an available browser; report missing runtime access honestly.
+3. Deduplicate by underlying cause and rank by impact and likelihood. Try to refute consequential findings before accepting them. Arrange independent review where required or warranted and authorized; do not describe your own second pass as independent. No mandatory refutation agent is needed for every candidate.
+4. Report actionable findings first, then coverage, verification commands/results, unresolved or refuted candidates, and a qualified verdict. No findings means none established within the inspected scope, not proof the repository is defect-free. Changes to reviewed source invalidate affected evidence.
+5. If review and repair are already authorized, implement selected in-scope corrections, run reproductions and relevant checks, and update resolved/open status. Otherwise leave product source unchanged. Issue creation, remote comments, publication, and merge require corresponding authorization.
+## Report and output format
 
-Pin the reviewed source commit and, for a diff, its comparison base. Record the requested scope, exclusions, selected lenses, commands, and coverage gaps in a run directory outside source workspaces. A codebase audit also follows [codebase-audit.md](references/codebase-audit.md); it does not silently become a fix campaign.
+Write Markdown by default. Generate HTML only when the user explicitly requests a visual or HTML report; do not ask a routine format question. Reuse a combined report where practical instead of generating one per consulted skill. Honor explicit artifact paths/formats and keep small in-conversation work proportional.
 
-Select relevant assurance lenses: correctness, tests, security, performance, api-contract, backend, integrations, and frontend. Match them to concrete risks rather than selecting a team by file count. For rendered UI, use the [frontend method](references/frontend-review.md) and a permitted development server; absent runtime access is a reported coverage gap.
+Default path: `docs/reports/review<NN>-<YYYYMMDD>-<title-slug>.md` in the target repository. Allocate the lowest unused positive number for this type across formats, padded to at least two digits. Use the creation date and a lowercase ASCII title slug, replacing non-alphanumeric runs with hyphens and limiting it to 60 characters at a word boundary. Retain the same basename and creation date when revising a confirmed matching artifact; never overwrite an unrelated report.
 
-Each reviewer returns the [reviewer contract](../../agents/bodies/reviewer.md). Save one `{lens, findings}` envelope per lens, even when a specialist covers several lenses. Every finding needs a reachable failure scenario, a source location, severity, and confidence. Distinguish demonstrated defects from design preferences and unknowns.
+Use a descriptive title as the Markdown H1. Include the task-specific outcomes above, source references/revisions, actual verification commands and results, remaining gaps, and delivery state. Do not fabricate evidence or label proposed work completed. Check headings, links, and factual claims. Return a concise outcome and the absolute artifact path.
 
-## Verify and consolidate
+For a requested visual report, read [assets/report.html](assets/report.html) relative to this skill, or an explicitly supplied template. Use the same basename with `.html`; reuse existing Markdown evidence, and keep any companion formats consistent. Preserve the Foundry Zero layout, numbered sections, sidebar, themes, and print styling. Replace placeholders, escape content, and keep CSS/diagrams inline with accessible labels. Verify desktop/mobile rendering in an available browser or disclose the visual-check gap. A missing HTML asset matters only when HTML is requested. Report creation does not authorize serving, publishing, or merging.
 
-Use [merge_findings.py](scripts/merge_findings.py) to deduplicate by `(file, line, claim)`. Equal candidates resolve by severity, confidence, and lexicographic `(lens, failureScenario)`, so collection order does not change the result.
-
-```bash
-python3 -B skills/review/scripts/merge_findings.py --dedupe-only correctness.json tests.json
-python3 -B skills/review/scripts/merge_findings.py --verification verification.json correctness.json tests.json > review.json
-```
-
-Before the second command, obtain an independent refutation attempt for every surviving candidate from a reviewer who did not originate it. Record `substantiated`, `refutationAttempt`, and `evidence`. Reviewers may verify a bounded batch; independence is about who established the claim, not a fixed number of agents. Missing, duplicate, or extra verification records fail validation. Refuted findings remain visible in `dropped`; they do not enter the actionable findings.
-
-The helper ranks verified findings and derives `block`, `approve-with-nits`, or `approve`. For a codebase audit, this is the severity summary for the covered scope, not a claim that the whole repository is defect-free. The orchestrator evaluates the evidence and states any unresolved uncertainty. A changed source or comparison base needs an updated review before claiming the old verdict applies.
-
-## Report and next action
-
-```bash
-python3 -B skills/review/scripts/render_review.py review.json review.md --repo owner/name --subject "Orders export" --base <reviewed-base> --lenses correctness,tests
-```
-
-The renderer defaults to Markdown and validates the same merged JSON for both formats. An explicit `.html` output path or `--format html` produces the optional self-contained HTML report. Keep the report's coverage and remaining uncertainties alongside verified and refuted findings. See the [rendering contract](references/report-rendering.md) for maintenance.
-
-Offer the shared [build](../build/SKILL.md) workflow for selected actionable findings. A review request alone authorizes a report, not implementation. When the user already authorized review and fix, continue through build for that scope without asking again; carry the findings, source identity, reproduction evidence, and existing decisions into its brief. The builder never writes or weakens its own acceptance oracle.
-
-Build may reuse [loop_state.py](scripts/loop_state.py) and its [progress record](references/fix-progress.md) while repairing findings. This is an internal helper, not a separate public workflow. The orchestrator chooses useful iterations, respects explicit user limits, and surfaces stalled or unresolved work; a repeated finding set is evidence to assess, not an automatic retry quota.
-
-## Optional issue tracking
-
-File or reconcile issues only when the user authorized those external writes. Review approval does not imply permission to create tracker entries; existing explicit authorization for the exact reviewed scope does not need to be requested again. First prepare a concrete preview:
-
-```bash
-python3 -B skills/review/scripts/reconcile_findings.py review.json --repo owner/name --review-id orders-export --subject "Orders export" --snapshot github-state.json
-```
-
-Omit `--snapshot` for a read-only live preview. Apply the exact authorized review with `--apply --approved-by <github-login>`; the login must match `gh api user`, and the output binds the approved review bytes. Never use `--apply` as a test.
-
-The durable `workcell-review` marker and `(file, claim)` identity preserve idempotency when lines move. `--min-severity` defaults to `medium`. A stricter threshold filters findings; it does not resolve them, so lower-severity open issues remain open. Existing `code-review`, `severity:<level>`, and `lens:<lens>` labels remain compatible with earlier tracking.
+For substantial interrupted work, update the existing task checkpoint with decisions, source/workspace state, evidence, active workers, and the next action. On resume, inspect current state before reusing that evidence; do not restart the workflow from its first step.

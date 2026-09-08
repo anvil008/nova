@@ -1,0 +1,18 @@
+{
+  "nova-post-edit": {
+    "description": "Optional scoped format/lint checks",
+    "enabled": false,
+    "PostToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/ABSOLUTE/PATH/post-edit.py\" --harness agy --config \"/ABSOLUTE/PATH/project.json\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

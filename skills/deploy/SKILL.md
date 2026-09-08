@@ -1,29 +1,32 @@
 ---
 name: deploy
-description: Ship a verified change safely — pre-flight checks, versioning, CI/CD, an approved deploy, post-deploy verification, and a rollback path. Human-gated; deployment is outward-facing and hard to reverse.
+description: Prepare and execute an authorized release to a named environment, verify the deployed version and health, and recover using the agreed rollback procedure.
 ---
+
+Read [shared development instructions](../../instructions/development.md) when applying this skill; reuse them if already loaded in this conversation.
+
 
 # Deploy
 
-Prepare and release the exact verified source to the named environment. The orchestrator owns scope, user decisions, dispatch, and final evaluation. Specialists perform source changes and verification; team size follows useful work and explicit user constraints. See [ADR 0029](../../docs/adr/0029-composable-workflows-and-native-research.md).
+Identify the environment, source candidate, version policy, release commands, credentials availability, and rollback mechanism. Reuse verified source and applicable authorization. Prepare needed in-scope version, release-note, or pipeline changes before presenting the concrete release for any missing approval. No mandatory specialist handoffs are required.
 
-## Human gate
+Bind release actions to the exact final candidate and target. Existing authorization applies according to its scope; do not ask again when it already covers the action. A green preflight does not grant publication or production-deployment permission. Never expose credentials in commands, logs, or reports.
 
-Deployment requires explicit authorization naming the target environment and exact final commit. Reuse applicable authorization already supplied for that target and commit; a different commit or target needs a new decision. A green preflight is evidence, not release permission. Production releases require an explicit go. Never echo secrets.
+Release notes describe delivered behavior and breaking changes. Follow Nova's title convention `<project> vX.Y.Z`; put a descriptive strapline in the changelog, and do not repeat the title as the notes' first heading. Use the project's actual tag, package, and deployment commands.
 
-## Source changes
+Before release, verify CI and artifacts against final source. Inspect migration sequencing, compatibility, rollout health criteria, observation window, and recovery steps. Do not assume application rollback reverses a destructive database migration. Resolve missing operational decisions before the affected action.
 
-Route authorized version changes, CI pipelines, build files, and source configuration through [build](../build/SKILL.md), carrying existing requirements and decisions. Package manifests and version constants are source configuration; a documenter does not edit them. Build establishes workspace isolation, independently protected tests, implementation, review, relevant documentation, and final combined verification. Do not dispatch an unprepared builder directly.
+Execute the authorized release and verify the running version plus meaningful health/user behavior throughout the agreed window. On failure, halt expansion and follow the authorized recovery procedure; identify any concrete recovery action needing additional authority. Report failed rollout and recovery honestly rather than claiming the intended deployment succeeded.
 
-## Procedure
+Record source/artifact identity, target, version, commands, observed health, recovery outcome, and actual release state. Keep later report-only changes distinct from the deployed candidate. Previous deployment authorization does not imply permission to release again.
+## Report and output format
 
-1. **Prepare the release source.** Inspect the requested target and source, version policy, existing CI/CD, and rollback mechanism. If a semver bump or pipeline change is required, use the shared build path above. Reuse the verified source otherwise. Relevant CHANGELOG and migration-guide changes are documenter assignments inside build and must be included before its final verification. A release-specific branch uses `release/<slug>` ([workspaces](../../docs/workspaces.md)).
-2. **Prepare release notes.** Dispatch documenters for prose artifacts only, using [`agents/handoff.md`](../../agents/handoff.md) and `anvil.agent-handoff/v1`. Notes contain a short summary of what the release delivers, the changelog entries for this version, and breaking-change or upgrade callouts. The release title is exactly `<project> vX.Y.Z`; the descriptive strapline belongs in the changelog heading. Notes do not repeat the title as their first heading. Verify CI against the exact combined source, including version and documentation changes; capture that immutable commit.
-3. **Authorize the concrete release.** Present the final source commit, target, version, notes, publishing actions, and rollback steps. Obtain any missing authorization before tagging, publishing a GitHub release or package, or deploying. Earlier approval of the base commit does not authorize a newly built commit automatically.
-4. **Preflight, publish, and deploy.** Dispatch deployers with the final commit, target, approval, checks, and verification window. Confirm preflight and rollback readiness before release. Tag the approved commit and publish its release with `gh release create vX.Y.Z --target <approved-commit> --title "<project> vX.Y.Z" --notes-file <notes>` when those actions are authorized. Package publishing belongs to this gated release. Use the project's actual commands and targets; never invent them.
-5. **Verify and recover.** Deployer checks the running release throughout the specified window and executes the rollback procedure on failure. Return command IDs, observed health, the deployed source, and any rollback result. Report a rollback as recovery rather than claiming the intended release succeeded.
-6. **Record the handover.** Documenters record release evidence and non-trivial decisions. Keep reports outside the tested source or deliver later repository documentation through its own validated docs change. Do not add an unverified source commit to the completed release.
+Write Markdown by default. Generate HTML only when the user explicitly requests a visual or HTML report; do not ask a routine format question. Reuse a combined report where practical instead of generating one per consulted skill. Honor explicit artifact paths/formats and keep small in-conversation work proportional.
 
-## Boundaries
+Default path: `docs/reports/deploy<NN>-<YYYYMMDD>-<title-slug>.md` in the target repository. Allocate the lowest unused positive number for this type across formats, padded to at least two digits. Use the creation date and a lowercase ASCII title slug, replacing non-alphanumeric runs with hyphens and limiting it to 60 characters at a word boundary. Retain the same basename and creation date when revising a confirmed matching artifact; never overwrite an unrelated report.
 
-The orchestrator judges command-linked evidence and preserves user authorization. Source changes use build; release prose uses documenters; deployers operate the named target. No source mutation, model summary, or stale green result can replace verification of the final release commit.
+Use a descriptive title as the Markdown H1. Include the task-specific outcomes above, source references/revisions, actual verification commands and results, remaining gaps, and delivery state. Do not fabricate evidence or label proposed work completed. Check headings, links, and factual claims. Return a concise outcome and the absolute artifact path.
+
+For a requested visual report, read [assets/report.html](assets/report.html) relative to this skill, or an explicitly supplied template. Use the same basename with `.html`; reuse existing Markdown evidence, and keep any companion formats consistent. Preserve the Foundry Zero layout, numbered sections, sidebar, themes, and print styling. Replace placeholders, escape content, and keep CSS/diagrams inline with accessible labels. Verify desktop/mobile rendering in an available browser or disclose the visual-check gap. A missing HTML asset matters only when HTML is requested. Report creation does not authorize serving, publishing, or merging.
+
+For substantial interrupted work, update the existing task checkpoint with decisions, source/workspace state, evidence, active workers, and the next action. On resume, inspect current state before reusing that evidence; do not restart the workflow from its first step.

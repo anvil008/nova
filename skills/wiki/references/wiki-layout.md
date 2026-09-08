@@ -14,7 +14,7 @@ thing keeping the layer trustworthy.
 
 ## Where the store lives
 
-`$WORKCELL_WIKI_HOME`, defaulting to `~/.workcell/wiki/`, with one namespace per project
+`$NOVA_WIKI_HOME`, defaulting to `~/.nova/wiki/`, with one namespace per project
 at `<root>/<project-key>/`. The store is outside every repository on purpose: a namespace
 outlives the branches, worktrees, and clones of the project it describes, and no working
 copy can carry it into a diff.
@@ -30,25 +30,25 @@ the mode the shipped demonstration and the tests use.
 
 ```json
 {
-  "projectKey": "github-com-anvil008-workcell",
+  "projectKey": "github-com-anvil008-nova",
   "source": "remote",
-  "derivedFrom": "git@github.com:anvil008/workcell.git"
+  "derivedFrom": "git@github.com:anvil008/nova.git"
 }
 ```
 
-1. **Resolve the primary toplevel** exactly as `scripts/workcell-ws` does: through the
+1. **Resolve the primary toplevel** exactly as `scripts/nova-ws` does: through the
    `.jj/repo` indirection for a secondary jj workspace, through the first
    `git worktree list --porcelain` entry for git. Every per-issue workspace `build`
    creates therefore answers with the key of the repository it came from, not its own.
 2. **With an `origin` remote**, the key is the normalized remote: scheme, user, and port
    stripped, a trailing `.git` stripped, lower-cased, and host and path segments joined
-   with dashes. `git@github.com:anvil008/workcell.git` and
-   `https://github.com/anvil008/workcell` are one project, so both collapse to
-   `github-com-anvil008-workcell`. `source` is `remote`.
+   with dashes. `git@github.com:anvil008/nova.git` and
+   `https://github.com/anvil008/nova` are one project, so both collapse to
+   `github-com-anvil008-nova`. `source` is `remote`.
 3. **With no remote**, the key is `<toplevel basename>-<first 8 hex of the sha256 of the
 resolved absolute toplevel>`, so two checkouts that merely share a directory name stay
    apart. `source` is `path`.
-4. Either way the key is reduced to the character class `workcell-ws` already enforces
+4. Either way the key is reduced to the character class `nova-ws` already enforces
    for a key part — `[a-z0-9][a-z0-9-]*`, every other character written as a dash and
    runs collapsed. A wiki key and a workspace key obey one spelling rule, and neither can
    carry a path separator.
@@ -64,7 +64,7 @@ identities the store should now believe. Renaming or retiring a namespace is a h
 like entering eval mode: a person edits `project.json`, or moves the namespace aside and
 runs `init` again.
 
-**Eval mode is refused.** A repository carrying `.workcell/eval-mode.json` neither
+**Eval mode is refused.** A repository carrying `.nova/eval-mode.json` neither
 records into nor reads from a persistent namespace, so _every_ `--repo` subcommand
 refuses it — reading included, not only the writes. The marker is read from the
 repository `--repo` names, never from the store. That is what keeps a benchmark run from
@@ -73,7 +73,7 @@ contaminating — or being contaminated by — a real project's history.
 ## The namespace
 
 ```
-~/.workcell/wiki/<project-key>/
+~/.nova/wiki/<project-key>/
 ├── project.json      the identity record
 ├── raw/<id>/         one immutable bundle per recorded run — write-once
 ├── patterns/<slug>.md one failure mode or strategy per page — append-only
@@ -90,9 +90,9 @@ rollback.
 
 ```json
 {
-  "projectKey": "github-com-anvil008-workcell",
+  "projectKey": "github-com-anvil008-nova",
   "source": "remote",
-  "derivedFrom": "git@github.com:anvil008/workcell.git",
+  "derivedFrom": "git@github.com:anvil008/nova.git",
   "createdAt": "2026-08-31T09:14:02Z"
 }
 ```

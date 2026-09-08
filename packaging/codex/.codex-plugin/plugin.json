@@ -1,0 +1,23 @@
+{
+  "name": "nova",
+  "description": "Shared software development skills with optional task helpers.",
+  "author": {
+    "name": "Foundry Zero"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Nova",
+    "shortDescription": "Skills for software development",
+    "longDescription": "Specify, plan, build, debug, refactor, review, and document software with shared development conventions.",
+    "developerName": "Foundry Zero",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Planning",
+      "Coding",
+      "Review"
+    ],
+    "defaultPrompt": [
+      "Use Nova to implement this change."
+    ]
+  }
+}

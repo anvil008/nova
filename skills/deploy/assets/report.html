@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}} · Nova Deploy Report</title><style>/* Foundry Zero report design system.
+   Shared core for the planner folio, the review report, and the research packet.
+   This file is byte-identical in skills/plan, skills/review, and skills/plan/research;
+   a test asserts that. Skill-specific rules live alongside it. */
+
+:root, [data-theme="dark"] {
+  --bg: oklch(0.19 0.012 250);
+  --bg-2: oklch(0.225 0.014 250);
+  --bg-3: oklch(0.265 0.016 250);
+  --bg-4: oklch(0.305 0.018 250);
+  --line: oklch(0.325 0.018 250);
+  --line-2: oklch(0.415 0.020 250);
+  --txt: oklch(0.945 0.006 250);
+  --txt-2: oklch(0.735 0.014 250);
+  --txt-3: oklch(0.590 0.016 250);
+  --acc: oklch(0.700 0.145 255);
+  --acc-bg: oklch(0.265 0.045 255);
+  --sev-critical: oklch(0.680 0.180 22);
+  --sev-critical-bg: oklch(0.290 0.070 22);
+  --sev-high: oklch(0.775 0.145 62);
+  --sev-high-bg: oklch(0.295 0.060 62);
+  --sev-medium: oklch(0.820 0.130 95);
+  --sev-medium-bg: oklch(0.300 0.055 95);
+  --sev-low: oklch(0.740 0.090 230);
+  --sev-low-bg: oklch(0.280 0.045 230);
+  --sev-nit: oklch(0.700 0.030 250);
+  --sev-nit-bg: oklch(0.280 0.014 250);
+  --ok: oklch(0.780 0.130 155);
+  --ok-bg: oklch(0.275 0.055 155);
+  --mut: var(--txt-3); /* alias the generated diagrams paint neutral nodes with */
+  --gap: 46px;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: oklch(0.980 0.004 250);
+  --bg-2: oklch(1 0 0);
+  --bg-3: oklch(0.962 0.006 250);
+  --bg-4: oklch(0.935 0.008 250);
+  --line: oklch(0.900 0.008 250);
+  --line-2: oklch(0.820 0.012 250);
+  --txt: oklch(0.245 0.014 250);
+  --txt-2: oklch(0.455 0.016 250);
+  --txt-3: oklch(0.585 0.016 250);
+  --acc: oklch(0.520 0.170 258);
+  --acc-bg: oklch(0.955 0.022 258);
+  --sev-critical: oklch(0.505 0.190 22);
+  --sev-critical-bg: oklch(0.940 0.045 22);
+  --sev-high: oklch(0.560 0.140 55);
+  --sev-high-bg: oklch(0.945 0.050 62);
+  --sev-medium: oklch(0.560 0.115 90);
+  --sev-medium-bg: oklch(0.950 0.055 95);
+  --sev-low: oklch(0.520 0.110 230);
+  --sev-low-bg: oklch(0.945 0.035 230);
+  --sev-nit: oklch(0.520 0.020 250);
+  --sev-nit-bg: oklch(0.945 0.006 250);
+  --ok: oklch(0.470 0.115 155);
+  --ok-bg: oklch(0.938 0.050 155);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+}
+
+a { color: var(--acc); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 4px; }
+::selection { background: var(--acc-bg); }
+
+.mono, .kbd, code, pre {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* ── Chrome: toolbar ───────────────────────────────────────────── */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 8px 22px;
+  flex-wrap: wrap;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.bar-mark {
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--acc); color: var(--bg);
+  display: grid; place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; font-weight: 700;
+}
+.bar-name { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.01em; }
+.bar-spacer { flex: 1; }
+.chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 5px;
+  background: var(--acc-bg); color: var(--acc); border: 1px solid var(--line);
+}
+.bar button {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; padding: 5px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg-3); color: var(--txt-2);
+  cursor: pointer;
+}
+.bar button:hover { border-color: var(--line-2); color: var(--txt); }
+.bar-note {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+
+/* ── Chrome: shell and contents rail ───────────────────────────── */
+
+.shell {
+  display: grid;
+  grid-template-columns: 246px minmax(0, 1fr);
+  align-items: start;
+  max-width: 1420px;
+  margin: 0 auto;
+}
+
+.rail {
+  position: sticky;
+  top: 56px;
+  align-self: start;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 28px 18px 60px 22px;
+  border-right: 1px solid var(--line);
+}
+.rail-title, .eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--txt-3);
+}
+.rail-title { margin-bottom: 12px; }
+.rail nav { display: flex; flex-direction: column; gap: 1px; }
+.rail nav a {
+  display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: baseline;
+  padding: 5px 8px; border-radius: 6px; font-size: 13px;
+  color: var(--txt-2); border-left: 2px solid transparent;
+}
+.rail nav a:hover { background: var(--bg-3); text-decoration: none; color: var(--txt); }
+.rail nav a .num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; color: var(--txt-3);
+}
+.rail-foot {
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; line-height: 1.8; color: var(--txt-3);
+  overflow-wrap: anywhere;
+}
+
+main { padding: 34px 44px 120px; max-width: 1010px; min-width: 0; }
+
+/* ── Sections ──────────────────────────────────────────────────── */
+
+.section { margin-bottom: var(--gap); scroll-margin-top: 68px; }
+.section-head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.section-head .num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.section-head h2 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; flex: 1; }
+.section-head .count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+h3 { font-size: 13.5px; font-weight: 600; margin: 22px 0 10px; letter-spacing: -0.005em; }
+p { margin: 0 0 14px; max-width: 76ch; }
+.lede { font-size: 16.5px; color: var(--txt-2); max-width: 68ch; }
+.muted { color: var(--txt-3); }
+
+/* ── Header block ──────────────────────────────────────────────── */
+
+.doc-eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 10px;
+}
+h1 { margin: 0 0 10px; font-size: 33px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.18; }
+
+.verdict-row { display: flex; gap: 12px; align-items: stretch; margin: 20px 0; flex-wrap: wrap; }
+.verdict {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 17px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg-2);
+  flex: 1; min-width: 320px;
+}
+.verdict-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--txt-3); }
+.verdict-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt-3);
+}
+.verdict-value { font-weight: 600; font-size: 15px; }
+
+.meter { display: flex; gap: 3px; }
+.meter i { width: 15px; height: 5px; border-radius: 3px; background: var(--bg-4); }
+.meter i.on { background: var(--acc); }
+
+.meta-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.meta-grid > div { background: var(--bg-2); padding: 11px 14px; min-width: 0; }
+.meta-grid dt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 3px;
+}
+.meta-grid dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px; color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Metrics ───────────────────────────────────────────────────── */
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.metric { padding: 13px 15px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); }
+.metric .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--txt-3);
+}
+.metric .v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+.metric .v span { font-size: 12.5px; font-weight: 400; color: var(--txt-3); margin-left: 4px; }
+.metric .d {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--txt-3);
+}
+.metric.tone-critical .v { color: var(--sev-critical); }
+.metric.tone-high .v { color: var(--sev-high); }
+.metric.tone-ok .v { color: var(--ok); }
+
+/* ── Cards, chips, callouts ────────────────────────────────────── */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.card { padding: 14px 16px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); min-width: 0; }
+.card h3 { margin: 0 0 5px; font-size: 14.5px; }
+.card p { margin: 0; color: var(--txt-2); font-size: 13.5px; }
+
+.tag {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; padding: 1px 6px; border-radius: 4px;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--txt-3);
+}
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.callout {
+  display: grid; grid-template-columns: 18px 1fr; gap: 10px;
+  padding: 11px 14px; border-radius: 9px; margin: 14px 0;
+  border: 1px solid var(--line); background: var(--bg-2); font-size: 13.5px;
+}
+.callout .mark { font-weight: 700; }
+.callout p { margin: 0; }
+.callout.warn { background: var(--sev-high-bg); }
+.callout.warn .mark { color: var(--sev-high); }
+.callout.note { background: var(--acc-bg); }
+.callout.note .mark { color: var(--acc); }
+.callout.blocker { background: var(--sev-critical-bg); }
+.callout.blocker .mark { color: var(--sev-critical); }
+
+.spec {
+  display: grid; grid-template-columns: 16px 1fr; gap: 10px;
+  margin: 0 0 16px; padding: 9px 12px;
+  background: var(--acc-bg); border: 1px dashed var(--line-2); border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; line-height: 1.7; color: var(--txt-2);
+}
+.spec .mark { color: var(--acc); font-weight: 700; }
+.spec b { color: var(--txt); }
+[data-hints="off"] .spec { display: none; }
+
+/* ── Severity ──────────────────────────────────────────────────── */
+
+.sev {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+}
+.sev-critical { background: var(--sev-critical-bg); color: var(--sev-critical); }
+.sev-high     { background: var(--sev-high-bg);     color: var(--sev-high); }
+.sev-medium   { background: var(--sev-medium-bg);   color: var(--sev-medium); }
+.sev-low      { background: var(--sev-low-bg);      color: var(--sev-low); }
+.sev-nit      { background: var(--sev-nit-bg);      color: var(--sev-nit); }
+
+.bar-critical { background: var(--sev-critical); }
+.bar-high     { background: var(--sev-high); }
+.bar-medium   { background: var(--sev-medium); }
+.bar-low      { background: var(--sev-low); }
+.bar-nit      { background: var(--sev-nit); }
+
+/* ── Tables ────────────────────────────────────────────────────── */
+
+.table-shell { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); font-weight: 500; background: var(--bg-3);
+}
+td { font-size: 13.5px; }
+td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+/* ── Diagrams ──────────────────────────────────────────────────── */
+
+.diagram-shell {
+  overflow-x: auto; border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; background: var(--bg-2);
+}
+/* Generated at build time at its natural size; the shell scrolls rather than
+   shrinking the labels, and print falls back to fitting the page. */
+.diagram-shell > svg.diagram { display: block; margin: 0 auto; }
+.diagram-text { margin-top: 10px; color: var(--txt-3); font-size: 12px; }
+.diagram-text summary { cursor: pointer; }
+.diagram-text ul { margin: 8px 0 0; padding-left: 20px; }
+.diagram-text li { margin: 3px 0; overflow-wrap: anywhere; }
+
+/* ── Disclosure rows ───────────────────────────────────────────── */
+
+.rows { display: flex; flex-direction: column; gap: 9px; }
+.row {
+  border-radius: 10px; background: var(--bg-2);
+  border: 1px solid var(--line); overflow: hidden;
+}
+.row > summary {
+  display: grid; grid-template-columns: 4px 1fr auto;
+  align-items: stretch; cursor: pointer; list-style: none;
+}
+.row > summary::-webkit-details-marker { display: none; }
+.row > summary:hover { background: var(--bg-3); }
+.row .stripe { grid-row: 1; }
+.row .row-body { padding: 13px 16px; min-width: 0; }
+.row .row-title { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 5px; }
+.row .row-title strong { font-weight: 600; font-size: 15px; }
+.row .row-meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: var(--txt-3);
+}
+.row .caret {
+  display: grid; place-items: center; padding: 0 16px; color: var(--txt-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+}
+.row[open] .caret { transform: rotate(180deg); }
+.row-detail { padding: 4px 16px 16px 20px; border-top: 1px solid var(--line); }
+
+.block { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); margin-top: 12px; }
+.block .k {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 5px;
+}
+.block p { margin: 0; font-size: 13.8px; max-width: 74ch; }
+/* Neutral on purpose: severity is carried by the stripe and badge, so tinting
+   the impact block by severity would double-encode it — and mis-encode it on a
+   low finding. */
+.block.impact { background: var(--bg-3); }
+.block.impact .k { color: var(--txt-2); }
+.block.proof { background: var(--ok-bg); }
+.block.proof .k { color: var(--ok); }
+
+/* ── Motion, print, narrow viewports ───────────────────────────── */
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.pulse { animation: pulse 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail {
+    position: static; max-height: none; border-right: 0;
+    border-bottom: 1px solid var(--line); padding: 20px 22px;
+  }
+  .rail nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  main { padding: 26px 22px 90px; }
+  h1 { font-size: 27px; }
+}
+
+@media (max-width: 560px) {
+  .bar { padding: 8px 14px; gap: 9px; }
+  main { padding: 22px 14px 70px; }
+  .rail { padding: 16px 14px; }
+  h1 { font-size: 23px; }
+  .verdict { min-width: 0; }
+}
+
+@media print {
+  .bar, .rail, .spec, .no-print { display: none !important; }
+  .shell { display: block; max-width: none; }
+  main { padding: 0; max-width: none; }
+  body { background: #fff; color: #111; font-size: 10.5pt; }
+  .section { break-inside: auto; margin-bottom: 22px; }
+  .section-head, .card, .metric, .row, .block, .verdict { break-inside: avoid; }
+  .row > summary { cursor: default; }
+  .row-detail { display: block !important; border-top: 1px solid #ddd; }
+  .diagram-shell, .table-shell { overflow: visible; }
+  .diagram-shell > svg.diagram { max-width: 100%; height: auto; }
+  a { color: inherit; text-decoration: none; }
+}
+
+/* Shared skill report components. */
+body{overflow-wrap:anywhere} .panel,.summary{padding:20px;border:1px solid var(--line);background:var(--bg-2);border-radius:8px;margin:18px 0}.meta,footer{color:var(--txt-2);font-size:13px}.status{display:inline-block;padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:var(--acc-bg);color:var(--acc)}header{margin-bottom:30px}h1{line-height:1.15}.columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.columns>*{min-width:0}pre{overflow:auto;padding:16px;background:var(--bg-3);border:1px solid var(--line);border-radius:6px}code{overflow-wrap:anywhere}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid var(--line)}th{background:var(--bg-3)}footer{border-top:1px solid var(--line);padding-top:16px;margin-top:32px}.notice{padding:10px 14px;border-left:3px solid var(--acc);color:var(--txt-2)}@media(max-width:640px){.columns{grid-template-columns:1fr}}@media print{.panel,.summary,pre,th{background:white;color:#111}.meta,footer,.status{color:#333}.notice{display:none}}
+</style><meta name="color-scheme" content="dark light"><script>document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';</script></head>
+<body><div class="bar"><span class="bar-name"><span class="bar-mark">WC</span>Nova</span><span class="chip">Deploy Report</span><span class="bar-spacer"></span><button type="button" id="theme-toggle" aria-label="Toggle colour theme" hidden>Theme</button></div>
+<div class="shell"><aside class="rail"><div class="rail-title">Contents</div><nav><a href="#section-01"><span class="num">01</span><span>Candidate and target</span></a><a href="#section-02"><span class="num">02</span><span>Release preparation</span></a><a href="#section-03"><span class="num">03</span><span>Rollout evidence</span></a><a href="#section-04"><span class="num">04</span><span>Health and recovery</span></a><a href="#section-05"><span class="num">05</span><span>Delivery state</span></a></nav><div class="rail-foot">{{REPORT_ID}}<br>{{DATE}}</div></aside><main>
+<p class="notice">Report template — replace placeholders with observed evidence.</p>
+<header><div class="eyebrow">Nova / deploy</div><h1>{{TITLE}}</h1><p class="meta">Project: {{PROJECT}}</p><span class="status">{{ACTUAL_STATUS}}</span><p>{{OUTCOME}}</p><p class="meta">{{DATE}} · {{SCOPE}} · {{SOURCE_REVISION}}</p></header>
+<section class="section" id="section-01"><div class="section-head"><span class="num">01</span><h2>Candidate and target</h2></div><div class="panel"><p>{{SECTION_1_EVIDENCE}}</p></div></section>
+<section class="section" id="section-02"><div class="section-head"><span class="num">02</span><h2>Release preparation</h2></div><div class="panel"><p>{{SECTION_2_EVIDENCE}}</p></div></section>
+<section class="section" id="section-03"><div class="section-head"><span class="num">03</span><h2>Rollout evidence</h2></div><div class="panel"><p>{{SECTION_3_EVIDENCE}}</p></div></section>
+<section class="section" id="section-04"><div class="section-head"><span class="num">04</span><h2>Health and recovery</h2></div><div class="panel"><p>{{SECTION_4_EVIDENCE}}</p></div></section>
+<section class="section" id="section-05"><div class="section-head"><span class="num">05</span><h2>Delivery state</h2></div><div class="panel"><p>{{SECTION_5_EVIDENCE}}</p></div></section>
+<footer>{{DELIVERY_STATE_AND_EVIDENCE_LINKS}}</footer></main></div><script>const toggle=document.getElementById('theme-toggle');toggle.hidden=false;toggle.addEventListener('click',()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';});</script></body></html>

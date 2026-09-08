@@ -1,0 +1,300 @@
+{
+  "title": "How work moves through Nova",
+  "description": "The orchestrator reuses existing plans or delegates one plan or multiple ideas to planner agents with internal research. Authorized work enters shared build with optional GitHub tracking, RED or baseline verification, builders and independent reviewers. Relevant documentation enters the combined source before final integrator verification; optimization is remeasured. Fresh evidence gates final acceptance and authorized delivery. Team sizes are chosen by the orchestrator.",
+  "direction": "TB",
+  "width": 1040,
+  "nodes": [
+    {
+      "id": "goal",
+      "kind": "artifact",
+      "label": "Goal or existing evidence",
+      "sub": "request · selected plan · review or profile findings"
+    },
+    {
+      "id": "route",
+      "kind": "orchestrator",
+      "label": "orchestrator frames the work",
+      "sub": "reuse scope, decisions, source, and authorization"
+    },
+    {
+      "id": "choice",
+      "kind": "human",
+      "label": "one plan or multiple ideas?",
+      "sub": "ask only when a new plan choice is missing"
+    },
+    {
+      "id": "planner",
+      "kind": "agent",
+      "label": "planners × N",
+      "sub": "distinct approaches · orchestrator chooses the team"
+    },
+    {
+      "id": "research",
+      "kind": "agent",
+      "label": "researchers × N when useful",
+      "sub": "planner-owned questions · native or proxy dispatch"
+    },
+    {
+      "id": "plan",
+      "kind": "artifact",
+      "label": "planner-authored plan",
+      "sub": "Markdown default · requested HTML companion"
+    },
+    {
+      "id": "approval",
+      "kind": "orchestrator",
+      "label": "compare and review the plan",
+      "sub": "accept · revise · resolve material user decisions"
+    },
+    {
+      "id": "transition",
+      "kind": "human",
+      "label": "continue to build?",
+      "sub": "ask for standalone plans; reuse existing authorization"
+    },
+    {
+      "id": "issues",
+      "kind": "artifact",
+      "label": "executable tasks",
+      "sub": "local task keys · optional approved GitHub issues"
+    },
+    {
+      "id": "verification",
+      "kind": "orchestrator",
+      "label": "choose verification per task",
+      "sub": "schedule independent work; preserve dependencies"
+    },
+    {
+      "id": "testauthor",
+      "kind": "agent",
+      "label": "specifiers × N",
+      "sub": "feature or fix: real RED and sealed acceptance tests"
+    },
+    {
+      "id": "baseline",
+      "kind": "agent",
+      "label": "integrators × N: baseline",
+      "sub": "preserve behavior: GREEN on protected existing tests"
+    },
+    {
+      "id": "builder",
+      "kind": "agent",
+      "label": "builders × N",
+      "sub": "separate ownership · implement against protected tests"
+    },
+    {
+      "id": "reviewer",
+      "kind": "agent",
+      "label": "reviewers × N",
+      "sub": "independent findings · orchestrator directs repairs"
+    },
+    {
+      "id": "pr",
+      "kind": "artifact",
+      "label": "accepted task handoffs",
+      "sub": "immutable commits · source-bound evidence"
+    },
+    {
+      "id": "combine",
+      "kind": "orchestrator",
+      "label": "coordinate combined source",
+      "sub": "preserve accepted commits and their provenance"
+    },
+    {
+      "id": "docs",
+      "kind": "agent",
+      "label": "documenter",
+      "sub": "relevant documentation before final verification"
+    },
+    {
+      "id": "integrator",
+      "kind": "agent",
+      "label": "integrators × N: final verification",
+      "sub": "exact combined source · tests, docs, and runtime"
+    },
+    {
+      "id": "measurement",
+      "kind": "agent",
+      "label": "profilers × N when optimizing",
+      "sub": "repeat a comparable benchmark after the change"
+    },
+    {
+      "id": "gate",
+      "kind": "gate",
+      "label": "prepared receipt",
+      "sub": "fresh source gates · final checks · current commit"
+    },
+    {
+      "id": "merge",
+      "kind": "orchestrator",
+      "label": "orchestrator accepts",
+      "sub": "durable completion · final PR · authorized merge"
+    },
+    {
+      "id": "deploy",
+      "kind": "agent",
+      "label": "deployer when requested",
+      "sub": "approved target and commit · verification and rollback"
+    }
+  ],
+  "edges": [
+    {
+      "from": "goal",
+      "to": "route"
+    },
+    {
+      "from": "route",
+      "to": "choice",
+      "label": "planning detail is missing"
+    },
+    {
+      "from": "route",
+      "to": "issues",
+      "label": "reuse an executable plan"
+    },
+    {
+      "from": "choice",
+      "to": "planner"
+    },
+    {
+      "from": "planner",
+      "to": "research",
+      "label": "internal evidence stage"
+    },
+    {
+      "from": "research",
+      "to": "plan"
+    },
+    {
+      "from": "plan",
+      "to": "approval"
+    },
+    {
+      "from": "approval",
+      "to": "transition"
+    },
+    {
+      "from": "transition",
+      "to": "issues",
+      "label": "implementation is authorized"
+    },
+    {
+      "from": "issues",
+      "to": "verification"
+    },
+    {
+      "from": "verification",
+      "to": "testauthor",
+      "label": "feature or fix"
+    },
+    {
+      "from": "verification",
+      "to": "baseline",
+      "label": "behavior-preserving"
+    },
+    {
+      "from": "testauthor",
+      "to": "builder",
+      "label": "RED seal"
+    },
+    {
+      "from": "baseline",
+      "to": "builder",
+      "label": "baseline seal"
+    },
+    {
+      "from": "builder",
+      "to": "reviewer"
+    },
+    {
+      "from": "reviewer",
+      "to": "pr",
+      "label": "blocking findings resolved"
+    },
+    {
+      "from": "pr",
+      "to": "combine"
+    },
+    {
+      "from": "combine",
+      "to": "docs"
+    },
+    {
+      "from": "docs",
+      "to": "integrator"
+    },
+    {
+      "from": "integrator",
+      "to": "measurement",
+      "label": "performance changes"
+    },
+    {
+      "from": "integrator",
+      "to": "gate",
+      "label": "other changes"
+    },
+    {
+      "from": "measurement",
+      "to": "gate"
+    },
+    {
+      "from": "gate",
+      "to": "merge",
+      "label": "verified"
+    },
+    {
+      "from": "merge",
+      "to": "deploy",
+      "label": "deployment is authorized"
+    },
+    {
+      "from": "reviewer",
+      "to": "builder",
+      "label": "actionable repair",
+      "dashed": true,
+      "side": "right"
+    },
+    {
+      "from": "gate",
+      "to": "builder",
+      "label": "missing or stale evidence",
+      "dashed": true,
+      "side": "right"
+    },
+    {
+      "from": "approval",
+      "to": "planner",
+      "label": "specific plan revisions",
+      "dashed": true,
+      "side": "left"
+    }
+  ],
+  "groups": [
+    {
+      "kind": "orchestrator",
+      "label": "Team sizes follow useful work and runtime capacity; existing decisions and evidence are retained",
+      "nodes": [
+        "choice",
+        "planner",
+        "research",
+        "plan",
+        "approval",
+        "transition",
+        "issues",
+        "verification",
+        "testauthor",
+        "baseline",
+        "builder",
+        "reviewer",
+        "pr",
+        "combine",
+        "docs",
+        "integrator",
+        "measurement",
+        "gate",
+        "merge",
+        "deploy"
+      ]
+    }
+  ]
+}

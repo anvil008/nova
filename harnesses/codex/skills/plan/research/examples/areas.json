@@ -1,7 +1,0 @@
-{
-  "areas": [
-    {"area": "code", "scope": "Implementation and configuration", "sources": ["repository"]},
-    {"area": "docs", "scope": "Documented behavior and compatibility", "sources": ["local documentation"]},
-    {"area": "runtime", "scope": "Observed local execution behavior", "sources": ["local fixture trace"]}
-  ]
-}
