@@ -106,7 +106,7 @@ def main():
         actions = {h: marketplace(h, bundle / h, options.replace_marketplace)
                    for h in selected if h != 'agy'}
         receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
-        tool_copies = owned_updates([ROOT / 'tools/nova-flow'], options.bin_dir.expanduser().absolute(), receipt.get('tools', {}))
+        tool_copies = owned_updates([ROOT / 'tools/nova-flow', ROOT / 'tools/nova-flow.html', ROOT / 'tools/nova-flow-demo.json'], options.bin_dir.expanduser().absolute(), receipt.get('tools', {}))
         helpers = []
         # Preflight helper files using the canonical sources before publishing the bundle.
         if options.with_codex_helpers:

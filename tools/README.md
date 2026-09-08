@@ -99,17 +99,17 @@ The archive stores the run and its references, not copies of linked reports or s
 
 ## Interactive terminal
 
-Run `nova-flow` (or `nova-flow view`) from the project root to open the live terminal UI. It polls `.nova/run.json` every two seconds. When no active run exists, the terminal initially opens the latest archive and labels it ARCHIVE. Use [ / ] to switch back to the active slot or browse other archives. Use `view --archive RUN_ID` to open a completed run directly. In a source checkout, use `./tools/nova-flow` until installed.
+Run `nova-flow` (or `nova-flow view`) from a project to open its repository task tree. It reads the shared `.nova/runs/` store every two seconds. Use `--run ID` to select an active run or `view --archive RUN_ID` for an archive. `nova-flow --demo` shows sample tasks without changing run records.
 
-The terminal shows a compact branching task graph, right-aligned model/effort, input/output token, and status columns, and a bordered detail panel below. Green marks completion, cyan working tasks, amber blocks, and red failures. A diamond marks reported (◇) or verified (◆) completion evidence. For an ordinary task, the first dependency in the same milestone supplies the compact tree connector; all dependencies remain explicit. A declared gate has its own join row. Use arrow keys to select tasks, **Tab** to switch between task evidence, agents, and events, **Page Up / Page Down** to scroll the panel, **[ / ]** to browse active and archived runs, **r** to refresh, and **q** to quit. Terminal graph rows show only the model on the right; effort and token totals stay in the details panel. Cyan-to-mint-to-violet branch colors use the terminal’s 256-color palette, with a basic-color fallback; status symbols retain their meaning. A dash means unknown, and an asterisk means a partial total across reported usage records. Agent activity is explicitly reported, not process monitoring.
+Task parents determine indentation; dependencies appear inline with current state symbols. Retry attempts nest beneath their task. Agent/model and state are aligned on the right. Aggregate token usage and configured model costs appear above the graph; task details sit below it.
 
-The UI uses Python's standard `curses` module and restores terminal settings on exit. `view --plain` prints a snapshot; `view --plain --watch` repeats it. Redirected output and `--json` stay noninteractive.
+Use arrow keys to select tasks, **d** to open/close details (arrows scroll while open), **h** to hide completed/canceled rows, **[ / ]** to switch runs, and **q** to quit. Selection survives refreshes. The UI restores terminal settings on exit. `view --plain` prints a snapshot and `view --json` prints validated data.
 
 ## Live viewer
 
-`nova-flow serve` starts a read-only browser view on `http://127.0.0.1:8910`. The console-style view shows a top-down task graph with colored milestone lanes, dependency splits and joins, attempt evidence, an event log, and the parent/subagent roster. Rows follow dependency order; vertical proximity alone does not mean dependency. Select a task by clicking its row or pressing j/k or the arrow keys. It polls every two seconds. Use the run selector for archived snapshots, or `/?run=RUN_ID` for a direct archive link.
+Terminal launches start or reuse the repository's persistent browser server and `nova-flow web` prints its URL. The page uses the same compact hierarchy, inline prerequisites, nested attempts, and bottom details panel. Select rows to inspect evidence; use the run selector or `/?run=demo` for sample data. A fixed HTML/CSS/JavaScript file fetches JSON every two seconds; no model is called to render updates.
 
-To explicitly expose it on a LAN interface, use `serve --host <LAN-IP> --port 8910`. It serves only the viewer and validated run data, not arbitrary local files. There is no authentication; choose a bind address appropriate for who may read task titles and evidence. No external assets, analytics, or remote scripts are loaded. Ctrl-C stops the server.
+For a foreground server, use `nova-flow serve --host <LAN-IP> --port 8910`. It serves only the viewer and validated run data, with no external assets or authentication. Ctrl-C stops a foreground server; closing the terminal viewer does not stop the managed browser server.
 
 ## Format and correctness
 
@@ -129,16 +129,16 @@ The bundled Codex plugin hooks register agent sessions and collect available mod
 
 Graph rows use stable display IDs such as `T1.a1` and `T1.a2`; CLI mutations still use task ID `T1`. Each attempt shows its own model, usage, elapsed duration, and outcome. Retried failures stay visible. Explicit gate rows (`⋈`) list inputs and their current blockers. Legacy tasks without a kind retain the old multi-input join display. Selecting a browser row highlights its visible incoming/outgoing edges. Folded or filtered inputs remain named in task details.
 
-In the terminal, search is removed; `h` toggles hiding settled tasks and `d` opens diagnostics. Task/attempt selection is retained by ID across refreshes. Search matches task IDs/titles, milestone IDs, worker IDs, and recorded usage models. Folding keeps unfinished, blocked, and failed tasks visible; the footer counts settled tasks. Browser search and the fold checkbox provide the equivalent controls. `Tab` also cycles the terminal diagnostics panel.
+The terminal retains task selection across refreshes. `h` hides done/canceled work; `d` opens task details. Use `nova-flow doctor` for store and session diagnostics.
 
 Elapsed duration freezes at an attempt's end. Last task progress measures semantic task events; report age measures stored/observed updates. Neither silence nor a large age proves a process died. Diagnostics shows the selected store, active/archive status, observed sessions, model/effort, binding, transcript cursor, and warnings. It explicitly does not infer installation status. Use `nova-flow doctor` (optionally `--archive ID` or `--json`) even when no active run exists.
 
 
 ## Task labels
 
-Use short concrete titles: `cache` / “Fix cache expiry”, `storage` / “Compare storage options”. Ordinary rows show only the ID and title; no “ungrouped” placeholder appears. First attempts display the task ID, retries retain `.a2` and later suffixes. Actual milestone and GitHub references appear in brackets, for example `[M1 · #42]`. Add or edit a pending task's issue reference with `--issue https://github.com/OWNER/REPO/issues/42`; the viewer links to that URL. No GitHub writes occur.
+Use short concrete titles: `cache` / “Fix cache expiry”, `storage` / “Compare storage options”. Ordinary rows show only the ID and title; no “ungrouped” placeholder appears. First attempts display the task ID, retries retain `.a2` and later suffixes. Milestone and GitHub references remain in task metadata. Add or edit a pending task's issue reference with `--issue https://github.com/OWNER/REPO/issues/42`; the reference is retained with the task. No GitHub writes occur.
 
-The viewer follows the working task by default. Manual terminal navigation disables following; press `f` to enable it again. The browser has a “Follow working task” checkbox; clicking a row switches to manual inspection.
+Task selection remains stable while data refreshes. Select a row to inspect another task.
 
 ## Explicit graph facts
 
@@ -204,3 +204,32 @@ Terminal: `h` hides/shows done and canceled tasks; the footer displays the short
 Group tasks (`--kind group`) are containers. Their displayed progress derives from non-group descendants, including nested groups. They have no model assignment, are excluded from task totals, and do not prevent completion or archival. Actual unfinished tasks and open sessions still apply.
 
 Stable references separate identity from titles: groups display `G01`, tasks `T01`, and retries `T01.a2`. References are allocated once under a repository-wide lock in `.nova/references/index.json`; preserve this registry with run history. Existing internal IDs and dependency links remain unchanged. Task commands accept the short references within the selected `--run`. The combined viewer hides its internal namespace and displays run context once above tasks. Use `nova-flow references` to backfill existing run records and archives; new writes assign references automatically. Numbers may have gaps and never reflect sort order.
+
+## Terminal task tree
+
+Run `nova-flow` for the compact task tree grouped by objective. `nova-flow --demo` shows a task tree with recorded child tasks, nested retry attempts, and inline dependency references with state symbols. Graph connectors, IDs, and titles share one flowing column; agent/model and state stay aligned on the right. Agent assignment does not determine nesting; it writes no run records. Use `--run ID` to select a run or `--plain` for noninteractive output. Arrow keys select tasks, `h` hides completed tasks, brackets select runs, and `d` opens/closes details (arrow keys scroll while details are open).
+
+Each task occupies one row. An indented arrow marks recorded delegation; it does not imply a Git branch or merge. Dependency and executor metadata appear in the inspector. Unassigned work stays on the main track with an unassigned inspector; no worker is invented. Workspace and checked-revision metadata appear only when reported.
+
+## Persistent browser viewer
+
+Running either Flow command in a terminal starts or reuses one read-only viewer for the repository. The terminal heading includes its LAN URL. It keeps serving after the terminal closes and polls run data every two seconds. Run `nova-flow web` to start it explicitly or print the current URL from scripts. Noninteractive tracking commands do not spawn background servers; set `NOVA_FLOW_NO_WEB=1` to suppress automatic startup in terminals.
+
+The viewer binds all interfaces, preferring port 8910 and choosing a free port when occupied. Connection metadata is in `.nova/viewer.json`; logs are in `.nova/viewer/server.log`. Launches use a lock and a health check to avoid duplicate servers. A stopped server restarts on the next launch. This is a local process, not a boot-time service. It serves the bundled `nova-flow.html`, which is read afresh for each page load.
+
+
+Flow shows reported usage for the selected run, or all active repository runs,
+above the graph. It combines session-only and historical task records once per
+source record; hiding tasks does not change totals. Input/output and cache
+read/write remain separate (cache is not added again to the total). Missing
+telemetry shows `—`; `*` means partial reporting. Task details omit token counts.
+
+Optional cost estimates use `~/.config/nova/pricing.json`, keyed by exact
+`harness/model`. Each entry supplies nonnegative USD rates per million tokens
+for `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`,
+and a boolean `input_includes_cache`. Set that boolean according to the provider's
+usage convention. No rates are bundled or inferred from similar model names.
+Unknown rates or incomplete records show cost `—`. These estimates do not
+represent subscription charges or an invoice.
+
+Configured rates are standard base API estimates. Long-context multipliers, service-tier adjustments, and tool fees are not applied without request-level billing metadata.

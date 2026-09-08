@@ -67,7 +67,7 @@ class ViewTests(unittest.TestCase):
             self.addCleanup(os.close,master);self.addCleanup(os.close,slave)
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',32,140,0,0))
             before=termios.tcgetattr(slave)
-            process=subprocess.Popen([str(ROOT/'tools/nova-flow'),'--dir',tmp,'view'],stdin=slave,stdout=slave,stderr=slave,env={**os.environ,'TERM':'xterm-256color'})
+            process=subprocess.Popen([str(ROOT/'tools/nova-flow'),'--dir',tmp,'view'],stdin=slave,stdout=slave,stderr=slave,env={**os.environ,'TERM':'xterm-256color','NOVA_FLOW_NO_WEB':'1'})
             self.addCleanup(lambda: process.poll() is None and process.kill())
             output=b''
             def drain():
@@ -82,5 +82,5 @@ class ViewTests(unittest.TestCase):
             os.write(master,b'q');process.wait(timeout=3);drain()
             self.assertEqual(process.returncode,0,output[-1500:])
             self.assertEqual(termios.tcgetattr(slave),before)
-            for label in (b'T2',b'T2.a2',b'DIAGNOSTICS',b'Retry'):
+            for label in (b'T2',b'a2',b'TASK FLOW',b'Requires:',b'Retry'):
                 self.assertIn(label,output)
