@@ -80,3 +80,12 @@ class LaneTests(unittest.TestCase):
         lines=v2.usage_header(data)
         self.assertIn('—',lines[2])
         self.assertIn('—',lines[6])
+
+    def test_current_native_snapshot_replaces_historical_records(self):
+        data=v2.demo();agent=data['agents'][0]
+        old=dict(id='old',harness='codex',model='m',agent=agent['id'],input_tokens=1000,output_tokens=100)
+        agent['usage']=[old];data['tasks'][0]['attempts'][0]['usage']=[old]
+        agent['telemetry']={'counter_usage':[dict(old,id='snapshot',input_tokens=20,output_tokens=2)],'counter_at':'2026-09-08T06:00:00Z'}
+        groups=v2.aggregate_usage(data)
+        self.assertEqual(sum(u['input_tokens'] for rs in groups.values() for u in rs),20)
+        self.assertIn('latest counters',v2.usage_header(data)[-1])

@@ -219,8 +219,7 @@ The viewer binds all interfaces, preferring port 8910 and choosing a free port w
 
 
 Flow shows reported usage for the selected run, or all active repository runs,
-above the graph. It combines session-only and historical task records once per
-source record; hiding tasks does not change totals. Input/output and cache
+above the graph. For harnesses without native counter snapshots, it combines session-only and historical task records once per source record. Codex uses its current native snapshots; hiding tasks does not change totals. Input/output and cache
 read/write remain separate (cache is not added again to the total). Missing
 telemetry shows `—`; `*` means partial reporting. Task details omit token counts.
 
@@ -233,3 +232,13 @@ Unknown rates or incomplete records show cost `—`. These estimates do not
 represent subscription charges or an invoice.
 
 Configured rates are standard base API estimates. Long-context multipliers, service-tier adjustments, and tool fees are not applied without request-level billing metadata.
+
+
+Codex usage displays the latest native counter period for each session. When the
+native cumulative counters reset, Flow starts a new display period rather than
+freezing behind the old high-water mark. Older usage records remain stored but
+are excluded from current-counter totals. A repository view combines the latest
+periods of its sessions and labels the session count; select a single run to
+compare with that session's native status line. The first poll of an older store
+rebuilds its counter snapshot from the matching transcript without rewriting
+historical task evidence or usage records.

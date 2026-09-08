@@ -982,8 +982,15 @@ TOKEN_KEYS=('input_tokens','output_tokens','cache_read_tokens','cache_write_toke
 def aggregate_usage(data):
     """Sum source records once across session-only and historical task storage."""
     groups={};seen=set()
-    records=[u for a in data['agents'] for u in a.get('usage',[])]
-    records += [u for t in data['tasks'] for a in t['attempts'] for u in a.get('usage',[])]
+    native={a['id'] for a in data['agents'] if 'counter_usage' in a.get('telemetry',{})}
+    latest={}
+    for a in data['agents']:
+        if a['id'] in native:
+            session=a.get('session_id',a['id'])
+            if session not in latest or (a['telemetry'].get('counter_at') or '')>(latest[session]['telemetry'].get('counter_at') or ''):latest[session]=a
+    records=[u for a in latest.values() for u in a['telemetry']['counter_usage']]
+    records += [u for a in data['agents'] if a['id'] not in native for u in a.get('usage',[])]
+    records += [u for t in data['tasks'] for a in t['attempts'] for u in a.get('usage',[]) if u.get('agent') not in native]
     for u in records:
         identity=(u.get('harness',''),u['id'])
         if identity in seen:continue
@@ -1022,6 +1029,8 @@ def usage_header(data,prices=None):
     def money(value):return '—' if value is None else f'${value:.2f}' if value>=.01 or value==0 else f'${value:.4f}'
     active=[(key,records) for key,records in groups.items() if records]
     title=active[0][0][1] if len(active)==1 else 'ALL MODELS'
+    session_count=len({a.get('session_id',a['id']) for a in data['agents']})
+    scope=f'{session_count} session'+('s' if session_count!=1 else '')+' · latest counters' if any('counter_usage' in a.get('telemetry',{}) for a in data['agents']) else 'Recorded usage'
     lines=[f'{title} · {combined} tokens',f'{"USAGE":<19}{"TOKENS":>10}{"COST":>11}']
     uncached=[]
     for key,records in active:
@@ -1039,6 +1048,7 @@ def usage_header(data,prices=None):
     if len(active)>1:
         for key,records in sorted(active):lines.append(key[1]+' '+money(cost(key,records)))
     if not all_records:lines.append('No usage reported')
+    lines.append(scope)
     return lines
 
 
