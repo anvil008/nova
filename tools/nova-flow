@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Nova run tracking: milestones, tasks, agents, and immutable archived runs."""
 import curses
-import math
 import textwrap
 import argparse
 import copy
@@ -1002,62 +1001,23 @@ def aggregate_usage(data):
     return groups
 
 
-def usage_header(data,prices=None):
-    groups=aggregate_usage(data);all_records=[u for records in groups.values() for u in records]
+def usage_header(data):
+    groups=aggregate_usage(data);records=[u for values in groups.values() for u in values]
     def number(value):
         return f'{value/1e6:.2f}m' if value>=1e6 else f'{value/1e3:.1f}k' if value>=1000 else str(value)
-    def total(records,key):
+    def total(key):
         values=[u[key] for u in records if key in u]
-        return (number(sum(values))+('*' if len(values)<len(records) else '')) if values else '—'
-    def pair(records,a,b):return total(records,a)+'/'+total(records,b)
-    def cost(key,records,bucket=None):
-        rate=(prices or {}).get('/'.join(key))
-        if not records or not isinstance(rate,dict):return None
-        if type(rate.get('input_includes_cache')) is not bool:return None
-        if any(type(rate.get(k)) not in (int,float) or not math.isfinite(rate[k]) or rate[k]<0 for k in TOKEN_KEYS):return None
-        value=0
-        for u in records:
-            if any(k not in u for k in TOKEN_KEYS):return None
-            uncached=u['input_tokens']-(u['cache_read_tokens']+u['cache_write_tokens'] if rate['input_includes_cache'] else 0)
-            if uncached<0:return None
-            amounts={**u,'input_tokens':uncached}
-            value+=sum(amounts[k]*rate[k] for k in ([bucket] if bucket else TOKEN_KEYS))/1e6
-        return value
-    costs=[cost(key,records) for key,records in groups.items() if records]
-    complete=costs and all(c is not None for c in costs)
-    combined=number(sum(u['input_tokens']+u['output_tokens'] for u in all_records)) if all_records and all('input_tokens' in u and 'output_tokens' in u for u in all_records) else '—'
-    def money(value):return '—' if value is None else f'${value:.2f}' if value>=.01 or value==0 else f'${value:.4f}'
-    active=[(key,records) for key,records in groups.items() if records]
-    title=active[0][0][1] if len(active)==1 else 'ALL MODELS'
-    session_count=len({a.get('session_id',a['id']) for a in data['agents']})
-    scope=f'{session_count} session'+('s' if session_count!=1 else '')+' · latest counters' if any('counter_usage' in a.get('telemetry',{}) for a in data['agents']) else 'Recorded usage'
-    lines=[f'{title} · {combined} tokens',f'{"USAGE":<19}{"TOKENS":>10}{"COST":>11}']
-    uncached=[]
-    for key,records in active:
-        for u in records:
-            inclusive=(prices or {}).get('/'.join(key),{}).get('input_includes_cache',True if key[0]=='codex' else None)
-            if inclusive is None or any(k not in u for k in TOKEN_KEYS):continue
-            value=u['input_tokens']-(u['cache_read_tokens']+u['cache_write_tokens'] if inclusive else 0)
-            if value>=0:uncached.append(value)
-    for label,bucket in [('Input (uncached)','input_tokens'),('Cache read','cache_read_tokens'),('Cache write','cache_write_tokens'),('Output','output_tokens')]:
-        count=(number(sum(uncached))+('*' if len(uncached)<len(all_records) else '')) if bucket=='input_tokens' and uncached else '—' if bucket=='input_tokens' else total(all_records,bucket)
-        values=[cost(key,records,bucket) for key,records in active]
-        value=sum(values) if values and all(v is not None for v in values) else None
-        lines.append(f'{label:<19}{count:>10}{money(value):>11}')
-    lines.append(f'{"TOTAL":<19}{combined:>10}{money(sum(costs) if complete else None):>11}')
-    if len(active)>1:
-        for key,records in sorted(active):lines.append(key[1]+' '+money(cost(key,records)))
-    if not all_records:lines.append('No usage reported')
-    lines.append(scope)
-    return lines
-
-
-def read_prices():
-    path=Path.home()/'.config/nova/pricing.json'
-    try:
-        value=json.loads(path.read_text())
-        return value if isinstance(value,dict) else {}
-    except (OSError,ValueError):return {}
+        return number(sum(values))+('*' if len(values)<len(records) else '') if values else '—'
+    combined=number(sum(u['input_tokens']+u['output_tokens'] for u in records)) if records and all('input_tokens' in u and 'output_tokens' in u for u in records) else '—'
+    sessions={};task_agents={u.get('agent') for t in data['tasks'] for a in t['attempts'] for u in a.get('usage',[])}
+    for a in data['agents']:
+        key=(a.get('harness',''),a.get('session_id',a['id']))
+        observed=bool(a['telemetry']['counter_usage']) if 'counter_usage' in a.get('telemetry',{}) else bool(a.get('usage') or a['id'] in task_agents)
+        sessions[key]=sessions.get(key,False) or observed
+    scope='latest counters' if any('counter_usage' in a.get('telemetry',{}) for a in data['agents']) else 'reported usage'
+    return [f"Tokens {combined} · in/out {total('input_tokens')}/{total('output_tokens')}",
+            f"Cache read/write {total('cache_read_tokens')}/{total('cache_write_tokens')}",
+            f"{sum(sessions.values())}/{len(sessions)} sessions reporting · {scope}"]
 
 
 def inspector(data,row,width):
@@ -1089,7 +1049,7 @@ def flow_view(directory,run_id=None,is_demo=False,plain=False):
         data=read();lanes,rows=layout(data)
         emit('NOVA FLOW'+('   DEMO · sample data' if is_demo else '   LIVE'))
         emit(data['run']['title'])
-        emit('\n'.join(usage_header(data,read_prices())))
+        emit('\n'.join(usage_header(data)))
         for group in sections(data,rows):
             emit(group['title']);emit('TASK FLOW                                                     AGENT / MODEL                     STATE')
             for row in tree_rows(data,group['rows']):
@@ -1120,7 +1080,7 @@ def flow_view(directory,run_id=None,is_demo=False,plain=False):
                 except (OSError,ValueError) as exc:error=str(exc);data=None
                 refresh=time.monotonic()+2
             win.erase();height,width=win.getmaxyx()
-            summary=usage_header(data,read_prices()) if data else []
+            summary=usage_header(data) if data else []
             right_width=min(max((len(line) for line in summary),default=0),max(20,width-36)) if width>=100 else width-4
             right_x=width-right_width-2 if width>=100 else 2
             usage_y=0 if width>=100 else (3 if _WEB_URL else 2)

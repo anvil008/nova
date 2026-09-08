@@ -101,7 +101,7 @@ The archive stores the run and its references, not copies of linked reports or s
 
 Run `nova-flow` (or `nova-flow view`) from a project to open its repository task tree. It reads the shared `.nova/runs/` store every two seconds. Use `--run ID` to select an active run or `view --archive RUN_ID` for an archive. `nova-flow --demo` shows sample tasks without changing run records.
 
-Task parents determine indentation; dependencies appear inline with current state symbols. Retry attempts nest beneath their task. Agent/model and state are aligned on the right. Aggregate token usage and configured model costs appear above the graph; task details sit below it.
+Task parents determine indentation; dependencies appear inline with current state symbols. Retry attempts nest beneath their task. Agent/model and state are aligned on the right. Aggregate token usage and cache counts appear above the graph; task details sit below it.
 
 Use arrow keys to select tasks, **d** to open/close details (arrows scroll while open), **h** to hide completed/canceled rows, **[ / ]** to switch runs, and **q** to quit. Selection survives refreshes. The UI restores terminal settings on exit. `view --plain` prints a snapshot and `view --json` prints validated data.
 
@@ -213,7 +213,7 @@ Each task occupies one row. An indented arrow marks recorded delegation; it does
 
 ## Persistent browser viewer
 
-Running either Flow command in a terminal starts or reuses one read-only viewer for the repository. The terminal heading includes its LAN URL. It keeps serving after the terminal closes and polls run data every two seconds. Run `nova-flow web` to start it explicitly or print the current URL from scripts. Noninteractive tracking commands do not spawn background servers; set `NOVA_FLOW_NO_WEB=1` to suppress automatic startup in terminals.
+Running Flow in a terminal starts or reuses one read-only viewer for the repository. The terminal heading includes its LAN URL. It keeps serving after the terminal closes and polls run data every two seconds. Run `nova-flow web` to start it explicitly or print the current URL from scripts. Noninteractive tracking commands do not spawn background servers; set `NOVA_FLOW_NO_WEB=1` to suppress automatic startup in terminals.
 
 The viewer binds all interfaces, preferring port 8910 and choosing a free port when occupied. Connection metadata is in `.nova/viewer.json`; logs are in `.nova/viewer/server.log`. Launches use a lock and a health check to avoid duplicate servers. A stopped server restarts on the next launch. This is a local process, not a boot-time service. It serves the bundled `nova-flow.html`, which is read afresh for each page load.
 
@@ -223,16 +223,7 @@ above the graph. For harnesses without native counter snapshots, it combines ses
 read/write remain separate (cache is not added again to the total). Missing
 telemetry shows `—`; `*` means partial reporting. Task details omit token counts.
 
-Optional cost estimates use `~/.config/nova/pricing.json`, keyed by exact
-`harness/model`. Each entry supplies nonnegative USD rates per million tokens
-for `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`,
-and a boolean `input_includes_cache`. Set that boolean according to the provider's
-usage convention. No rates are bundled or inferred from similar model names.
-Unknown rates or incomplete records show cost `—`. These estimates do not
-represent subscription charges or an invoice.
-
-Configured rates are standard base API estimates. Long-context multipliers, service-tier adjustments, and tool fees are not applied without request-level billing metadata.
-
+The three-line header stays the same height across models and harnesses. It reports session coverage so missing telemetry is visible. No prices or cost estimates are calculated.
 
 Codex usage displays the latest native counter period for each session. When the
 native cumulative counters reset, Flow starts a new display period rather than

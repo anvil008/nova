@@ -62,24 +62,25 @@ class LaneTests(unittest.TestCase):
         self.assertEqual(tree[0]['tree'],'├─')
         self.assertEqual(len({r['task']['id'] for r in tree}),len(tree))
 
-    def test_usage_deduplicates_and_prices_cache_without_double_counting(self):
+    def test_usage_deduplicates_without_double_counting_cache(self):
         data=v2.demo()
         record=dict(id='sample',harness='codex',model='test-model',input_tokens=1000,output_tokens=100,cache_read_tokens=800,cache_write_tokens=0)
         data['agents'][0]['usage']=[record]
         data['tasks'][0]['attempts'][0]['usage']=[dict(record)]
-        prices={'codex/test-model':dict(input_tokens=10,output_tokens=20,cache_read_tokens=1,cache_write_tokens=10,input_includes_cache=True)}
-        lines=v2.usage_header(data,prices)
+        lines=v2.usage_header(data)
         self.assertIn('1.1k',lines[0])
-        self.assertIn('200',lines[2])
-        self.assertIn('$0.0008',lines[3])
-        self.assertIn('$0.0048',lines[6])
+        self.assertIn('1.0k/100',lines[0])
+        self.assertIn('800/0',lines[1])
+        self.assertEqual(len(lines),3)
+        self.assertIn('1/3 sessions reporting',lines[2])
+        self.assertNotIn('$',' '.join(lines))
         self.assertNotIn('Tokens',' '.join(v2.inspector(data,v2.layout(data)[1][0],100)))
 
-    def test_usage_missing_prices_and_fields_are_not_zero(self):
+    def test_usage_missing_fields_are_not_zero(self):
         data=v2.demo();data['agents'][0]['usage']=[dict(id='x',model='m',input_tokens=10)]
         lines=v2.usage_header(data)
-        self.assertIn('—',lines[2])
-        self.assertIn('—',lines[6])
+        self.assertIn('10/—',lines[0])
+        self.assertIn('—/—',lines[1])
 
     def test_current_native_snapshot_replaces_historical_records(self):
         data=v2.demo();agent=data['agents'][0]
@@ -89,3 +90,8 @@ class LaneTests(unittest.TestCase):
         groups=v2.aggregate_usage(data)
         self.assertEqual(sum(u['input_tokens'] for rs in groups.values() for u in rs),20)
         self.assertIn('latest counters',v2.usage_header(data)[-1])
+
+    def test_many_models_keep_header_bounded(self):
+        data=v2.demo()
+        for i in range(25):data['agents'].append(dict(id=str(i),harness='other',model='model-'+str(i),usage=[dict(id='u'+str(i),input_tokens=10,output_tokens=1)]))
+        self.assertEqual(len(v2.usage_header(data)),3)
