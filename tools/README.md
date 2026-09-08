@@ -101,7 +101,7 @@ The archive stores the run and its references, not copies of linked reports or s
 
 Run `nova-flow` (or `nova-flow view`) from a project to open its repository task tree. It reads the shared `.nova/runs/` store every two seconds. Use `--run ID` to select an active run or `view --archive RUN_ID` for an archive. `nova-flow --demo` shows sample tasks without changing run records.
 
-Task parents determine indentation; dependencies appear inline with current state symbols. Retry attempts nest beneath their task. Agent/model and state are aligned on the right. Aggregate token usage and cache counts appear above the graph; task details sit below it.
+Task parents determine indentation; dependencies appear inline with current state symbols. Retry attempts nest beneath their task. Agent/model and state are aligned on the right. The header shows the title, task progress, and web URL; task details sit below the graph.
 
 Use arrow keys to select tasks, **d** to open/close details (arrows scroll while open), **h** to hide completed/canceled rows, **[ / ]** to switch runs, and **q** to quit. Selection survives refreshes. The UI restores terminal settings on exit. `view --plain` prints a snapshot and `view --json` prints validated data.
 
@@ -218,18 +218,11 @@ Running Flow in a terminal starts or reuses one read-only viewer for the reposit
 The viewer binds all interfaces, preferring port 8910 and choosing a free port when occupied. Connection metadata is in `.nova/viewer.json`; logs are in `.nova/viewer/server.log`. Launches use a lock and a health check to avoid duplicate servers. A stopped server restarts on the next launch. This is a local process, not a boot-time service. It serves the bundled `nova-flow.html`, which is read afresh for each page load.
 
 
-Flow shows reported usage for the selected run, or all active repository runs,
-above the graph. For harnesses without native counter snapshots, it combines session-only and historical task records once per source record. Codex uses its current native snapshots; hiding tasks does not change totals. Input/output and cache
-read/write remain separate (cache is not added again to the total). Missing
-telemetry shows `—`; `*` means partial reporting. Task details omit token counts.
+Token telemetry remains in run data but is not shown in the terminal header.
 
-The three-line header stays the same height across models and harnesses. It reports session coverage so missing telemetry is visible. No prices or cost estimates are calculated.
-
-Codex usage displays the latest native counter period for each session. When the
+Codex telemetry retains the latest native counter period for each session. When the
 native cumulative counters reset, Flow starts a new display period rather than
 freezing behind the old high-water mark. Older usage records remain stored but
-are excluded from current-counter totals. A repository view combines the latest
-periods of its sessions and labels the session count; select a single run to
-compare with that session's native status line. The first poll of an older store
+are excluded from current-counter totals.  The first poll of an older store
 rebuilds its counter snapshot from the matching transcript without rewriting
 historical task evidence or usage records.
