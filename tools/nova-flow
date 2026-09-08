@@ -1123,9 +1123,10 @@ def flow_view(directory,run_id=None,is_demo=False,plain=False):
             summary=usage_header(data,read_prices()) if data else []
             right_width=min(max((len(line) for line in summary),default=0),max(20,width-36)) if width>=100 else width-4
             right_x=width-right_width-2 if width>=100 else 2
-            usage_y=0 if width>=100 else 2
+            usage_y=0 if width>=100 else (3 if _WEB_URL else 2)
             graph_top=max(3,usage_y+len(summary)+1)
             put(0,2,'NOVA FLOW',max(0,right_x-4) if width>=100 else width-4,color(1)|curses.A_BOLD)
+            if _WEB_URL:put(2,2,_WEB_URL+('?run=demo' if is_demo else ''),max(0,right_x-4) if width>=100 else width-4,color(1))
             for i,line in enumerate(summary):put(usage_y+i,right_x,line,right_width,color(1) if i==0 else curses.A_DIM)
             put(height-1,2,'↑↓ scroll   d back to tasks   q quit' if details else '↑↓ task   h hide done   [ ] run   d details   q quit',width-4,curses.A_DIM)
             if data:
