@@ -16,7 +16,7 @@ const executionDesign = {
   nodes: {
     coordinator: ["Orchestrator", "human", "Frames the goal, chooses team sizes and assignments, carries user decisions, and reviews evidence. The orchestrator boxes represent the same coordinator at different checkpoints."],
     plan: ["Planning workflow", "human", "Offer one plan or multiple plan ideas once, reusing an explicit or saved choice. Plans default to Markdown; HTML is an explicit companion."],
-    research: ["Research workflow", "agent", "Research is an underlying capability. The standalone Workcell command is retired; native research or exploration and the shared evidence handoff remain."],
+    research: ["Research workflow", "agent", "Research is an underlying capability. The standalone Nova command is retired; native research or exploration and the shared evidence handoff remain."],
     build: ["Shared build workflow", "human", "Accept a request, selected plan, or scoped findings. Reuse evidence, resolve missing decisions, and select scheduling and verification independently."],
     review: ["Review workflow", "agent", "Review a diff or codebase scope, verify findings, and return a report. Selected fixes can enter build with existing evidence."],
     profile: ["Profile workflow", "agent", "Capture comparable measurements and supported bottlenecks. A requested optimization preserves the baseline and requires a measurement afterward."],
@@ -148,7 +148,7 @@ function diagramDocsDiagram(){
 
 
 function diagramNativeResearch(){
- return `<div class="rev-native-research"><span class="rev-role">HARNESS CAPABILITY</span><h3>Research stays available</h3><p>Use the host’s available research, search, or exploration tools for standalone questions. There is no separate Workcell research command. Planning still delegates investigators internally and can reuse an existing report.</p><p>Workcell retains a shared handoff: findings, sources, coverage, conflicts, and open questions.</p><p class="rev-native-sources">Native capabilities vary: <a href="https://learn.chatgpt.com/docs/agent-configuration/subagents" target="_blank" rel="noreferrer">Codex exploration</a> · <a href="https://code.claude.com/docs/en/sub-agents" target="_blank" rel="noreferrer">Claude Code Explore / Plan</a> · <a href="https://antigravity.google/docs/subagents" target="_blank" rel="noreferrer">Antigravity research</a></p></div>`;
+ return `<div class="rev-native-research"><span class="rev-role">HARNESS CAPABILITY</span><h3>Research stays available</h3><p>Use the host’s available research, search, or exploration tools for standalone questions. There is no separate Nova research command. Planning still delegates investigators internally and can reuse an existing report.</p><p>Nova retains a shared handoff: findings, sources, coverage, conflicts, and open questions.</p><p class="rev-native-sources">Native capabilities vary: <a href="https://learn.chatgpt.com/docs/agent-configuration/subagents" target="_blank" rel="noreferrer">Codex exploration</a> · <a href="https://code.claude.com/docs/en/sub-agents" target="_blank" rel="noreferrer">Claude Code Explore / Plan</a> · <a href="https://antigravity.google/docs/subagents" target="_blank" rel="noreferrer">Antigravity research</a></p></div>`;
 }
 function diagramCoreOverview(){
  const entry=(id,detail)=>`<a class="rev-entry" href="#flow/${id}"><span class="rev-command">/${id}</span><strong>${esc(executionDesign.workflows[id].title)}</strong><span>${esc(detail)}</span></a>`;

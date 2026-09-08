@@ -20,7 +20,7 @@ spec.loader.exec_module(package)
 
 class PackageTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='workcell package ')
+        self.temp = tempfile.TemporaryDirectory(prefix='nova package ')
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name)
         self.output = package.build(self.base / 'built')
@@ -29,7 +29,7 @@ class PackageTests(unittest.TestCase):
         moved = self.base / 'relocated'
         shutil.move(self.output, moved)
         for harness in package.HARNESSES:
-            plugin = moved / harness / 'plugins/workcell'
+            plugin = moved / harness / 'plugins/nova'
             self.assertFalse(any(p.is_symlink() for p in plugin.rglob('*')))
             skills = list((plugin / 'skills').glob('*/SKILL.md'))
             self.assertEqual(len(skills), 14)
@@ -73,14 +73,14 @@ class PackageTests(unittest.TestCase):
         payload = json.dumps({'tool_name': 'Write', 'cwd': str(repo),
                               'tool_input': {'file_path': str(target)}})
         for harness in ('codex', 'claude'):
-            plugin = moved / harness / 'plugins/workcell'
+            plugin = moved / harness / 'plugins/nova'
             command = json.loads((plugin / 'hooks/hooks.json').read_text())['hooks']['PostToolUse'][0]['hooks'][0]['command']
-            env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(plugin), WORKCELL_HOOK_CONFIG=str(config))
+            env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(plugin), NOVA_HOOK_CONFIG=str(config))
             target.write_text('before')
             result = subprocess.run(['sh', '-c', command], input=payload, text=True,
                                     capture_output=True, env=env, cwd=repo, check=True)
             self.assertEqual(target.read_text(), 'after', result.stderr)
-            del env['WORKCELL_HOOK_CONFIG']
+            del env['NOVA_HOOK_CONFIG']
             target.write_text('before')
             subprocess.run(['sh', '-c', command], input=payload, text=True,
                            capture_output=True, env=env, cwd=repo, check=True)

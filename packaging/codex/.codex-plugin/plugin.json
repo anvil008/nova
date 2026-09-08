@@ -1,12 +1,12 @@
 {
-  "name": "workcell",
+  "name": "nova",
   "description": "Shared software development skills with optional task helpers.",
   "author": {
     "name": "Foundry Zero"
   },
   "skills": "./skills/",
   "interface": {
-    "displayName": "Workcell",
+    "displayName": "Nova",
     "shortDescription": "Skills for software development",
     "longDescription": "Specify, plan, build, debug, refactor, review, and document software with shared development conventions.",
     "developerName": "Foundry Zero",
@@ -17,7 +17,7 @@
       "Review"
     ],
     "defaultPrompt": [
-      "Use Workcell to implement this change."
+      "Use Nova to implement this change."
     ]
   }
 }

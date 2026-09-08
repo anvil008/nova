@@ -10,7 +10,7 @@ Read [shared development instructions](../../instructions/development.md) when a
 
 Inspect purpose, manifests, source layout, instructions, CI, version control, and existing build/test/lint commands before asking questions. Infer routine choices from the repository; ask only for consequential missing decisions. Preserve the chosen stack and runner. Tool availability is not a reason to adopt a new build system.
 
-Read [plugin installation and setup](../../instructions/install.md). Reconcile the shared Workcell conventions into persistent project instructions when requested. Optional helper setup must resolve native support and existing names before copying definitions; optional hooks require explicit trusted config and installed paths.
+Read [plugin installation and setup](../../instructions/install.md). Reconcile the shared Nova conventions into persistent project instructions when requested. Optional helper setup must resolve native support and existing names before copying definitions; optional hooks require explicit trusted config and installed paths.
 
 Create or update concise project instructions covering purpose, entry points, layout, exact verification commands, and non-obvious conventions. Prefer one canonical instruction source with supported native links/imports. Preserve and reconcile divergent existing instructions rather than blindly overwriting files or replacing them with symlinks.
 

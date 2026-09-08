@@ -14,7 +14,7 @@ without an install step. ADR 0021 then found the cost of resolving an install th
 this repository owns — deleting the path broke Claude and Codex — and required a durable one,
 but left the durable path a human obligation ("keep the checkout") rather than something the
 installer provides. The tracked Claude and Codex marketplace manifests still sat at the
-repository root, and the hook wrappers, `tdd-guard` and `workcell-ws` on `PATH` were symlinks
+repository root, and the hook wrappers, `tdd-guard` and `nova-ws` on `PATH` were symlinks
 into a working tree that a `jj workspace forget` or a `git clean` could take away mid-session.
 
 The evidence for changing this was collected on 2026-09-01, from each harness's own
@@ -37,11 +37,11 @@ documentation:
 ## Decision
 
 **An install is an installer-owned copy at a path the installer owns, on every harness.** No
-harness resolves Workcell through this repository at runtime.
+harness resolves Nova through this repository at runtime.
 
 **Claude Code — a durable command-source marketplace.** The marketplace lives at
-`~/.local/share/workcell/claude`, and its single plugin entry is a `command` source in `copy`
-mode whose command is `stage-workcell`, an installer-owned shim in that same durable directory.
+`~/.local/share/nova/claude`, and its single plugin entry is a `command` source in `copy`
+mode whose command is `stage-nova`, an installer-owned shim in that same durable directory.
 This was chosen over a durable _directory_ marketplace because the harness re-takes the
 producer's output on refresh and, as observed while building this against CLI 2.1.257, identifies
 the cached copy by its content: a changed tree is a new version with nobody bumping a number,
@@ -52,7 +52,7 @@ itself: that directory would have to persist and stay authoritative, reinstating
 dependency on a directory outside the installer's control that this decision exists to remove.
 
 **Codex — a durable owned marketplace copy.** `scripts/build-codex-plugin.py` stages a
-symlink-free tree, the installer copies it to `~/.local/share/workcell/codex`, and
+symlink-free tree, the installer copies it to `~/.local/share/nova/codex`, and
 `codex plugin marketplace add` registers _that_ path. The staged manifest carries a version of
 `<semver>+codex.<content hash>` — `0.6.0+codex.` followed by twelve hex digits of the staged
 tree's digest — so a content change is always a version change and Codex sees the refresh. This
@@ -61,13 +61,13 @@ recorded as unusable.
 
 **Grok — a drop into the documented plugin directory.** Grok auto-discovers and auto-trusts
 plugins under `~/.grok/plugins/`, so the installer drops one owned copy at
-`~/.grok/plugins/workcell` and registers nothing. When the `grok` CLI is present the installer
+`~/.grok/plugins/nova` and registers nothing. When the `grok` CLI is present the installer
 retires the old marketplace registrations; it never creates a new one, and it installs
 correctly with no CLI on `PATH` at all.
 
 **Antigravity — one owned copy at the documented scan directory.**
 `scripts/build-agy-plugin.py` stages a symlink-free tree and the installer copies it to
-`~/.gemini/config/plugins/workcell`, the directory Antigravity documents as scanned. The
+`~/.gemini/config/plugins/nova`, the directory Antigravity documents as scanned. The
 `agy plugin` CLI is deliberately not invoked to install or remove anything: it installs into
 `~/.gemini/antigravity-cli/plugins/`, whose scan status is undocumented, and its registry is
 blind to plugins found by the scan, so an `agy plugin uninstall` aimed at a pre-existing symlink
@@ -76,7 +76,7 @@ against the staged tree. The `antigravity-cli` location is retired and not recre
 is one loadable copy rather than two.
 
 **ADR 0021 is satisfied per harness, by construction.** Claude and Codex register paths under
-`~/.local/share/workcell`, which the installer creates and owns and no deploy cleanup removes;
+`~/.local/share/nova`, which the installer creates and owns and no deploy cleanup removes;
 Grok and Antigravity register nothing at all, so the harness's own plugin directory _is_ the
 durable path. Nothing depends any more on a human keeping a checkout or a release worktree
 alive, and ADR 0021's consequence that a Codex deploy needs a content diff instead of a version
@@ -94,7 +94,7 @@ artifacts, and attaches them to the tag's GitHub release when one exists.
 ## Consequences
 
 **Live-edit-without-reinstall is gone on every surface, and that is the point.** Editing
-`agents/`, `skills/`, `scripts/hooks/*` or `scripts/workcell-ws` in a checkout changes nothing
+`agents/`, `skills/`, `scripts/hooks/*` or `scripts/nova-ws` in a checkout changes nothing
 any harness or hook runs until the next `scripts/bootstrap-tools.sh --install` /
 `scripts/bootstrap-plugins.sh` — Claude, below, is the single exception. The capability ADR 0006
 preserved for Antigravity is traded for an install that cannot be broken by moving, cleaning, or
@@ -118,12 +118,12 @@ the version recorded in each receipt against the repository's and prints one lin
 destination — `stale <name> installed <a>, repository <b> — re-run: scripts/bootstrap-tools.sh
 --install` — with the comparison prefix-aware, so `0.6.0+<commit>` is not drift against `0.6.0`,
 and the wrappers, which carry no version of their own, compared by content instead. Every staged
-tree also carries `.workcell-stamp.json` (name, version, builtAt, sourceRoot, contentDigest), so
+tree also carries `.nova-stamp.json` (name, version, builtAt, sourceRoot, contentDigest), so
 a copy on disk describes itself even without its receipt.
 
 **Ownership moves from link targets to receipts and stamps.** A link could be checked by reading
 where it pointed; a copy cannot, so `install_owned` records a receipt under
-`~/.local/state/workcell/receipts/` and re-checks it against the destination's current digest.
+`~/.local/state/nova/receipts/` and re-checks it against the destination's current digest.
 Every uncertain answer falls on the side of keeping the human's file.
 
 **A copy the human edited is left behind, and named.** `uninstall_owned` removes only a
@@ -134,14 +134,14 @@ human's file.
 
 **No runtime consumer resolves through a symlink into this repository any more.** The hook
 wrappers (`build-hooks`, `build-format`, `build-lint`, `build-guard`), `tdd-guard` and
-`workcell-ws` in `~/.local/bin` are installed copies rather than links, every staged plugin tree
+`nova-ws` in `~/.local/bin` are installed copies rather than links, every staged plugin tree
 is symlink-free by construction, and the installer retires the two legacy Antigravity symlinks
 instead of leaving them live. The remainder the previous revision of this work left open — the
 hook wrappers still pointing into the tree — is closed, not merely narrowed.
 
 **If command plugin sources are disabled, register the same tree as a directory.** A Claude
 configuration carrying `disableCommandPluginSources: true` rejects the command source; the
-installer says so by name and points at `~/.local/share/workcell/claude/workcell`, the
+installer says so by name and points at `~/.local/share/nova/claude/nova`, the
 already-staged tree, which can be registered as an ordinary directory source. That fallback
 costs only the automatic per-session restage. No plugin seed-directory environment variable is
 wired into bootstrap; a CI job or container image that needs the plugin without a checkout

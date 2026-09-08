@@ -10,10 +10,10 @@ normalized_source_digests:
 # Claude Fable 5.1 prompting extract
 
 This is a concise, model-specific synthesis of the official Claude Fable 5.1
-prompting guide. The labels below express Workcell's operational conclusions;
+prompting guide. The labels below express Nova's operational conclusions;
 they are not headings copied from Anthropic's page.
 
-## Workcell findings attributed to Claude Fable 5.1
+## Nova findings attributed to Claude Fable 5.1
 
 - **De-scaffolding:** Remove legacy prompt scaffolding that suppresses narration,
   forces a fixed update cadence, or otherwise compensates for behavior from an

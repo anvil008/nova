@@ -10,23 +10,23 @@ Codex apply_patch edits support multiple Add/Update/Move paths. Claude editor pa
 
 Claude and Codex receive PostToolUse additionalContext. Agy's documented PostToolUse response is `{}`; diagnostics go to stderr for hook logs, with no claim they enter model context. Consult those logs or run lint directly on Agy. No hook blocks completion or claims to enforce acceptance. Automatic post-edit formatting can race with overlapping writers; keep write ownership separate.
 
-Native configuration references: [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude hooks](https://code.claude.com/docs/en/hooks), [Agy hooks](https://www.antigravity.google/docs/hooks/). The packager wires Codex/Claude native hooks to the bundled runner; WORKCELL_HOOK_CONFIG selects the explicit configuration. Without it the runner exits quietly. Agy retains an explicit setup adapter. See ../instructions/install.md and the migration report for native trial coverage.
+Native configuration references: [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude hooks](https://code.claude.com/docs/en/hooks), [Agy hooks](https://www.antigravity.google/docs/hooks/). The packager wires Codex/Claude native hooks to the bundled runner; NOVA_HOOK_CONFIG selects the explicit configuration. Without it the runner exits quietly. Agy retains an explicit setup adapter. See ../instructions/install.md and the migration report for native trial coverage.
 
 ## Codex run lifecycle and usage
 
 The packaged Codex plugin also wires `codex-tracking.py` to SessionStart, UserPromptSubmit, PostToolUse, SubagentStart, SubagentStop, Stop, and Interrupt. These hooks are active when that plugin is installed; formatting remains independently opt-in. This repository change does not install them into personal configuration. Restart Codex after installing the rebuilt plugin to load its hooks.
 
-The adapter locates the nearest Git/JJ project root from the event cwd (otherwise cwd), then creates/resumes `.workcell/run.json`. It registers stable hashed agent IDs while retaining the native session ID, and uses actual parent/child event identities. It does not capture prompts, messages, or tool results. A stop marks only the agent idle; it cannot complete a task. Repeated unchanged events do not append events. Terminal runs are untouched. Events belonging to archived sessions are ignored unless the session is explicitly attached to the new active run. After `workcell-flow init "Next task"`, use `workcell-flow session attach NATIVE_SESSION_ID --archive OLD_RUN_ID` to continue the same conversation. This carries the telemetry cursor/baseline, never historical usage or task bindings. This prevents delayed hooks from replaying an old conversation into unrelated work.
+The adapter locates the nearest Git/JJ project root from the event cwd (otherwise cwd), then creates/resumes `.nova/run.json`. It registers stable hashed agent IDs while retaining the native session ID, and uses actual parent/child event identities. It does not capture prompts, messages, or tool results. A stop marks only the agent idle; it cannot complete a task. Repeated unchanged events do not append events. Terminal runs are untouched. Events belonging to archived sessions are ignored unless the session is explicitly attached to the new active run. After `nova-flow init "Next task"`, use `nova-flow session attach NATIVE_SESSION_ID --archive OLD_RUN_ID` to continue the same conversation. This carries the telemetry cursor/baseline, never historical usage or task bindings. This prevents delayed hooks from replaying an old conversation into unrelated work.
 
 Model comes from Codex's hook payload for the root agent, or from that session's transcript turn context. Parent model data is never applied to children. Effort and token usage come from matching-session JSONL `turn_context` and cumulative `token_count` records. Codex documents transcript format as unstable: unsupported records produce a telemetry warning, missing fields stay unknown, and future Codex changes may require an adapter update. Only appended complete lines are processed. Counters are differenced and deduplicated; cache/reasoning are breakdowns, not extra tokens to add to input/output. Decreasing counters are reported and skipped rather than estimated.
 
 Usage initially stays on the agent as **session-only**. To associate future work with a started attempt:
 
 ```bash
-workcell-flow task set T1 working
-workcell-flow session bind NATIVE_SESSION_ID --task T1
+nova-flow task set T1 working
+nova-flow session bind NATIVE_SESSION_ID --task T1
 # Later, detach:
-workcell-flow session bind NATIVE_SESSION_ID --task -
+nova-flow session bind NATIVE_SESSION_ID --task -
 ```
 
 Only usage intervals with a known prior baseline and a turn context beginning after binding go to that attempt. Mid-turn bindings, pre-existing conversation usage, and late data after task completion remain session-only. Starting a new attempt requires a fresh binding. Hook-driven usage therefore updates at hook boundaries; it is not a live stream during a long model request. Claude/Agy lifecycle and token adapters are not yet implemented.

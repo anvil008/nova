@@ -33,7 +33,7 @@ LEVER_HEADINGS = (
 
 
 def load_checker():
-    spec = importlib.util.spec_from_file_location("workcell_check_guides", CHECK_GUIDES)
+    spec = importlib.util.spec_from_file_location("nova_check_guides", CHECK_GUIDES)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Cannot load guide checker from {CHECK_GUIDES}")
     module = importlib.util.module_from_spec(spec)

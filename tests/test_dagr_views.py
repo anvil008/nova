@@ -11,7 +11,7 @@ import time
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
-loader=importlib.machinery.SourceFileLoader('dagr_views',str(ROOT/'tools/workcell-flow'))
+loader=importlib.machinery.SourceFileLoader('dagr_views',str(ROOT/'tools/nova-flow'))
 spec=importlib.util.spec_from_loader(loader.name,loader)
 dagr=importlib.util.module_from_spec(spec);loader.exec_module(dagr)
 
@@ -51,8 +51,8 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(len(dagr.view_rows(data,'fixture-model')),2)
         self.assertEqual(len(dagr.view_rows(data,folded=True)),3)
         self.assertEqual(dagr.view_rows(data,'absent'),[])
-        self.assertIn('No session telemetry observed','\n'.join(dagr.diagnostics(Path('/project/.workcell'),data)))
-        self.assertIn('no run.json','\n'.join(dagr.diagnostics(Path('/project/.workcell'))))
+        self.assertIn('No session telemetry observed','\n'.join(dagr.diagnostics(Path('/project/.nova'),data)))
+        self.assertIn('no run.json','\n'.join(dagr.diagnostics(Path('/project/.nova'))))
 
     def test_elapsed_uses_settled_end(self):
         self.assertEqual(dagr.age_text('2026-09-07T10:00:00Z','2026-09-07T11:02:00Z'),'1h 2m')
@@ -67,7 +67,7 @@ class ViewTests(unittest.TestCase):
             self.addCleanup(os.close,master);self.addCleanup(os.close,slave)
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',32,140,0,0))
             before=termios.tcgetattr(slave)
-            process=subprocess.Popen([str(ROOT/'tools/workcell-flow'),'--dir',tmp,'view'],stdin=slave,stdout=slave,stderr=slave,env={**os.environ,'TERM':'xterm-256color'})
+            process=subprocess.Popen([str(ROOT/'tools/nova-flow'),'--dir',tmp,'view'],stdin=slave,stdout=slave,stderr=slave,env={**os.environ,'TERM':'xterm-256color'})
             self.addCleanup(lambda: process.poll() is None and process.kill())
             output=b''
             def drain():

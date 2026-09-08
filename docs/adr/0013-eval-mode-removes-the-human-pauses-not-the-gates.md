@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Workcell is built around a human: the planner stops for approval of its folio and sidecar,
+Nova is built around a human: the planner stops for approval of its folio and sidecar,
 `new-feature` interviews before it plans, work lands as pull requests a person reviews and the
 main conversation merges. A benchmark run has none of that. A DeepSWE-style container holds a
 task repository and hidden verifiers, there is no reviewer, usually no remote and no GitHub at
@@ -14,24 +14,24 @@ all, and the only deliverable is the diff the harness collects when the process 
 
 Run unchanged in that container, the harness deadlocks on approvals it will never get and spends
 turns on a GitHub that is not there. The tempting fix — an "eval" flag that skips the gates — would
-measure a harness nobody ships: the TDD ceremony is most of what Workcell _is_, so a score taken
+measure a harness nobody ships: the TDD ceremony is most of what Nova _is_, so a score taken
 without it says nothing about the product. The other tempting fix, prose in the skills ("if this
 is an eval, do not wait"), is not a switch at all; every agent would have to be trusted to read
 it the same way, and nothing mechanical would stop a `gh` call.
 
 The two properties that mattered were that the switch be mechanical and that it be scoped. An
 eval must not be something an agent can decide it is in, and marking a task repository must never
-put the Workcell checkout on the same machine into eval mode.
+put the Nova checkout on the same machine into eval mode.
 
 ## Decision
 
-Eval mode is one file in the task repository, `.workcell/eval-mode.json`, written by
+Eval mode is one file in the task repository, `.nova/eval-mode.json`, written by
 `scripts/bootstrap-eval.sh` and read by `build-guard`. The guard resolves it from the repository
 each command targets — the same `-C`/`--git-dir`/cwd resolution it already uses to read the live
 branch — and only where the bootstrap puts it: at that toplevel, exactly. There is no upward walk,
 because one would relax every repository nested under any marked directory, and a path git cannot
 resolve to a toplevel is not in eval mode at all. The bootstrap refuses to write a marker into the
-Workcell source tree, and refuses a directory that is not its repository's root, so the file only
+Nova source tree, and refuses a directory that is not its repository's root, so the file only
 ever exists where the guard will read it.
 
 Writing that file is a human's act, so an agent's attempt to write it is denied like any other
@@ -40,7 +40,7 @@ operands of `tee`/`cp`/`mv`/`install`/`ln`/`dd`/`truncate` — and `build-hooks`
 `Edit`/`Write`, denies a `file_path` naming it, in every harness dialect. Both refuse in or out of
 eval mode, so a marked repository cannot be used to mark another one.
 
-Alongside the marker, an eval driver exports `WORKCELL_EVAL_TASK_DIR`. The marker is read from the
+Alongside the marker, an eval driver exports `NOVA_EVAL_TASK_DIR`. The marker is read from the
 repository a command targets, which says nothing about a command run from elsewhere; the variable
 travels with the process instead. When it is set, `gh` is denied from any working directory, and
 the default-branch relaxation applies only to the repository it names.
@@ -74,7 +74,7 @@ unchanged everywhere else" a checked claim rather than an assertion.
 
 Two residuals are accepted and neither is closed by this decision: the marker-write denial covers
 the vectors the tokenizer can see, so a path assembled inside a quoted script body or written by a
-helper program the guard cannot read still gets through; and `WORKCELL_EVAL_TASK_DIR` is an
+helper program the guard cannot read still gets through; and `NOVA_EVAL_TASK_DIR` is an
 environment variable, which an agent can unset for a single command, making it defence in depth
 rather than a boundary. Both are the same trade the tmpfs rule makes — `build-guard` stops mistakes
 and drift, it is not an adversary-proof sandbox — and what the marker cannot do in any case is

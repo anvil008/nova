@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import sys
 
-loader=importlib.machinery.SourceFileLoader('dagr_native',str(Path(__file__).resolve().parents[1]/'tools/workcell-flow'))
+loader=importlib.machinery.SourceFileLoader('dagr_native',str(Path(__file__).resolve().parents[1]/'tools/nova-flow'))
 spec=importlib.util.spec_from_loader(loader.name,loader)
 dagr=importlib.util.module_from_spec(spec);loader.exec_module(dagr)
 
@@ -27,7 +27,7 @@ def handle(harness,event,payload):
         project=dagr.project_store(cwd);model=payload.get('model');effort=payload.get('effort')
         if isinstance(effort,dict):effort=effort.get('level')
     if not isinstance(session,str) or not session:return {}
-    parent=None;join=os.environ.get('WORKCELL_RUN_ID')
+    parent=None;join=os.environ.get('NOVA_RUN_ID')
     if harness=='claude' and payload.get('agent_id'):
         with dagr.locked(project):
             parent_store=dagr.session_store(project,harness,session,join,True,cwd)
@@ -53,11 +53,11 @@ def handle(harness,event,payload):
         agent.update(state='idle' if event in ('Stop','SessionEnd','SubagentStop') else 'working',activity=event,workspace=str(Path(cwd).resolve()),updated_at=dagr.now())
         if isinstance(model,str) and not parent:agent['model']=model
         if isinstance(effort,str):agent['effort']=effort
-        if os.environ.get('WORKCELL_SESSION_ID'):agent['launcher_session']=os.environ['WORKCELL_SESSION_ID']
+        if os.environ.get('NOVA_SESSION_ID'):agent['launcher_session']=os.environ['NOVA_SESSION_ID']
         dagr.report_activity(data,agent,event,payload)
         dagr.event(data,'session_observed',event,agent=ident);dagr.atomic(destination/'run.json',data)
     if event in ('SessionEnd','SubagentStop'):dagr.lifecycle(project,harness,session,'end',workspace=cwd)
-    context=f'Workcell tracks this session in {destination}. Use workcell-flow --dir {destination} for task updates. Bind session {session} before task work. Report evidence and observed usage; never invent token counts.'
+    context=f'Nova tracks this session in {destination}. Use nova-flow --dir {destination} for task updates. Bind session {session} before task work. Report evidence and observed usage; never invent token counts.'
     if harness=='claude' and event in ('SessionStart','SubagentStart'):
         return {'hookSpecificOutput':{'hookEventName':event,'additionalContext':context}}
     if harness=='agy' and event=='PreInvocation' and (payload.get('invocationNum')==0 or agent.get('tracking_notice')):
@@ -70,7 +70,7 @@ def main():
     try:
         payload=json.load(sys.stdin);result=handle(args.harness,args.event or payload.get('hook_event_name'),payload)
     except (ValueError,TypeError,KeyError,OSError) as error:
-        print('workcell tracking: '+str(error),file=sys.stderr);result={}
+        print('nova tracking: '+str(error),file=sys.stderr);result={}
     print(json.dumps(result))
 
 if __name__=='__main__':main()

@@ -25,19 +25,19 @@ def copy_tree(source, destination):
 def build(output, version=None):
     output = Path(output).absolute()
     # Only replace our own previous build, never an arbitrary destination.
-    if output.is_symlink() or (output.exists() and not (output / '.workcell-build').is_file()):
+    if output.is_symlink() or (output.exists() and not (output / '.nova-build').is_file()):
         raise ValueError(f'Refusing unowned output directory: {output}')
     if output == ROOT or ROOT.is_relative_to(output) or output.is_relative_to(ROOT / 'skills'):
         raise ValueError('Output overlaps source')
     output.parent.mkdir(parents=True, exist_ok=True)
     version = version or (ROOT / 'VERSION').read_text().strip()
-    with tempfile.TemporaryDirectory(prefix='.workcell-build-', dir=output.parent) as temp:
+    with tempfile.TemporaryDirectory(prefix='.nova-build-', dir=output.parent) as temp:
         staging = Path(temp) / 'bundle'
         staging.mkdir()
-        (staging / '.workcell-build').write_text(version + '\n')
+        (staging / '.nova-build').write_text(version + '\n')
         for harness in HARNESSES:
             marketplace = staging / harness
-            plugin = marketplace / 'plugins/workcell'
+            plugin = marketplace / 'plugins/nova'
             copy_tree(ROOT / 'packaging' / harness, plugin)
             for name in ('skills', 'instructions', 'tools'):
                 copy_tree(ROOT / name, plugin / name)
@@ -67,24 +67,24 @@ def build(output, version=None):
                 write_json(plugin / 'hooks/hooks.json', adapter)
             else:
                 import shlex
-                script = output / 'agy/plugins/workcell/hooks/native-tracking.py'
-                hook = {'enabled':True,'description':'Workcell session tracking'}
+                script = output / 'agy/plugins/nova/hooks/native-tracking.py'
+                hook = {'enabled':True,'description':'Nova session tracking'}
                 for event in ('PreInvocation','PostInvocation','Stop'):
                     hook[event]=[{'type':'command','command':'python3 '+shlex.quote(str(script))+' --harness agy --event '+event,'timeout':10}]
                 hook['PostToolUse']=[{'matcher':'.*','hooks':[{'type':'command','command':'python3 '+shlex.quote(str(script))+' --harness agy --event PostToolUse','timeout':10}]}]
-                write_json(plugin/'hooks.json',{'workcell-tracking':hook})
+                write_json(plugin/'hooks.json',{'nova-tracking':hook})
                 (plugin / 'rules').mkdir(exist_ok=True)
-                shutil.copy2(ROOT / 'instructions/development.md', plugin / 'rules/workcell.md')
+                shutil.copy2(ROOT / 'instructions/development.md', plugin / 'rules/nova.md')
             if harness == 'codex':
-                index = {'name': 'workcell', 'interface': {'displayName': 'Workcell'},
-                         'plugins': [{'name': 'workcell',
-                                      'source': {'source': 'local', 'path': './plugins/workcell'},
+                index = {'name': 'nova', 'interface': {'displayName': 'Nova'},
+                         'plugins': [{'name': 'nova',
+                                      'source': {'source': 'local', 'path': './plugins/nova'},
                                       'policy': {'installation': 'AVAILABLE', 'authentication': 'ON_INSTALL'},
                                       'category': 'Developer Tools'}]}
                 write_json(marketplace / '.agents/plugins/marketplace.json', index)
             else:
-                index = {'name': 'workcell', 'owner': {'name': 'Foundry Zero'},
-                         'plugins': [{'name': 'workcell', 'source': './plugins/workcell',
+                index = {'name': 'nova', 'owner': {'name': 'Foundry Zero'},
+                         'plugins': [{'name': 'nova', 'source': './plugins/nova',
                                       'version': version, 'description': manifest['description']}]}
                 write_json(marketplace / '.claude-plugin/marketplace.json', index)
         if output.exists():

@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--check', action='store_true')
 args = parser.parse_args()
-path = ROOT / 'docs/proposals/workcell-next.html'
+path = ROOT / 'docs/proposals/nova-next.html'
 text = path.read_text()
 start = text.index('const skills=') + len('const skills=')
 end = text.index(';\nfunction showSkill', start)

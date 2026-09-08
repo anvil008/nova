@@ -297,7 +297,7 @@
         },
         {
           "source": "skills/planner/scripts/render_plan.py:44-47,54-56,100-102 and skills/planner/scripts/reconcile_github.py:18-22,85",
-          "finding": "CONFIRMED idempotency bug: validate_plan() checks regexes against the stripped value but leaves the raw value in the plan, so a planId or issue key with leading/trailing whitespace passes validation yet produces a marker like `<!-- workcell-planner planId= planner-v3-sample issue=render-folio  -->` that ISSUE_MARKER_RE never matches. Every reconcile run then re-creates all issues.",
+          "finding": "CONFIRMED idempotency bug: validate_plan() checks regexes against the stripped value but leaves the raw value in the plan, so a planId or issue key with leading/trailing whitespace passes validation yet produces a marker like `<!-- nova-planner planId= planner-v3-sample issue=render-folio  -->` that ISSUE_MARKER_RE never matches. Every reconcile run then re-creates all issues.",
           "evidence": "Probe: sample.sidecar.json with planId=' planner-v3-sample' and key 'render-folio '; render_plan and reconcile both exit 0; second reconcile against a snapshot built from the first run's payloads produced actions ['create_issue', 'create_issue'] instead of [].",
           "topic": "github-reconcile-safety",
           "position": "Whitespace-padded ids are accepted by validation but break marker round-tripping; reject or normalise (use the stripped value) in validate_plan."
@@ -533,7 +533,7 @@
         },
         {
           "source": "plan.sidecar.json (repo root); git log -- plan.sidecar.json",
-          "finding": "CONFIRMED: plan.sidecar.json at repo root is TRACKED (committed in 83bccb0, updated in a1f4584). It is a planner output for the 'workcell-hardening-and-dx' milestone \u2014 a self-planning artifact, not a fixture. Its companion folio (docs/plans/plan01-*.html) is absent (docs/ contains only adr/). The sidecar does validate against the current renderer.",
+          "finding": "CONFIRMED: plan.sidecar.json at repo root is TRACKED (committed in 83bccb0, updated in a1f4584). It is a planner output for the 'nova-hardening-and-dx' milestone \u2014 a self-planning artifact, not a fixture. Its companion folio (docs/plans/plan01-*.html) is absent (docs/ contains only adr/). The sidecar does validate against the current renderer.",
           "evidence": "`git log --oneline -- plan.sidecar.json` -> a1f4584, 83bccb0; `ls -R docs` -> docs/adr only; scratch render succeeded.",
           "topic": "stray-files",
           "position": "root plan.sidecar.json is a tracked stray planning artifact (plan already executed per CHANGELOG) with no matching folio; remove it or move under docs/plans with its HTML"
@@ -651,28 +651,28 @@
         {
           "source": "~/.local/bin, ~/.claude/agents",
           "finding": "Installed harness state: ~/.claude/skills -> ~/.agents/skills; ~/.claude/agents has builder/code-reviewer/docs/research symlinked into repo agents/claude/; ~/.local/bin/tdd-guard -> repo bin/tdd-guard; ~/.local/bin/anvil-guard -> tdd-guard; build-hooks -> repo scripts/hooks/build-hooks; build-format/build-guard/build-lint are regular-file copies (Aug 28 13:05), not symlinks, though build-lint is byte-identical to the repo version.",
-          "evidence": "`ls -la ~/.claude/agents ~/.claude/skills ~/.local/bin | grep -iE 'workcell|build-|guard|->'`; `diff scripts/hooks/build-lint ~/.local/bin/build-lint` -> identical",
+          "evidence": "`ls -la ~/.claude/agents ~/.claude/skills ~/.local/bin | grep -iE 'nova|build-|guard|->'`; `diff scripts/hooks/build-lint ~/.local/bin/build-lint` -> identical",
           "topic": "installer-state",
           "position": "harness installed and consistent with repo HEAD; three hooks are copied rather than linked, so they can drift silently after future repo edits"
         },
         {
           "source": "find ~/.claude/skills ~/.claude/agents ~/.local/bin -maxdepth 1 -xtype l",
-          "finding": "Exactly one broken symlink on the machine, unrelated to the harness: ~/.local/bin/python3.14 -> a uv cpython-3.14.6 path that no longer exists. No workcell links are broken.",
+          "finding": "Exactly one broken symlink on the machine, unrelated to the harness: ~/.local/bin/python3.14 -> a uv cpython-3.14.6 path that no longer exists. No nova links are broken.",
           "evidence": "find output: `/home/anvil/.local/bin/python3.14`; `find ~/.agents/skills -maxdepth 1 -xtype l` -> empty",
           "topic": "installer-state",
-          "position": "harness links all resolve; python3.14 link is stale (not a workcell artifact)"
+          "position": "harness links all resolve; python3.14 link is stale (not a nova artifact)"
         },
         {
           "source": "~/.codex, ~/.gemini, ~/.antigravity",
           "finding": "Codex and Antigravity harness homes are present (~/.codex with AGENTS.md/auth/sessions; ~/.gemini with antigravity*; ~/.antigravity with agy_daemon.log and bin).",
           "evidence": "`ls -la ~/.codex | head`, `ls ~/.gemini ~/.antigravity | head`",
           "topic": "installer-state",
-          "position": "other harness homes exist; whether workcell agents are installed into ~/.gemini/config/agents (install-harness.sh:76) was not verified"
+          "position": "other harness homes exist; whether nova agents are installed into ~/.gemini/config/agents (install-harness.sh:76) was not verified"
         },
         {
           "source": "bin/tdd-guard, bin/anvil-guard",
           "finding": "bin/tdd-guard is current (built from 1953f8b+dirty; no Go source changed since). bin/anvil-guard is stale and orphaned: built Aug 25 from package cmd/anvil-guard at ae9e931, but cmd/anvil-guard was deleted in 31725c5 and only cmd/tdd-guard exists now. Nothing references bin/anvil-guard; both are gitignored (bin/).",
-          "evidence": "`go version -m bin/tdd-guard` -> `v0.0.0-20260828055352-1953f8b8fdbe+dirty`; `go version -m bin/anvil-guard` -> `path github.com/anvil008/workcell/cmd/anvil-guard`, `v0.0.0-20260825193924-ae9e931657bd`; `ls cmd/` -> `tdd-guard`; `git diff --stat 1953f8b ee46c1a -- guard cmd controlplane go.mod` -> empty",
+          "evidence": "`go version -m bin/tdd-guard` -> `v0.0.0-20260828055352-1953f8b8fdbe+dirty`; `go version -m bin/anvil-guard` -> `path github.com/anvil008/nova/cmd/anvil-guard`, `v0.0.0-20260825193924-ae9e931657bd`; `ls cmd/` -> `tdd-guard`; `git diff --stat 1953f8b ee46c1a -- guard cmd controlplane go.mod` -> empty",
           "topic": "stale-binaries",
           "position": "tdd-guard fresh; anvil-guard is a dead leftover from a removed package, safe to delete but harmless"
         },
@@ -779,8 +779,8 @@
       "topic": "installer-state",
       "positions": [
         "harness installed and consistent with repo HEAD; three hooks are copied rather than linked, so they can drift silently after future repo edits",
-        "harness links all resolve; python3.14 link is stale (not a workcell artifact)",
-        "other harness homes exist; whether workcell agents are installed into ~/.gemini/config/agents (install-harness.sh:76) was not verified"
+        "harness links all resolve; python3.14 link is stale (not a nova artifact)",
+        "other harness homes exist; whether nova agents are installed into ~/.gemini/config/agents (install-harness.sh:76) was not verified"
       ]
     },
     {
@@ -896,7 +896,7 @@
     "agent-definitions: Did not confirm the origin of the .ruff_cache ignore (assumed ruff's self-written .gitignore).",
     "agent-definitions: skills/jj/* vendored content was not reviewed for internal consistency.",
     "ci-runtime: Did not run `go test -count=1` to bypass the test cache.",
-    "ci-runtime: Did not verify whether workcell agents are installed under ~/.gemini/config/agents or ~/.codex \u2014 only confirmed the harness homes exist.",
+    "ci-runtime: Did not verify whether nova agents are installed under ~/.gemini/config/agents or ~/.codex \u2014 only confirmed the harness homes exist.",
     "ci-runtime: Only build-lint was diffed against its ~/.local/bin copy; build-format/build-guard not compared.",
     "ci-runtime: Did not assess whether ubuntu-latest's default python3 differs from local 3.13.5 in a way that affects the unittest suites."
   ],

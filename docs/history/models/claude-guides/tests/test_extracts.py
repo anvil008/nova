@@ -61,7 +61,7 @@ FABLE_ONLY_LABELS = (
 
 
 def load_checker():
-    spec = importlib.util.spec_from_file_location("workcell_check_guides", CHECK_GUIDES)
+    spec = importlib.util.spec_from_file_location("nova_check_guides", CHECK_GUIDES)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load checker from {CHECK_GUIDES}")
     module = importlib.util.module_from_spec(spec)
@@ -136,11 +136,11 @@ class ClaudeGuideAcceptanceTests(unittest.TestCase):
         """Fable findings are attributed to Fable and model-native topics stay separate."""
         _, fable_body = read_guide("claude-fable-5-1")
         normalized_fable = normalized_markdown(fable_body)
-        attribution = "workcell findings attributed to claude fable 5.1"
+        attribution = "nova findings attributed to claude fable 5.1"
         self.assertIn(
             attribution,
             normalized_fable,
-            "The Fable extract must explicitly attribute the supplied Workcell "
+            "The Fable extract must explicitly attribute the supplied Nova "
             "findings to Claude Fable 5.1.",
         )
         for finding in FABLE_FINDINGS:

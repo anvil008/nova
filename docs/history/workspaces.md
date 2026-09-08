@@ -1,8 +1,8 @@
 # Workspaces
 
 Every unit of agent work happens in its own working copy, and there is exactly one way to make
-one, name one, and get rid of one — `scripts/workcell-ws`, installed as a versioned copy at
-`~/.local/bin/workcell-ws` by `bootstrap-tools.sh --install`, never a link, so editing the script
+one, name one, and get rid of one — `scripts/nova-ws`, installed as a versioned copy at
+`~/.local/bin/nova-ws` by `bootstrap-tools.sh --install`, never a link, so editing the script
 in a checkout changes nothing until the next `--install`. All three harnesses call it through the
 shell, so the standard is identical on Claude, Codex, and Antigravity.
 
@@ -43,16 +43,16 @@ shell, so the standard is identical on Claude, Codex, and Antigravity.
   outright if there is none. On git the default is `origin/HEAD`, else `main` / `master` / `trunk`.
 - **Teardown after downstream acceptance.** In local build runs, retain builder workspaces
   until the orchestrator accepts their integration receipt, even though no intermediate PR
-  exists. The orchestrator runs `workcell-ws forget` from the primary workspace after acceptance.
+  exists. The orchestrator runs `nova-ws forget` from the primary workspace after acceptance.
   Other workflows retain the workspace until their downstream evidence has been accepted.
   Forgetting removes the working copy but preserves bookmarks and commits. See
   [local build runs](build-runs.md).
 
 ```sh
-workcell-ws add <key> [--base <rev>] [--repo <dir>]     # create ../<repo>-<key>, bookmark <key>
-workcell-ws forget <key> [--force] [--repo <dir>]       # drop the working copy, keep the bookmark
-workcell-ws list [--repo <dir>]                         # name, revision, state, path
-workcell-ws sweep [--apply] [--force] [--repo <dir>]    # report, or remove, what leaked
+nova-ws add <key> [--base <rev>] [--repo <dir>]     # create ../<repo>-<key>, bookmark <key>
+nova-ws forget <key> [--force] [--repo <dir>]       # drop the working copy, keep the bookmark
+nova-ws list [--repo <dir>]                         # name, revision, state, path
+nova-ws sweep [--apply] [--force] [--repo <dir>]    # report, or remove, what leaked
 ```
 
 Every subcommand works from the repository, from one of its workspaces, or with `--repo`.
@@ -60,7 +60,7 @@ Every subcommand works from the repository, from one of its workspaces, or with 
 ## The leak check
 
 Agents die. When one does, it leaves a workspace nobody will tear down, and the fleet has
-collected orphaned workspaces and stale bookmarks that way. `workcell-ws list` gives each entry a
+collected orphaned workspaces and stale bookmarks that way. `nova-ws list` gives each entry a
 state:
 
 | State       | Meaning                                                                               |
@@ -71,7 +71,7 @@ state:
 | `stale-dir` | ours by its pointer, but nothing registered it — an agent died mid-creation           |
 | `foreign`   | matches the naming convention but is an independent repository — never a sweep target |
 
-`workcell-ws sweep` reports every `stale-dir`, `stale-reg`, and `merged` entry plus every local
+`nova-ws sweep` reports every `stale-dir`, `stale-reg`, and `merged` entry plus every local
 bookmark or branch already merged into the default branch. Without `--apply` it is strictly
 read-only; with `--apply` it removes exactly what it reported and nothing it refused. It never
 touches a remote, never deletes an unmerged ref, and never touches the primary working copy. Run

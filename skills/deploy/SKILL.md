@@ -12,7 +12,7 @@ Identify the environment, source candidate, version policy, release commands, cr
 
 Bind release actions to the exact final candidate and target. Existing authorization applies according to its scope; do not ask again when it already covers the action. A green preflight does not grant publication or production-deployment permission. Never expose credentials in commands, logs, or reports.
 
-Release notes describe delivered behavior and breaking changes. Follow Workcell's title convention `<project> vX.Y.Z`; put a descriptive strapline in the changelog, and do not repeat the title as the notes' first heading. Use the project's actual tag, package, and deployment commands.
+Release notes describe delivered behavior and breaking changes. Follow Nova's title convention `<project> vX.Y.Z`; put a descriptive strapline in the changelog, and do not repeat the title as the notes' first heading. Use the project's actual tag, package, and deployment commands.
 
 Before release, verify CI and artifacts against final source. Inspect migration sequencing, compatibility, rollout health criteria, observation window, and recovery steps. Do not assume application rollback reverses a destructive database migration. Resolve missing operational decisions before the affected action.
 

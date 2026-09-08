@@ -27,7 +27,7 @@ OFFICIAL_URLS = (LATEST_MODEL_URL, MODEL_PAGE_URL, PROMPT_STRATEGIES_URL)
 
 def load_checker():
     """Load the merged guide checker so these tests exercise its real contract."""
-    spec = importlib.util.spec_from_file_location("workcell_check_guides", CHECK_GUIDES)
+    spec = importlib.util.spec_from_file_location("nova_check_guides", CHECK_GUIDES)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load guide checker at {CHECK_GUIDES}")
     module = importlib.util.module_from_spec(spec)

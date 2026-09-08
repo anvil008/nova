@@ -8,7 +8,7 @@ Read [shared development instructions](../../instructions/development.md) when a
 
 # Wiki
 
-Use bundled `scripts/wiki.py` via an absolute path resolved from this skill. It retains Workcell's external namespace format and needs no orchestration runtime. Run `status --repo <target>` before reading or recording. The default store is `~/.workcell/wiki/`, overridden by `WORKCELL_WIKI_HOME`.
+Use bundled `scripts/wiki.py` via an absolute path resolved from this skill. It retains Nova's external namespace format and needs no orchestration runtime. Run `status --repo <target>` before reading or recording. The default store is `~/.nova/wiki/`, overridden by `NOVA_WIKI_HOME`.
 
 A missing namespace is not an error. Run `init --repo <target>` only when the user explicitly requested initialization or otherwise opted this project in. Reuse existing opt-in. Honor project-identity and evaluation-mode checks rather than bypassing them with `--namespace`.
 

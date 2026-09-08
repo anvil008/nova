@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Workcell run tracking: milestones, tasks, agents, and immutable archived runs."""
+"""Nova run tracking: milestones, tasks, agents, and immutable archived runs."""
 import argparse
 import copy
 from contextlib import contextmanager, nullcontext
@@ -82,7 +82,7 @@ def validate_usage(usage, usage_ids):
 
 
 def validate(data):
-    require(isinstance(data, dict) and data.get('workcell_dagr') == SCHEMA, 'Unsupported Workcell Flow schema')
+    require(isinstance(data, dict) and data.get('nova_dagr') == SCHEMA, 'Unsupported Nova Flow schema')
     require(len(data.get('events',[])) <= MAX_EVENTS, 'Too many events; archive this run before continuing')
     require(sum(len(data.get(k,[])) for k in ('tasks','agents','milestones')) + sum(len(t.get('attempts',[])) for t in data.get('tasks',[])) <= MAX_ITEMS, 'Run exceeds graph item limit')
     run = data['run']; identifier(run['id'])
@@ -171,12 +171,33 @@ def validate(data):
     require([e['seq'] for e in data['events']] == list(range(1, len(data['events']) + 1)), 'Event sequence is invalid')
     require(data['revision'] == len(data['events']), 'Revision must match the event sequence')
     if run['state'] == 'done':
-        require(all(t['state'] in ('done', 'canceled') for t in data['tasks']), 'Completed run has unfinished tasks')
+        require(all(t['state'] in ('done', 'canceled') for t in work_tasks(data)), 'Completed run has unfinished tasks')
     if run['state'] != 'active':
         timestamp(run['ended_at'])
-        require(not any(t['state'] == 'working' for t in data['tasks']), 'Terminal run has working tasks')
+        require(not any(t['state'] == 'working' for t in work_tasks(data)), 'Terminal run has working tasks')
         require(not any(a['state'] in ('working', 'waiting') for a in data['agents']), 'Terminal run has active agents')
     return data
+
+
+def work_tasks(data):
+    return [t for t in data['tasks'] if t.get('kind') != 'group']
+
+
+def group_summary(data, group):
+    descendants=set(); pending=[group['id']]
+    children={}
+    for task in data['tasks']:children.setdefault(task.get('parent_id'),[]).append(task)
+    while pending:
+        for task in children.get(pending.pop(),[]):
+            if task['id'] not in descendants:
+                descendants.add(task['id']);pending.append(task['id'])
+    tasks=[t for t in work_tasks(data) if t['id'] in descendants]
+    counts={state:sum(t['state']==state for t in tasks) for state in TASK_STATES}
+    if not tasks:return 'pending','No tasks'
+    state=next((v for v in ('working','blocked','failed','pending') if counts[v]),'done' if counts['done'] else 'canceled')
+    label=', '.join(str(counts[v])+' '+v for v in ('working','blocked','failed','pending') if counts[v])
+    if not label:label=f"{counts['done']}/{len(tasks)} done"+(f", {counts['canceled']} canceled" if counts['canceled'] else '')
+    return state,label
 
 
 def read(path):
@@ -198,8 +219,42 @@ def sync_directory(path):
         os.close(descriptor)
 
 
+def assign_references(path, data):
+    # A separate repository lock avoids lock-order inversion with run writers.
+    root=path.parent
+    if root.parent.name=='runs':root=root.parent.parent
+    elif root.parent.name=='archive':
+        root=root.parent.parent
+        if root.parent.name=='runs':root=root.parent.parent
+    with locked(root/'references'):
+        registry=root/'references/index.json'
+        saved=json.loads(registry.read_text()) if registry.exists() else {'next':{'G':1,'T':1},'ids':{}}
+        def allocate(key,kind,existing=None):
+            if key not in saved['ids']:
+                if existing:
+                    require(existing not in saved['ids'].values(),'Duplicate stable reference')
+                    saved['ids'][key]=existing
+                    saved['next'][kind]=max(saved['next'][kind],int(existing[1:])+1)
+                else:
+                    saved['ids'][key]=kind+str(saved['next'][kind]).zfill(2)
+                    saved['next'][kind]+=1
+            require(not existing or saved['ids'][key]==existing,'Stable reference registry mismatch')
+            return saved['ids'][key]
+        run=data['run']['id']
+        data['run']['display_ref']=allocate(json.dumps([run]),'G',data['run'].get('display_ref'))
+        for task in data['tasks']:
+            task['display_ref']=allocate(json.dumps([run,task['id']]),'G' if task.get('kind')=='group' else 'T',task.get('display_ref'))
+        fd,name=tempfile.mkstemp(prefix='.index-',dir=registry.parent)
+        try:
+            with os.fdopen(fd,'w') as stream:
+                json.dump(saved,stream);stream.flush();os.fsync(stream.fileno())
+            os.replace(name,registry);sync_directory(registry.parent)
+        finally:Path(name).unlink(missing_ok=True)
+
+
 def atomic(path, data):
     validate(data)
+    assign_references(path,data)
     encoded = json.dumps(data, indent=2, ensure_ascii=False) + '\n'
     require(len(encoded.encode('utf-8')) <= MAX_BYTES, 'Run exceeds 16 MiB limit')
     require(not path.is_symlink(), f'Refusing run symlink: {path}')
@@ -232,7 +287,7 @@ def event(data, kind, detail, **refs):
 
 def create(title, run_id=None):
     stamp = now()
-    data = {'workcell_dagr': SCHEMA, 'revision': 0,
+    data = {'nova_dagr': SCHEMA, 'revision': 0,
             'run': {'id': identifier(run_id or 'run-' + uuid.uuid4().hex[:12]),
                     'title': title, 'state': 'active', 'phase': 'spec', 'created_at': stamp},
             'updated_at': stamp, 'milestones': [], 'tasks': [], 'agents': [], 'events': []}
@@ -415,7 +470,7 @@ def change(data, args):
         event(data, 'agent_updated', agent['activity'] or agent['state'], agent=args.id)
     elif args.command == 'finish':
         require(args.note, 'Finish requires a summary note')
-        require(not any(t['state'] == 'working' for t in data['tasks']), 'Settle working tasks first')
+        require(not any(t['state'] == 'working' for t in work_tasks(data)), 'Settle working tasks first')
         data['run'].update(state=args.state, ended_at=now(), summary=args.note)
         event(data, 'run_finished', args.note)
     validate(data)
@@ -452,17 +507,44 @@ def project_store(cwd):
         repo = parent/'.jj/repo'
         if repo.exists():
             shared = (repo.parent / repo.read_text().strip()).resolve() if repo.is_file() else repo.resolve()
-            return shared.parent.parent/'.workcell'
+            return shared.parent.parent/'.nova'
         if (parent/'.git').exists():
             result = subprocess.run(['git','-C',str(parent),'rev-parse','--path-format=absolute','--git-common-dir'],capture_output=True,text=True)
-            if result.returncode: return parent/'.workcell'
+            if result.returncode: return parent/'.nova'
             shared = Path(result.stdout.strip()).resolve()
-            return (shared.parent if shared.name=='.git' else shared)/'.workcell'
-    return cwd/'.workcell'
+            return (shared.parent if shared.name=='.git' else shared)/'.nova'
+    return cwd/'.nova'
 
 
 def run_paths(directory):
     return ([directory/'run.json'] if (directory/'run.json').exists() else []) + sorted((directory/'runs').glob('*/run.json'))
+
+
+def migrate_legacy(directory):
+    """Relocate legacy records unchanged; never replace an existing run."""
+    moved=[]
+    with locked(directory):
+        sources=([directory/'run.json'] if (directory/'run.json').exists() else [])
+        sources+=sorted((directory/'archive').glob('*/run.json'))
+        transfers=[]
+        for source in sources:
+            data=read(source); ident=identifier(data['run']['id'])
+            destination=directory/'runs'/ident
+            if source.parent!=directory:destination=destination/'archive'/ident
+            target=destination/'run.json'
+            require(not target.exists(), f'Migration destination already exists: {target}')
+            require(target not in [t for _,t in transfers], 'Duplicate migration destination')
+            transfers.append((source,target))
+        for source,target in transfers:
+            target.parent.mkdir(parents=True,exist_ok=True)
+            with locked(target.parent):
+                # Exclusive link preserves exact bytes and refuses concurrent creation.
+                os.link(source,target)
+                sync_directory(target.parent)
+                source.unlink()
+                sync_directory(source.parent)
+            moved.append(str(target))
+    return moved
 
 
 def session_store(directory, harness, session, join=None, create_run=False, workspace=None):
@@ -511,11 +593,11 @@ def lifecycle(directory,harness,session,action,join=None,workspace=None):
                     if child.get('launcher_session')==session:child.update(session_closed=True,state='idle')
             sessions=[a for a in data['agents'] if a.get('session_id')]
             closed=bool(sessions) and all(a.get('session_closed',False) for a in sessions)
-            settled=all(t['state'] in TERMINAL for t in data['tasks'])
+            settled=all(t['state'] in TERMINAL for t in work_tasks(data))
             data['run']['lifecycle']='interrupted' if closed and not settled else 'active'
             event(data,'session_'+action,harness+' session '+action,agent=ident)
             if closed and settled and not any(a['state'] in ('working','waiting') for a in data['agents']):
-                data['run'].update(state='failed' if any(t['state']=='failed' for t in data['tasks']) else 'done',ended_at=now(),summary='All participating sessions closed; tasks settled',lifecycle='archived')
+                data['run'].update(state='failed' if any(t['state']=='failed' for t in work_tasks(data)) else 'done',ended_at=now(),summary='All participating sessions closed; tasks settled',lifecycle='archived')
                 atomic(destination/'run.json',data)
                 return archive(destination)
             atomic(destination/'run.json',data)
@@ -539,7 +621,7 @@ def selected_run(directory,key=None):
         data=copy.deepcopy(read(path));prefix='r'+str(n+1)+'--'
         for m in data['milestones']:m['id']=prefix+m['id']
         for t in data['tasks']:
-            t['title']=data['run']['title']+' / '+t['title'];t['id']=prefix+t['id'];t['deps']=[prefix+d for d in t['deps']]
+            t['id']=prefix+t['id'];t['deps']=[prefix+d for d in t['deps']]
             if t.get('parent_id'):t['parent_id']=prefix+t['parent_id']
             if t['milestone']:t['milestone']=prefix+t['milestone']
             for a in t['attempts']:
@@ -548,6 +630,11 @@ def selected_run(directory,key=None):
                 a['workers']={prefix+k:v for k,v in a.get('workers',{}).items()}
                 for u in a.get('usage',[]):
                     if u.get('agent'):u['agent']=prefix+u['agent']
+        roots=[t for t in data['tasks'] if not t.get('parent_id')]
+        if roots and not (len(roots)==1 and roots[0].get('kind')=='group'):
+            group_id=prefix+'run-group'
+            for t in roots:t['parent_id']=group_id
+            data['tasks'].insert(0,dict(id=group_id,title=data['run']['title'],kind='group',state='pending',attempts=[],deps=[],milestone=None,phase=data['run']['phase'],note='',display_ref=data['run'].get('display_ref',data['run']['id'])))
         for a in data['agents']:
             a['id']=prefix+a['id']
             if a.get('parent'):a['parent']=prefix+a['parent']
@@ -574,12 +661,14 @@ def terminal(data):
              f'Run {data["run"]["id"]} · revision {data["revision"]} · updated {data["updated_at"]}']
     for milestone in data['milestones'] + ([{'id': None, 'title': 'Ungrouped'}] if any(t['milestone'] is None for t in data['tasks']) else []):
         tasks = [t for t in data['tasks'] if t['milestone'] == milestone['id']]
-        done = sum(t['state'] == 'done' for t in tasks)
-        if milestone['id'] is not None: lines.append(f'\n{milestone["id"]} · {milestone["title"]} ({done}/{len(tasks)} done)')
+        done = sum(t['state'] == 'done' for t in tasks if t.get('kind')!='group')
+        if milestone['id'] is not None: lines.append(f'\n{milestone["id"]} · {milestone["title"]} ({done}/{sum(t.get('kind')!='group' for t in tasks)} done)')
         for task in tasks:
+            if task.get('kind')=='group':
+                lines.append('  group     '+display_reference(task)+' · '+task['title']+' · '+group_summary(data,task)[1]);continue
             agents = ', '.join(a['id'] for a in data['agents'] if a.get('task') == task.get('_task_id',task['id']) and not task.get('_historical'))
             deps = ' ← ' + ', '.join(task['deps']) if task['deps'] else ''
-            lines.append(f'  {task["state"]:9} {task["id"]} · {task_tags(task)}{task["title"]} [{task["phase"]}]{deps}' + (f' · {agents}' if agents else ''))
+            lines.append(f'  {task["state"]:9} {display_reference(task)} · {task_tags(task)}{task["title"]} [{task["phase"]}]{deps}' + (f' · {agents}' if agents else ''))
             if task['note']:
                 lines.append('            ' + task['note'])
     lines.append('\nAgents (reported activity)')
@@ -658,6 +747,13 @@ def task_rows(data):
     return rows
 
 
+def display_reference(task):
+    reference=task.get('display_ref',task.get('_task_id',task['id']))
+    if task.get('_historical') or (task.get('_task_id') and task['attempts'] and task['attempts'][0]['number']>1):
+        reference+='.a'+str(task['attempts'][0]['number'])
+    return reference
+
+
 def task_tags(task):
     labels = []
     if task.get('milestone'): labels.append(task['milestone'])
@@ -666,6 +762,7 @@ def task_tags(task):
 
 
 def task_runtime(data, task, model_only=False):
+    if task.get('kind')=='group':return ''
     attempt = task['attempts'][-1] if task['attempts'] else {}
     runtimes = list(attempt.get('workers', {}).values()) + attempt.get('usage', [])
     runtimes += [a for a in data['agents'] if a.get('task') == task.get('_task_id',task['id']) and not task.get('_historical')]
@@ -696,6 +793,9 @@ def view_rows(data, query='', folded=False):
     """Derived presentation only: stable attempt identities, no new run facts."""
     result = []
     for prefix, original in task_rows(data):
+        if original.get('kind')=='group':
+            state,label=group_summary(data,original)
+            original={**original,'state':state,'_group_label':label}
         if folded and original['state'] in ('done','canceled'):
             continue
         search = ' '.join([original['id'], original['title'], original['milestone'] or '', original.get('issue') or '',
@@ -721,7 +821,7 @@ def view_rows(data, query='', folded=False):
                 outcome = next((e['detail'] for e in reversed(data['events']) if e.get('task')==original['id'] and e['type']=='task_'+attempt['state'] and timestamp(e['at'])>=timestamp(attempt['started_at']) and (not ending or timestamp(e['at'])<timestamp(ending))), '')
                 task['_row_note'] = (attempt.get('outcome_note') or outcome or attempt.get('reason','')) if task['_historical'] else original['note']
             else:
-                task['_elapsed'] = 'not started';task['_row_note'] = original['note']
+                task['_elapsed'] = task.get('_group_label','not started');task['_row_note'] = original['note']
             # Fan-in is a join boundary, never a child of an arbitrary prerequisite.
             result.append(('⋈ ' if task['_join'] else prefix+('↩ ' if attempt and attempt['number']>1 else ''), task))
     latest = {t['id']: t['id']+'.a'+str(t['attempts'][-1]['number']) if t['attempts'] else t['id'] for t in data['tasks']}
@@ -742,7 +842,7 @@ def diagnostics(directory, data=None, error=None, archived=False):
     lines = ['Store: '+str(directory), 'Selection: '+('archive' if archived else 'current run'),
              'Data: '+(str(error) if error else 'valid' if data else 'no run.json'),
              'Hook installation: not inspected; observed events are the evidence below.']
-    if not data: return lines+['Start work with workcell-flow init TITLE, or browse an archive.']
+    if not data: return lines+['Start work with nova-flow init TITLE, or browse an archive.']
     lines += ['Run: '+data['run']['id']+' / '+data['run']['state'], 'Last stored update: '+age_text(data['updated_at'])+' ago',
               'Freshness measures reports, not process health.']
     sessions = [a for a in data['agents'] if a.get('session_id')]
@@ -754,7 +854,7 @@ def diagnostics(directory, data=None, error=None, archived=False):
                   'Binding: '+(binding['task']+'.a'+str(binding['attempt']) if binding else 'none; usage stays session-only'),
                   'Last observation: '+age_text(a['updated_at'])+' ago', 'Transcript cursor: '+str(telemetry.get('offset','not observed')),
                   'Telemetry: '+telemetry.get('warning','no warning reported')]
-    for t in data['tasks']:
+    for t in work_tasks(data):
         if not any(a.get('usage') for a in t['attempts']):
             lines.append(t['id']+': no task usage; needs attributed provider data after a session binding/turn boundary.')
     return lines
@@ -807,23 +907,23 @@ def interactive(directory, archive_id=None):
                     data = None; error = str(exc)
                 next_refresh = time.monotonic() + 2
             win.erase(); height, width = win.getmaxyx()
-            put(0, 1, 'WORKCELL FLOW  /  ' + ('ARCHIVE: '+choice if choice else 'active run'), width-2, accent|curses.A_BOLD)
+            put(0, 1, 'NOVA FLOW  /  ' + ('ARCHIVE: '+choice if choice else 'active run'), width-2, accent|curses.A_BOLD)
             put(height-1, 1, '↑↓ select   h hide done   Tab panel   [ ] runs   q quit', width-2, curses.A_REVERSE)
             rows = view_rows(data,folded=folded) if data else []
             if selected_id:
                 selected = next((i for i,(_,t) in enumerate(rows) if t['id']==selected_id), min(selected,max(0,len(rows)-1)))
             if (select_working or follow_work) and rows:
-                selected = next((i for i, (_,t) in enumerate(rows) if t['state']=='working'),len(rows)-1 if select_working else selected)
+                selected = next((i for i, (_,t) in enumerate(rows) if t['state']=='working' and t.get('kind')!='group'),len(rows)-1 if select_working else selected)
                 select_working = False
             selected = min(selected, max(0, len(rows)-1))
             if rows: selected_id = rows[selected][1]['id']
             if not data:
                 put(3, 2, 'No readable run: ' + error, width-4)
-                put(5, 2, 'Press ] for archives, or create a run with workcell-flow init TITLE.', width-4)
+                put(5, 2, 'Press ] for archives, or create a run with nova-flow init TITLE.', width-4)
                 put(7, 2, str(directory), width-4)
             else:
-                run = data['run']; done = sum(t['state']=='done' for t in data['tasks'])
-                put(1, 1, f'{run["title"]}  [{run["state"]}]  {run["phase"]}  {done}/{len(data["tasks"])} tasks done', width-2)
+                run = data['run']; done = sum(t['state']=='done' for t in work_tasks(data))
+                put(1, 1, f'{run["title"]}  [{run["state"]}]  {run["phase"]}  {done}/{len(work_tasks(data))} tasks done', width-2)
                 put(2, 1, 'Milestones: '+' · '.join(m['id']+': '+m['title'] for m in data['milestones']) if data['milestones'] else '', width-2,curses.A_DIM)
                 row_stride = 1
                 graph_height = max(2, min(max(len(rows)*row_stride, 7), (height-10)*3//5))
@@ -850,6 +950,7 @@ def interactive(directory, archive_id=None):
                     put(y,2,prefix,graph_width,gradient)
                     xrow = 2+graph_width
                     display_id = task['_task_id'] if task['id'].endswith('.a1') else task['id']
+                    display_id = display_reference(task)
                     put(y,xrow,symbol,1,accent|curses.A_BOLD)
                     put(y,xrow+2,display_id,width-xrow-2,accent|curses.A_BOLD)
                     title_x = xrow+len(display_id)+3
@@ -867,11 +968,12 @@ def interactive(directory, archive_id=None):
                     mark = '◆' if evidence=='verified' else '◇' if state=='done' else ''
                     waiting = [d for d in task['deps'] if find(data['tasks'],d)['state']!='done']
                     label = ('waits '+','.join(waiting) if waiting else 'needs answer' if task.get('kind')=='question' else 'ready' if any(a.get('task')==task['_task_id'] for a in data['agents']) else 'unassigned') if state=='pending' else state
+                    if task.get('kind')=='group':label='group';mark=''
                     put(y,status_x,label+' '+mark,max(0,width-status_x-1),attr|curses.A_BOLD)
                 activity_y = 4+graph_height
                 free_agents = [a for a in data['agents'] if not a.get('task') and a['state'] in ('working','waiting')]
                 activity = ' · '.join(a['id']+' / '+a['phase']+' / '+(a['model'] or 'model —')+': '+(a['activity'] or a['state']) for a in free_agents)
-                put(activity_y,2,'Unassigned: '+activity if activity else str(sum(t['state'] in ('done','canceled') for t in data['tasks']))+' settled tasks'+(' folded' if folded else '')+' · reports '+age_text(data['updated_at'])+' ago · silence ≠ failure',width-4,curses.A_DIM)
+                put(activity_y,2,'Unassigned: '+activity if activity else str(sum(t['state'] in ('done','canceled') for t in work_tasks(data)))+' settled tasks'+(' folded' if folded else '')+' · reports '+age_text(data['updated_at'])+' ago · silence ≠ failure',width-4,curses.A_DIM)
                 top = 6+graph_height
                 x = 3; room = max(1,width-6)
                 panel_color = accent
@@ -879,13 +981,13 @@ def interactive(directory, archive_id=None):
                 heading = headings[tab]
                 if tab==0 and rows:
                     task = rows[selected][1]
-                    heading = task['id']+' · '+task['state'].upper()+' / TASK DETAILS'
+                    heading = task.get('display_ref',task['id'])+' · '+task['state'].upper()+' / TASK DETAILS'
                 content = []
                 if tab==0 and rows:
                     t = rows[selected][1]
                     content = [t['phase']+': '+t['title'], task_runtime(data,t)+' · '+t['_elapsed']]
                     if t['_row_note']: content.append(t['_row_note'])
-                    if t.get('parent_id'):content.append('Parent: '+t['parent_id'])
+                    if t.get('parent_id'):content.append('Parent: '+display_reference(find(data['tasks'],t['parent_id'])))
                     if t.get('last_activity'):content.append('Activity: '+t['last_activity']['label']+' · '+age_text(t['last_activity']['at'])+' ago')
                     if t['deps']: content.append('Depends on: '+', '.join(t['deps']))
                     if t['_blockers']: content.append('Waiting for: '+', '.join(t['_blockers']))
@@ -899,6 +1001,8 @@ def interactive(directory, archive_id=None):
                         if raw_usage: content += ['', f'Attempt {attempt["number"]}: {attempt["state"]}', attempt['started_at'], attempt.get('reason','')]
                         if attempt.get('evidence'): content += [attempt.get('evidence_level','reported')+': '+attempt['evidence']]
                         if attempt.get('source_revision'): content += ['Revision: '+attempt['source_revision']]
+                    if t.get('kind')=='group':
+                        content=[t['title'],t['_group_label'],'Progress is derived from descendant tasks.']
                 elif tab==1:
                     def agents(parent, depth):
                         for a in data['agents']:
@@ -982,7 +1086,7 @@ def serve(directory, host, port):
         def log_message(self, *args):
             pass
     server = ThreadingHTTPServer((host, port), Handler)
-    print(f'Workcell Flow: http://{host}:{server.server_port} (read-only)', flush=True)
+    print(f'Nova Flow: http://{host}:{server.server_port} (read-only)', flush=True)
     try:
         server.serve_forever()
     finally:
@@ -992,7 +1096,7 @@ def serve(directory, host, port):
 def report_activity(data, agent, kind, payload):
     """Persist observable activity; semantic progress and completion remain explicit."""
     if kind not in ('PostToolUse','PreInvocation','PostInvocation'):return
-    if 'workcell-flow' in json.dumps(payload.get('tool_input',{})):return
+    if 'nova-flow' in json.dumps(payload.get('tool_input',{})):return
     binding=agent.get('binding',{})
     task=find(data['tasks'],binding.get('task'))
     if not task or task['state'] not in ('working','blocked'):
@@ -1022,9 +1126,11 @@ def report_activity(data, agent, kind, payload):
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--dir', type=Path, default=None, help='Run store (default: .workcell under cwd)')
-    p.add_argument('--run',default=os.environ.get('WORKCELL_RUN_ID'),help='Select a run for mutations')
+    p.add_argument('--dir', type=Path, default=None, help='Run store (default: .nova under cwd)')
+    p.add_argument('--run',default=os.environ.get('NOVA_RUN_ID'),help='Select a run for mutations')
     sub = p.add_subparsers(dest='command', required=True)
+    sub.add_parser('references',help='Assign stable display references to existing runs and archives')
+    sub.add_parser('migrate',help='Move legacy root and archive records under runs/ without changing their contents')
     q=sub.add_parser('track',help='Launch a harness with session lifecycle tracking');q.add_argument('--harness',required=True);q.add_argument('--session',default=None);q.add_argument('program',nargs=argparse.REMAINDER)
     q=sub.add_parser('lifecycle',help='Portable session start/end adapter');q.add_argument('action',choices=['start','end']);q.add_argument('--harness',required=True);q.add_argument('--session',required=True)
     q = sub.add_parser('init'); q.add_argument('title'); q.add_argument('--id')
@@ -1068,6 +1174,15 @@ def main(argv=None):
     p = parser(); argv = list(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(argv or ['view']); directory = args.dir.expanduser().absolute() if args.dir else project_store(Path.cwd())
     try:
+        if args.command=='references':
+            with locked(directory):
+                paths=run_paths(directory)+sorted((directory/'archive').glob('*/run.json'))+sorted((directory/'runs').glob('*/archive/*/run.json'))
+                for path in paths:
+                    with locked(path.parent) if path.parent!=directory else nullcontext():atomic(path,read(path))
+            print(json.dumps({'updated':len(paths)}));return
+        if args.command=='migrate':
+            require(not args.run, 'Migrate operates on the repository store; omit --run')
+            print(json.dumps({'moved':migrate_legacy(directory)}));return
         if args.command=='lifecycle':
             print(lifecycle(directory,args.harness,args.session,args.action,args.run,Path.cwd()));return
         if args.command=='track':
@@ -1078,7 +1193,7 @@ def main(argv=None):
             destination=lifecycle(directory,args.harness,session,'start',args.run,Path.cwd())
             ident=read(destination/'run.json')['run']['id']
             try:
-                result=subprocess.run(program,env={**os.environ,'WORKCELL_RUN_ID':ident,'WORKCELL_SESSION_ID':session})
+                result=subprocess.run(program,env={**os.environ,'NOVA_RUN_ID':ident,'NOVA_SESSION_ID':session})
             finally:lifecycle(directory,args.harness,session,'end',workspace=Path.cwd())
             sys.exit(result.returncode)
         if args.run:
@@ -1100,7 +1215,7 @@ def main(argv=None):
             while True:
                 data = selected_run(directory,args.archive)
                 if args.command == 'check':
-                    print(json.dumps({'valid': True, 'revision': data['revision']}) if args.json else 'Valid Workcell Flow run'); break
+                    print(json.dumps({'valid': True, 'revision': data['revision']}) if args.json else 'Valid Nova Flow run'); break
                 if args.watch and sys.stdout.isatty(): print('\033[2J\033[H', end='')
                 print(json.dumps(data, indent=2) if args.json else terminal(data), flush=True)
                 if not args.watch: break
@@ -1122,16 +1237,32 @@ def main(argv=None):
                 if args.command == 'session' and args.action == 'attach':
                     require(args.archive, 'Session attach requires --archive')
                     args.archived_data = read(directory / 'archive' / identifier(args.archive) / 'run.json')
+                if args.command in ('task','session','agent','usage'):
+                    def resolve(value):
+                        if not value:return value
+                        matches=[t['id'] for t in data['tasks'] if t.get('display_ref')==value or t['id']==value]
+                        require(len(set(matches))<=1,'Ambiguous task reference')
+                        return matches[0] if matches else value
+                    fields=['task']
+                    if args.command=='task':
+                        fields+=['parent']
+                        if args.action!='add':fields+=['id']
+                    if args.command=='usage':fields+=['task']
+                    for field in fields:
+                        if hasattr(args,field):setattr(args,field,resolve(getattr(args,field)))
+                    if getattr(args,'after',None):args.after=[resolve(x) for x in args.after]
+                    if getattr(args,'cause',None):
+                        base,number=args.cause.rsplit('.a',1);args.cause=resolve(base)+'.a'+number
                 change(data, args)
             atomic(path, data)
             print(json.dumps({'run': data['run']['id'], 'revision': data['revision'], 'path': str(path)}))
     except KeyboardInterrupt:
         pass
     except (OSError, ValueError, KeyError, TypeError) as error:
-        p.exit(1, f'workcell-flow: {error}\n')
+        p.exit(1, f'nova-flow: {error}\n')
 
 
-PAGE = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workcell Flow</title><style>\n:root{color-scheme:dark;--bg:#0d1318;--paper:#10171c;--ink:#d7d9d7;--muted:#8b9094;--line:#2c393c;--green:#8fd18a;--pale:#23362e}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}header{min-height:58px;padding:12px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:24px}header strong{font-size:15px;color:var(--green)}header small{margin-left:auto}small,.muted{color:var(--muted)}main{padding:22px 24px;max-width:1800px;margin:auto}h1{font-size:21px;line-height:1.4;margin:5px 0}h2{font-size:12px;text-transform:uppercase;letter-spacing:1.3px;color:var(--muted);margin:0 0 14px}h3{font-size:13px;margin:0}.eyebrow{font-size:11px;color:var(--muted)}input{font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:5px}select,button{font:inherit;background:var(--bg);border:1px solid var(--line);border-radius:3px;color:var(--ink);padding:5px 8px;max-width:100%}button{cursor:pointer}button:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--green);outline-offset:2px}.summary{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px}.summary p{margin:4px 0;font-size:12px;max-width:90ch}.badge{font-size:11px;display:inline-block;border-radius:3px;padding:2px 7px;background:var(--pale);margin:2px;color:var(--green)}.working{background:#213547;color:#67d7ef}.failed,.blocked{background:#422d24;color:#e58b64}.done{background:#23362e;color:#91cfa8}.grid{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:16px}.panel{background:var(--paper);border:1px solid var(--line);padding:18px;margin-bottom:16px;min-width:0}.grid>div,aside{min-width:0}.scroll{overflow:auto;max-width:100%}svg{display:block;width:100%;height:auto}svg text{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:var(--ink)}.task-node{cursor:pointer}.task-node .row-bg{fill:transparent}.task-node:hover .row-bg{fill:#1c2929}.task-node.selected .row-bg{fill:#223630}.task-node text{pointer-events:none}.agent{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.agent.child{border-left:1px solid var(--line);padding-left:12px}.agent p{margin:4px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:10px;font:12px/1.6 ui-monospace,monospace}.error{color:#e58b64;padding:15px;border:1px solid #634332;margin-bottom:20px}#task-detail p{overflow-wrap:anywhere}#task-detail details{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}#events p{margin:0;padding:5px 0;border-bottom:1px solid #233034;overflow-wrap:anywhere}#events small{display:inline-block;margin-right:10px}footer{color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}kbd{border:1px solid var(--line);padding:1px 4px;border-radius:3px}.graph-hint{font-size:11px;margin-top:-8px;margin-bottom:16px}@media(max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}header{flex-wrap:wrap;gap:10px}header small{margin-left:0}main{padding:16px 12px}.panel{padding:14px}h1{font-size:18px}header{padding:12px}select{max-width:260px}}\n</style></head><body><header><strong>▸ workcell-flow</strong><label>Run <select id="runs" aria-label="Select active or archived run"><option value="active">Active run</option></select></label><small id="connection">Connecting…</small></header><main><div id="error" role="status" hidden></div><div id="content" hidden><div class="summary"><div><div class="eyebrow" id="run-id"></div><h1 id="title"></h1><p id="summary" class="muted"></p></div><div id="stats"></div></div><div class="grid"><div><section class="panel"><h2>Task graph</h2><p class="muted graph-hint">Top → bottom · attempt rows · ⋈ joins dependencies · dotted lines connect retries</p><div id="milestones"></div><label>Search <input id="filter" type="search" placeholder="Task, milestone, agent, model"></label> <label><input id="fold" type="checkbox"> Fold settled tasks</label><label><input id="follow" type="checkbox" checked> Follow working task</label><p id="fold-count" class="muted"></p><div class="scroll"><svg id="graph" role="img" aria-label="Top-down task dependency graph"></svg></div></section><section class="panel"><h2>Event log</h2><div id="events"></div></section></div><aside><section class="panel" id="task-detail" aria-live="polite"><h2>Task details</h2><p class="muted">Select a task in the graph.</p></section><section class="panel"><h2>Agents</h2><p class="muted">Assignments reported by the run. Timestamps indicate the last report.</p><div id="agents"></div></section></aside></div></div><details class="panel"><summary>Diagnostics · bindings and missing data</summary><pre id="diagnostics">Waiting for run data.</pre></details><footer><span>Read only · polls every 2s · activity is reported, not process monitoring</span><span><kbd>j</kbd> / <kbd>k</kbd> select task · <kbd>↑</kbd> / <kbd>↓</kbd></span></footer></main><script>\nconst $=id=>document.getElementById(id);let current=null,selected=null,requestRevision=0,requestedRun=new URLSearchParams(location.search).get(\'run\')||\'active\';const ns=\'http://www.w3.org/2000/svg\';\nfunction el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}\nfunction svg(tag,attrs,text){const n=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n}\nfunction badge(text,state){return el(\'span\',text,\'badge \'+(state||\'\'))}\nfunction showTask(id){selected=id;const t=current._view.rows.map(r=>r[1]).find(t=>t.id===id)||current.tasks.find(t=>t.id===id);if(!t)return;const box=$(\'task-detail\');box.replaceChildren(el(\'h2\',t.title),el(\'p\',t.id+\' · \'+t.phase+\' · \'+t.state),el(\'p\',t._row_note||t.note||\'No task note.\',\'muted\'),el(\'p\',\'Elapsed: \'+(t._elapsed||\'not started\')+\' · task progress \'+(t._progress_age||\'unknown\')+\' ago\'),el(\'p\',\'Blockers: \'+((t._blockers||[]).join(\', \')||\'none\')));if(t.parent_id)box.append(el(\'p\',\'Parent: \'+t.parent_id));if(t.last_activity)box.append(el(\'p\',\'Activity: \'+t.last_activity.label));if(t._cause)box.append(el(\'p\',\'Caused by: \'+t._cause));if(t._progress)box.append(el(\'p\',\'Progress: \'+t._progress.done+\'/\'+t._progress.total+\' · \'+t._progress.note));if(t._inputs?.length)box.append(el(\'p\',\'Attempt inputs: \'+t._inputs.join(\', \')));if(t.issue){const link=el(\'a\',t.issue);link.href=t.issue;link.target=\'_blank\';link.rel=\'noopener noreferrer\';box.append(link)}if(t.deps.length)box.append(el(\'p\',\'Depends on: \'+t.deps.join(\', \')));for(const a of t.attempts){const d=el(\'details\');d.open=true;d.append(el(\'summary\',\'Attempt \'+a.number+\' · \'+a.state));d.append(el(\'p\',a.reason));d.append(el(\'small\',a.started_at+(a.ended_at?\' → \'+a.ended_at:\'\')));if(a.evidence)d.append(el(\'p\',(a.evidence_level===\'verified\'?\'Verified evidence: \':\'Reported evidence: \')+a.evidence));if(a.source_revision)d.append(el(\'pre\',\'Source revision: \'+a.source_revision));\nfor(const [id,runtime] of Object.entries(a.workers||{}))d.append(el(\'p\',id+\' · \'+[runtime.harness,runtime.model,runtime.effort].filter(Boolean).join(\' / \')));\nconst records=el(\'details\');records.append(el(\'summary\',\'Individual usage records (\'+(a.usage||[]).length+\')\'));const totals=k=>{const values=(a.usage||[]).filter(u=>k in u);return values.length?values.reduce((n,u)=>n+u[k],0).toLocaleString()+(values.length<(a.usage||[]).length?\' (partial)\':\'\'):\'not reported\'};d.append(el(\'p\',\'Tokens: \'+totals(\'input_tokens\')+\' in / \'+totals(\'output_tokens\')+\' out\'));for(const u of a.usage||[]){records.append(el(\'h3\',(u.agent||\'Unassigned\')+\' · \'+(u.model||\'Model not reported\')));records.append(el(\'small\',[u.harness,u.effort].filter(Boolean).join(\' / \')));for(const key of [\'input_tokens\',\'output_tokens\',\'cache_read_tokens\',\'cache_write_tokens\',\'reasoning_tokens\'])records.append(el(\'p\',key.replaceAll(\'_\',\' \')+\': \'+(key in u?u[key].toLocaleString():\'not reported\')));records.append(el(\'small\',\'Source: \'+u.source))}\nif(!(a.usage||[]).length)records.append(el(\'p\',\'Token usage: not reported\',\'muted\'));d.append(records);box.append(d)}if(!t.attempts.length)box.append(el(\'p\',\'No attempt started.\',\'muted\'));document.querySelectorAll(\'.task-node\').forEach(n=>n.classList.toggle(\'selected\',n.dataset.id===id));document.querySelectorAll(\'path[data-to]\').forEach(n=>n.setAttribute(\'stroke-width\',n.dataset.to===id||n.dataset.from===id?\'3\':\'1.4\'))}\nconst colors=[\'#67d7ef\',\'#76ddcf\',\'#94ddb8\',\'#b5cfdf\',\'#b6b3ee\',\'#c6a0e7\'];let taskOrder=[];\nfunction graph(data){\n const g=$(\'graph\');g.replaceChildren();const q=$(\'filter\').value.toLowerCase(),fold=$(\'fold\').checked;\n const all=data._view.rows;const rows=all.filter(([prefix,t])=>{const original=data.tasks.find(x=>x.id===t._task_id);const hay=[t.id,t.title,t.milestone||\'\',...Object.keys((t.attempts[0]||{}).workers||{}),...Object.values((t.attempts[0]||{}).workers||{}).map(r=>r.model||\'\')].join(\' \').toLowerCase();return hay.includes(q)&&!(fold&&[\'done\',\'canceled\'].includes(original.state))});\n taskOrder=rows.map(r=>r[1].id);$(\'fold-count\').textContent=rows.length+\' of \'+all.length+\' attempt/task rows shown\'+(fold?\' · settled tasks folded\':\'\');\n const legend=$(\'milestones\');legend.replaceChildren();for(const [i,m] of data.milestones.entries()){const item=badge(m.id+\' · \'+m.title);item.style.color=colors[i%colors.length];legend.append(item)}\n const width=Math.max(300,g.parentElement.clientWidth),compact=width<1100,stride=compact?112:76,titleX=compact?Math.min(120,width*.2):220;const height=Math.max(100,rows.length*stride+30);g.style.minWidth=\'0\';g.setAttribute(\'viewBox\',`0 0 ${width} ${height}`);\n const positions=new Map(rows.map(([prefix,t],i)=>[t.id,{x:t._join?24:24+Math.min(prefix.length,20)*8,y:32+i*stride}]));\n const latest=new Map();for(const [,t] of all)latest.set(t._task_id,t.id);\n for(const [,t] of rows){const end=positions.get(t.id);const previous=t.attempts[0]&&t.attempts[0].number>1?t._task_id+\'.a\'+(t.attempts[0].number-1):null;\n const sources=[...(t._edges||[]),...(t._parent_ref?[t._parent_ref]:[])];for(const id of sources){const start=positions.get(id);if(!start)continue;g.append(svg(\'path\',{d:`M${start.x} ${start.y} Q${start.x+12} ${start.y+12},${start.x+12} ${start.y+24} L${start.x+12} ${end.y-24} Q${start.x+12} ${end.y-10},${end.x} ${end.y}`,fill:\'none\',stroke:colors[rows.findIndex(r=>r[1].id===id)%colors.length],\'stroke-width\':1.4,\'stroke-dasharray\':(id===t._cause||id===previous)?\'3 3\':\'none\',\'data-from\':id,\'data-to\':t.id}))}}\n for(const [i,[prefix,t]]of rows.entries()){const p=positions.get(t.id),color=({done:\'#8fd18a\',working:\'#67d7ef\',failed:\'#e58b64\',blocked:\'#d3ae72\',pending:\'#8b9094\',canceled:\'#8b9094\'}[t.state]);const n=svg(\'g\',{class:\'task-node\',tabindex:0,role:\'button\',\'aria-label\':t.id+\' \'+t.title+\', \'+t.state});n.dataset.id=t.id;n.append(svg(\'rect\',{class:\'row-bg\',x:titleX-10,y:p.y-24,width:width-titleX,height:stride-6,rx:3}));n.append(svg(\'text\',{x:p.x-5,y:p.y+4,\'font-size\':17,style:\'fill:\'+color},t._join?\'⋈\':t.state===\'done\'?\'●\':t.state===\'failed\'?\'×\':\'○\'));\n n.append(svg(\'text\',{x:titleX,y:p.y-4,\'font-size\':13},(t.id.replace(/\\.a1$/,\'\')+\' \'+(t._join?\'⋈ \':\'\')+([t.milestone,t.issue?\'#\'+t.issue.split(\'/\').at(-1):\'\'].filter(Boolean).length?\'[\'+[t.milestone,t.issue?\'#\'+t.issue.split(\'/\').at(-1):\'\'].filter(Boolean).join(\' · \')+\'] \':\'\')+t.title).slice(0,Math.max(12,Math.floor((width-titleX-16)/8)))));\n n.append(svg(\'text\',{x:titleX,y:p.y+16,\'font-size\':11,style:\'fill:var(--muted)\'},(t.kind===\'question\'&&t.state===\'pending\'&&!t._blockers.length?\'needs answer\':t.state)+\' · \'+t._elapsed+(t._progress?\' · \'+t._progress.done+\'/\'+t._progress.total:\'\')+(t._cause?\' · cause \'+t._cause:\'\')+(t._blockers.length?\' · waits \'+t._blockers.join(\', \'):t.deps.length?\' · inputs \'+t.deps.join(\', \'):\' · root\')));\n if(t._historical)n.append(svg(\'text\',{x:titleX,y:p.y+33,\'font-size\':11,style:\'fill:var(--muted)\'},\'Previous attempt: \'+(t._row_note||\'no reason recorded\')));\n const attempt=t.attempts[0]||{},runtimes=[...Object.values(attempt.workers||{}),...(attempt.usage||[])];if(!t._historical)runtimes.push(...data.agents.filter(a=>a.task===t._task_id));const models=[...new Set(runtimes.filter(r=>r.model).map(r=>r.model+\' · \'+(r.effort||\'effort —\')))];\n const usage=attempt.usage||[],count=k=>{const u=usage.filter(x=>k in x);return u.length?u.reduce((n,x)=>n+x[k],0).toLocaleString()+(u.length<usage.length?\'*\':\'\'):\'—\'};\n n.append(svg(\'text\',{x:compact?titleX:width-335,y:p.y+(compact?50:-4),\'font-size\':11,style:\'fill:\'+color},models.join(\', \')||\'model/effort —\'));n.append(svg(\'text\',{x:compact?titleX:width-335,y:p.y+(compact?68:16),\'font-size\':11,style:\'fill:var(--muted)\'},\'tokens in/out \'+count(\'input_tokens\')+\' / \'+count(\'output_tokens\')));\n n.addEventListener(\'click\',()=>{$(\'follow\').checked=false;showTask(t.id)});n.addEventListener(\'keydown\',e=>{if(e.key===\'Enter\'||e.key===\' \'){e.preventDefault();showTask(t.id)}});g.append(n)}\n if(!rows.length)g.append(svg(\'text\',{x:20,y:40,\'font-size\':13},all.length?\'No matching rows. Clear search or unfold settled tasks.\':\'No tasks defined yet. Agent activity remains in the roster.\'));\n}\nwindow.addEventListener(\'resize\',()=>{if(current)render(current)});$(\'filter\').addEventListener(\'input\',()=>{if(current)render(current)});$(\'fold\').addEventListener(\'change\',()=>{if(current)render(current)});\ndocument.addEventListener(\'keydown\',e=>{if(e.target.closest(\'select,input,textarea,button\')||e.ctrlKey||e.metaKey||e.altKey)return;const step=[\'j\',\'ArrowDown\'].includes(e.key)?1:[\'k\',\'ArrowUp\'].includes(e.key)?-1:0;if(!step||!taskOrder.length)return;e.preventDefault();$(\'follow\').checked=false;const i=taskOrder.indexOf(selected);showTask(taskOrder[Math.max(0,Math.min(taskOrder.length-1,i<0?0:i+step))]);});\nfunction render(data){current=data;$(\'title\').textContent=data.run.title;$(\'run-id\').textContent=data.run.id+\' · revision \'+data.revision;$(\'summary\').textContent=data.run.summary||\'Updated \'+data.updated_at;$(\'stats\').replaceChildren(badge(data.run.state,data.run.state),badge(\'Phase: \'+data.run.phase),badge(data.tasks.filter(t=>t.state===\'done\').length+\'/\'+data.tasks.length+\' tasks done\'));graph(data);const agents=$(\'agents\');agents.replaceChildren();function draw(parent,depth){for(const a of data.agents.filter(a=>(a.parent||null)===parent)){const row=el(\'div\',undefined,\'agent\'+(depth?\' child\':\'\'));row.append(el(\'h3\',a.id+\' · \'+a.role),badge(a.state,a.state),el(\'p\',a.phase+(a.task?\' → \'+a.task:\'\')),el(\'small\',[a.harness,a.model,a.effort].filter(Boolean).join(\' · \')||\'Runtime not supplied\'),el(\'p\',a.activity||\'No activity note.\'),el(\'small\',a.workspace||\'Workspace not reported\'),el(\'small\',\'Last report \'+a.updated_at));for(const k of [\'input_tokens\',\'output_tokens\',\'cache_read_tokens\',\'cache_write_tokens\',\'reasoning_tokens\']){const values=(a.usage||[]).filter(u=>k in u);if(values.length)row.append(el(\'p\',\'Session-only \'+k.replaceAll(\'_\',\' \')+\': \'+values.reduce((n,u)=>n+u[k],0).toLocaleString()))}row.style.marginLeft=(depth*14)+\'px\';agents.append(row);draw(a.id,depth+1)}}draw(null,0);if(!data.agents.length)agents.append(el(\'p\',\'No agents registered.\',\'muted\'));const events=$(\'events\');events.replaceChildren();for(const e of data.events.slice(-12).reverse()){const row=el(\'p\');row.append(el(\'small\',e.at+\' · \'+e.type+\' \'),el(\'span\',e.detail));events.append(row)}$(\'diagnostics\').textContent=data._view.diagnostics.join(\'\\n\');if($(\'follow\').checked){const active=data._view.rows.find(r=>r[1].state===\'working\'&&taskOrder.includes(r[1].id));if(active)selected=active[1].id;}if(!selected&&taskOrder.length)selected=taskOrder[0];if(selected&&data._view.rows.some(r=>r[1].id===selected))showTask(selected);else{$(\'task-detail\').replaceChildren(el(\'h2\',\'Task details\'),el(\'p\',\'Select a task in the graph.\',\'muted\'))}}\nasync function refresh(){const generation=++requestRevision;try{const inventory=await fetch(\'/api/runs\');if(!inventory.ok)throw Error(\'Could not read run inventory\');const runs=await inventory.json();const selectedRun=requestedRun;$(\'runs\').replaceChildren(new Option(\'Repository · all active runs\',\'active\'),...runs.map(r=>new Option(r.title+\' · \'+(r.archived?\'archived\':r.lifecycle||r.state),r.id)));$(\'runs\').value=selectedRun;const response=await fetch(\'/api/run?id=\'+encodeURIComponent(selectedRun));if(!response.ok)throw Error(response.status===404?\'No active run. Create one with workcell-flow init, or select an archived run.\':\'Run data could not be validated.\');const data=await response.json();if(generation!==requestRevision)return;render(data);$(\'error\').hidden=true;$(\'content\').hidden=false;$(\'connection\').textContent=\'Read \'+new Date().toLocaleTimeString()+\' · last report \'+data.updated_at}catch(e){if(generation!==requestRevision)return;$(\'error\').textContent=e.message;$(\'error\').className=\'error\';$(\'error\').hidden=false;$(\'content\').hidden=true;$(\'connection\').textContent=\'Waiting for valid run data\'}}\n$(\'runs\').addEventListener(\'change\',()=>{selected=null;requestedRun=$(\'runs\').value;refresh()});async function poll(){await refresh();setTimeout(poll,2000)}poll();\n</script></body></html>\n'
+PAGE = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nova Flow</title><style>\n:root{color-scheme:dark;--bg:#0d1318;--paper:#10171c;--ink:#d7d9d7;--muted:#8b9094;--line:#2c393c;--green:#8fd18a;--pale:#23362e}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}header{min-height:58px;padding:12px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:24px}header strong{font-size:15px;color:var(--green)}header small{margin-left:auto}small,.muted{color:var(--muted)}main{padding:22px 24px;max-width:1800px;margin:auto}h1{font-size:21px;line-height:1.4;margin:5px 0}h2{font-size:12px;text-transform:uppercase;letter-spacing:1.3px;color:var(--muted);margin:0 0 14px}h3{font-size:13px;margin:0}.eyebrow{font-size:11px;color:var(--muted)}input{font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:5px}select,button{font:inherit;background:var(--bg);border:1px solid var(--line);border-radius:3px;color:var(--ink);padding:5px 8px;max-width:100%}button{cursor:pointer}button:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--green);outline-offset:2px}.summary{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px}.summary p{margin:4px 0;font-size:12px;max-width:90ch}.badge{font-size:11px;display:inline-block;border-radius:3px;padding:2px 7px;background:var(--pale);margin:2px;color:var(--green)}.working{background:#213547;color:#67d7ef}.failed,.blocked{background:#422d24;color:#e58b64}.done{background:#23362e;color:#91cfa8}.grid{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:16px}.panel{background:var(--paper);border:1px solid var(--line);padding:18px;margin-bottom:16px;min-width:0}.grid>div,aside{min-width:0}.scroll{overflow:auto;max-width:100%}svg{display:block;width:100%;height:auto}svg text{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:var(--ink)}.task-node{cursor:pointer}.task-node .row-bg{fill:transparent}.task-node:hover .row-bg{fill:#1c2929}.task-node.selected .row-bg{fill:#223630}.task-node text{pointer-events:none}.agent{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.agent.child{border-left:1px solid var(--line);padding-left:12px}.agent p{margin:4px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:10px;font:12px/1.6 ui-monospace,monospace}.error{color:#e58b64;padding:15px;border:1px solid #634332;margin-bottom:20px}#task-detail p{overflow-wrap:anywhere}#task-detail details{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}#events p{margin:0;padding:5px 0;border-bottom:1px solid #233034;overflow-wrap:anywhere}#events small{display:inline-block;margin-right:10px}footer{color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}kbd{border:1px solid var(--line);padding:1px 4px;border-radius:3px}.graph-hint{font-size:11px;margin-top:-8px;margin-bottom:16px}@media(max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}header{flex-wrap:wrap;gap:10px}header small{margin-left:0}main{padding:16px 12px}.panel{padding:14px}h1{font-size:18px}header{padding:12px}select{max-width:260px}}\n</style></head><body><header><strong>▸ nova-flow</strong><label>Run <select id="runs" aria-label="Select active or archived run"><option value="active">Active run</option></select></label><small id="connection">Connecting…</small></header><main><div id="error" role="status" hidden></div><div id="content" hidden><div class="summary"><div><div class="eyebrow" id="run-id"></div><h1 id="title"></h1><p id="summary" class="muted"></p></div><div id="stats"></div></div><div class="grid"><div><section class="panel"><h2>Task graph</h2><p class="muted graph-hint">Top → bottom · attempt rows · ⋈ joins dependencies · dotted lines connect retries</p><div id="milestones"></div><label>Search <input id="filter" type="search" placeholder="Task, milestone, agent, model"></label> <label><input id="fold" type="checkbox"> Fold settled tasks</label><label><input id="follow" type="checkbox" checked> Follow working task</label><p id="fold-count" class="muted"></p><div class="scroll"><svg id="graph" role="img" aria-label="Top-down task dependency graph"></svg></div></section><section class="panel"><h2>Event log</h2><div id="events"></div></section></div><aside><section class="panel" id="task-detail" aria-live="polite"><h2>Task details</h2><p class="muted">Select a task in the graph.</p></section><section class="panel"><h2>Agents</h2><p class="muted">Assignments reported by the run. Timestamps indicate the last report.</p><div id="agents"></div></section></aside></div></div><details class="panel"><summary>Diagnostics · bindings and missing data</summary><pre id="diagnostics">Waiting for run data.</pre></details><footer><span>Read only · polls every 2s · activity is reported, not process monitoring</span><span><kbd>j</kbd> / <kbd>k</kbd> select task · <kbd>↑</kbd> / <kbd>↓</kbd></span></footer></main><script>\nconst $=id=>document.getElementById(id);let current=null,selected=null,requestRevision=0,requestedRun=new URLSearchParams(location.search).get(\'run\')||\'active\';const ns=\'http://www.w3.org/2000/svg\';\nfunction el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}\nfunction svg(tag,attrs,text){const n=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n}\nfunction badge(text,state){return el(\'span\',text,\'badge \'+(state||\'\'))}\nfunction showTask(id){selected=id;const t=current._view.rows.map(r=>r[1]).find(t=>t.id===id)||current.tasks.find(t=>t.id===id);if(!t)return;const box=$(\'task-detail\');if(t.kind===\'group\'){box.replaceChildren(el(\'h2\',t.title),el(\'p\',t._group_label),el(\'p\',\'Progress is derived from descendant tasks.\'));return;}box.replaceChildren(el(\'h2\',t.title),el(\'p\',ref(t)+\' · \'+t.phase+\' · \'+t.state),el(\'p\',t._row_note||t.note||\'No task note.\',\'muted\'),el(\'p\',\'Elapsed: \'+(t._elapsed||\'not started\')+\' · task progress \'+(t._progress_age||\'unknown\')+\' ago\'),el(\'p\',\'Blockers: \'+((t._blockers||[]).join(\', \')||\'none\')));if(t.parent_id)box.append(el(\'p\',\'Parent: \'+ref(current.tasks.find(x=>x.id===t.parent_id))));if(t.last_activity)box.append(el(\'p\',\'Activity: \'+t.last_activity.label));if(t._cause)box.append(el(\'p\',\'Caused by: \'+t._cause));if(t._progress)box.append(el(\'p\',\'Progress: \'+t._progress.done+\'/\'+t._progress.total+\' · \'+t._progress.note));if(t._inputs?.length)box.append(el(\'p\',\'Attempt inputs: \'+t._inputs.join(\', \')));if(t.issue){const link=el(\'a\',t.issue);link.href=t.issue;link.target=\'_blank\';link.rel=\'noopener noreferrer\';box.append(link)}if(t.deps.length)box.append(el(\'p\',\'Depends on: \'+t.deps.join(\', \')));for(const a of t.attempts){const d=el(\'details\');d.open=true;d.append(el(\'summary\',\'Attempt \'+a.number+\' · \'+a.state));d.append(el(\'p\',a.reason));d.append(el(\'small\',a.started_at+(a.ended_at?\' → \'+a.ended_at:\'\')));if(a.evidence)d.append(el(\'p\',(a.evidence_level===\'verified\'?\'Verified evidence: \':\'Reported evidence: \')+a.evidence));if(a.source_revision)d.append(el(\'pre\',\'Source revision: \'+a.source_revision));\nfor(const [id,runtime] of Object.entries(a.workers||{}))d.append(el(\'p\',id+\' · \'+[runtime.harness,runtime.model,runtime.effort].filter(Boolean).join(\' / \')));\nconst records=el(\'details\');records.append(el(\'summary\',\'Individual usage records (\'+(a.usage||[]).length+\')\'));const totals=k=>{const values=(a.usage||[]).filter(u=>k in u);return values.length?values.reduce((n,u)=>n+u[k],0).toLocaleString()+(values.length<(a.usage||[]).length?\' (partial)\':\'\'):\'not reported\'};d.append(el(\'p\',\'Tokens: \'+totals(\'input_tokens\')+\' in / \'+totals(\'output_tokens\')+\' out\'));for(const u of a.usage||[]){records.append(el(\'h3\',(u.agent||\'Unassigned\')+\' · \'+(u.model||\'Model not reported\')));records.append(el(\'small\',[u.harness,u.effort].filter(Boolean).join(\' / \')));for(const key of [\'input_tokens\',\'output_tokens\',\'cache_read_tokens\',\'cache_write_tokens\',\'reasoning_tokens\'])records.append(el(\'p\',key.replaceAll(\'_\',\' \')+\': \'+(key in u?u[key].toLocaleString():\'not reported\')));records.append(el(\'small\',\'Source: \'+u.source))}\nif(!(a.usage||[]).length)records.append(el(\'p\',\'Token usage: not reported\',\'muted\'));d.append(records);box.append(d)}if(!t.attempts.length)box.append(el(\'p\',\'No attempt started.\',\'muted\'));document.querySelectorAll(\'.task-node\').forEach(n=>n.classList.toggle(\'selected\',n.dataset.id===id));document.querySelectorAll(\'path[data-to]\').forEach(n=>n.setAttribute(\'stroke-width\',n.dataset.to===id||n.dataset.from===id?\'3\':\'1.4\'))}\nconst colors=[\'#67d7ef\',\'#76ddcf\',\'#94ddb8\',\'#b5cfdf\',\'#b6b3ee\',\'#c6a0e7\'];let taskOrder=[];\nfunction ref(t){return (t.display_ref||t._task_id||t.id)+((t._historical||t.attempts?.[0]?.number>1)?\'.a\'+t.attempts[0].number:\'\')}\nfunction graph(data){\n const g=$(\'graph\');g.replaceChildren();const q=$(\'filter\').value.toLowerCase(),fold=$(\'fold\').checked;\n const all=data._view.rows;const rows=all.filter(([prefix,t])=>{const original=data.tasks.find(x=>x.id===t._task_id);const hay=[t.id,t.title,t.milestone||\'\',...Object.keys((t.attempts[0]||{}).workers||{}),...Object.values((t.attempts[0]||{}).workers||{}).map(r=>r.model||\'\')].join(\' \').toLowerCase();return hay.includes(q)&&!(fold&&[\'done\',\'canceled\'].includes(t.state))});\n taskOrder=rows.map(r=>r[1].id);$(\'fold-count\').textContent=rows.length+\' of \'+all.length+\' attempt/task rows shown\'+(fold?\' · settled tasks folded\':\'\');\n const legend=$(\'milestones\');legend.replaceChildren();for(const [i,m] of data.milestones.entries()){const item=badge(m.id+\' · \'+m.title);item.style.color=colors[i%colors.length];legend.append(item)}\n const width=Math.max(300,g.parentElement.clientWidth),compact=width<1100,stride=compact?112:76,titleX=compact?Math.min(120,width*.2):220;const height=Math.max(100,rows.length*stride+30);g.style.minWidth=\'0\';g.setAttribute(\'viewBox\',`0 0 ${width} ${height}`);\n const positions=new Map(rows.map(([prefix,t],i)=>[t.id,{x:t._join?24:24+Math.min(prefix.length,20)*8,y:32+i*stride}]));\n const latest=new Map();for(const [,t] of all)latest.set(t._task_id,t.id);\n for(const [,t] of rows){const end=positions.get(t.id);const previous=t.attempts[0]&&t.attempts[0].number>1?t._task_id+\'.a\'+(t.attempts[0].number-1):null;\n const sources=[...(t._edges||[]),...(t._parent_ref?[t._parent_ref]:[])];for(const id of sources){const start=positions.get(id);if(!start)continue;g.append(svg(\'path\',{d:`M${start.x} ${start.y} Q${start.x+12} ${start.y+12},${start.x+12} ${start.y+24} L${start.x+12} ${end.y-24} Q${start.x+12} ${end.y-10},${end.x} ${end.y}`,fill:\'none\',stroke:colors[rows.findIndex(r=>r[1].id===id)%colors.length],\'stroke-width\':1.4,\'stroke-dasharray\':(id===t._cause||id===previous)?\'3 3\':\'none\',\'data-from\':id,\'data-to\':t.id}))}}\n for(const [i,[prefix,t]]of rows.entries()){const p=positions.get(t.id),color=({done:\'#8fd18a\',working:\'#67d7ef\',failed:\'#e58b64\',blocked:\'#d3ae72\',pending:\'#8b9094\',canceled:\'#8b9094\'}[t.state]);const n=svg(\'g\',{class:\'task-node\',tabindex:0,role:\'button\',\'aria-label\':t.id+\' \'+t.title+\', \'+t.state});n.dataset.id=t.id;n.append(svg(\'rect\',{class:\'row-bg\',x:titleX-10,y:p.y-24,width:width-titleX,height:stride-6,rx:3}));n.append(svg(\'text\',{x:p.x-5,y:p.y+4,\'font-size\':17,style:\'fill:\'+color},t._join?\'⋈\':t.state===\'done\'?\'●\':t.state===\'failed\'?\'×\':\'○\'));\n n.append(svg(\'text\',{x:titleX,y:p.y-4,\'font-size\':13},(ref(t)+\' \'+(t._join?\'⋈ \':\'\')+([t.milestone,t.issue?\'#\'+t.issue.split(\'/\').at(-1):\'\'].filter(Boolean).length?\'[\'+[t.milestone,t.issue?\'#\'+t.issue.split(\'/\').at(-1):\'\'].filter(Boolean).join(\' · \')+\'] \':\'\')+t.title).slice(0,Math.max(12,Math.floor((width-titleX-16)/8)))));\n n.append(svg(\'text\',{x:titleX,y:p.y+16,\'font-size\':11,style:\'fill:var(--muted)\'},(t.kind===\'question\'&&t.state===\'pending\'&&!t._blockers.length?\'needs answer\':t.state)+\' · \'+t._elapsed+(t._progress?\' · \'+t._progress.done+\'/\'+t._progress.total:\'\')+(t._cause?\' · cause \'+t._cause:\'\')+(t._blockers.length?\' · waits \'+t._blockers.join(\', \'):t.deps.length?\' · inputs \'+t.deps.join(\', \'):\' · root\')));\n if(t._historical)n.append(svg(\'text\',{x:titleX,y:p.y+33,\'font-size\':11,style:\'fill:var(--muted)\'},\'Previous attempt: \'+(t._row_note||\'no reason recorded\')));\n const attempt=t.attempts[0]||{},runtimes=[...Object.values(attempt.workers||{}),...(attempt.usage||[])];if(!t._historical)runtimes.push(...data.agents.filter(a=>a.task===t._task_id));const models=[...new Set(runtimes.filter(r=>r.model).map(r=>r.model+\' · \'+(r.effort||\'effort —\')))];\n const usage=attempt.usage||[],count=k=>{const u=usage.filter(x=>k in x);return u.length?u.reduce((n,x)=>n+x[k],0).toLocaleString()+(u.length<usage.length?\'*\':\'\'):\'—\'};\n if(t.kind!==\'group\')n.append(svg(\'text\',{x:compact?titleX:width-335,y:p.y+(compact?50:-4),\'font-size\':11,style:\'fill:\'+color},models.join(\', \')||\'model/effort —\'));if(t.kind!==\'group\')n.append(svg(\'text\',{x:compact?titleX:width-335,y:p.y+(compact?68:16),\'font-size\':11,style:\'fill:var(--muted)\'},\'tokens in/out \'+count(\'input_tokens\')+\' / \'+count(\'output_tokens\')));\n n.addEventListener(\'click\',()=>{$(\'follow\').checked=false;showTask(t.id)});n.addEventListener(\'keydown\',e=>{if(e.key===\'Enter\'||e.key===\' \'){e.preventDefault();showTask(t.id)}});g.append(n)}\n if(!rows.length)g.append(svg(\'text\',{x:20,y:40,\'font-size\':13},all.length?\'No matching rows. Clear search or unfold settled tasks.\':\'No tasks defined yet. Agent activity remains in the roster.\'));\n}\nwindow.addEventListener(\'resize\',()=>{if(current)render(current)});$(\'filter\').addEventListener(\'input\',()=>{if(current)render(current)});$(\'fold\').addEventListener(\'change\',()=>{if(current)render(current)});\ndocument.addEventListener(\'keydown\',e=>{if(e.target.closest(\'select,input,textarea,button\')||e.ctrlKey||e.metaKey||e.altKey)return;const step=[\'j\',\'ArrowDown\'].includes(e.key)?1:[\'k\',\'ArrowUp\'].includes(e.key)?-1:0;if(!step||!taskOrder.length)return;e.preventDefault();$(\'follow\').checked=false;const i=taskOrder.indexOf(selected);showTask(taskOrder[Math.max(0,Math.min(taskOrder.length-1,i<0?0:i+step))]);});\nfunction render(data){current=data;$(\'title\').textContent=data.run.title;$(\'run-id\').textContent=data.run.id+\' · revision \'+data.revision;$(\'summary\').textContent=data.run.summary||\'Updated \'+data.updated_at;$(\'stats\').replaceChildren(badge(data.run.state,data.run.state),badge(\'Phase: \'+data.run.phase),badge(data.tasks.filter(t=>t.kind!==\'group\'&&t.state===\'done\').length+\'/\'+data.tasks.filter(t=>t.kind!==\'group\').length+\' tasks done\'));graph(data);const agents=$(\'agents\');agents.replaceChildren();function draw(parent,depth){for(const a of data.agents.filter(a=>(a.parent||null)===parent)){const row=el(\'div\',undefined,\'agent\'+(depth?\' child\':\'\'));row.append(el(\'h3\',a.id+\' · \'+a.role),badge(a.state,a.state),el(\'p\',a.phase+(a.task?\' → \'+a.task:\'\')),el(\'small\',[a.harness,a.model,a.effort].filter(Boolean).join(\' · \')||\'Runtime not supplied\'),el(\'p\',a.activity||\'No activity note.\'),el(\'small\',a.workspace||\'Workspace not reported\'),el(\'small\',\'Last report \'+a.updated_at));for(const k of [\'input_tokens\',\'output_tokens\',\'cache_read_tokens\',\'cache_write_tokens\',\'reasoning_tokens\']){const values=(a.usage||[]).filter(u=>k in u);if(values.length)row.append(el(\'p\',\'Session-only \'+k.replaceAll(\'_\',\' \')+\': \'+values.reduce((n,u)=>n+u[k],0).toLocaleString()))}row.style.marginLeft=(depth*14)+\'px\';agents.append(row);draw(a.id,depth+1)}}draw(null,0);if(!data.agents.length)agents.append(el(\'p\',\'No agents registered.\',\'muted\'));const events=$(\'events\');events.replaceChildren();for(const e of data.events.slice(-12).reverse()){const row=el(\'p\');row.append(el(\'small\',e.at+\' · \'+e.type+\' \'),el(\'span\',e.detail));events.append(row)}$(\'diagnostics\').textContent=data._view.diagnostics.join(\'\\n\');if($(\'follow\').checked){const active=data._view.rows.find(r=>r[1].state===\'working\'&&taskOrder.includes(r[1].id));if(active)selected=active[1].id;}if(!selected&&taskOrder.length)selected=taskOrder[0];if(selected&&data._view.rows.some(r=>r[1].id===selected))showTask(selected);else{$(\'task-detail\').replaceChildren(el(\'h2\',\'Task details\'),el(\'p\',\'Select a task in the graph.\',\'muted\'))}}\nasync function refresh(){const generation=++requestRevision;try{const inventory=await fetch(\'/api/runs\');if(!inventory.ok)throw Error(\'Could not read run inventory\');const runs=await inventory.json();const selectedRun=requestedRun;$(\'runs\').replaceChildren(new Option(\'Repository · all active runs\',\'active\'),...runs.map(r=>new Option(r.title+\' · \'+(r.archived?\'archived\':r.lifecycle||r.state),r.id)));$(\'runs\').value=selectedRun;const response=await fetch(\'/api/run?id=\'+encodeURIComponent(selectedRun));if(!response.ok)throw Error(response.status===404?\'No active run. Create one with nova-flow init, or select an archived run.\':\'Run data could not be validated.\');const data=await response.json();if(generation!==requestRevision)return;render(data);$(\'error\').hidden=true;$(\'content\').hidden=false;$(\'connection\').textContent=\'Read \'+new Date().toLocaleTimeString()+\' · last report \'+data.updated_at}catch(e){if(generation!==requestRevision)return;$(\'error\').textContent=e.message;$(\'error\').className=\'error\';$(\'error\').hidden=false;$(\'content\').hidden=true;$(\'connection\').textContent=\'Waiting for valid run data\'}}\n$(\'runs\').addEventListener(\'change\',()=>{selected=null;requestedRun=$(\'runs\').value;refresh()});async function poll(){await refresh();setTimeout(poll,2000)}poll();\n</script></body></html>\n'
 
 if __name__ == '__main__':
     main()

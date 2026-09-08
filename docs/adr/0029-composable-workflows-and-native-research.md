@@ -10,9 +10,9 @@ Overlapping public commands duplicated implementation and approval flows. Planni
 
 ## Decision
 
-Workcell exposes ten workflows: `plan`, `build`, `review`, `profile`, `docs`, `debug`, `refactor`, `deploy`, `repo-setup`, and `wiki`. `jj` and `use-other-harness` are auxiliary skills. Skills package dispatch contracts; agents perform assigned stages without recursively starting another workflow's delivery lifecycle.
+Nova exposes ten workflows: `plan`, `build`, `review`, `profile`, `docs`, `debug`, `refactor`, `deploy`, `repo-setup`, and `wiki`. `jj` and `use-other-harness` are auxiliary skills. Skills package dispatch contracts; agents perform assigned stages without recursively starting another workflow's delivery lifecycle.
 
-Remove the public `research` skill. Research remains a planner capability, backed by the researcher role and evidence helpers under `skills/plan/research`. Standalone investigation can use the host's available research tools without entering Workcell planning or being prompted to build. Native capabilities differ by host; this decision does not assume identical deep-research products.
+Remove the public `research` skill. Research remains a planner capability, backed by the researcher role and evidence helpers under `skills/plan/research`. Standalone investigation can use the host's available research tools without entering Nova planning or being prompted to build. Native capabilities differ by host; this decision does not assume identical deep-research products.
 
 For a new plan, the orchestrator asks whether the user wants one plan or multiple plan ideas unless the request or saved decision already answers that question. This controls the output, not a worker count. The orchestrator frames distinct approaches; planners investigate and author them. Planners direct researchers as needed. Where nested dispatch is unavailable, the orchestrator proxies dispatch and returns findings to the owning planner. The orchestrator compares evidence and tradeoffs, selects or combines compatible ideas, and assigns a planner to produce the coherent final artifact.
 

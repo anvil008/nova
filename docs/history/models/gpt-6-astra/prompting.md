@@ -18,9 +18,9 @@ except unsupported `none` or `minimal` settings. It also identifies sensitivity
 to conflicting instructions, unnecessary clarification pauses, delegation
 frequency, verbose responses, and excessive verification as behaviors to tune.
 
-## Workcell application
+## Nova application
 
-Workcell's Codex routes use `gpt-6-astra` with the existing role efforts in
+Nova's Codex routes use `gpt-6-astra` with the existing role efforts in
 `agents/models.json`: high for planning, specifying,
 building, debugging, and deployment; medium for review, integration, documentation,
 and profiling; low for research. Keep model and effort explicit on dispatch.
@@ -31,7 +31,7 @@ requirements, and completion condition. Continue authorized work through handoff
 ask only about unresolved decisions that materially affect the result. Prepare a
 reviewable result before requesting any still-required approval.
 
-Keep Workcell's authorship separation: the specifier seals acceptance tests, the
+Keep Nova's authorship separation: the specifier seals acceptance tests, the
 builder implements, an independent reviewer reviews, and the integrator tests the
 combined candidate. Dispatch independent issue pairs only with disjoint ownership
 and a shared accepted base. Preserve the existing ban on recursive builder fan-out.
@@ -51,6 +51,6 @@ retain historical model guides and evaluation fixtures for comparison.
 
 ## API boundary
 
-Workcell launches Codex; this change adds no direct API integration. For a future
+Nova launches Codex; this change adds no direct API integration. For a future
 API executor, consult the official guide's Responses tool-calling and unsupported
 parameter requirements rather than copying CLI settings into an API request.

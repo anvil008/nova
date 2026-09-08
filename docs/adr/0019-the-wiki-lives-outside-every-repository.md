@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Every Workcell run learns something about the project it ran against — which suite is slow, which
+Every Nova run learns something about the project it ran against — which suite is slow, which
 runner is flaky, which module's tests lie, which review finding keeps coming back — and every run
 throws it away. The next `build` on the same repository starts from the same generic skills with
 the same blind spots, and the same review pass rediscovers the same failure mode a week later.
@@ -29,7 +29,7 @@ directory" would fork a project's memory across its own workspaces. And
 benchmark runs: an eval measures the shipped harness, so a run that could read remembered advice
 about the task repository, or write into a store a later run reads, is measuring something else.
 
-Workcell has no user-level state today. This decision introduces one, which is a cost worth
+Nova has no user-level state today. This decision introduces one, which is a cost worth
 naming rather than a detail: the mechanism ships in the repository and is reviewed like code, but
 the data it produces is per machine and per user from the first write.
 
@@ -43,11 +43,11 @@ half.
 
 ## Decision
 
-- **One store, outside every repository.** The mechanism ships in Workcell; the data lives in one
-  store at `$WORKCELL_WIKI_HOME`, defaulting to `~/.workcell/wiki/`, with one namespace per
-  project at `~/.workcell/wiki/<project-key>/`. `~/.workcell/` is a new root this decision
-  introduces, and the override is named after `WORKCELL_EVAL_TASK_DIR`, the only prior precedent
-  for an environment variable that relocates something Workcell owns.
+- **One store, outside every repository.** The mechanism ships in Nova; the data lives in one
+  store at `$NOVA_WIKI_HOME`, defaulting to `~/.nova/wiki/`, with one namespace per
+  project at `~/.nova/wiki/<project-key>/`. `~/.nova/` is a new root this decision
+  introduces, and the override is named after `NOVA_EVAL_TASK_DIR`, the only prior precedent
+  for an environment variable that relocates something Nova owns.
 - **Per-project namespacing is absolute.** There is no flat shared wiki and no cross-project
   namespace: a namespace holds one project's history, is never merged with another project's, and
   cannot be read across projects. One project's runner flakiness is not evidence about anything
@@ -56,13 +56,13 @@ half.
   toplevel basename plus the first eight hex characters of a sha256 hash of the resolved absolute
   toplevel, so two checkouts that merely share a directory name stay apart. Normalizing strips the
   scheme, user, and port and any trailing `.git`, lower-cases the rest, and joins host and path
-  segments with dashes, so `git@github.com:anvil008/workcell.git` and
-  `https://github.com/anvil008/workcell` are one project.
-- **The key is resolved from the repository's primary toplevel**, exactly the way `workcell-ws`
+  segments with dashes, so `git@github.com:anvil008/nova.git` and
+  `https://github.com/anvil008/nova` are one project.
+- **The key is resolved from the repository's primary toplevel**, exactly the way `nova-ws`
   resolves one — through the `.jj/repo` indirection for a secondary jj workspace, through the
   first `git worktree list --porcelain` entry for git — so every workspace of a repository shares
   the same key rather than growing a memory of its own. It is spelled in the character class
-  `workcell-ws` already enforces, `[a-z0-9][a-z0-9-]*`, so a wiki key and a workspace key obey one
+  `nova-ws` already enforces, `[a-z0-9][a-z0-9-]*`, so a wiki key and a workspace key obey one
   rule and neither can carry a path separator.
 - **Identity is recorded rather than inferred.** `project.json` names the source the namespace was
   created from, every later command re-resolves and compares, and a mismatch is refused by name —
@@ -83,7 +83,7 @@ half.
   outside-repository write rule to relax: its only path denials are the eval-mode marker and
   RAM-backed build target directories. `tdd-guard`'s sealed-path check returns false for any path
   that resolves outside the repository, so a namespace can never be mistaken for a sealed test.
-- **A repository in eval mode neither records nor consolidates.** The `.workcell/eval-mode.json`
+- **A repository in eval mode neither records nor consolidates.** The `.nova/eval-mode.json`
   marker is checked against the target repository the namespace was resolved from, never against
   the store or the caller's directory, and every `--repo` subcommand refuses on it — reads
   included, so a benchmark run cannot contaminate or be contaminated by a real project's history.
@@ -95,7 +95,7 @@ half.
   working memory, and only its distilled output feeds committed project-local overlays in the
   target repository — the direction is settled here, and no mechanism that writes such an overlay
   is built by this decision or scheduled by it. What holds from today: a project pattern never
-  amends Workcell's shared
+  amends Nova's shared
   `skills/`, which keep changing through evidence-backed pull requests gated by the eval tiers,
   because a model- or project-specific workaround promoted into a shared skill transfers
   negatively to every other project.
@@ -106,7 +106,7 @@ half.
 ## Consequences
 
 The wiki is per machine and per user rather than per team: two people working the same repository
-build two independent memories, and a fresh machine starts empty. `WORKCELL_WIKI_HOME` is the
+build two independent memories, and a fresh machine starts empty. `NOVA_WIKI_HOME` is the
 relocation lever — a synced or shared directory works today because the store's location is the
 only thing that binds it to a machine — but a real export path, with the review that sharing one
 project's remembered opinions deserves, is deferred to the later milestone that adds the proposer.
@@ -119,7 +119,7 @@ Because the store sits outside the repository, the repository's own guards do no
 the harness's own permission model is the remaining surface protecting it. That is why every write
 goes through one `wiki.py` invocation rather than an editor tool: a single CLI is what enforces
 write-once bundles, append-only pages, a derived catalog, and one log line per write, and it is a
-surface a permission rule can name, while `Write` and `Edit` against a path under `~/.workcell/`
+surface a permission rule can name, while `Write` and `Edit` against a path under `~/.nova/`
 are not.
 
 The layer is opt-in and silent by default, so nothing changes for a project that never runs
@@ -127,5 +127,5 @@ The layer is opt-in and silent by default, so nothing changes for a project that
 it on, and an unused namespace decays into stale advice with no one reading it. `wiki.py check`
 proves a namespace is internally consistent; it does not prove the prose is still true.
 
-`~/.workcell/` is a new user-level root, and future user-level state — caches, configuration —
+`~/.nova/` is a new user-level root, and future user-level state — caches, configuration —
 now has an obvious home and an obvious naming convention to follow.

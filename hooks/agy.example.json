@@ -1,5 +1,5 @@
 {
-  "workcell-post-edit": {
+  "nova-post-edit": {
     "description": "Optional scoped format/lint checks",
     "enabled": false,
     "PostToolUse": [

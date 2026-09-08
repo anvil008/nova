@@ -1,18 +1,18 @@
-# Workcell
+# Nova
 
 Shared development skills for Codex, Claude Code, and Antigravity. The main agent applies a skill in the current conversation, uses helpers for useful independent tasks, and verifies the result.
 
-[System guide](docs/proposals/workcell-next.html) · [Installation](docs/install.md) · [Architecture](docs/adr/0030-shared-skills-native-plugin-delivery.md)
+[System guide](docs/proposals/nova-next.html) · [Installation](docs/install.md) · [Architecture](docs/adr/0030-shared-skills-native-plugin-delivery.md)
 
-## Workcell Flow
+## Nova Flow
 
-The bundled `workcell-flow` command tracks milestones, tasks, dependencies, workflow phases, and parent/subagent activity. It provides a terminal view and a live browser view, with attempt evidence and archives of completed runs. It is independent of Herdr Flow.
+The bundled `nova-flow` command tracks milestones, tasks, dependencies, workflow phases, and parent/subagent activity. It provides a terminal view and a live browser view, with attempt evidence and archives of completed runs. It is independent of Herdr Flow.
 
 ```sh
-workcell-flow init 'My feature'
-workcell-flow milestone discovery 'Define behavior'
-workcell-flow task add spec 'Agree on behavior' --milestone discovery --phase spec
-workcell-flow serve
+nova-flow init 'My feature'
+nova-flow milestone discovery 'Define behavior'
+nova-flow task add spec 'Agree on behavior' --milestone discovery --phase spec
+nova-flow serve
 ```
 
 Bootstrap installs the self-contained command to `~/.local/bin/`; use `--bin-dir` to change that location. It refuses to overwrite modified or conflicting files. The [tool guide](tools/README.md) covers updates, subagents, results, archiving, and LAN binding.
@@ -51,7 +51,7 @@ python3 scripts/update-guide.py --check
 python3 scripts/package.py
 ```
 
-The build produces `dist/plugins/{codex,claude,agy}/`, each containing a native marketplace and a complete `plugins/workcell/` bundle. It does not install anything. A package contains copies, so it remains usable after moving it away from this checkout. Version comes from `VERSION`.
+The build produces `dist/plugins/{codex,claude,agy}/`, each containing a native marketplace and a complete `plugins/nova/` bundle. It does not install anything. A package contains copies, so it remains usable after moving it away from this checkout. Version comes from `VERSION`.
 
 ```text
 skills/          One source for each workflow, references, and report assets

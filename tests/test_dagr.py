@@ -11,15 +11,15 @@ import urllib.request
 import urllib.error
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOL = ROOT / 'tools/workcell-flow'
-loader = importlib.machinery.SourceFileLoader('workcell_dagr', str(TOOL))
+TOOL = ROOT / 'tools/nova-flow'
+loader = importlib.machinery.SourceFileLoader('nova_dagr', str(TOOL))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 dagr = importlib.util.module_from_spec(spec); loader.exec_module(dagr)
 
 
 class DagrTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='workcell-flow-')
+        self.temp = tempfile.TemporaryDirectory(prefix='nova-flow-')
         self.addCleanup(self.temp.cleanup)
         self.store = Path(self.temp.name) / 'runs'
 
@@ -163,7 +163,7 @@ class DagrTests(unittest.TestCase):
         with self.assertRaises(ValueError): dagr.validate(data)
         data['tasks'][0]['deps'] = ['unknown']
         with self.assertRaises(ValueError): dagr.validate(data)
-        data = self.data(); data['workcell_dagr'] = 400
+        data = self.data(); data['nova_dagr'] = 400
         with self.assertRaises(ValueError): dagr.validate(data)
         self.cli('agent', 'main')
         self.cli('agent', 'child', '--parent', 'main')

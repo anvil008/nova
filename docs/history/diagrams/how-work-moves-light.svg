@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 1696" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title diagram-desc">
-  <title id="diagram-title">How work moves through Workcell</title>
+  <title id="diagram-title">How work moves through Nova</title>
   <desc id="diagram-desc">The orchestrator reuses existing plans or delegates one plan or multiple ideas to planner agents with internal research. Authorized work enters shared build with optional GitHub tracking, RED or baseline verification, builders and independent reviewers. Relevant documentation enters the combined source before final integrator verification; optimization is remeasured. Fresh evidence gates final acceptance and authorized delivery. Team sizes are chosen by the orchestrator.</desc>
   <defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#4b5563"/></marker><marker id="arrow-muted" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#7b8494"/></marker></defs>
   <style>
@@ -24,7 +24,7 @@
     .k-artifact{fill:#f1f2f5;stroke:#5a6272;stroke-width:1.6}
     .k-orchestrator{fill:#ece6fb;stroke:#5b3fbf;stroke-width:1.6}
   </style>
-  <text class="title" x="20" y="32">How work moves through Workcell</text>
+  <text class="title" x="20" y="32">How work moves through Nova</text>
   <rect class="k-agent" x="20" y="41" width="28" height="14" rx="3.92"/><text class="legend" text-anchor="start" x="52" y="52">agent</text><polygon class="k-gate" points="108.25,41 126.17,41 131.21,48 126.17,55 108.25,55 103.21,48"/><text class="legend" text-anchor="start" x="135.21" y="52">mechanical gate</text><rect class="k-human" x="246.22" y="41" width="28" height="14" rx="7"/><text class="legend" text-anchor="start" x="278.22" y="52">human gate</text><path class="k-artifact" d="M 362.44 41 L 385.54 41 L 390.44 45.9 L 390.44 55 L 362.44 55 Z"/><path class="k-artifact crease" d="M 385.54 41 L 385.54 45.9 L 390.44 45.9"/><text class="legend" text-anchor="start" x="394.44" y="52">artifact</text><rect class="k-orchestrator" x="454.96" y="41" width="28" height="14" rx="3.92"/><rect class="k-orchestrator inner" x="457.2" y="43.24" width="23.52" height="9.52" rx="1.68"/><text class="legend" text-anchor="start" x="486.96" y="52">orchestrator</text>
   <rect class="frame" x="147" y="218" width="746" height="1460" rx="14"/>
   <path class="edge" marker-end="url(#arrow)" d="M 520 122 L 520 150"/>

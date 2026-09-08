@@ -23,7 +23,7 @@ class ReportingTests(unittest.TestCase):
         self.change('task','set','child','working')
         with self.assertRaises(ValueError):self.change('task','parent','parent','child')
     def test_flow_commands_do_not_create_new_work(self):
-        dagr.report_activity(self.data,self.agent,'PostToolUse',{'tool_input':{'command':'workcell-flow task set task done'}})
+        dagr.report_activity(self.data,self.agent,'PostToolUse',{'tool_input':{'command':'nova-flow task set task done'}})
         self.assertEqual(self.data['tasks'],[])
     def test_child_inherits_assigned_context(self):
         self.change('task','add','scope','Scope')

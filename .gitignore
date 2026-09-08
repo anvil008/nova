@@ -11,7 +11,7 @@ skills-lock.json
 __pycache__/
 *.pyc
 dist/
-.workcell/
+.nova/
 findings.json
 findings.txt
 empty-findings.txt

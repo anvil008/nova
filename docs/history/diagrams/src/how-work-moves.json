@@ -1,5 +1,5 @@
 {
-  "title": "How work moves through Workcell",
+  "title": "How work moves through Nova",
   "description": "The orchestrator reuses existing plans or delegates one plan or multiple ideas to planner agents with internal research. Authorized work enters shared build with optional GitHub tracking, RED or baseline verification, builders and independent reviewers. Relevant documentation enters the combined source before final integrator verification; optimization is remeasured. Fresh evidence gates final acceptance and authorized delivery. Team sizes are chosen by the orchestrator.",
   "direction": "TB",
   "width": 1040,

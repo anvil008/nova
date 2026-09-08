@@ -1,6 +1,6 @@
-# Workcell system explorer
+# Nova system explorer
 
-A dependency-free local HTML explorer of the implemented Workcell workflows, architecture, agents, and evidence gates. The registry contains 12 public skills, 10 agent roles, and three harnesses.
+A dependency-free local HTML explorer of the implemented Nova workflows, architecture, agents, and evidence gates. The registry contains 12 public skills, 10 agent roles, and three harnesses.
 
 [Decision tree](http://127.0.0.1:8787/#tree) is the home page. Plan, review, debug, profile, and refactor appear as peer workflows with their own completed outcomes. Supported, scoped, and authorized changes can continue through shared build. There is no workflow-imposed minimum, maximum, or default team size; the orchestrator chooses useful assignments within runtime capacity and explicit user limits.
 
@@ -38,7 +38,7 @@ node --check docs/diagrams/system-map/execution-diagrams.js
 node --check docs/diagrams/system-map/app.js
 ```
 
-The snapshot helper checks registry coverage, roles, paths, aliases, and local source freshness. It does not prove a live agent run or the installation state of the user's harness. Native-capability links describe the named products; Workcell does not assume identical Deep Research modes across harnesses.
+The snapshot helper checks registry coverage, roles, paths, aliases, and local source freshness. It does not prove a live agent run or the installation state of the user's harness. Native-capability links describe the named products; Nova does not assume identical Deep Research modes across harnesses.
 
 Direct links:
 

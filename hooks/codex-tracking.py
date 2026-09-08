@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Codex lifecycle adapter. Keeps prompts and tool contents out of Workcell state."""
+"""Codex lifecycle adapter. Keeps prompts and tool contents out of Nova state."""
 import hashlib
 import importlib.machinery
 import importlib.util
@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import sys
 
-loader = importlib.machinery.SourceFileLoader('workcell_dagr', str(Path(__file__).resolve().parents[1] / 'tools/workcell-flow'))
+loader = importlib.machinery.SourceFileLoader('nova_dagr', str(Path(__file__).resolve().parents[1] / 'tools/nova-flow'))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 dagr = importlib.util.module_from_spec(spec); loader.exec_module(dagr)
 FIELDS = {'input_tokens': 'input_tokens', 'output_tokens': 'output_tokens',
@@ -119,17 +119,17 @@ def handle(payload):
     directory = dagr.project_store(cwd)
     project = directory
     with dagr.locked(project):
-        existing = dagr.session_store(project,'codex',session,os.environ.get('WORKCELL_RUN_ID'))
+        existing = dagr.session_store(project,'codex',session,os.environ.get('NOVA_RUN_ID'))
         if existing:
             directory = existing
         elif dagr.run_paths(project):
             if kind not in ('SessionStart','UserPromptSubmit','SubagentStart'): return {}
-            directory = dagr.session_store(project,'codex',session,os.environ.get('WORKCELL_RUN_ID'),True,cwd)
+            directory = dagr.session_store(project,'codex',session,os.environ.get('NOVA_RUN_ID'),True,cwd)
         elif kind in ('SessionStart','UserPromptSubmit','SubagentStart') and not (project/'archive').exists():
             data=dagr.create(root(cwd).name+' · codex')
             data['run']['owner']='codex:'+session
             dagr.atomic(project/'run.json',data)
-    if directory.is_symlink(): raise ValueError('Refusing .workcell symlink')
+    if directory.is_symlink(): raise ValueError('Refusing .nova symlink')
     with dagr.locked(directory):
         path = directory / 'run.json'
         if not path.exists() and kind not in ('SessionStart', 'UserPromptSubmit', 'SubagentStart'):
@@ -153,7 +153,7 @@ def handle(payload):
             if not isinstance(session, str) or not session: raise ValueError('Subagent event needs agent_id')
         agent = register(data, session, parent)
         agent['workspace'] = str(root(cwd))
-        if os.environ.get('WORKCELL_SESSION_ID'):agent['launcher_session']=os.environ['WORKCELL_SESSION_ID']
+        if os.environ.get('NOVA_SESSION_ID'):agent['launcher_session']=os.environ['NOVA_SESSION_ID']
         if kind=='SubagentStop':agent['session_closed']=True
         data['run'].setdefault('owner','codex:'+session)
         if kind != 'TranscriptPoll':
@@ -170,7 +170,7 @@ def handle(payload):
             dagr.atomic(path, data)
     if kind in ('SessionStart', 'SubagentStart'):
         return {'hookSpecificOutput': {'hookEventName': kind, 'additionalContext':
-            f'Workcell session registered as {agent["id"]}. Run store: {directory}. Use --dir {directory} on Workcell commands in this session. Create meaningful tasks as scope becomes known. Bind this session before task work with workcell-flow session bind {session} --task TASK_ID. Stop hooks do not complete tasks.'}}
+            f'Nova session registered as {agent["id"]}. Run store: {directory}. Use --dir {directory} on Nova commands in this session. Create meaningful tasks as scope becomes known. Bind this session before task work with nova-flow session bind {session} --task TASK_ID. Stop hooks do not complete tasks.'}}
     if agent.get('tracking_notice') and kind=='PostToolUse':
         return {'hookSpecificOutput':{'hookEventName':kind,'additionalContext':agent['tracking_notice']}}
     return {}
@@ -180,7 +180,7 @@ def main():
     try:
         result = handle(json.load(sys.stdin))
     except (OSError, ValueError, KeyError, TypeError) as error:
-        print(f'workcell tracking: {error}', file=sys.stderr)
+        print(f'nova tracking: {error}', file=sys.stderr)
         result = {}
     print(json.dumps(result))
 

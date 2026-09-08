@@ -10,8 +10,8 @@ normalized_source_digests:
 # GPT-5.6 Sol prompting guidance
 
 This is a deliberately small, attributed extract of the official GPT-5.6 model
-guide, selected for the controls that Workcell can apply to Codex agents. The
-quoted fragments are source text; the notes explain their Workcell application.
+guide, selected for the controls that Nova can apply to Codex agents. The
+quoted fragments are source text; the notes explain their Nova application.
 
 ## Lean prompts
 

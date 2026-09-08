@@ -12,16 +12,16 @@ intact; read ADR 0023 for current behaviour.
 ## Context
 
 ADR 0005 installed every harness wrapper the same way: a symlink from the harness's
-plugin directory back into `plugins/<harness>/workcell`. That works for Antigravity,
+plugin directory back into `plugins/<harness>/nova`. That works for Antigravity,
 which reads its plugin directory straight off disk. It does not work for Claude Code or
 Codex. Both discover plugins through a registry — `installed_plugins.json`,
 `known_marketplaces.json`, and `enabledPlugins` for Claude; `codex plugin list` for
 Codex — and neither ever scans its plugin directory for unregistered entries. A wrapper
-symlinked into `~/.claude/plugins/workcell` was therefore inert: `claude plugin list`
+symlinked into `~/.claude/plugins/nova` was therefore inert: `claude plugin list`
 did not show it, and none of its agents, skills, or hooks ever loaded.
 
 The layout had also accumulated avoidable depth. Each wrapper sat at
-`plugins/<harness>/workcell`, a directory whose only child was the wrapper, and Codex
+`plugins/<harness>/nova`, a directory whose only child was the wrapper, and Codex
 needed a fourth top-level directory, `plugins/codex-marketplace/`, holding nothing but a
 manifest and a symlink back to the wrapper it described.
 
@@ -34,7 +34,7 @@ harness's own CLI:
 
 ```
 <cli> plugin marketplace add <repo>
-<cli> plugin install workcell@workcell
+<cli> plugin install nova@nova
 ```
 
 The root is the marketplace root deliberately. Each wrapper reaches the single source
@@ -47,7 +47,7 @@ its install paths are not a stable documented contract for this bootstrap flow; 
 use the known locations and remain live as the source tree changes.
 
 The wrapper directories lose a level — `plugins/<harness>` rather than
-`plugins/<harness>/workcell` — and `plugins/codex-marketplace/` is deleted. The
+`plugins/<harness>/nova` — and `plugins/codex-marketplace/` is deleted. The
 plugin's name comes from its manifest, not from its directory name.
 
 The three entry points are renamed to one symmetric set: `scripts/bootstrap-tools.sh`

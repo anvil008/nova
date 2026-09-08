@@ -90,7 +90,7 @@ request, never an override of a red check nor one armed to fire on checks no hum
 0011 records the decision and its residual risk.
 
 One file changes those verdicts. A task repository bootstrapped for an unattended benchmark run
-carries `.workcell/eval-mode.json`; inside it the guard allows commit, merge, rebase, cherry-pick
+carries `.nova/eval-mode.json`; inside it the guard allows commit, merge, rebase, cherry-pick
 and push on the default branch, because that is where an eval's work has to land, and denies every
 `gh` call instead, the main conversation's merges included. The marker counts only at the root of
 the repository a command targets — no upward walk — and writing it is denied to agents on both the
@@ -104,7 +104,7 @@ inactive until the user trusts them with `/hooks`, so its agent definitions also
 
 ## Repository Mechanical Gates
 
-In addition to runtime tool-event hooks, Workcell enforces mechanical repository gates in CI and local verification:
+In addition to runtime tool-event hooks, Nova enforces mechanical repository gates in CI and local verification:
 
 1. **Model Guide Freshness Gate**:
    `python3 docs/models/check/check_guides.py --check`

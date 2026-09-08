@@ -1,13 +1,13 @@
 {
-  "title": "Layered architecture of Workcell",
-  "description": "Workcell defines 12 public skills and 10 roles across Claude Code, Codex with GPT-6 Astra, and Antigravity. Harness-owned agents, skills, and scripts share evidence contracts and repository tooling. Research remains a planner capability rather than a standalone skill.",
+  "title": "Layered architecture of Nova",
+  "description": "Nova defines 12 public skills and 10 roles across Claude Code, Codex with GPT-6 Astra, and Antigravity. Harness-owned agents, skills, and scripts share evidence contracts and repository tooling. Research remains a planner capability rather than a standalone skill.",
   "direction": "TB",
   "width": 1040,
   "nodes": [
     {
-      "id": "workcell-root",
+      "id": "nova-root",
       "kind": "orchestrator",
-      "label": "Workcell root",
+      "label": "Nova root",
       "sub": "12 skills · 10 roles · shared evidence contracts"
     },
     {
@@ -37,15 +37,15 @@
   ],
   "edges": [
     {
-      "from": "workcell-root",
+      "from": "nova-root",
       "to": "claude"
     },
     {
-      "from": "workcell-root",
+      "from": "nova-root",
       "to": "codex"
     },
     {
-      "from": "workcell-root",
+      "from": "nova-root",
       "to": "agy"
     },
     {

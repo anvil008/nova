@@ -20,7 +20,7 @@ def main():
     if not shutil.which('bwrap'):
         parser.exit(1, 'bubblewrap is required; no unisolated fallback is used\n')
     results = []
-    with tempfile.TemporaryDirectory(prefix='workcell-native-') as name:
+    with tempfile.TemporaryDirectory(prefix='nova-native-') as name:
         trial = Path(name)
         args = ['bwrap', '--ro-bind', '/', '/', '--proc', '/proc', '--dev', '/dev',
                 '--unshare-pid', '--unshare-net', '--die-with-parent',
@@ -33,18 +33,18 @@ def main():
         args += ['--bind', str(config), str(Path.home() / '.claude.json'), '--chdir', str(trial)]
         commands = [
             ['codex', 'plugin', 'marketplace', 'add', str(ROOT / 'dist/plugins/codex'), '--json'],
-            ['codex', 'plugin', 'add', 'workcell@workcell', '--json'],
+            ['codex', 'plugin', 'add', 'nova@nova', '--json'],
             ['codex', 'plugin', 'list', '--json'],
             ['claude', 'plugin', 'marketplace', 'add', str(ROOT / 'dist/plugins/claude')],
-            ['claude', 'plugin', 'install', 'workcell@workcell'],
-            ['claude', 'plugin', 'details', 'workcell@workcell'],
-            ['agy', 'plugin', 'install', str(ROOT / 'dist/plugins/agy/plugins/workcell')],
+            ['claude', 'plugin', 'install', 'nova@nova'],
+            ['claude', 'plugin', 'details', 'nova@nova'],
+            ['agy', 'plugin', 'install', str(ROOT / 'dist/plugins/agy/plugins/nova')],
             ['agy', 'plugin', 'list'],
         ]
         if options.bootstrap:
             command = [str(ROOT / 'scripts/bootstrap.sh'), '--harness', 'all',
                        '--with-codex-helpers', '--prefix', str(trial / 'prefix'), '--bin-dir', str(trial / 'bin')]
-            commands = [command, command, [str(trial / 'bin/workcell-flow'), '--dir', str(trial / 'run'), 'init', 'Installed tool smoke test'], [str(trial / 'bin/workcell-flow'), '--dir', str(trial / 'run'), 'check']]
+            commands = [command, command, [str(trial / 'bin/nova-flow'), '--dir', str(trial / 'run'), 'init', 'Installed tool smoke test'], [str(trial / 'bin/nova-flow'), '--dir', str(trial / 'run'), 'check']]
         for command in commands:
             try:
                 result = subprocess.run(args + command, capture_output=True, text=True, timeout=45)
@@ -57,7 +57,7 @@ def main():
         # Native installation must retain assets and shared instruction links.
         for harness, pattern in [('codex', '.codex/plugins/cache/**/skills/refactor/SKILL.md'),
                                   ('claude', '.claude/plugins/cache/**/skills/refactor/SKILL.md'),
-                                  ('agy', '.gemini/**/plugins/workcell/skills/refactor/SKILL.md')]:
+                                  ('agy', '.gemini/**/plugins/nova/skills/refactor/SKILL.md')]:
             skills = list(trial.glob(pattern))
             valid = bool(skills) and all((p.parent / 'assets/report.html').is_file()
                                         and (p.parent / '../../instructions/development.md').is_file()

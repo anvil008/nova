@@ -35,7 +35,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertFalse(prefix.exists())
 
     def test_marketplace_conflict_requires_explicit_switch(self):
-        data = {'marketplaces': [{'name': 'workcell', 'root': '/different/source'}]}
+        data = {'marketplaces': [{'name': 'nova', 'root': '/different/source'}]}
         with patch.object(bootstrap, 'run', return_value=data) as run:
             with self.assertRaises(ValueError):
                 bootstrap.marketplace('codex', self.root, False)
@@ -43,7 +43,7 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(run.call_count, 2)  # Both calls only inspect the registry.
         with patch.object(bootstrap, 'run', return_value=[]):
             self.assertEqual(bootstrap.marketplace('claude', self.root, False), 'add')
-        with patch.object(bootstrap, 'run', return_value=[{'name': 'workcell', 'path': str(self.root)}]):
+        with patch.object(bootstrap, 'run', return_value=[{'name': 'nova', 'path': str(self.root)}]):
             self.assertEqual(bootstrap.marketplace('claude', self.root, False), 'keep')
 
     def test_helper_updates_preserve_user_edits(self):
@@ -75,7 +75,7 @@ class BootstrapTests(unittest.TestCase):
     def test_native_failure_is_not_reported_as_success(self):
         binary = self.root / 'claude'; binary.write_text('#!/bin/sh\nexit 9\n'); binary.chmod(0o755)
         with self.assertRaises(subprocess.CalledProcessError):
-            bootstrap.run([str(binary), 'plugin', 'install', 'workcell@workcell'])
+            bootstrap.run([str(binary), 'plugin', 'install', 'nova@nova'])
 
 
 if __name__ == '__main__':

@@ -10,8 +10,8 @@ Verification:
 
 - Full suite: 31 tests passed, including dry-run no-write/no-native-call behavior, marketplace conflict handling, helper ownership/symlink protection, and native failure propagation.
 - Shell syntax and guide synchronization checks passed.
-- `scripts/native-smoke.py --bootstrap --output /tmp/workcell-bootstrap-smoke-final` exercised fresh installation and an unchanged rerun across all three native CLIs with optional Codex helpers. Both succeeded inside temporary mount-isolated configurations with networking disabled.
-- A separate changed-content trial updated all three plugins and verified the marker file in each installed cache. Evidence: `/tmp/workcell-bootstrap-kphgbnnx/update-result.json` (ephemeral).
+- `scripts/native-smoke.py --bootstrap --output /tmp/nova-bootstrap-smoke-final` exercised fresh installation and an unchanged rerun across all three native CLIs with optional Codex helpers. Both succeeded inside temporary mount-isolated configurations with networking disabled.
+- A separate changed-content trial updated all three plugins and verified the marker file in each installed cache. Evidence: `/tmp/nova-bootstrap-kphgbnnx/update-result.json` (ephemeral).
 - Rebuilt default distribution using `python3 scripts/package.py`.
 
 No personal installation or configuration was modified. All changes remain local. Native model execution and project-specific hook activation were not part of this installer task.

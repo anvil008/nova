@@ -1,6 +1,6 @@
 # Developer workflows
 
-Workcell's orchestrator frames your request, dispatches specialists, reviews evidence, and manages completion. Skills package workflows; agents perform their stages.
+Nova's orchestrator frames your request, dispatches specialists, reviews evidence, and manages completion. Skills package workflows; agents perform their stages.
 
 | Command | Outcome | Delegation |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ Workcell's orchestrator frames your request, dispatches specialists, reviews evi
 | `repo-setup` | Repository ready for agent work | Delegated setup of instructions, runners, version control, and quality gates |
 | `wiki` | Opted-in project knowledge | Consolidates immutable evidence and reusable patterns |
 
-`jj` and `use-other-harness` are auxiliary skills. The latter runs only when explicitly requested. There are **12 public skills: 10 workflows and 2 auxiliaries**, and 10 specialist roles. Use `/workcell:<command>` in plugin slash-command surfaces or the host's native skill invocation.
+`jj` and `use-other-harness` are auxiliary skills. The latter runs only when explicitly requested. There are **12 public skills: 10 workflows and 2 auxiliaries**, and 10 specialist roles. Use `/nova:<command>` in plugin slash-command surfaces or the host's native skill invocation.
 
 ## Planning
 
@@ -23,7 +23,7 @@ The orchestrator asks **one plan or multiple plan ideas** for a new plan unless 
 
 Markdown is the default, with no format question. Ask for a visual or HTML plan to add an HTML companion. A small change can use a concise brief. Dependency runs use a strict JSON sidecar carrying task dependencies, acceptance tests, and ownership. GitHub issues are optional; local task IDs work without invented repository names or issue numbers.
 
-The public research skill is removed. The researcher role and evidence-merging helpers remain inside planning. Standalone research can use the host's available research capabilities and ends with its result; Workcell does not automatically prompt it into planning or build. See the [planning choices](../skills/plan/references/planning-modes.md) and [research contract](../skills/plan/references/research.md).
+The public research skill is removed. The researcher role and evidence-merging helpers remain inside planning. Standalone research can use the host's available research capabilities and ends with its result; Nova does not automatically prompt it into planning or build. See the [planning choices](../skills/plan/references/planning-modes.md) and [research contract](../skills/plan/references/research.md).
 
 ## Moving into build
 
@@ -45,9 +45,9 @@ Completion requires fresh evidence for the exact final source, independent revie
 
 Examples:
 
-- `/workcell:plan Compare alternative approaches for organization accounts. Return a visual plan.`
-- `/workcell:build Add a CSV download using the existing filtered table data.`
-- `/workcell:review Audit authorization paths and report findings. Do not change code.`
-- `/workcell:profile Measure the slow import path, then implement and remeasure the recommended optimization.`
-- `/workcell:refactor Assess duplication in the billing modules and return a proposal. Do not change code.`
-- `/workcell:docs Update the public API guide to match the shipped implementation.`
+- `/nova:plan Compare alternative approaches for organization accounts. Return a visual plan.`
+- `/nova:build Add a CSV download using the existing filtered table data.`
+- `/nova:review Audit authorization paths and report findings. Do not change code.`
+- `/nova:profile Measure the slow import path, then implement and remeasure the recommended optimization.`
+- `/nova:refactor Assess duplication in the billing modules and return a proposal. Do not change code.`
+- `/nova:docs Update the public API guide to match the shipped implementation.`

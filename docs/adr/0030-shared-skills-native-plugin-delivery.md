@@ -6,7 +6,7 @@ Accepted for the repository rewrite on 2026-09-07. Personal installation and pub
 
 ## Context
 
-Workcell's previous runtime coupled reusable engineering expertise to multiple generated instruction trees, mandatory specialist handoffs, guard state, and a large packaging/bootstrap surface. The replacement skills were developed and reviewed in templates, with the main conversation retaining task ownership.
+Nova's previous runtime coupled reusable engineering expertise to multiple generated instruction trees, mandatory specialist handoffs, guard state, and a large packaging/bootstrap surface. The replacement skills were developed and reviewed in templates, with the main conversation retaining task ownership.
 
 ## Decision
 

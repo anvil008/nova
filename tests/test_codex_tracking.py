@@ -22,7 +22,7 @@ class TrackingTests(unittest.TestCase):
         return tracking.handle({**self.payload, 'hook_event_name': kind, **kwargs})
 
     def data(self):
-        return tracking.dagr.read(self.root / '.workcell/run.json')
+        return tracking.dagr.read(self.root / '.nova/run.json')
 
     def settle(self,data):
         for task in data['tasks']:
@@ -38,7 +38,7 @@ class TrackingTests(unittest.TestCase):
     def test_register_resumption_dedup_stop_and_nested_root(self):
         self.hook('SessionStart'); first=self.data()
         self.hook('SessionStart'); self.assertEqual(self.data(), first)
-        self.assertFalse((self.root/'nested/.workcell').exists())
+        self.assertFalse((self.root/'nested/.nova').exists())
         self.assertEqual(first['agents'][0]['model'], 'fixture-model')
         self.hook('Stop'); self.assertEqual(self.data()['run']['state'], 'active')
         self.assertEqual(self.data()['agents'][0]['state'], 'idle')
@@ -57,7 +57,7 @@ class TrackingTests(unittest.TestCase):
         tracking.dagr.change(data,tracking.dagr.parser().parse_args(['session','bind','session1','--task','T1']))
         # Deterministic binding time relative to fixture turn context.
         data['agents'][0]['binding']['at']='2026-09-07T21:01:00Z'
-        tracking.dagr.atomic(self.root/'.workcell/run.json',data)
+        tracking.dagr.atomic(self.root/'.nova/run.json',data)
         self.tokens(120); self.hook('PostToolUse') # old turn: session-only
         self.append('turn_context', {'model':'actual-model','effort':'low','turn_id':'turn2'},'2026-09-07T21:02:00Z')
         self.tokens(160); self.hook('PostToolUse')
@@ -86,11 +86,11 @@ class TrackingTests(unittest.TestCase):
         self.hook('Stop');data=self.data()
         self.settle(data)
         tracking.dagr.change(data,tracking.dagr.parser().parse_args(['finish','--note','done']))
-        tracking.dagr.atomic(self.root/'.workcell/run.json',data)
+        tracking.dagr.atomic(self.root/'.nova/run.json',data)
         self.hook('SessionStart'); self.assertEqual(self.data(),data)
 
     def test_archive_late_hooks_do_not_reopen_and_sparse_counters(self):
-        self.hook('Stop'); self.assertFalse((self.root/'.workcell/run.json').exists())
+        self.hook('Stop'); self.assertFalse((self.root/'.nova/run.json').exists())
         self.tokens(100); self.hook('SessionStart')
         self.append('event_msg', {'type':'token_count','info':{'total_token_usage':{'output_tokens':12}}})
         self.hook('PostToolUse'); self.tokens(150); self.hook('PostToolUse')
@@ -98,11 +98,11 @@ class TrackingTests(unittest.TestCase):
         self.hook('Stop'); data=self.data()
         self.settle(data)
         tracking.dagr.change(data, tracking.dagr.parser().parse_args(['finish','--note','finished']))
-        tracking.dagr.atomic(self.root/'.workcell/run.json',data)
-        tracking.dagr.archive(self.root/'.workcell')
+        tracking.dagr.atomic(self.root/'.nova/run.json',data)
+        tracking.dagr.archive(self.root/'.nova')
         for kind in ('Stop','PostToolUse','SessionStart','UserPromptSubmit'):
             self.hook(kind)
-            self.assertFalse((self.root/'.workcell/run.json').exists())
+            self.assertFalse((self.root/'.nova/run.json').exists())
 
     def test_explicit_attach_carries_baseline_not_historical_usage(self):
         import subprocess, sys
@@ -110,10 +110,10 @@ class TrackingTests(unittest.TestCase):
         data=self.data(); run_id=data['run']['id']
         self.settle(data)
         tracking.dagr.change(data,tracking.dagr.parser().parse_args(['finish','--note','finished']))
-        tracking.dagr.atomic(self.root/'.workcell/run.json',data)
-        tracking.dagr.archive(self.root/'.workcell')
-        tracking.dagr.atomic(self.root/'.workcell/run.json',tracking.dagr.create('Next task'))
-        result=subprocess.run([sys.executable,str(ROOT/'tools/workcell-flow'),'--dir',str(self.root/'.workcell'),'session','attach','session1','--archive',run_id],capture_output=True,text=True)
+        tracking.dagr.atomic(self.root/'.nova/run.json',data)
+        tracking.dagr.archive(self.root/'.nova')
+        tracking.dagr.atomic(self.root/'.nova/run.json',tracking.dagr.create('Next task'))
+        result=subprocess.run([sys.executable,str(ROOT/'tools/nova-flow'),'--dir',str(self.root/'.nova'),'session','attach','session1','--archive',run_id],capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertNotIn('usage',self.data()['agents'][0])
         self.tokens(150); self.hook('UserPromptSubmit')

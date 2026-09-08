@@ -599,20 +599,20 @@ const components = {
     "icon": "branch",
     "tag": "Isolation primitive",
     "sub": "One issue · one working copy",
-    "text": "workcell-ws creates, lists, forgets, and sweeps named sibling workspaces. The local trunk build uses Jujutsu workspaces; the helper also supports Git worktrees.",
+    "text": "nova-ws creates, lists, forgets, and sweeps named sibling workspaces. The local trunk build uses Jujutsu workspaces; the helper also supports Git worktrees.",
     "input": "A key, repository, and agreed base.",
     "output": "An isolated working copy and surviving bookmark or branch.",
     "rules": [
       "Workspace identity and content are separate from a durable task identity.",
       "Cleanup refuses to remove the directory the calling shell is standing in."
     ],
-    "command": "workcell-ws add feature/<key> --base <base>\nworkcell-ws list\nworkcell-ws sweep",
+    "command": "nova-ws add feature/<key> --base <base>\nnova-ws list\nnova-ws sweep",
     "notes": [
       5
     ],
     "sources": [
       {
-        "path": "scripts/workcell-ws",
+        "path": "scripts/nova-ws",
         "line": 322
       },
       {
@@ -756,7 +756,7 @@ const components = {
     "input": "Accepted run evidence when a project namespace exists.",
     "output": "Append-only project evidence and curated pages.",
     "rules": [
-      "Default home: ~/.workcell/wiki/.",
+      "Default home: ~/.nova/wiki/.",
       "Runtime agents deliberately do not read it as shared memory.",
       "An absent or failed record never blocks a merge."
     ],
@@ -1153,7 +1153,7 @@ const components = {
     "icon": "branch",
     "tag": "Developer goal",
     "sub": "Start with the outcome you need",
-    "text": "Workcell chooses a development workflow from the requested outcome. New behavior, behavior-preserving cleanup, and a reported failure use different entry points.",
+    "text": "Nova chooses a development workflow from the requested outcome. New behavior, behavior-preserving cleanup, and a reported failure use different entry points.",
     "input": "Your goal, constraints, and existing decisions.",
     "output": "A build, refactor, or debug workflow.",
     "rules": [
@@ -1539,7 +1539,7 @@ const roleOutputs = {
 };
 for (const workflow of workflowCatalog.workflows) {
   components[`workflow-${workflow.name}`] = {
-    title:workflow.title,type:"artifact",icon:"flow",tag:`/workcell:${workflow.name}`,sub:workflow.summary,
+    title:workflow.title,type:"artifact",icon:"flow",tag:`/nova:${workflow.name}`,sub:workflow.summary,
     text:workflow.summary,input:"The requested outcome and existing user decisions.",output:workflow.outcome,
     rules:[...(workflow.note ? [workflow.note] : []), ...(workflowHasPlanning(workflow) ? ["New plans use planner authorship and internal research. Team size is chosen by the orchestrator; the user chooses one plan or multiple ideas."] : [])],
     sources:[{path:workflow.source,line:1}],
@@ -1607,11 +1607,11 @@ function legacyFlowMarkup() {
 }
 
 function layer(number,title,caption,ids,cls=""){return `<section class="layer ${cls}"><div class="layer-heading"><h2><span class="layer-number">${number}</span>${title}</h2><span class="kicker">${caption}</span></div><div class="layer-grid ${ids.length===4?'four':ids.length===2?'two':''}">${ids.map(id=>node(id)).join("")}</div></section>`;}
-function architectureMarkup(){return `<div class="diagram-scroll"><div class="architecture">${layer("01","Shared source","Workcell repository",["contracts","agentSource","skillSource"])}${layer("02","Harness distributions","Sync → stage → owned copy",["claude","codex","agy"],"install")}${layer("03","Execution support","Tools called by the harness",["workspace","guard","ledger","utilities"])}${layer("04","State & evidence","Different persistence boundaries",["github","handoff","state","wiki"])}<div style="margin-top:22px">${node("controlplane")}</div><p class="arch-aside">The run ledger executes integration and resume. Agent launch, concurrency limits, retries, and cancellation remain orchestrator responsibilities. The controlplane package supplies library contracts.</p></div></div>`;}
+function architectureMarkup(){return `<div class="diagram-scroll"><div class="architecture">${layer("01","Shared source","Nova repository",["contracts","agentSource","skillSource"])}${layer("02","Harness distributions","Sync → stage → owned copy",["claude","codex","agy"],"install")}${layer("03","Execution support","Tools called by the harness",["workspace","guard","ledger","utilities"])}${layer("04","State & evidence","Different persistence boundaries",["github","handoff","state","wiki"])}<div style="margin-top:22px">${node("controlplane")}</div><p class="arch-aside">The run ledger executes integration and resume. Agent launch, concurrency limits, retries, and cancellation remain orchestrator responsibilities. The controlplane package supplies library contracts.</p></div></div>`;}
 function agentsMarkup(){return `<p class="roster-intro">Only the roles needed by an entry workflow are dispatched. Researchers, debuggers, and profilers support the relevant investigation; they are not mandatory stages of every issue.</p><div class="roster-grid">${roleIds.map(id=>{const c=components[id];return `<button class="role-card" data-component="${id}" aria-pressed="${selected===id}"><span class="role-icon">${icon(c.icon)}</span><span><h2>${c.title}</h2><p>${esc(c.sub)}</p><div class="role-scope">${esc(c.tag)}</div><div class="role-usage-count">Used in ${agentWorkflows(id).length} workflows · select for details</div></span></button>`;}).join("")}</div><div style="margin-top:18px">${node("orchestrator")}</div>`;}
 function gatesMarkup(){return `<p class="gate-caption">The first five steps use guard records and, where wired, native hooks. Runtime proof remains a builder contract checked through its handoff.</p><div class="gate-grid">${["seal","protect","verify","diffreview","stop","runtime"].map(id=>node(id)).join("")}</div><div class="matrix-wrap"><h2>Same contracts, different enforcement</h2><table class="matrix"><thead><tr><th scope="col">Harness</th><th scope="col">Native hooks</th><th scope="col">Activation / merge boundary</th></tr></thead><tbody><tr><td>Claude Code</td><td><span class="status-text">Wired</span></td><td>Main-conversation identity distinguishes merges</td></tr><tr><td>Codex</td><td><span class="conditional">Conditional</span></td><td>User must trust hooks with /hooks</td></tr><tr><td>Antigravity</td><td><span class="conditional">Session-wide</span></td><td>Scoped activation; merges remain denied</td></tr></tbody></table><p class="matrix-note">This describes checked-in adapters, not the trust or installation state of a running session.</p></div><div style="margin-top:22px">${node("evals")}</div><div class="review-summary"><b>Source freshness is now enforced</b>A failed verification removes prior GREEN, and a changed source tree cannot regain readiness by recording another review. <button data-component="verify">Inspect the updated guard →</button></div>`;}
 const context={
-  tree:[["Separate outcomes","Native research sits outside the Workcell workflow menu. Planning keeps its internal investigation and evidence handoff. Plan, review, debug, profile, and refactor assessment finish with their own results. Supported, authorized changes can continue into build."],["Reuse completed work","Carry plans, selected findings, source context, user decisions, and authorization into the next workflow."],["Keep useful entry points","Documentation has its own workflow and can also be a build stage. Setup, deployment, wiki, and auxiliary skills remain accessible."]],
+  tree:[["Separate outcomes","Native research sits outside the Nova workflow menu. Planning keeps its internal investigation and evidence handoff. Plan, review, debug, profile, and refactor assessment finish with their own results. Supported, authorized changes can continue into build."],["Reuse completed work","Carry plans, selected findings, source context, user decisions, and authorization into the next workflow."],["Keep useful entry points","Documentation has its own workflow and can also be a build stage. Setup, deployment, wiki, and auxiliary skills remain accessible."]],
   flow:[["Workflow means an execution contract","Each diagram shows its decisions, delegated agents, evidence, and completed outcome. Supporting operations keep their existing detail views."],["Orchestrator chooses team sizes","All roles can use the number of agents the work needs, without workflow-imposed caps. Diagram detail only changes what is drawn."],["One coordinator, clear ownership","Orchestrator boxes show checkpoints for the same agent. It directs scheduling and revisions while specialists own their assigned work."]],
   architecture:[["Source and installed copies","Harnesses load staged, installer-owned copies. Editing this checkout does not update an installed plugin until it is rebuilt and installed."],["Mechanical and procedural","A shared role definition is portable. Hook activation, payload formats, and merge permissions differ by harness."],["Evidence outlives the checkout","Guard state and the opt-in wiki live outside the repository. Guard identity is still keyed to a workspace path."]],
   agents:[["One completion authority","Specialists return done, blocked, or needs-decision. The orchestrator decides whether the overall work is accepted."],["Independent review","The builder asks a fresh read-only reviewer for assurance. Critical and high findings block handoff."],["Shared return shape","anvil.agent-handoff/v1 carries changed files, commands, evidence, runtime observations, and open questions."]],
@@ -1627,7 +1627,7 @@ function render(){
   el("canvas").innerHTML=({flow:diagramExecutionMarkup,tree:diagramTreeMarkup,architecture:architectureMarkup,agents:agentsMarkup,gates:gatesMarkup})[view]();
   fitTreeDiagram();
   el("context-strip").innerHTML=context[view].map(([title,text])=>`<div class="context-item"><h3>${title}</h3><p>${text}</p></div>`).join("");
-  renderInspector(); document.title=`Workcell · ${view==='flow'?(executionDesign.workflows[diagramForCurrentWorkflow()]?.title||currentWorkflow().title):v.name}`;
+  renderInspector(); document.title=`Nova · ${view==='flow'?(executionDesign.workflows[diagramForCurrentWorkflow()]?.title||currentWorkflow().title):v.name}`;
 }
 function route(){
   const [key, requested, requestedPath]=location.hash.slice(1).split('/');

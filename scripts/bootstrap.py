@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and install Workcell with native plugin managers. No dependency downloads."""
+"""Build and install Nova with native plugin managers. No dependency downloads."""
 import argparse
 import hashlib
 import json
@@ -33,14 +33,14 @@ def fingerprint():
 def marketplace(harness, expected, replace):
     data = run([harness, 'plugin', 'marketplace', 'list', '--json'], capture=True)
     entries = data['marketplaces'] if harness == 'codex' else data
-    matches = [e for e in entries if e['name'] == 'workcell']
+    matches = [e for e in entries if e['name'] == 'nova']
     if not matches:
         return 'add'
     current = matches[0].get('root' if harness == 'codex' else 'path', '')
     if current and Path(current).resolve() == expected.resolve():
         return 'keep'
     if not replace:
-        raise ValueError(f'{harness}: marketplace workcell already uses {current or "another source"}. '
+        raise ValueError(f'{harness}: marketplace nova already uses {current or "another source"}. '
                          'Use --replace-marketplace to switch this named marketplace explicitly.')
     return 'replace'
 
@@ -71,10 +71,10 @@ def main():
                         help='Repeat to select harnesses; default: all available CLIs')
     parser.add_argument('--dry-run', action='store_true', help='Print actions without writes or native commands')
     parser.add_argument('--prefix', type=Path,
-                        default=Path.home() / '.local/share/workcell', help='Stable package storage')
-    parser.add_argument('--bin-dir', type=Path, default=Path.home() / '.local/bin', help='Install workcell-flow here')
+                        default=Path.home() / '.local/share/nova', help='Stable package storage')
+    parser.add_argument('--bin-dir', type=Path, default=Path.home() / '.local/bin', help='Install nova-flow here')
     parser.add_argument('--with-codex-helpers', action='store_true', help='Install optional native TOML helpers')
-    parser.add_argument('--replace-marketplace', action='store_true', help='Switch an existing workcell marketplace source')
+    parser.add_argument('--replace-marketplace', action='store_true', help='Switch an existing nova marketplace source')
     options = parser.parse_args()
     selected = options.harness or [h for h in HARNESSES if shutil.which(h)]
     if 'all' in selected:
@@ -95,9 +95,9 @@ def main():
             raise ValueError(f'Refusing symlink prefix: {prefix}')
         if options.dry_run:
             print(f'Build self-contained bundles in {bundle}')
-            print(f'Install workcell-flow in {options.bin_dir.expanduser().absolute()} with ownership checks')
+            print(f'Install nova-flow in {options.bin_dir.expanduser().absolute()} with ownership checks')
             for harness in selected:
-                print(f'{harness}: inspect marketplace; register if absent; install/update workcell')
+                print(f'{harness}: inspect marketplace; register if absent; install/update nova')
             if options.with_codex_helpers:
                 print('Copy Codex helpers only if absent, identical, or unchanged since this bootstrap installed them')
             print('Project instructions and formatter/linter activation remain repo-setup tasks.')
@@ -106,7 +106,7 @@ def main():
         actions = {h: marketplace(h, bundle / h, options.replace_marketplace)
                    for h in selected if h != 'agy'}
         receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
-        tool_copies = owned_updates([ROOT / 'tools/workcell-flow'], options.bin_dir.expanduser().absolute(), receipt.get('tools', {}))
+        tool_copies = owned_updates([ROOT / 'tools/nova-flow'], options.bin_dir.expanduser().absolute(), receipt.get('tools', {}))
         helpers = []
         # Preflight helper files using the canonical sources before publishing the bundle.
         if options.with_codex_helpers:
@@ -116,20 +116,20 @@ def main():
         build(bundle, version=version)
         for harness in selected:
             if harness == 'agy':
-                run(['agy', 'plugin', 'install', bundle / 'agy/plugins/workcell'])
+                run(['agy', 'plugin', 'install', bundle / 'agy/plugins/nova'])
             else:
                 if actions[harness] == 'replace':
-                    run([harness, 'plugin', 'marketplace', 'remove', 'workcell'])
+                    run([harness, 'plugin', 'marketplace', 'remove', 'nova'])
                 if actions[harness] in ('add', 'replace'):
                     run([harness, 'plugin', 'marketplace', 'add', bundle / harness])
                 if harness == 'codex':
-                    run(['codex', 'plugin', 'add', 'workcell@workcell'])
+                    run(['codex', 'plugin', 'add', 'nova@nova'])
                 else:
                     installed = run(['claude', 'plugin', 'list', '--json'], capture=True)
-                    exists = any(x['id'] == 'workcell@workcell' and x.get('scope') == 'user' for x in installed)
+                    exists = any(x['id'] == 'nova@nova' and x.get('scope') == 'user' for x in installed)
                     if actions[harness] == 'keep':
-                        run(['claude', 'plugin', 'marketplace', 'update', 'workcell'])
-                    run(['claude', 'plugin', 'update' if exists else 'install', 'workcell@workcell'])
+                        run(['claude', 'plugin', 'marketplace', 'update', 'nova'])
+                    run(['claude', 'plugin', 'update' if exists else 'install', 'nova@nova'])
         owned = receipt.get('helpers', {})
         for target, data in helpers:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -142,8 +142,8 @@ def main():
             target.chmod(0o755)
             owned_tools[str(target)] = hashlib.sha256(data).hexdigest()
         write_json(receipt_path, {'version': version, 'harnesses': selected, 'helpers': owned, 'tools': owned_tools})
-        print(f'Installed workcell-flow in {options.bin_dir.expanduser().absolute()}; add this directory to PATH if needed.')
-        print('Workcell installed. Start new harness sessions to load the updated plugins.')
+        print(f'Installed nova-flow in {options.bin_dir.expanduser().absolute()}; add this directory to PATH if needed.')
+        print('Nova installed. Start new harness sessions to load the updated plugins.')
         print('Project instructions and formatter/linter activation remain repo-setup tasks.')
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
         parser.exit(1, f'Bootstrap stopped: {error}\nCompleted native installations are retained; fix the error and rerun.\n')

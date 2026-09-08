@@ -9,7 +9,7 @@ integrator's verification and an orchestrator's acceptance. It requires Python
 Choose one durable directory outside the repository and all its workspaces.
 Use that same directory when resuming; `mktemp` is appropriate for test runs,
 not a milestone you need to recover after a reboot. The examples use
-`WORKCELL_RUN` for that absolute path. Keep `plan.sidecar.json` unchanged after
+`NOVA_RUN` for that absolute path. Keep `plan.sidecar.json` unchanged after
 approval: its canonical digest and the shared Jujutsu Git-store identity are
 bound into the run. GitHub snapshots, handoffs, and logs also belong outside
 the source tree.
@@ -17,15 +17,15 @@ the source tree.
 Initialize once from the approved base:
 
 ```bash
-python3 skills/build/scripts/build_run.py init plan.sidecar.json --state "$WORKCELL_RUN" --repo . --base 'trunk()'
-python3 skills/build/scripts/build_run.py select plan.sidecar.json --state "$WORKCELL_RUN" --snapshot "$WORKCELL_RUN/issue-state.json"
+python3 skills/build/scripts/build_run.py init plan.sidecar.json --state "$NOVA_RUN" --repo . --base 'trunk()'
+python3 skills/build/scripts/build_run.py select plan.sidecar.json --state "$NOVA_RUN" --snapshot "$NOVA_RUN/issue-state.json"
 ```
 
 For a run without GitHub issues, the sidecar may use `repo: null`. Select local
 tasks with the same dependency and ownership checks:
 
 ```bash
-python3 skills/build/scripts/build_run.py select plan.sidecar.json --state "$WORKCELL_RUN" --local
+python3 skills/build/scripts/build_run.py select plan.sidecar.json --state "$NOVA_RUN" --local
 ```
 
 Local tasks carry `number: null`; their plan keys identify them. Accepted receipts
@@ -74,7 +74,7 @@ The helper executes argv directly. Shell syntax requires an explicit shell entry
 The integrator prepares in a new, unused candidate workspace:
 
 ```bash
-python3 skills/build/scripts/build_run.py prepare plan.sidecar.json --state "$WORKCELL_RUN" --sources "$WORKCELL_RUN/sources.json" --checks "$WORKCELL_RUN/checks.json" --workspace /absolute/wave-candidate
+python3 skills/build/scripts/build_run.py prepare plan.sidecar.json --state "$NOVA_RUN" --sources "$NOVA_RUN/sources.json" --checks "$NOVA_RUN/checks.json" --workspace /absolute/wave-candidate
 ```
 
 Preparation duplicates the first source onto the accepted base, then each next
@@ -88,8 +88,8 @@ The orchestrator reviews the returned receipt, runtime evidence, and independent
 review outcomes, then accepts its ID:
 
 ```bash
-python3 skills/build/scripts/build_run.py accept plan.sidecar.json --state "$WORKCELL_RUN" --receipt <id>
-python3 skills/build/scripts/build_run.py select plan.sidecar.json --state "$WORKCELL_RUN" --snapshot "$WORKCELL_RUN/issue-state.json"
+python3 skills/build/scripts/build_run.py accept plan.sidecar.json --state "$NOVA_RUN" --receipt <id>
+python3 skills/build/scripts/build_run.py select plan.sidecar.json --state "$NOVA_RUN" --snapshot "$NOVA_RUN/issue-state.json"
 ```
 
 Acceptance checks the candidate and sources again, advances the integration
@@ -116,7 +116,7 @@ fields by hand.
 
 Keep source workspaces and candidate workspaces until acceptance. After the
 receipt is accepted, the orchestrator may forget source workspaces with
-`workcell-ws forget <branch>` from the primary workspace. Preserve bookmarks and
+`nova-ws forget <branch>` from the primary workspace. Preserve bookmarks and
 commits. Inspect stranded workspaces before cleanup; `sweep --apply` is not a
 recovery procedure for an unfinished round. Retain the run directory through the
 final PR so the receipt and command outputs remain inspectable.
@@ -129,7 +129,7 @@ writer slots; the orchestrator still owns dispatch, bounded retries, and cancell
 The issue ledger records accepted implementation waves. Final documentation is combined on a separate final branch so it cannot silently move the accepted integration bookmark.
 
 1. The documenter returns an immutable docs commit and its retained workspace, changed files, and docs-check evidence. Verify those paths are docs-only and disjoint from code ownership. If the docs need updates against the accepted code, send that work back to the documenter before combining.
-2. The orchestrator records the accepted integration commit and documenter commit in `<run>/finalization.json`, with state `preparing`, before creating a separate final workspace and branch. Use `workcell-ws add feature/<planId>-final --base <accepted-commit>`. In that Jujutsu workspace combine the two pinned parents with `jj new <accepted-commit> <docs-commit> -m "Finalize code and documentation"`, then point its final bookmark at the resulting commit. Keep `<planId>-integration` unchanged. If there are conflicts, retain the workspace and delegate their repair to the owner of the affected files; never resolve product content in the orchestrator.
+2. The orchestrator records the accepted integration commit and documenter commit in `<run>/finalization.json`, with state `preparing`, before creating a separate final workspace and branch. Use `nova-ws add feature/<planId>-final --base <accepted-commit>`. In that Jujutsu workspace combine the two pinned parents with `jj new <accepted-commit> <docs-commit> -m "Finalize code and documentation"`, then point its final bookmark at the resulting commit. Keep `<planId>-integration` unchanged. If there are conflicts, retain the workspace and delegate their repair to the owner of the affected files; never resolve product content in the orchestrator.
 3. Dispatch an integrator to verify the already-combined final ref with all required project checks, including the docs gate. This uses the integrator's direct-ref procedure, not `build_run.py prepare`: a documenter handoff is not a sealed builder issue. Record the exact final source commit, accepted code commit, docs commit, check command IDs and artifact paths, and decision as `verified` only after successful checks. Source changes make this record stale.
 4. Open or update the single final PR from that final branch, recording its URL and exact head in the finalization record. Check remote CI for that head before an authorized merge. Without a separate docs commit, the accepted integration branch may remain the final PR source. No special finalization record is needed for a docs-free build.
 5. On resume, compare the retained final branch and both source commits with the record. Reuse existing workspaces and PRs; a `preparing` record or missing evidence is unfinished, and changed sources require renewed verification. Never reset or move the accepted integration bookmark to make a stale finalization appear accepted. Retain docs and final workspaces until merge or explicit abandonment.

@@ -1,22 +1,22 @@
 # Harness eval runs
 
-Eval mode is how Workcell runs unattended against a benchmark task — a DeepSWE-style container
+Eval mode is how Nova runs unattended against a benchmark task — a DeepSWE-style container
 holding a task repository and hidden verifiers, where the agent's only deliverable is a patch.
 It removes the two things such a run cannot supply, a human to approve and a GitHub to publish
 to, and nothing else. The gates stay on.
 
-The switch is one file, `<task-dir>/.workcell/eval-mode.json`, written by
+The switch is one file, `<task-dir>/.nova/eval-mode.json`, written by
 [`scripts/bootstrap-eval.sh`](../scripts/bootstrap-eval.sh) and read by `build-guard`. It counts
 only at the root of the repository it sits in — there is no upward walk, so a marker beside a
 repository, or in a directory that is not a repository at all, switches nothing on. The bootstrap
-refuses to mark the Workcell source tree, refuses any directory that is not its repository's root,
-and the guard resolves the marker from the repository each command targets, so a workcell checkout
+refuses to mark the Nova source tree, refuses any directory that is not its repository's root,
+and the guard resolves the marker from the repository each command targets, so a nova checkout
 on the same machine is never itself in eval mode.
 
 A repository in eval mode neither records to nor consolidates a wiki: every `wiki.py --repo`
 subcommand refuses a repository carrying the marker, reads included, so a benchmark run cannot
 contaminate — or be contaminated by — a project's persistent knowledge. The marker is read from
-the repository the command targets, so a workcell checkout on the same machine keeps its own
+the repository the command targets, so a nova checkout on the same machine keeps its own
 namespace. See [ADR 0019](adr/0019-the-wiki-lives-outside-every-repository.md).
 
 Entering eval mode is the operator's act. An agent that tries to write the marker is denied:
@@ -27,15 +27,15 @@ Entering eval mode is the operator's act. An agent that tries to write the marke
 
 ```sh
 scripts/bootstrap-eval.sh --with-hooks /task            # marker + preamble + advisory gates
-export WORKCELL_EVAL_TASK_DIR=/task                     # the belt: export it before launching
+export NOVA_EVAL_TASK_DIR=/task                     # the belt: export it before launching
 (cd /task && claude -p "$TASK" --dangerously-skip-permissions --output-format stream-json --verbose)
-codex exec --cd /task --approve-for-me -o /task/.workcell/trace.txt "$TASK"
+codex exec --cd /task --approve-for-me -o /task/.nova/trace.txt "$TASK"
 (cd /task && agy -p "$TASK" --dangerously-skip-permissions)
 scripts/bootstrap-eval.sh --remove /task               # before collecting the diff
 git -C /task diff <base>..HEAD                          # the scored patch
 ```
 
-Export `WORKCELL_EVAL_TASK_DIR` in the environment the harness runs in — the bootstrap prints the
+Export `NOVA_EVAL_TASK_DIR` in the environment the harness runs in — the bootstrap prints the
 line. The marker is read from the repository a command targets, so it says nothing about a command
 run from somewhere else; the variable travels with the process. With it set, `gh` is denied from
 any working directory, and the default-branch relaxation applies to that one repository alone.
@@ -54,7 +54,7 @@ everything the bootstrap wrote and leaves the repository byte-identical.
 | The `new-feature` interview — the task statement is the brief                 | `build-guard`'s branch-rewrite, `update-ref`, xargs, obfuscation and RAM-tmpfs rules                  |
 | Commit, merge, rebase, cherry-pick and push on the task repo's default branch | The deploy skill, which must refuse: nothing outward-facing runs                                      |
 | —                                                                             | Every `gh` invocation, denied outright — including the merge the main conversation may otherwise make |
-| —                                                                             | Writing `.workcell/eval-mode.json` — an agent may not put itself into eval mode                       |
+| —                                                                             | Writing `.nova/eval-mode.json` — an agent may not put itself into eval mode                       |
 
 An eval measures the harness _with_ its gates. Relaxing the TDD ceremony would score a different
 harness than the one that ships, so the marker does not touch it. See

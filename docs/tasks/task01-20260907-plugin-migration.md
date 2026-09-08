@@ -1,4 +1,4 @@
-# Workcell plugin migration
+# Nova plugin migration
 
 Scope: promote the shared templates, replace old orchestration and packaging, validate native bundles in isolated locations. No personal installation, publication, merge, or deployment.
 
@@ -10,7 +10,7 @@ Plan:
 
 Completed: source promotion and removal of legacy implementation; packaging implementation drafted.
 Remaining: tests, docs/CI, isolated native validation, source review.
-Workspace: /home/anvil/repos/workcell, jj change kuykmoqn, parent fe8ddc95. Existing templates and HTML edits are part of this migration. Local pre-migration backup: /tmp/workcell-before-plugin-migration.tar.gz.
+Workspace: /home/anvil/repos/nova, jj change kuykmoqn, parent fe8ddc95. Existing templates and HTML edits are part of this migration. Local pre-migration backup: /tmp/nova-before-plugin-migration.tar.gz.
 No workers active for this task. Public guide server remains on 10.0.20.100:8902.
 Next: exercise the packager and native loaders, then finish docs and evidence.
 

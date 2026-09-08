@@ -19,7 +19,7 @@ any command could have listed, because there was no shared definition of what "s
 
 ## Decision
 
-One helper, `scripts/workcell-ws`, owns creation, teardown, listing, and sweeping, and it is the
+One helper, `scripts/nova-ws`, owns creation, teardown, listing, and sweeping, and it is the
 only thing any agent body or skill tells an agent to run. It is a shell script, so all three
 harnesses reach it the same way, and `bootstrap-tools.sh --install` links it onto `PATH` beside the
 `build-*` hooks.
@@ -29,8 +29,8 @@ It fixes one naming convention: the workspace for `<key>` is the sibling directo
 workspace, a git-only repository a git worktree, with the same names, the same base defaults
 (`trunk()` and the default branch), the same refusals, and the same teardown.
 
-Because the convention is now mechanical, so is the leak check. `workcell-ws list` labels every
-entry `active`, `merged`, `stale-reg`, or `stale-dir`, and `workcell-ws sweep` reports exactly
+Because the convention is now mechanical, so is the leak check. `nova-ws list` labels every
+entry `active`, `merged`, `stale-reg`, or `stale-dir`, and `nova-ws sweep` reports exactly
 those plus every local ref already merged into the default branch. It is read-only until
 `--apply`, it never deletes an unmerged ref or touches a remote, and `merged` means strictly
 behind the default branch so a workspace created seconds ago is never mistaken for a finished one.

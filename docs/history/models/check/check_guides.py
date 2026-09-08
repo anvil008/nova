@@ -446,7 +446,7 @@ def fetch_upstream(
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "WorkcellGuideChecker/1.0 (+https://github.com/anvil008/workcell)"
+            "User-Agent": "NovaGuideChecker/1.0 (+https://github.com/anvil008/nova)"
         },
     )
 

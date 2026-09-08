@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Every Workcell agent was instructed to return an `anvil.agent-handoff/v1` record, but no canonical schema defined that record. Skills also dispatched mode-specific work and no-issue work without a shared definition of the fields the agent would receive. That left orchestrators to infer whether evidence was complete and agents to infer which parts of their normal issue workflow still applied.
+Every Nova agent was instructed to return an `anvil.agent-handoff/v1` record, but no canonical schema defined that record. Skills also dispatched mode-specific work and no-issue work without a shared definition of the fields the agent would receive. That left orchestrators to infer whether evidence was complete and agents to infer which parts of their normal issue workflow still applied.
 
 ## Decision
 [`agents/handoff.md`](../../agents/handoff.md) is the canonical contract for agent dispatch briefs and returned handoff records. A dispatch explicitly carries its issue or no-issue brief, workspace provenance, ownership, mode, test state, reviewer runtime input, and deploy approval. Every agent returns the same top-level record shape, while its domain-specific test map, findings, distribution, root cause, or other evidence stays inside `evidence`.

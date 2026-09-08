@@ -11,7 +11,7 @@ primitives: one manifest (`apm.yml`), a lockfile, and an installer that projects
 agents, instructions, hooks, and MCP/LSP configuration into every harness it detects. On
 paper it replaces exactly the plumbing this repository maintains by hand — the per-harness
 `plugins/` wrappers, the staging scripts, and the bootstrap installer — and the question of
-adopting it for Workcell's own distribution came up repeatedly as harnesses were added.
+adopting it for Nova's own distribution came up repeatedly as harnesses were added.
 
 The evaluation was empirical: probe packages were built and installed, deployments
 inspected, and APM's own source consulted where behaviour needed explaining. Three findings
@@ -19,7 +19,7 @@ decided the matter.
 
 **APM translates formats, not content.** Its projection takes _one_ canonical agent
 definition and converts it per target — Claude markdown, Codex TOML, per-harness paths.
-That handles format differences. Workcell's harness differences are _content_ differences,
+That handles format differences. Nova's harness differences are _content_ differences,
 owned by `agents/models.json` and the body conditionals: per-agent models that do not exist
 on other harnesses (`opus` / `gpt-5.6-sol` / `pro` / `inherit`), disjoint tool vocabularies
 (`Read, Grep` vs `view_file, grep_search`), effort semantics only some harnesses expose,
@@ -30,10 +30,10 @@ printed a "lossy agent compilation" warning (Codex `tools` dropped) when handed 
 **This repository cannot even be an APM package.** APM's format detection
 (`src/apm_cli/models/format_detection.py`) is a first-match cascade in which a
 `.claude-plugin/` directory at the package root classifies the whole tree as
-`MARKETPLACE_PLUGIN` before `apm.yml` is ever considered, with no override. Workcell's root
+`MARKETPLACE_PLUGIN` before `apm.yml` is ever considered, with no override. Nova's root
 _is_ a Claude plugin marketplace, so `apm install <repo>` decomposes it blindly — in the
 probe it flattened every `.md` under `agents/` (jj skill references included) into installed
-agent files. Decomposition also strips the `workcell:` plugin namespace, leaving skills with
+agent files. Decomposition also strips the `nova:` plugin namespace, leaving skills with
 collision-bait bare names (`build`, `debug`, `docs`) in shared skill directories.
 
 **The remaining bootstrap work is out of APM's scope.** APM wires MCP and LSP
@@ -48,7 +48,7 @@ bootstrap section, with the namespace, hooks, and per-agent models intact.
 
 ## Decision
 
-**Workcell's own distribution stays native.** `agents/bodies/` + `agents/agents.json` +
+**Nova's own distribution stays native.** `agents/bodies/` + `agents/agents.json` +
 `agents/models.json` remain the single source; `sync-agents.py` generates the per-harness
 variants; the `plugins/<harness>/` wrappers, staging scripts, and `bootstrap-plugins.sh`
 install them as _plugins_ — namespaced, hook-carrying, model-tuned — via each harness's own

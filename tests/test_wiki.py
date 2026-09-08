@@ -1,10 +1,10 @@
 """The wiki layer: global per-project store, layout contract, and the `wiki` skill (#111).
 
 Nothing here touches the developer's real home. Every subprocess runs with `HOME` and
-`WORKCELL_WIKI_HOME` pointed at a throwaway directory, git and jj configuration is
+`NOVA_WIKI_HOME` pointed at a throwaway directory, git and jj configuration is
 redirected at throwaway files, and
 `test_init_creates_the_namespace_under_the_configured_root` asserts that the real
-`~/.workcell` is exactly as it was before the suite ran.
+`~/.nova` is exactly as it was before the suite ran.
 
 Beyond the issue body, these tests pin the shape the CLI answers in, because a test cannot
 assert on an oracle it cannot read:
@@ -50,7 +50,7 @@ WIKI = SKILL_DIR / "scripts" / "wiki.py"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 WIKI_LAYOUT_MD = SKILL_DIR / "references" / "wiki-layout.md"
 SAMPLE_NAMESPACE = SKILL_DIR / "examples" / "sample-namespace"
-WORKCELL_WS = REPO / "scripts" / "workcell-ws"
+NOVA_WS = REPO / "scripts" / "nova-ws"
 
 KEY_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
@@ -60,7 +60,7 @@ SENTENCE_SPLIT = re.compile(r"(?<=[.!?])[*_`\"')\]]*\s+")
 # Captured at import, before any test runs, so the "nothing under the real home" oracle is
 # read against the state the suite started from.
 REAL_HOME = Path(os.path.expanduser("~")).resolve()
-REAL_HOME_STORE = REAL_HOME / ".workcell"
+REAL_HOME_STORE = REAL_HOME / ".nova"
 
 
 def _real_home_state() -> list[str] | None:
@@ -144,7 +144,7 @@ class WikiTestCase(unittest.TestCase):
         environment.update(
             {
                 "HOME": str(self.home),
-                "WORKCELL_WIKI_HOME": str(self.store),
+                "NOVA_WIKI_HOME": str(self.store),
                 "XDG_CONFIG_HOME": str(self.home / ".config"),
                 "GIT_CONFIG_GLOBAL": "/dev/null",
                 "GIT_CONFIG_SYSTEM": "/dev/null",
@@ -262,7 +262,7 @@ class WikiTestCase(unittest.TestCase):
         return path
 
     def eval_mode(self, repo: Path) -> Path:
-        marker = repo / ".workcell" / "eval-mode.json"
+        marker = repo / ".nova" / "eval-mode.json"
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(
             json.dumps({"mode": "eval", "task": "wiki-fixture"}), encoding="utf-8"
@@ -338,17 +338,17 @@ class WikiTestCase(unittest.TestCase):
 class ProjectKeyTests(WikiTestCase):
     def test_the_project_key_is_the_normalized_remote_and_falls_back_to_the_path(self):
         ssh = self.git_repo(
-            "ssh-spelling", origin="git@github.com:anvil008/workcell.git"
+            "ssh-spelling", origin="git@github.com:anvil008/nova.git"
         )
         https = self.git_repo(
-            "https-spelling", origin="https://github.com/anvil008/workcell"
+            "https-spelling", origin="https://github.com/anvil008/nova"
         )
         ssh_key = self.key_of(ssh)
         https_key = self.key_of(https)
 
         self.assertEqual(
             ssh_key.get("projectKey"),
-            "github-com-anvil008-workcell",
+            "github-com-anvil008-nova",
             f"an ssh origin must normalize to the host-and-path key: {ssh_key}",
         )
         self.assertEqual(
@@ -397,7 +397,7 @@ class ProjectKeyTests(WikiTestCase):
             self.assertRegex(
                 printed,
                 KEY_RE,
-                "every key must obey the character class workcell-ws enforces "
+                "every key must obey the character class nova-ws enforces "
                 f"(^[a-z0-9][a-z0-9-]*$); got {printed!r}",
             )
 
@@ -462,11 +462,11 @@ class NamespaceTests(WikiTestCase):
         self.assertEqual(
             _real_home_state(),
             REAL_HOME_STATE,
-            "the suite must never create anything under the real ~/.workcell",
+            "the suite must never create anything under the real ~/.nova",
         )
 
     def test_a_namespace_refuses_a_repository_it_was_not_created_for(self):
-        origin = "git@github.com:anvil008/workcell.git"
+        origin = "git@github.com:anvil008/nova.git"
         repo = self.git_repo("identity-fixture", origin=origin)
         namespace = self.init_namespace(repo)
         evidence = self.evidence_file(repo, "evidence.json", '{"gate": "green"}\n')
@@ -514,7 +514,7 @@ class NamespaceTests(WikiTestCase):
                 )
                 text = self.output(result)
                 self.assertTrue(
-                    origin in text or "github-com-anvil008-workcell" in text,
+                    origin in text or "github-com-anvil008-nova" in text,
                     f"wiki.py {name} must name the resolved source as well as the "
                     f"recorded one; it said:\n{text}",
                 )

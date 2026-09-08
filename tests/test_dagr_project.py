@@ -7,7 +7,7 @@ from test_dagr_views import dagr
 class ProjectTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
-        self.root=Path(self.tmp.name);self.store=self.root/'.workcell'
+        self.root=Path(self.tmp.name);self.store=self.root/'.nova'
     def test_independent_sessions_and_joined_participants(self):
         a=dagr.lifecycle(self.store,'codex','a','start',workspace=self.root)
         b=dagr.lifecycle(self.store,'agy','b','start',workspace=self.root)
@@ -33,8 +33,9 @@ class ProjectTests(unittest.TestCase):
             a=dagr.lifecycle(self.store,harness,'same','start',workspace=self.root)
             data=dagr.read(a/'run.json');dagr.change(data,dagr.parser().parse_args(['task','add','work',harness]));dagr.atomic(a/'run.json',data)
         data=dagr.selected_run(self.store)
-        self.assertEqual(len(dagr.view_rows(data)),2)
-        self.assertEqual(len({t['id'] for t in data['tasks']}),2)
+        self.assertEqual(len(dagr.view_rows(data)),4)
+        self.assertEqual(len(dagr.work_tasks(data)),2)
+        self.assertEqual(len({t['id'] for t in data['tasks']}),4)
         self.assertEqual(len(dagr.summaries(self.store)),2)
     def test_git_worktree_shared_store_and_unrelated_clone(self):
         repo=self.root/'repo';subprocess.run(['git','init','-q',str(repo)],check=True)
@@ -49,7 +50,7 @@ class ProjectTests(unittest.TestCase):
         (tree/'.jj/repo').write_text(str(repo/'.jj/repo'))
         self.assertEqual(dagr.project_store(repo),dagr.project_store(tree))
     def test_launcher_exit_archives_empty_run(self):
-        tool=Path(__file__).resolve().parents[1]/'tools/workcell-flow'
-        result=subprocess.run([str(tool),'--dir',str(self.store),'track','--harness','agy','--session','launch','--','python3','-c','import os; assert os.environ["WORKCELL_RUN_ID"]'],capture_output=True,text=True)
+        tool=Path(__file__).resolve().parents[1]/'tools/nova-flow'
+        result=subprocess.run([str(tool),'--dir',str(self.store),'track','--harness','agy','--session','launch','--','python3','-c','import os; assert os.environ["NOVA_RUN_ID"]'],capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertTrue(dagr.summaries(self.store)[0]['archived'])

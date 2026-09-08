@@ -85,7 +85,7 @@ def run(payload, config):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--harness', choices=['claude', 'codex', 'agy'], required=True)
-    parser.add_argument('--config', type=Path, default=os.environ.get('WORKCELL_HOOK_CONFIG'))
+    parser.add_argument('--config', type=Path, default=os.environ.get('NOVA_HOOK_CONFIG'))
     options = parser.parse_args()
     if options.config is None:
         if options.harness == 'agy':
@@ -94,7 +94,7 @@ def main():
     try:
         message = run(json.load(sys.stdin), json.loads(options.config.read_text()))
     except (ValueError, OSError, KeyError, TypeError) as error:
-        message = f'Workcell post-edit configuration/input error: {error}'
+        message = f'Nova post-edit configuration/input error: {error}'
     if options.harness == 'agy':
         if message:
             print(message, file=sys.stderr)

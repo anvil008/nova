@@ -1,8 +1,8 @@
-# Workcell Dagr run tracking
+# Nova Dagr run tracking
 
 ## Status
 
-Accepted on 2026-09-07 for an independent Workcell implementation. This does not adopt Herdr Dagr's schema, binary, producer skill, or scheduling semantics.
+Accepted on 2026-09-07 for an independent Nova implementation. This does not adopt Herdr Dagr's schema, binary, producer skill, or scheduling semantics.
 
 ## Context
 
@@ -10,7 +10,7 @@ The shared-skill workflow needs a live view of milestones, tasks, phases, and ac
 
 ## Decision
 
-Ship a self-contained Python command named workcell-dagr in tools/ and every native plugin. Bootstrap installs a receipt-owned executable. Use a Workcell-specific schema with the marker workcell_dagr: 1, one current run.json per store, and terminal snapshots under archive/<run-id>/run.json.
+Ship a self-contained Python command named nova-dagr in tools/ and every native plugin. Bootstrap installs a receipt-owned executable. Use a Nova-specific schema with the marker nova_dagr: 1, one current run.json per store, and terminal snapshots under archive/<run-id>/run.json.
 
 Record milestones, dependency-linked tasks, attempts, evidence, workflow phases, and parent/subagent activity. Phases and roles are open descriptive values. The main conversation supplies semantic updates; no process scheduling, inferred completion, or model/tool execution occurs in the tracker. CLI writers serialize updates with a file lock and atomically replace validated state. Archived runs are not mutated by the CLI.
 

@@ -1,6 +1,6 @@
 # Build 04 — Codex lifecycle and usage tracking
 
-Workcell's Codex plugin now bundles lifecycle tracking hooks. They create or resume project-local `.workcell/run.json`, register native session identities, read matching-session model/effort and token telemetry, and preserve task outcomes when execution stops.
+Nova's Codex plugin now bundles lifecycle tracking hooks. They create or resume project-local `.nova/run.json`, register native session identities, read matching-session model/effort and token telemetry, and preserve task outcomes when execution stops.
 
 ## Behavior
 
