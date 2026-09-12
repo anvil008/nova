@@ -4,6 +4,10 @@ Shared development skills for Codex, Claude Code, and Antigravity. The main agen
 
 [System guide](docs/proposals/nova-next.html) · [Installation](docs/install.md) · [Architecture](docs/adr/0030-shared-skills-native-plugin-delivery.md)
 
+## Scout read routing
+
+Packaged hooks redirect recognized large reads to the existing scout: Haiku for Claude, Luna for Codex, and Gemini 3.8 Flash low for Agy. Targeted reads stay direct; the builder role is unchanged. This uses native agents, not Portal or Flow tracking. See [routing, thresholds, and fallback](instructions/read-routing.md).
+
 ## Nova Flow
 
 The bundled `nova-flow` command tracks milestones, tasks, dependencies, workflow phases, and parent/subagent activity. It provides a terminal view and a live browser view, with attempt evidence and archives of completed runs. It is independent of Herdr Flow. Automatic tracking is disabled for now across all packaged harnesses; use the command only when explicitly requested.

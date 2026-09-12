@@ -50,6 +50,10 @@ On resume, read that checkpoint first, inspect current files/VCS state and live 
 
 Use actual repository commands from inspected configuration; label proposed/unrun commands. A check result must name what ran, its outcome, the source/workspace it covers, and any material environmental limits. Process exit zero, model agreement, a screenshot, or passing unrelated tests alone is not proof the requested behavior works. Reuse valid evidence; rerun only affected checks when source or conditions change, plus required final combined checks. Report unavailable tests and native capability gaps instead of substituting weaker evidence silently.
 
+## Large-file reads
+
+Use the existing native scout for broad reads when a focused question can be answered without loading the source into the main context. Send paths and the question in fresh context; keep targeted reads direct for reasoning and edits. Read [bulk-read routing](read-routing.md) when a routing hook redirects a call or the task warrants bulk reading. Hooks perform local size checks only; this does not enable Flow tracking or add another builder. Respect native helper availability and use the documented direct fallback when delegation is unavailable.
+
 ## Live run tracking
 
 Nova Flow is disabled by default for now. Do not create or maintain Flow tasks, bind sessions, report usage, or start viewers unless the user explicitly requests Flow. The following tracking guidance applies only after that request. Read [the tool guide](../tools/README.md) once when needed. Resolve `nova-flow` on PATH, or the bundled `../tools/nova-flow` relative to this instruction file; invoke the latter with Python 3.11+. Do not use the unrelated `dagr` command or its producer schema.

@@ -12,6 +12,10 @@ Claude and Codex receive PostToolUse additionalContext. Agy's documented PostToo
 
 Native configuration references: [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude hooks](https://code.claude.com/docs/en/hooks), [Agy hooks](https://www.antigravity.google/docs/hooks/). The packager wires Codex/Claude native hooks to the bundled runner; NOVA_HOOK_CONFIG selects the explicit configuration. Without it the runner exits quietly. Agy retains an explicit setup adapter. See ../instructions/install.md and the migration report for native trial coverage.
 
+## Scout read routing
+
+`read-routing.py` runs on packaged PreToolUse read/shell events. It uses local bounded file inspection, never invokes a model or writes Flow state, and redirects large reads to the native scout. Claude/Codex use `hookSpecificOutput.permissionDecision: deny`; Agy uses `decision: deny`. Nonmatches emit `{}` with no decision or permission override, never an allow decision. Agy CLI 1.0.16+ documents handling empty pre-tool decisions; the native install check used 1.2.1. Agy runs hook commands relative to its root hooks.json, so the bundle remains relocatable. See [thresholds, supported syntax, scout handoff, and fallback](../instructions/read-routing.md).
+
 ## Codex run lifecycle and usage
 
 Automatic Nova Flow tracking is disabled in packaged Codex, Claude, and Agy plugins for now. Builds include the adapter source for future use, but register no tracking hooks. Formatter/linter hooks remain independently opt-in. The sections below describe the retained adapters when explicitly wired by a user.

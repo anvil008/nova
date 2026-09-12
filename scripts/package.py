@@ -57,9 +57,17 @@ def build(output, version=None):
                 adapter['hooks']['PostToolUse'][0]['hooks'][0]['command'] = (
                     f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/post-edit.py" --harness {harness}')
                 # Automatic Nova Flow tracking is disabled for now.
+                adapter['hooks']['PreToolUse'] = [{
+                    'matcher': 'Read|read_file|Bash|exec_command|shell_command',
+                    'hooks': [{'type': 'command', 'timeout': 5,
+                               'command': f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/read-routing.py" --harness {harness}'}]}]
                 write_json(plugin / 'hooks/hooks.json', adapter)
             else:
-                write_json(plugin / 'hooks.json', {})
+                write_json(plugin / 'hooks.json', {'nova-read-routing': {
+                    'enabled': True, 'description': 'Route bulk reads to the existing scout',
+                    'PreToolUse': [{'matcher': 'view_file|run_command', 'hooks': [{
+                        'type': 'command', 'timeout': 5,
+                        'command': 'python3 hooks/read-routing.py --harness agy'}]}]}})
                 (plugin / 'rules').mkdir(exist_ok=True)
                 shutil.copy2(ROOT / 'instructions/development.md', plugin / 'rules/nova.md')
             if harness == 'codex':
