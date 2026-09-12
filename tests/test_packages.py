@@ -94,6 +94,72 @@ class PackageTests(unittest.TestCase):
             source = entry['source']['path'] if harness == 'codex' else entry['source']
             self.assertTrue((market / source / 'skills/refactor/SKILL.md').is_file())
 
+    def test_packaged_hooks_do_not_start_flow_tracking(self):
+        repo = self.base / 'untracked-project'
+        repo.mkdir()
+        for harness in package.HARNESSES:
+            plugin = self.output / harness / 'plugins/nova'
+            path = plugin / ('hooks.json' if harness == 'agy' else 'hooks/hooks.json')
+            hooks = json.loads(path.read_text())
+            if harness == 'agy':
+                self.assertEqual(set(hooks), {'nova-read-routing'})
+                self.assertEqual(set(hooks['nova-read-routing']) - {'enabled', 'description'}, {'PreToolUse'})
+                continue
+            self.assertEqual(set(hooks['hooks']), {'PreToolUse', 'PostToolUse'})
+            env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(plugin))
+            env.pop('NOVA_HOOK_CONFIG', None)
+            for group in hooks['hooks']['PostToolUse']:
+                for hook in group['hooks']:
+                    payload = {'hook_event_name': 'PostToolUse', 'session_id': 'no-flow',
+                               'cwd': str(repo), 'tool_name': 'Write',
+                               'tool_input': {'file_path': str(repo / 'sample.py')}}
+                    result = subprocess.run(['sh', '-c', hook['command']],
+                                            input=json.dumps(payload), text=True,
+                                            capture_output=True, env=env, cwd=repo, check=True)
+                    self.assertEqual(result.stdout.strip(), '')
+                    self.assertFalse((repo / '.nova').exists())
+
+    def test_routing_handoff_and_reader_work_after_relocation(self):
+        moved = self.base / 'relocated bundle'
+        shutil.move(self.output, moved)
+        repo = self.base / 'target'
+        repo.mkdir()
+        source = repo / 'large.py'
+        source.write_text(''.join(f'value_{i} = {i}\n' for i in range(400)))
+        for harness in package.HARNESSES:
+            plugin = moved / harness / 'plugins/nova'
+            if harness == 'agy':
+                config = json.loads((plugin / 'hooks.json').read_text())['nova-read-routing']
+                payload = {'workspacePaths': [str(repo)], 'toolCall': {
+                    'name': 'view_file', 'args': {'AbsolutePath': str(source)}}}
+                cwd = plugin  # Agy runs commands relative to the root hooks.json.
+            else:
+                config = json.loads((plugin / 'hooks/hooks.json').read_text())['hooks']
+                payload = {'cwd': str(repo), 'tool_name': 'Read',
+                           'tool_input': {'file_path': str(source)}}
+                cwd = repo
+            command = config['PreToolUse'][0]['hooks'][0]['command']
+            env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(plugin))
+            for name in ('NOVA_READ_ROUTING', 'NOVA_READ_MIN_LINES', 'NOVA_READ_MAX_BYTES'):
+                env.pop(name, None)
+            result = subprocess.run(['sh', '-c', command], input=json.dumps(payload),
+                                    text=True, capture_output=True, env=env, cwd=cwd, check=True)
+            decision = json.loads(result.stdout)
+            if harness == 'agy':
+                self.assertEqual(decision['decision'], 'deny')
+                reason = decision['reason']
+            else:
+                self.assertEqual(decision['hookSpecificOutput']['permissionDecision'], 'deny')
+                reason = decision['hookSpecificOutput']['permissionDecisionReason']
+            self.assertIn(str(plugin / 'tools/nova-read'), reason)
+            self.assertNotIn('value_399', reason)
+            reader = subprocess.run([sys.executable, str(plugin / 'tools/nova-read'),
+                                     '--paths', str(source)], text=True, capture_output=True, check=True)
+            data = json.loads(reader.stdout)['files'][0]
+            self.assertEqual(data['lines'][399], 'value_399 = 399')
+            self.assertIsNone(data['next_line'])
+            self.assertFalse((repo / '.nova').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

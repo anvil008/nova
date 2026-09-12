@@ -121,7 +121,7 @@ The main conversation should own semantic updates, incorporating helper returns 
 
 ### Codex session integration
 
-The bundled Codex plugin hooks register agent sessions and collect available model, effort, and cumulative usage metadata into the same `.nova/run.json`. See [hook setup and limits](../hooks/README.md#codex-run-lifecycle-and-usage). This is independent of terminal/browser rendering. No personal plugin installation is implied by building bundles.
+Automatic tracking hooks are disabled in packaged plugins for now. If explicitly wired, the retained Codex adapters register agent sessions and collect available model, effort, and cumulative usage metadata into the same `.nova/run.json`. See [hook setup and limits](../hooks/README.md#codex-run-lifecycle-and-usage). This is independent of terminal/browser rendering. No personal plugin installation is implied by building bundles.
 
 `nova-flow session bind SESSION_ID --task TASK_ID` binds a registered native session to the currently started attempt. Use `--task -` to detach. Bind before the relevant model turn; token intervals crossing an uncertain boundary stay session-only in the agent panel. The initial session history is never retroactively charged to a task. Models and effort are observed facts, never inferred from helper profile defaults.
 
