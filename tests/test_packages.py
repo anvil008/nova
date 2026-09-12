@@ -94,6 +94,30 @@ class PackageTests(unittest.TestCase):
             source = entry['source']['path'] if harness == 'codex' else entry['source']
             self.assertTrue((market / source / 'skills/refactor/SKILL.md').is_file())
 
+    def test_packaged_hooks_do_not_start_flow_tracking(self):
+        repo = self.base / 'untracked-project'
+        repo.mkdir()
+        for harness in package.HARNESSES:
+            plugin = self.output / harness / 'plugins/nova'
+            path = plugin / ('hooks.json' if harness == 'agy' else 'hooks/hooks.json')
+            hooks = json.loads(path.read_text())
+            if harness == 'agy':
+                self.assertEqual(hooks, {})
+                continue
+            self.assertEqual(set(hooks['hooks']), {'PostToolUse'})
+            env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(plugin))
+            env.pop('NOVA_HOOK_CONFIG', None)
+            for group in hooks['hooks']['PostToolUse']:
+                for hook in group['hooks']:
+                    payload = {'hook_event_name': 'PostToolUse', 'session_id': 'no-flow',
+                               'cwd': str(repo), 'tool_name': 'Write',
+                               'tool_input': {'file_path': str(repo / 'sample.py')}}
+                    result = subprocess.run(['sh', '-c', hook['command']],
+                                            input=json.dumps(payload), text=True,
+                                            capture_output=True, env=env, cwd=repo, check=True)
+                    self.assertEqual(result.stdout.strip(), '')
+                    self.assertFalse((repo / '.nova').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

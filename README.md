@@ -6,7 +6,7 @@ Shared development skills for Codex, Claude Code, and Antigravity. The main agen
 
 ## Nova Flow
 
-The bundled `nova-flow` command tracks milestones, tasks, dependencies, workflow phases, and parent/subagent activity. It provides a terminal view and a live browser view, with attempt evidence and archives of completed runs. It is independent of Herdr Flow.
+The bundled `nova-flow` command tracks milestones, tasks, dependencies, workflow phases, and parent/subagent activity. It provides a terminal view and a live browser view, with attempt evidence and archives of completed runs. It is independent of Herdr Flow. Automatic tracking is disabled for now across all packaged harnesses; use the command only when explicitly requested.
 
 ```sh
 nova-flow init 'My feature'

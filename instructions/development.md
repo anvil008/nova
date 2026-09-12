@@ -52,7 +52,7 @@ Use actual repository commands from inspected configuration; label proposed/unru
 
 ## Live run tracking
 
-Use Nova Flow when the user requests a live run view or substantial work has accepted milestones and delegated tasks worth tracking. Skip it for small direct changes. Read [the tool guide](../tools/README.md) once when needed. Resolve `nova-flow` on PATH, or the bundled `../tools/nova-flow` relative to this instruction file; invoke the latter with Python 3.11+. Do not use the unrelated `dagr` command or its producer schema.
+Nova Flow is disabled by default for now. Do not create or maintain Flow tasks, bind sessions, report usage, or start viewers unless the user explicitly requests Flow. The following tracking guidance applies only after that request. Read [the tool guide](../tools/README.md) once when needed. Resolve `nova-flow` on PATH, or the bundled `../tools/nova-flow` relative to this instruction file; invoke the latter with Python 3.11+. Do not use the unrelated `dagr` command or its producer schema.
 
 The main conversation maintains the current run at the workspace root's `.nova/run.json` (or an explicit shared store). Reuse an existing matching run after inspecting its current state; never reset another task's run. Record real milestones/tasks and dependencies, current workflow phases, actual parent/subagent assignments, reasons for blocks/retries, and evidence for results. Update at semantic milestones rather than after every tool call. Tool state does not authorize delegation or publication. Never infer task completion from a quiet or exited process, and never invent activity, model settings, evidence, or agents.
 

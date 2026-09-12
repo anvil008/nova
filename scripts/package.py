@@ -56,23 +56,10 @@ def build(output, version=None):
                 adapter = json.loads((plugin / 'hooks' / f'{harness}.example.json').read_text())
                 adapter['hooks']['PostToolUse'][0]['hooks'][0]['command'] = (
                     f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/post-edit.py" --harness {harness}')
-                if harness == 'codex':
-                    tracker = {'type': 'command', 'command': 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/codex-tracking.py"', 'timeout': 10}
-                    for event in ('SessionStart', 'UserPromptSubmit', 'PostToolUse', 'SubagentStart', 'SubagentStop', 'Stop', 'Interrupt'):
-                        adapter['hooks'].setdefault(event, []).append({'hooks': [{**tracker,'timeout':3 if event=='Interrupt' else 10}]})
-                else:
-                    tracker = {'type':'command','command':'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/native-tracking.py" --harness claude','timeout':10}
-                    for event in ('SessionStart','UserPromptSubmit','PostToolUse','SubagentStart','SubagentStop','Stop','SessionEnd'):
-                        adapter['hooks'].setdefault(event,[]).append({'hooks':[tracker]})
+                # Automatic Nova Flow tracking is disabled for now.
                 write_json(plugin / 'hooks/hooks.json', adapter)
             else:
-                import shlex
-                script = output / 'agy/plugins/nova/hooks/native-tracking.py'
-                hook = {'enabled':True,'description':'Nova session tracking'}
-                for event in ('PreInvocation','PostInvocation','Stop'):
-                    hook[event]=[{'type':'command','command':'python3 '+shlex.quote(str(script))+' --harness agy --event '+event,'timeout':10}]
-                hook['PostToolUse']=[{'matcher':'.*','hooks':[{'type':'command','command':'python3 '+shlex.quote(str(script))+' --harness agy --event PostToolUse','timeout':10}]}]
-                write_json(plugin/'hooks.json',{'nova-tracking':hook})
+                write_json(plugin / 'hooks.json', {})
                 (plugin / 'rules').mkdir(exist_ok=True)
                 shutil.copy2(ROOT / 'instructions/development.md', plugin / 'rules/nova.md')
             if harness == 'codex':
