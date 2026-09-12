@@ -61,6 +61,10 @@ def build(output, version=None):
                     'matcher': 'Read|read_file|Bash|exec_command|shell_command',
                     'hooks': [{'type': 'command', 'timeout': 5,
                                'command': f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/read-routing.py" --harness {harness}'}]}]
+                if harness == 'claude':
+                    for event in ('WorktreeCreate', 'WorktreeRemove'):
+                        adapter['hooks'][event] = [{'hooks': [{'type': 'command', 'timeout': 120,
+                            'command': 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/workspace.py"'}]}]
                 write_json(plugin / 'hooks/hooks.json', adapter)
             else:
                 write_json(plugin / 'hooks.json', {'nova-read-routing': {

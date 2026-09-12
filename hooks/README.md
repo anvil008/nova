@@ -1,4 +1,10 @@
-# Optional post-edit hooks
+# Nova hooks
+
+## Claude workspace hooks
+
+`workspace.py` handles native WorktreeCreate/WorktreeRemove events in Claude packages. It creates JJ workspaces or Git worktrees in the primary checkout’s `.workspaces/<task>/`. Cleanup retains JJ workspaces and any Git worktree with modified, untracked, or ignored files. Codex/Agy placement remains instruction-driven. See [harness comparison](../instructions/harnesses.md) for the full contract and app limitations.
+
+## Optional post-edit hooks
 
 Plugin sources; formatting/linting remains disabled until explicitly configured. `post-edit.py` runs a project's explicitly configured single-file format and lint commands in order. It has no model calls, transcript capture, wiki writes, test seals, builder identities, or Stop continuation loop. Final tests, review, and delivery remain workflow responsibilities.
 

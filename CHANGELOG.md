@@ -10,6 +10,8 @@
 
 ## Unreleased
 
+- Use Claude native workspace hooks for JJ/Git placement under `.workspaces/`, with conservative cleanup; keep Codex/Agy instruction-driven and document the harness differences.
+
 - Consolidate the public menu to ten workflows and two auxiliary skills. Build owns shared implementation; review, profile, and docs retain independent outcomes.
 - Retire the research skill while retaining planner-owned researchers and shared evidence helpers. Planning offers one plan or multiple ideas, writes Markdown by default, and adds HTML only on request.
 - Preserve existing implementation authorization through workflow transitions. Choose agent counts and review iterations from useful work without built-in quotas; keep explicit user limits and evidence gates.

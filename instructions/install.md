@@ -73,6 +73,10 @@ Inspect `agy plugin list` and `agy agents`; restart the session for changes. The
 
 Agy's hook example is shipped under `hooks/agy.example.json`, not activated automatically. When configuring hooks, resolve the installed plugin directory, replace its runner/config placeholders with shell-quoted absolute paths, and merge the native event definition into the supported hook configuration. Enable the configured event only after testing its command. Do not assume plugin-path environment variables are portable across harnesses.
 
+## Workspace isolation
+
+Claude bundles register native WorktreeCreate/WorktreeRemove hooks. Codex and Agy use project AGENTS.md and the shared placement instructions. See [harness comparison](harnesses.md) for base selection, cleanup retention, ignored-file handling, app settings, and the other configured differences.
+
 ## Project instructions and checks
 
 Every skill explicitly reads the bundled `instructions/development.md`. That makes the conventions available during Nova tasks without assuming plugin-root instruction files are automatically loaded.
