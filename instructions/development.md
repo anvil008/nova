@@ -36,7 +36,7 @@ When a change makes an actual architectural decision, record it in `docs/adr/NNN
 
 Select the smallest method matching the requested outcome. Spec is interactive discovery for unresolved intent; plan prepares one technical approach and acceptance tests; build implements. Multiplan is explicit-only, commissioning Agy, Claude, and Codex drafts and synthesizing one plan. Do not automatically load all stages for a small clear request. Debug, refactor, profile, and review retain their own focused workflows and carry existing repair/optimization authorization forward.
 
-Offer prototype comparisons during spec when they can resolve uncertainty. Offer parallel build for independent tasks; honor an existing user preference. Options are not fixed extra phases. A prototype request authorizes that visual artifact, while other reports remain Markdown unless visual output is requested. Do not infer permission to execute multiplan simply because its skill was created or discussed.
+Offer prototype comparisons during spec when they can resolve uncertainty. Use native parallel builders for independent substantial tasks when authorized; honor an existing user preference. Options are not fixed extra phases. A prototype request authorizes that visual artifact, while other reports remain Markdown unless visual output is requested. Do not infer permission to execute multiplan simply because its skill was created or discussed.
 
 ## Lightweight resumption
 

@@ -1,6 +1,6 @@
 # Bulk reads through the scout
 
-Nova routes large reads to the existing scout so source material stays out of the primary model's context. This is authorized read-only delegation for the requested lookup, not permission to spawn a team. Keep one builder/implementer. Flow tracking remains disabled.
+Nova routes large reads to the existing scout so source material stays out of the primary model's context. This is authorized read-only delegation for the requested lookup, not permission to spawn a team. Keep one builder/implementer role, with multiple instances only for independent assigned tasks. Flow tracking remains disabled.
 
 ## Calling the scout
 
