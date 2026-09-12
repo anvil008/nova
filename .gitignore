@@ -12,6 +12,7 @@ __pycache__/
 *.pyc
 dist/
 .nova/
+/.workspaces/
 findings.json
 findings.txt
 empty-findings.txt

@@ -8,6 +8,8 @@ Use jj unless the user or repository explicitly requires plain Git. Inspect work
 
 Reuse a suitable workspace. Isolate independent work when another task or unrelated changes would interfere. Use noninteractive commands with explicit messages, avoid rewriting published history, and check conflicts after revision changes. Report the immutable tested commit when available; a jj change ID identifies evolving work. Rerun affected checks when rebasing or conflict resolution changes tested source.
 
+Unless the user or repository specifies another location, create additional JJ workspaces and Git worktrees under the primary checkout's `.workspaces/<task>/` directory. Keep `/.workspaces/` ignored by version control and exclude it from recursive tooling that does not honor ignore rules. From a secondary workspace, resolve the primary checkout through JJ/Git repository metadata and use its absolute path; do not nest task workspaces inside other task workspaces. Existing workspaces may remain at their registered locations until their tasks finish.
+
 For authorized publication, prefer a short-lived bookmark and PR into trunk. Direct-to-trunk delivery requires corresponding authorization and verification of the exact candidate. State whether work is local, published, or integrated; implementation authorization alone does not imply permission to merge or deploy.
 
 ## Selective delegation
