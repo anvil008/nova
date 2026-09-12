@@ -12,9 +12,13 @@ Claude and Codex receive PostToolUse additionalContext. Agy's documented PostToo
 
 Native configuration references: [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude hooks](https://code.claude.com/docs/en/hooks), [Agy hooks](https://www.antigravity.google/docs/hooks/). The packager wires Codex/Claude native hooks to the bundled runner; NOVA_HOOK_CONFIG selects the explicit configuration. Without it the runner exits quietly. Agy retains an explicit setup adapter. See ../instructions/install.md and the migration report for native trial coverage.
 
+## Scout read routing
+
+`read-routing.py` runs on packaged PreToolUse read/shell events. It uses local bounded file inspection, never invokes a model or writes Flow state, and redirects large reads to the native scout. Claude/Codex use `hookSpecificOutput.permissionDecision: deny`; Agy uses `decision: deny`. Nonmatches emit `{}` with no decision or permission override, never an allow decision. Agy CLI 1.0.16+ documents handling empty pre-tool decisions; the native install check used 1.2.1. Agy runs hook commands relative to its root hooks.json, so the bundle remains relocatable. See [thresholds, supported syntax, scout handoff, and fallback](../instructions/read-routing.md).
+
 ## Codex run lifecycle and usage
 
-The packaged Codex plugin also wires `codex-tracking.py` to SessionStart, UserPromptSubmit, PostToolUse, SubagentStart, SubagentStop, Stop, and Interrupt. These hooks are active when that plugin is installed; formatting remains independently opt-in. This repository change does not install them into personal configuration. Restart Codex after installing the rebuilt plugin to load its hooks.
+Automatic Nova Flow tracking is disabled in packaged Codex, Claude, and Agy plugins for now. Builds include the adapter source for future use, but register no tracking hooks. Formatter/linter hooks remain independently opt-in. The sections below describe the retained adapters when explicitly wired by a user.
 
 The adapter locates the nearest Git/JJ project root from the event cwd (otherwise cwd), then creates/resumes `.nova/run.json`. It registers stable hashed agent IDs while retaining the native session ID, and uses actual parent/child event identities. It does not capture prompts, messages, or tool results. A stop marks only the agent idle; it cannot complete a task. Repeated unchanged events do not append events. Terminal runs are untouched. Events belonging to archived sessions are ignored unless the session is explicitly attached to the new active run. After `nova-flow init "Next task"`, use `nova-flow session attach NATIVE_SESSION_ID --archive OLD_RUN_ID` to continue the same conversation. This carries the telemetry cursor/baseline, never historical usage or task bindings. This prevents delayed hooks from replaying an old conversation into unrelated work.
 
@@ -35,11 +39,11 @@ Native payload contract: [Codex hooks](https://learn.chatgpt.com/docs/hooks). Pa
 
 A temporary current-session bridge may call the adapter with `TranscriptPoll` while waiting for a Codex restart. This only consumes available transcript metadata and preserves the reported agent state; it is not a native lifecycle event or process-health observation. It requires an existing active run.
 
-## Native tracking in all bundles
+## Retained native tracking adapters
 
-Bootstrap installs tracking automatically with each selected native plugin. Codex retains its transcript adapter. Claude now registers SessionStart/UserPromptSubmit/tool events, child sessions, Stop, and SessionEnd. Agy's root plugin hooks.json registers PreInvocation, PostInvocation, PostToolUse, and Stop using its camelCase conversationId/workspacePaths payload. Its first invocation registers the session; opening an empty prompt does not yet emit that event. Agy Stop records idle, never terminal closure. Claude SessionEnd can close a participant and trigger archival after all work and participants settle.
+Bootstrap does not register tracking hooks. For explicit custom hook setup, Codex retains its transcript adapter. The Claude adapter supports SessionStart/UserPromptSubmit/tool events, child sessions, Stop, and SessionEnd. The Agy adapter supports PreInvocation, PostInvocation, PostToolUse, and Stop using its camelCase conversationId/workspacePaths payload. Its first invocation registers the session; opening an empty prompt does not yet emit that event. Agy Stop records idle, never terminal closure. Claude SessionEnd can close a participant and trigger archival after all work and participants settle.
 
-Normal launches need no `track` wrapper for registration. Agy/Claude token extraction remains separate; these adapters record only observed lifecycle/model fields. Agy's documented hook contract does not supply token counters or a session-close event. Use the optional launcher when process-exit detection is needed. Multiple mounted Agy directories must resolve to one repository or routing is rejected with a diagnostic.
+With custom tracking hooks explicitly configured, launches need no `track` wrapper for registration. Agy/Claude token extraction remains separate; these adapters record only observed lifecycle/model fields. Agy's documented hook contract does not supply token counters or a session-close event. Use the optional launcher when process-exit detection is needed. Multiple mounted Agy directories must resolve to one repository or routing is rejected with a diagnostic.
 
 Agy hook commands reference bootstrap's stable bundle path; rebuilding at a new prefix regenerates those paths. Native installation leaves unrelated global hooks unchanged. Start fresh harness sessions after installation to reload discovery.
 

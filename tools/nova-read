@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+"""Bounded, numbered source reader for the existing Nova scout."""
+from read_routing import reader_main
+
+if __name__ == '__main__':
+    reader_main()

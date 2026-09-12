@@ -36,7 +36,7 @@ When a change makes an actual architectural decision, record it in `docs/adr/NNN
 
 Select the smallest method matching the requested outcome. Spec is interactive discovery for unresolved intent; plan prepares one technical approach and acceptance tests; build implements. Multiplan is explicit-only, commissioning Agy, Claude, and Codex drafts and synthesizing one plan. Do not automatically load all stages for a small clear request. Debug, refactor, profile, and review retain their own focused workflows and carry existing repair/optimization authorization forward.
 
-Offer prototype comparisons during spec when they can resolve uncertainty. Offer parallel build for independent tasks; honor an existing user preference. Options are not fixed extra phases. A prototype request authorizes that visual artifact, while other reports remain Markdown unless visual output is requested. Do not infer permission to execute multiplan simply because its skill was created or discussed.
+Offer prototype comparisons during spec when they can resolve uncertainty. Use native parallel builders for independent substantial tasks when authorized; honor an existing user preference. Options are not fixed extra phases. A prototype request authorizes that visual artifact, while other reports remain Markdown unless visual output is requested. Do not infer permission to execute multiplan simply because its skill was created or discussed.
 
 ## Lightweight resumption
 
@@ -50,9 +50,13 @@ On resume, read that checkpoint first, inspect current files/VCS state and live 
 
 Use actual repository commands from inspected configuration; label proposed/unrun commands. A check result must name what ran, its outcome, the source/workspace it covers, and any material environmental limits. Process exit zero, model agreement, a screenshot, or passing unrelated tests alone is not proof the requested behavior works. Reuse valid evidence; rerun only affected checks when source or conditions change, plus required final combined checks. Report unavailable tests and native capability gaps instead of substituting weaker evidence silently.
 
+## Large-file reads
+
+Use the existing native scout for broad reads when a focused question can be answered without loading the source into the main context. Send paths and the question in fresh context; keep targeted reads direct for reasoning and edits. Read [bulk-read routing](read-routing.md) when a routing hook redirects a call or the task warrants bulk reading. Hooks perform local size checks only; this does not enable Flow tracking or add another builder. Respect native helper availability and use the documented direct fallback when delegation is unavailable.
+
 ## Live run tracking
 
-Use Nova Flow when the user requests a live run view or substantial work has accepted milestones and delegated tasks worth tracking. Skip it for small direct changes. Read [the tool guide](../tools/README.md) once when needed. Resolve `nova-flow` on PATH, or the bundled `../tools/nova-flow` relative to this instruction file; invoke the latter with Python 3.11+. Do not use the unrelated `dagr` command or its producer schema.
+Nova Flow is disabled by default for now. Do not create or maintain Flow tasks, bind sessions, report usage, or start viewers unless the user explicitly requests Flow. The following tracking guidance applies only after that request. Read [the tool guide](../tools/README.md) once when needed. Resolve `nova-flow` on PATH, or the bundled `../tools/nova-flow` relative to this instruction file; invoke the latter with Python 3.11+. Do not use the unrelated `dagr` command or its producer schema.
 
 The main conversation maintains the current run at the workspace root's `.nova/run.json` (or an explicit shared store). Reuse an existing matching run after inspecting its current state; never reset another task's run. Record real milestones/tasks and dependencies, current workflow phases, actual parent/subagent assignments, reasons for blocks/retries, and evidence for results. Update at semantic milestones rather than after every tool call. Tool state does not authorize delegation or publication. Never infer task completion from a quiet or exited process, and never invent activity, model settings, evidence, or agents.
 
