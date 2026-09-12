@@ -3,6 +3,7 @@ name: implementer
 description: Implement one assigned task within owned files or an isolated workspace,
   preserve acceptance intent, and return verified changes to the caller.
 model: claude-opus-5
+effort: medium
 disallowedTools: Agent
 ---
 

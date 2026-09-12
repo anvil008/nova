@@ -23,7 +23,7 @@ Validation covers native parsing, equivalent role bodies, and Agy package shape.
 | Helper | Agy | Claude Code | Codex |
 | --- | --- | --- | --- |
 | scout | gemini-3.8-flash-low | haiku; effort not overridden | gpt-5.6-luna; effort not overridden |
-| implementer | gemini-3.8-flash-high | claude-opus-5; effort not overridden | gpt-5.6-terra; max effort |
+| implementer | gemini-3.8-flash-high | claude-opus-5; medium effort | gpt-5.6-terra; high effort |
 | reviewer | inherit | inherit | inherit |
 
 Agy uses the exact model IDs exposed by the installed `agy models` catalog, which encode effort. High was selected for its implementer because the requested Gemini model had no specified effort. Claude Haiku uses the requested family alias; Opus 5 uses its explicit model ID. Omitted effort settings follow native inheritance/default behavior. Do not silently substitute unavailable models; report the runtime configuration gap. Native parsing validates configuration shape, not model execution or account availability.
