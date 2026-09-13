@@ -77,6 +77,55 @@ class BootstrapTests(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             bootstrap.run([str(binary), 'plugin', 'install', 'nova@nova'])
 
+    def test_hook_paths_survive_failed_update_with_custom_homes_and_archive(self):
+        roots = {'CODEX_HOME': str(self.root / 'custom-codex'),
+                 'CLAUDE_CONFIG_DIR': str(self.root / 'custom-claude')}
+        hooks = []
+        for root in roots.values():
+            hook = Path(root) / 'plugins/cache/nova/nova/old/hooks/runner.py'
+            hook.parent.mkdir(parents=True)
+            hook.write_text('old running-session hook')
+            hooks.append(hook)
+        archive = self.root / 'prefix/hook-compat'
+        with patch.dict(os.environ, roots):
+            with self.assertRaises(RuntimeError):
+                with bootstrap.preserve_hook_paths(self.root / 'home', archive=archive):
+                    for hook in hooks:
+                        hook.unlink()
+                    raise RuntimeError('native update failed')
+        for hook in hooks:
+            self.assertEqual(hook.read_text(), 'old running-session hook')
+        self.assertTrue((archive / 'codex/old/hooks/runner.py').exists())
+        self.assertFalse((self.root / 'home/.local').exists())
+
+    def test_global_instruction_updates_preserve_user_edits(self):
+        target = self.root / 'gemini/GEMINI.md'
+        target.parent.mkdir(parents=True)
+        target.write_text('local custom instructions')
+        with patch.dict(os.environ, {'GEMINI_HOME': str(self.root / 'gemini')}):
+            with self.assertRaises(ValueError):
+                bootstrap.global_instruction_updates(['agy'], {})
+            # When force=True, unmanaged edits are overwritten
+            updates = bootstrap.global_instruction_updates(['agy'], {}, force=True)
+            self.assertEqual(len(updates), 1)
+            self.assertEqual(updates[0][0], target)
+            # When receipt matches old hash, update is permitted
+            owned = {str(target): hashlib.sha256(b'local custom instructions').hexdigest()}
+            updates = bootstrap.global_instruction_updates(['agy'], owned)
+            self.assertEqual(len(updates), 1)
+            self.assertEqual(updates[0][0], target)
+
+    def test_global_instruction_symlink_refused(self):
+        target = self.root / 'claude/CLAUDE.md'
+        target.parent.mkdir(parents=True)
+        dummy = self.root / 'dummy.md'
+        dummy.write_text('dummy')
+        target.symlink_to(dummy)
+        with patch.dict(os.environ, {'CLAUDE_HOME': str(self.root / 'claude')}):
+            with self.assertRaises(ValueError):
+                bootstrap.global_instruction_updates(['claude'], {})
+
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -105,7 +105,10 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual(set(hooks), {'nova-read-routing'})
                 self.assertEqual(set(hooks['nova-read-routing']) - {'enabled', 'description'}, {'PreToolUse'})
                 continue
-            self.assertEqual(set(hooks['hooks']), {'PreToolUse', 'PostToolUse'})
+            expected = {'PreToolUse', 'PostToolUse', 'SubagentStop', 'Stop', 'SessionEnd'}
+            if harness == 'claude':
+                expected |= {'WorktreeCreate', 'WorktreeRemove'}
+            self.assertEqual(set(hooks['hooks']), expected)
             env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(plugin))
             env.pop('NOVA_HOOK_CONFIG', None)
             for group in hooks['hooks']['PostToolUse']:
