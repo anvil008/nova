@@ -69,22 +69,28 @@ Tell the agent your constraints, such as “review only,” “keep the public A
 
 ## Choose a skill
 
+Match your situation to a skill below. These are entry points, not a required sequence—`debug` can diagnose and repair a bug without a separate `build` task, for example.
+
+![Nova skill guide grouped by purpose: Decide with spec, plan, or multiplan; Change with build, debug, or refactor; Assure with review or docs; Operations with profile or deploy; Support with repo-setup, jj, wiki, or use-other-harness.](docs/diagrams/nova-skills.svg)
+
+[View the skill guide at full size](docs/diagrams/nova-skills.svg)
+
 | Your goal | Skill |
 | --- | --- |
-| Clarify an idea and agree on behavior | `spec` |
-| Turn a defined change into an implementation plan | `plan` |
-| Explicitly compare plans from Antigravity, Claude, and Codex | `multiplan` |
-| Implement a feature or fix | `build` |
-| Reproduce a failure and isolate its cause | `debug` |
-| Simplify code while preserving behavior | `refactor` |
-| Review a diff or pull request | `review` |
-| Write documentation grounded in the project | `docs` |
-| Measure performance and verify an optimization | `profile` |
-| Release a verified change to a named environment | `deploy` |
-| Prepare project instructions and development tools | `repo-setup` |
-| Manage JJ revisions, workspaces, and PR delivery | `jj` |
-| Save or retrieve durable project knowledge | `wiki` |
-| Explicitly run a bounded task in another coding harness | `use-other-harness` |
+| Clarify an idea and agree on behavior | [spec](skills/spec/SKILL.md) |
+| Turn a defined change into an implementation plan | [plan](skills/plan/SKILL.md) |
+| Explicitly compare plans from Antigravity, Claude, and Codex | [multiplan](skills/multiplan/SKILL.md) |
+| Implement a feature or fix | [build](skills/build/SKILL.md) |
+| Reproduce a failure and isolate its cause | [debug](skills/debug/SKILL.md) |
+| Simplify code while preserving behavior | [refactor](skills/refactor/SKILL.md) |
+| Review a diff or pull request | [review](skills/review/SKILL.md) |
+| Write documentation grounded in the project | [docs](skills/docs/SKILL.md) |
+| Measure performance and verify an optimization | [profile](skills/profile/SKILL.md) |
+| Release a verified change to a named environment | [deploy](skills/deploy/SKILL.md) |
+| Prepare project instructions and development tools | [repo-setup](skills/repo-setup/SKILL.md) |
+| Manage JJ revisions, workspaces, and PR delivery | [jj](skills/jj/SKILL.md) |
+| Save or retrieve durable project knowledge | [wiki](skills/wiki/SKILL.md) |
+| Explicitly run a bounded task in another coding harness | [use-other-harness](skills/use-other-harness/SKILL.md) |
 
 Browse the [skill sources](skills/) for their full instructions. Reports default to Markdown; substantial unfinished tasks can retain a checkpoint for resumption.
 
