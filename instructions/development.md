@@ -4,11 +4,33 @@ Carry the user's scope, decisions, and authorization through completion. Use one
 
 ## Version control and trunk
 
-Use jj unless the user or repository explicitly requires plain Git. Inspect working-copy state and history first; preserve unrelated work. For an authorized adoption in an existing Git repository, use colocated initialization. Use main, or the configured default branch, as the integration trunk. Keep changes small and short-lived; stack only genuinely dependent changes.
+Use jj unless the user or repository explicitly requires plain Git. Inspect working-copy state and history first; preserve unrelated work. For an authorized adoption in an existing Git repository, use colocated initialization.
+
+Trunk-based development applies across all harnesses and repositories:
+- **Deployable trunk:** `main` (or the repository's configured default branch) is the single integration trunk and remains continuously deployable. Default branches are protected by the `main-trunk` ruleset: every change lands through a pull request, linear history is required, commits must be SSH-signed, and direct push, force-push, and branch deletion are blocked. Never push directly to trunk.
+- **Short-lived changes:** Base independent work on a freshly fetched current trunk (`origin/main` or JJ `main@origin`). Stack only changes that genuinely depend on each other. Branches and task changes live under two days; name branches `<type>/<slug>` (`feat|fix|chore|docs|refactor|release`). Ship incomplete work behind flags, dark, or unreferenced — never on a long-lived branch.
+- **One change, one PR:** Open PRs targeting trunk (`gh pr create --base main`). Squash-merge or rebase; delete the branch immediately on merge (`delete_branch_on_merge` is enabled).
+- **Linear history:** Rebase onto trunk before opening a PR and update if stale. Never merge `main` into a branch.
+- **Commit signing:** Sign every commit (SSH-signed); unsigned commits are rejected by repository rulesets.
+- **Releases are tags:** Releases are annotated tags on `main` (`vYYYY.MM.DD[.N]`), never release branches. A published GitHub Release is the deploy trigger.
+- **Housekeeping:** Stale branches are pruned regularly: branches merged into trunk and remote branches with no activity over 30 days.
 
 Reuse a suitable workspace. Isolate independent work when another task or unrelated changes would interfere. Use noninteractive commands with explicit messages, avoid rewriting published history, and check conflicts after revision changes. Report the immutable tested commit when available; a jj change ID identifies evolving work. Rerun affected checks when rebasing or conflict resolution changes tested source.
 
+Unless the user or repository specifies another location, create additional JJ workspaces and Git worktrees under the primary checkout's `.workspaces/<task>/` directory. Keep `/.workspaces/` ignored by version control and exclude it from recursive tooling that does not honor ignore rules. From a secondary workspace, resolve the primary checkout through JJ/Git repository metadata and use its absolute path; do not nest task workspaces inside other task workspaces. Existing workspaces may remain at their registered locations until their tasks finish.
+
 For authorized publication, prefer a short-lived bookmark and PR into trunk. Direct-to-trunk delivery requires corresponding authorization and verification of the exact candidate. State whether work is local, published, or integrated; implementation authorization alone does not imply permission to merge or deploy.
+
+
+## Parent-owned task integration
+
+For both JJ workspaces and Git worktrees, a child reporting done means ready for integration. The parent must collect immutable result commits and verification evidence, review and test the combined candidate, and carry the authorized delivery path through integration without waiting for another user reminder. Read-only subagent work needs no merge. Workspaces belonging to other tasks are outside this obligation.
+
+This user's standing preference authorizes local integration of verified task results. Preserve repository PR protections and explicit review-only, no-merge, or no-publish limits. When remote PR delivery is authorized, complete required checks/review and merge through that path, then fetch and synchronize local main. When only local delivery is authorized and repository rules permit it, integrate the verified candidate locally. Do not request the same authorization again. If a real review, permission, or CI boundary remains, finish all independent work and report awaiting review or blocked with the exact reason; do not call the task complete.
+
+For JJ, integrate the child revisions into one tested candidate and advance the local main bookmark to the verified integrated revision. For Git, integrate the child branches into one tested candidate and fast-forward local main to the integrated commit. Account for squash/rebase commit mappings; record the resulting immutable main commit. Updating a bookmark or ref alone does not update the primary checkout's files: safely synchronize that checkout too. Never reset dirty files, move an active task off its revision, force-update divergent main, rewrite published history, or bypass protections. Report any primary-checkout synchronization blocked by unrelated work.
+
+Before removing a task workspace, prove its work reached the integration target and preserve dirty, untracked and ignored files. A clean status, empty JJ child commit, stopped process, or successful subagent exit is not integration evidence. The final response states integrated (with main commit and local synchronization status), awaiting review, or blocked. A child handoff includes its workspace, immutable commit, checks, and unresolved issues; the parent owns the remaining work.
 
 ## Selective delegation
 

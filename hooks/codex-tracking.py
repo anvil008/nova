@@ -49,9 +49,8 @@ def transcript(agent, path, data):
     state = agent.setdefault('telemetry', {})
     stat = path.stat()
     identity = f'{stat.st_dev}:{stat.st_ino}'
-    if state.get('file') != identity or stat.st_size < state.get('offset', 0):
-        # Preserve recorded usage; replay uses deterministic byte-offset record IDs.
-        state.update(file=identity, offset=0, context={})
+    replay = bool(state.get('totals')) and ('counter_usage' not in state or state.get('file') != identity or stat.st_size < state.get('offset',0))
+    restart = replay or state.get('file') != identity or stat.st_size < state.get('offset',0)
     with path.open('rb') as stream:
         try:
             first = json.loads(stream.readline())
@@ -61,6 +60,11 @@ def transcript(agent, path, data):
         if first.get('type') != 'session_meta' or first.get('payload', {}).get('id') != agent['session_id']:
             state['warning'] = 'Transcript session identity mismatch; skipped.'
             return
+        if restart:
+            # Rebuild the display snapshot only; historical records remain untouched.
+            state.update(file=identity,offset=0,context={},totals={},counter_usage=[],counter_resets=0)
+            state.pop('warning',None)
+        state.setdefault('counter_usage',[])
         stream.seek(state['offset'])
         while True:
             offset = stream.tell(); line = stream.readline()
@@ -81,14 +85,23 @@ def transcript(agent, path, data):
                 totals = {dest: counts[src] for src, dest in FIELDS.items() if type(counts.get(src)) is int and counts[src] >= 0}
                 if not totals: continue
                 previous = state.get('totals', {})
-                # Cumulative counters may repeat; lower counters indicate reset. Never subtract or guess.
+                # A native reset begins a new display period, never a negative delta.
                 if any(v < previous.get(k, 0) for k, v in totals.items()):
-                    state['warning'] = 'Cumulative counters decreased; usage after reset is unattributed.'
-                    continue
+                    previous={}
+                    state['counter_usage']=[]
+                    state['counter_resets']=state.get('counter_resets',0)+1
+                    state.pop('warning',None)
                 delta = {k: v - previous.get(k, 0) for k, v in totals.items()}
                 state['totals'] = {**previous, **totals}
-                if not any(delta.values()): continue
                 context = state.get('context', {})
+                state['counter_at']=row.get('timestamp')
+                model=context.get('model','')
+                current=next((u for u in state['counter_usage'] if u['model']==model),None)
+                if current is None:
+                    current=dict(id='counter-'+hashlib.sha256((agent['session_id']+model).encode()).hexdigest()[:32],model=model,harness='codex',agent=agent['id'])
+                    state['counter_usage'].append(current)
+                for k,v in delta.items():current[k]=current.get(k,0)+v
+                if replay or not any(delta.values()): continue
                 record = dict(id='codex-' + hashlib.sha256(f'{agent["session_id"]}:{identity}:{offset}'.encode()).hexdigest()[:32],
                               source=f'Codex token_count at byte {offset}', updated_at=dagr.now(),
                               agent=agent['id'], harness='codex', model=context.get('model', ''), effort=context.get('effort', ''), **delta)

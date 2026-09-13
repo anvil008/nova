@@ -27,6 +27,8 @@ If an existing marketplace named `nova` points elsewhere, bootstrap stops before
 
 `--with-codex-helpers` copies the optional definitions to the native Codex agents directory. It refuses conflicting files and symlinks. A receipt tracks bootstrap-owned copies so reruns update unchanged copies while preserving user edits. Claude and Agy helpers already travel inside their plugins.
 
+Bootstrap automatically aligns host global instruction files (`~/.gemini/GEMINI.md`, `~/.claude/CLAUDE.md`, and `~/.codex/AGENTS.md`) from `instructions/global/` using ownership receipts, keeping trunk-based development and workspace placement standards consistent across all tools. Use `--no-align-global` to skip host file synchronization, or `--force-global` to overwrite unmanaged modifications.
+
 Bootstrap also installs the self-contained `nova-flow` executable into `~/.local/bin/` (override with `--bin-dir`). Add that directory to PATH if needed. Receipt ownership checks preserve conflicting local files or edits. The tool also remains available inside every plugin under `tools/nova-flow`.
 
 Bootstrap installs capabilities. Run repo-setup afterward to reconcile persistent project instructions and configure project-specific checks. Automatic Nova Flow lifecycle and usage tracking is disabled in all packaged harnesses. Rebuilding or reinstalling from this source does not enable it. The standalone tool remains available for explicit use. Bulk-read routing hooks are enabled in new bundles; they direct large reads to the existing scout. Codex needs `--with-codex-helpers` for native scout setup. See [routing and fallback](read-routing.md). Formatter/linter hooks remain inactive without explicit configuration. Native trust settings still apply. Start a new harness session after installation.
@@ -73,6 +75,10 @@ Inspect `agy plugin list` and `agy agents`; restart the session for changes. The
 
 Agy's hook example is shipped under `hooks/agy.example.json`, not activated automatically. When configuring hooks, resolve the installed plugin directory, replace its runner/config placeholders with shell-quoted absolute paths, and merge the native event definition into the supported hook configuration. Enable the configured event only after testing its command. Do not assume plugin-path environment variables are portable across harnesses.
 
+## Workspace isolation
+
+Claude bundles register native WorktreeCreate/WorktreeRemove hooks. Codex and Agy use project AGENTS.md and the shared placement instructions. See [harness comparison](harnesses.md) for base selection, cleanup retention, ignored-file handling, app settings, and the other configured differences.
+
 ## Project instructions and checks
 
 Every skill explicitly reads the bundled `instructions/development.md`. That makes the conventions available during Nova tasks without assuming plugin-root instruction files are automatically loaded.
@@ -101,3 +107,5 @@ For a repeatable Linux offline install trial, run `python3 scripts/native-smoke.
 - [Codex plugins](https://learn.chatgpt.com/docs/build-plugins), [hooks](https://learn.chatgpt.com/docs/hooks), [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
 - [Claude plugins](https://code.claude.com/docs/en/plugins), [plugin reference](https://code.claude.com/docs/en/plugins-reference)
 - [Antigravity CLI plugins](https://www.antigravity.google/docs/cli/plugins)
+
+Bootstrap preserves existing Codex/Claude versioned hook and tool dependencies under `~/.local/share/nova/hook-compat/` and restores missing cache paths after native updates, including failures. This keeps running sessions functional until restarted. Compatibility files are retained deliberately; do not prune them while sessions still reference those versions.
