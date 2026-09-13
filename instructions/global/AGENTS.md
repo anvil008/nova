@@ -18,7 +18,7 @@ The parent plans, observes, verifies, reviews, and integrates. A native implemen
 
 ## Verification and files
 
-Run relevant and required checks; inspect the final diff. Reuse unchanged evidence, distinguish pre-existing failures, and disclose gaps. Stop if failures prevent trustworthy verification; do not fix unrelated defects without authorization. Obtain independent review when required or warranted. Report checks, failures, immutable main commit, local synchronization, and exact delivery state.
+Run relevant and required checks; inspect the final diff. Reuse unchanged evidence, distinguish pre-existing failures, and disclose gaps. Stop if failures prevent trustworthy verification; do not fix unrelated defects without authorization. Obtain independent review when required or warranted. Report checks, failures, immutable main commit, local synchronization, and exact delivery state. Summarize delivered changes with a visual workflow diagram, key deliverables with file links, verification evidence, and the immutable local main commit.
 
 Keep project files and dependencies in the repository/workspace, never directly in `/home/anvil` without a request. Use standard locations for application config. Create extra workspaces under the primary checkout's ignored `.workspaces/<task>/`; resolve the primary path from secondary workspaces, never nest them. Exclude workspaces from recursive tooling.
 
