@@ -52,11 +52,12 @@ Inspect registered locations with `jj workspace list` and `git worktree list --p
 | Scout model in source | `gpt-5.6-luna` | `haiku` | `gemini-3.8-flash-low` |
 | Implementer model in source | `gpt-5.6-terra`, high effort | `claude-opus-5`, medium effort | `gemini-3.8-flash-high` |
 | Large-read routing | Packaged PreToolUse hook | Packaged PreToolUse hook | Packaged PreToolUse hook with Agy payload/response shape |
+| Task-file routing | Packaged PreToolUse guidance; implementer uses supplied `nova-write` runner | Packaged PreToolUse guidance; identified implementer writes natively | Packaged PreToolUse guidance; implementer uses supplied `nova-write` runner |
 | Post-edit formatting/linting | Packaged runner; inactive without `NOVA_HOOK_CONFIG` | Same | Explicit adapter setup; diagnostics go to logs |
 | Automatic Nova Flow tracking | Disabled | Disabled | Disabled |
 | Explicit Nova Flow CLI | Available | Available | Available |
 
-Models above are configured helper values, not guarantees of provider availability or overrides of the main conversation's model. Reviewers have no explicit model override in the current helper definitions. Read routing uses the existing scout; it does not launch a mandatory team or enable Flow. See [read routing](read-routing.md) and [development conventions](development.md).
+Models above are configured helper values, not guarantees of provider availability or overrides of the main conversation's model. Reviewers have no explicit model override in the current helper definitions. Read routing uses the existing scout; neither routing hook launches a team or enables Flow. Claude events can identify an implementer; Codex and Agy pre-tool events cannot safely attribute a write to a helper, so their implementer receives an absolute argv runner path. This cooperative routing does not universally intercept shell/script writes or override native permissions. See [read routing](read-routing.md), [task-file routing](write-routing.md), and [development conventions](development.md).
 
 ## Installation and verification
 

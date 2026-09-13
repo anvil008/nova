@@ -22,6 +22,14 @@ Native configuration references: [Codex hooks](https://learn.chatgpt.com/docs/ho
 
 `read-routing.py` runs on packaged PreToolUse read/shell events. It uses local bounded file inspection, never invokes a model or writes Flow state, and redirects large reads to the native scout. Claude/Codex use `hookSpecificOutput.permissionDecision: deny`; Agy uses `decision: deny`. Nonmatches emit `{}` with no decision or permission override, never an allow decision. Agy CLI 1.0.16+ documents handling empty pre-tool decisions; the native install check used 1.2.1. Agy runs hook commands relative to its root hooks.json, so the bundle remains relocatable. See [thresholds, supported syntax, scout handoff, and fallback](../instructions/read-routing.md).
 
+## Cooperative write routing
+
+`write-routing.py` runs on packaged PreToolUse edit and recognized shell events. It denies a recognized task-file edit with instructions for the parent to assign the entire writing task to the native implementer. It does not launch that implementer, manage parallelism, approve a write, or replace verification. The parent owns task boundaries and may run reads, checks, builds, and version-control integration; those commands can create incidental output without becoming task-file authorship.
+
+Claude permits ordinary writes only when the event has an `agent_id` and `agent_type: implementer`. Codex and Agy cannot safely identify a helper on PreToolUse, so their implementers receive an absolute path and invoke `python3 '<bundle>/tools/nova-write' -- COMMAND [ARGS...]`. The runner forwards argv without an implicit shell and still requires native permission. Its exemption is only a complete runner invocation, and the parent may not use it to evade routing. `NOVA_WRITE_ROUTING=off` requires an explicit user override.
+
+The routing is cooperative, not a security boundary: unknown shell/script writes are not universally intercepted. Errors fail open with a diagnostic and no decision; no shared state is kept. See the full [task-file routing contract](../instructions/write-routing.md).
+
 ## Codex run lifecycle and usage
 
 Automatic Nova Flow tracking is disabled in packaged Codex, Claude, and Agy plugins for now. Builds include the adapter source for future use, but register no tracking hooks. Formatter/linter hooks remain independently opt-in. The sections below describe the retained adapters when explicitly wired by a user.
