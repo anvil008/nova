@@ -7,6 +7,8 @@ description: Use Jujutsu for changes, isolated workspaces, history repair, and b
 
 Read [shared development instructions](../../instructions/development.md) once per conversation. They govern scope, authorization, trunk, and verification; this skill supplies jj mechanics.
 
+Before revision changes or delivery, read [integration procedures](../../instructions/integration.md); reuse them if already loaded.
+
 ## Inspect and isolate
 
 - Start with `jj --version`, `jj status`, `jj log -n 10`, `jj workspace list`, `jj git remote list`, and `jj bookmark list --all-remotes`. Prefer installed command help when flags differ from the [official CLI reference](https://docs.jj-vcs.dev/latest/cli-reference/).
@@ -33,5 +35,3 @@ Read [shared development instructions](../../instructions/development.md) once p
 - Report workspace, local and remote main commits, publication PR, branch cleanup, verification limits, and primary-checkout synchronization. A local-only task can finish integrated locally without creating a PR.
 
 Official details: [workspaces](https://docs.jj-vcs.dev/latest/working-copy/), [bookmarks](https://docs.jj-vcs.dev/latest/bookmarks/), [conflicts](https://docs.jj-vcs.dev/latest/conflicts/), [recovery](https://docs.jj-vcs.dev/latest/operation-log/).
-
-Parent-owned integration applies to JJ workspaces and Git worktrees: follow `instructions/development.md` (the shared development instructions for the JJ skill). Child completion is a handoff; the parent must integrate verified results and synchronize local main within existing authorization before declaring overall completion. Preserve active or dirty primary checkouts and report concrete blockers.

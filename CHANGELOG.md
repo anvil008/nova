@@ -10,6 +10,8 @@
 
 ## Unreleased
 
+- Reduce recurring instruction context with compact global/shared defaults and conditional integration, reporting, and Flow references. Preserve local integration and single-PR publication rules.
+
 - Integrate verified workspace results into local main promptly; publish accumulated results through one PR and verify superseded branch cleanup. Add a bounded Agy delegation/Stop reminder alongside Codex/Claude reminders.
 
 - Standardize trunk-based development conventions across all harnesses, enforcing single deployable trunk, short-lived task branches, squash merges, signed commits, and tag-based releases.

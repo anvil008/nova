@@ -94,13 +94,15 @@ Match your situation to a skill below. These are entry points, not a required se
 
 Browse the [skill sources](skills/) for their full instructions. Reports default to Markdown; substantial unfinished tasks can retain a checkpoint for resumption.
 
+Nova keeps global defaults and the shared skill instructions short. Detailed integration, reporting, read-routing, and optional Flow procedures are separate references, read only when relevant. Installing the plugin does not preload every reference. See [what loads when](instructions/install.md#instruction-loading).
+
 ## Local integration, one publication PR
 
 Each completed workspace result is handed to the parent with its commit and checks. The parent verifies the combined changes and integrates them into **local `main` promptly**, while preserving unrelated active work. Children keep intermediate changes local.
 
 When you authorize publication, the parent pushes one integration bookmark and opens or updates **one PR for the accumulated result**. After merge, it reconciles local main with GitHub, preserves newer local work, and verifies branch cleanup—including superseded PR branches. Remote main stays protected; local integration does not require a PR.
 
-Hooks supply bounded reminders, not proof that work is verified or integrated. The parent owns the actual version-control operations and reports any blocker. See [development conventions](instructions/development.md#parent-owned-task-integration).
+Hooks supply bounded reminders, not proof that work is verified or integrated. The parent owns the actual version-control operations and reports any blocker. See [development conventions](instructions/integration.md#parent-owned-task-integration).
 
 ## Helpers and workspace behavior
 
