@@ -109,3 +109,5 @@ For a repeatable Linux offline install trial, run `python3 scripts/native-smoke.
 - [Antigravity CLI plugins](https://www.antigravity.google/docs/cli/plugins)
 
 Bootstrap preserves existing Codex/Claude versioned hook and tool dependencies under `~/.local/share/nova/hook-compat/` and restores missing cache paths after native updates, including failures. This keeps running sessions functional until restarted. Compatibility files are retained deliberately; do not prune them while sessions still reference those versions.
+
+The parent integration reminder is installed for Codex, Claude, and Agy. Agy uses supported delegation-tool and idle Stop events rather than SubagentStop; it continues at most once per armed reminder. These reminders do not perform merges or activate Flow tracking.

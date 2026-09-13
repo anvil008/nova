@@ -40,7 +40,7 @@
   <rect x="48" y="638" width="500" height="92" rx="12" fill="#0f766e"/>
   <circle cx="80" cy="671" r="16" fill="#ccfbf1"/><text x="75" y="677" class="number">4</text>
   <text x="110" y="678" font-size="22" font-weight="650" fill="#ffffff">Deliver within your scope</text>
-  <text x="72" y="708" font-size="17" fill="#ecfdf5">Evidence + result. PR or release when authorized.</text>
+  <text x="72" y="708" font-size="17" fill="#ecfdf5">Local main first. One PR when authorized.</text>
   <path d="M 551 290 H 592" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="5 5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
   <rect x="604" y="240" width="248" height="230" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-dasharray="5 5"/>
   <text x="624" y="270" class="label">OPTIONAL HELPERS</text>

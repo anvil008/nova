@@ -50,6 +50,27 @@ class PackageTests(unittest.TestCase):
                     self.assertTrue(yaml.safe_load(front)['name'])
                     self.assertTrue(body.strip())
 
+    def test_agy_integration_commands_after_relocation_and_from_project(self):
+        installed_home = self.base / 'home'
+        plugin = installed_home / '.gemini/config/plugins/nova'
+        plugin.parent.mkdir(parents=True)
+        shutil.move(self.output / 'agy/plugins/nova', plugin)
+        events = json.loads((plugin / 'hooks.json').read_text())['nova-integration']
+        arm = events['PostToolUse'][0]['hooks'][0]['command']
+        stop = events['Stop'][0]['command']
+        env = dict(os.environ, HOME=str(installed_home), XDG_CACHE_HOME=str(self.base / 'cache'))
+        for cwd in (plugin, self.base):
+            def run(command, payload):
+                result = subprocess.run(['sh', '-c', command], input=json.dumps(payload),
+                                        text=True, capture_output=True, cwd=cwd, env=env, check=True)
+                return json.loads(result.stdout)
+            self.assertEqual(run(arm, {'conversationId': 'parent',
+                                     'toolCall': {'name': 'invoke_subagent'}}), {})
+            payload = {'conversationId': 'parent', 'fullyIdle': True, 'terminationReason': 'model_stop'}
+            self.assertEqual(run(stop, payload)['decision'], 'continue')
+            self.assertEqual(run(stop, payload), {})
+            self.assertFalse((cwd / '.nova').exists())
+
     def test_rebuild_removes_stale_files_and_preserves_foreign_directory(self):
         (self.output / 'obsolete').write_text('stale')
         package.build(self.output)
@@ -102,7 +123,9 @@ class PackageTests(unittest.TestCase):
             path = plugin / ('hooks.json' if harness == 'agy' else 'hooks/hooks.json')
             hooks = json.loads(path.read_text())
             if harness == 'agy':
-                self.assertEqual(set(hooks), {'nova-read-routing'})
+                self.assertEqual(set(hooks), {'nova-read-routing', 'nova-integration'})
+                self.assertEqual(set(hooks['nova-integration']) - {'enabled', 'description'}, {'PostToolUse', 'Stop'})
+                self.assertNotIn('tracking.py', json.dumps(hooks))
                 self.assertEqual(set(hooks['nova-read-routing']) - {'enabled', 'description'}, {'PreToolUse'})
                 continue
             expected = {'PreToolUse', 'PostToolUse', 'SubagentStop', 'Stop', 'SessionEnd'}

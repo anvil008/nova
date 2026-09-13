@@ -29,6 +29,34 @@ class IntegrationHooks(unittest.TestCase):
     def test_missing_session_is_noop(self):
         self.assertEqual(hook.handle({'hook_event_name': 'Stop'}, Path('/unused')), {})
 
+class AgyIntegrationHooks(unittest.TestCase):
+    def test_delegation_reminder_waits_for_idle_and_is_consumed_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory)
+            def event(name, session='parent', **kw):
+                return hook.handle_agy(dict(conversationId=session, **kw), cache, name)
+            self.assertEqual(event('Stop', fullyIdle=True, terminationReason='model_stop'), {})
+            self.assertEqual(event('PostToolUse', toolCall={'name': 'invoke_subagent', 'args': {}}), {})
+            self.assertEqual(event('Stop', fullyIdle=True, terminationReason='model_stop', session='other'), {})
+            for kw in ({'fullyIdle': False}, {'fullyIdle': True, 'terminationReason': 'error'},
+                       {'fullyIdle': True, 'terminationReason': 'model_stop', 'error': 'failed'}):
+                self.assertEqual(event('Stop', **kw), {})
+            result = event('Stop', fullyIdle=True, terminationReason='model_stop')
+            self.assertEqual(result['decision'], 'continue')
+            self.assertIn('local main', result['reason'])
+            self.assertEqual(event('Stop', fullyIdle=True, terminationReason='model_stop'), {})
+
+    def test_failed_or_unrelated_tools_do_not_arm_reminder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory)
+            for payload in ({'toolCall': {'name': 'run_command'}},
+                            {'toolCall': {'name': 'invoke_subagent'}, 'error': 'failed'},
+                            {'toolCall': None}):
+                hook.handle_agy(dict(conversationId='parent', **payload), cache, 'PostToolUse')
+            self.assertEqual(hook.handle_agy({'conversationId': 'parent', 'fullyIdle': True,
+                             'terminationReason': 'model_stop'}, cache, 'Stop'), {})
+            self.assertEqual(hook.handle_agy({}, cache, 'Stop'), {})
+
 class CompatibilityHooks(unittest.TestCase):
     def test_evicted_paths_restored_even_when_update_fails(self):
         import sys
