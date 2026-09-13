@@ -165,7 +165,7 @@ def route(payload, harness, env=None):
                 return {'decision': 'deny', 'reason': reason}
             return {'hookSpecificOutput': {'hookEventName': 'PreToolUse',
                     'permissionDecision': 'deny', 'permissionDecisionReason': reason}}
-    return {}
+    return {'decision': 'allow'} if harness == 'agy' else {}
 
 
 def hook_main():
@@ -177,7 +177,7 @@ def hook_main():
     except (OSError, ValueError, TypeError, AttributeError, KeyError) as error:
         # A routing failure must not strand ordinary development or grant permissions.
         print(f'Nova read routing skipped: {error}', file=sys.stderr)
-        result = {}
+        result = {'decision': 'allow'} if args.harness == 'agy' else {}
     print(json.dumps(result))
 
 

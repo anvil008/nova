@@ -71,7 +71,7 @@ def build(output, version=None):
                     'enabled': True, 'description': 'Route bulk reads to the existing scout',
                     'PreToolUse': [{'matcher': 'view_file|run_command', 'hooks': [{
                         'type': 'command', 'timeout': 5,
-                        'command': 'python3 hooks/read-routing.py --harness agy'}]}]}})
+                        'command': 'python3 -c "import os,sys; p = \\"hooks/read-routing.py\\" if os.path.exists(\\"hooks/read-routing.py\\") else os.path.expanduser(\\"~/.gemini/config/plugins/nova/hooks/read-routing.py\\"); os.execv(sys.executable, [sys.executable, p] + sys.argv[1:])" --harness agy'}]}]}})
                 (plugin / 'rules').mkdir(exist_ok=True)
                 shutil.copy2(ROOT / 'instructions/development.md', plugin / 'rules/nova.md')
             if harness == 'codex':

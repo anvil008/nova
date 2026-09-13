@@ -62,7 +62,7 @@ Models above are configured helper values, not guarantees of provider availabili
 
 Run `./scripts/bootstrap.sh --harness all` from the source checkout to refresh the three installed bundles. Optional Codex helper updates require `--with-codex-helpers`. Bootstrap uses content-derived development versions and self-contained files under `~/.local/share/nova/plugins/`; native managers may copy them into separate caches. Source edits alone do not update an installed copy. Start new sessions after installation.
 
-Personal instructions are not overwritten by bootstrap. On this development box, workspace guidance was also aligned in `~/.codex/AGENTS.md`, `~/.claude/CLAUDE.md`, and `~/.gemini/GEMINI.md`. Those machine-local edits do not propagate through Git. Reconcile project/personal guidance during repo setup; the shared package remains the portable source of Nova conventions.
+Personal instructions are not overwritten by bootstrap. On this development box, workspace and trunk-based development guidance were also aligned in `~/.codex/AGENTS.md`, `~/.claude/CLAUDE.md`, and `~/.gemini/GEMINI.md`. Those machine-local edits do not propagate through Git. Reconcile project/personal guidance during repo setup; the shared package remains the portable source of Nova conventions.
 
 Verify package contents and native discovery separately from actual hook execution. Workspace tests exercise real Git/JJ creation, secondary-workspace routing, collision refusal, and file retention. A successful install alone does not establish desktop app behavior, model compliance, or automatic hook trust. See [installation](install.md) for commands and update behavior.
 

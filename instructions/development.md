@@ -4,7 +4,16 @@ Carry the user's scope, decisions, and authorization through completion. Use one
 
 ## Version control and trunk
 
-Use jj unless the user or repository explicitly requires plain Git. Inspect working-copy state and history first; preserve unrelated work. For an authorized adoption in an existing Git repository, use colocated initialization. Use main, or the configured default branch, as the integration trunk. Keep changes small and short-lived; stack only genuinely dependent changes.
+Use jj unless the user or repository explicitly requires plain Git. Inspect working-copy state and history first; preserve unrelated work. For an authorized adoption in an existing Git repository, use colocated initialization.
+
+Trunk-based development applies across all harnesses and repositories:
+- **Deployable trunk:** `main` (or the repository's configured default branch) is the single integration trunk and remains continuously deployable. Default branches are protected by the `main-trunk` ruleset: every change lands through a pull request, linear history is required, commits must be SSH-signed, and direct push, force-push, and branch deletion are blocked. Never push directly to trunk.
+- **Short-lived changes:** Base independent work on a freshly fetched current trunk (`origin/main` or JJ `main@origin`). Stack only changes that genuinely depend on each other. Branches and task changes live under two days; name branches `<type>/<slug>` (`feat|fix|chore|docs|refactor|release`). Ship incomplete work behind flags, dark, or unreferenced — never on a long-lived branch.
+- **One change, one PR:** Open PRs targeting trunk (`gh pr create --base main`). Squash-merge or rebase; delete the branch immediately on merge (`delete_branch_on_merge` is enabled).
+- **Linear history:** Rebase onto trunk before opening a PR and update if stale. Never merge `main` into a branch.
+- **Commit signing:** Sign every commit (SSH-signed); unsigned commits are rejected by repository rulesets.
+- **Releases are tags:** Releases are annotated tags on `main` (`vYYYY.MM.DD[.N]`), never release branches. A published GitHub Release is the deploy trigger.
+- **Housekeeping:** Stale branches are pruned regularly: branches merged into trunk and remote branches with no activity over 30 days.
 
 Reuse a suitable workspace. Isolate independent work when another task or unrelated changes would interfere. Use noninteractive commands with explicit messages, avoid rewriting published history, and check conflicts after revision changes. Report the immutable tested commit when available; a jj change ID identifies evolving work. Rerun affected checks when rebasing or conflict resolution changes tested source.
 

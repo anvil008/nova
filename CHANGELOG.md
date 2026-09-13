@@ -10,6 +10,7 @@
 
 ## Unreleased
 
+- Standardize trunk-based development conventions across all harnesses, enforcing single deployable trunk, short-lived task branches, squash merges, signed commits, and tag-based releases.
 - Use Claude native workspace hooks for JJ/Git placement under `.workspaces/`, with conservative cleanup; keep Codex/Agy instruction-driven and document the harness differences.
 
 - Consolidate the public menu to ten workflows and two auxiliary skills. Build owns shared implementation; review, profile, and docs retain independent outcomes.
