@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1340" viewBox="0 0 960 1340" role="img" aria-labelledby="title description">
+<title id="title">Which Nova skill should I use?</title>
+<desc id="description">Choose by the task. Decide: spec clarifies behavior, plan prepares implementation, multiplan explicitly compares three harness plans. Change: build implements, debug diagnoses failures, refactor simplifies without changing behavior. Assure: review finds defects, docs explains current behavior. Operations: profile measures performance, deploy releases an authorized change. Support: repo-setup prepares tooling, jj manages revisions and PRs, wiki retrieves or saves project knowledge, use-other-harness runs an explicitly requested harness. Example paths can skip unnecessary stages; deployment requires authorization.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#5eead4"/></marker></defs>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}.group{font-size:13px;font-weight:700;letter-spacing:1.3px;fill:#0f766e}.name{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:22px;font-weight:700;fill:#0f172a}.body{font-size:17px;fill:#475569}.hint{font-size:15px;fill:#64748b}</style>
+<rect width="960" height="1340" rx="20" fill="#f8fafc"/>
+<text x="40" y="42" class="group">NOVA / CHOOSE BY THE TASK</text>
+<text x="40" y="84" font-size="32" font-weight="700" fill="#0f172a">What do you need to do?</text>
+<text x="40" y="114" class="body">Start with the closest match. Use only the skills your task needs.</text>
+<text x="40" y="155" class="group">01 / DECIDE</text><text x="163" y="155" class="hint">Clarify the work before changing code</text>
+<rect x="40" y="172" width="280" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="40" y="187" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="60" y="207" class="name">spec</text>
+<text x="60" y="237" class="body">“The behavior is unclear.”</text>
+<text x="60" y="261" class="body">Agree on what to build.</text>
+<rect x="340" y="172" width="280" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="340" y="187" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="360" y="207" class="name">plan</text>
+<text x="360" y="237" class="body">“The goal is clear.”</text>
+<text x="360" y="261" class="body">Choose steps and checks.</text>
+<rect x="640" y="172" width="280" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="640" y="187" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="660" y="207" class="name">multiplan</text>
+<text x="660" y="237" class="body">“Compare three plans.”</text>
+<text x="660" y="261" class="body">Explicit request only.</text>
+<text x="40" y="321" class="group">02 / CHANGE</text><text x="163" y="321" class="hint">Implement, diagnose, or simplify</text>
+<rect x="40" y="338" width="280" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="40" y="353" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="60" y="373" class="name">build</text>
+<text x="60" y="403" class="body">“Make this feature or fix.”</text>
+<text x="60" y="427" class="body">Implement and verify.</text>
+<rect x="340" y="338" width="280" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="340" y="353" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="360" y="373" class="name">debug</text>
+<text x="360" y="403" class="body">“Something is failing.”</text>
+<text x="360" y="427" class="body">Find why; fix if requested.</text>
+<rect x="640" y="338" width="280" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="640" y="353" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="660" y="373" class="name">refactor</text>
+<text x="660" y="403" class="body">“This code is hard to work on.”</text>
+<text x="660" y="427" class="body">Simplify; preserve behavior.</text>
+<text x="40" y="487" class="group">03 / ASSURE</text><text x="163" y="487" class="hint">Inspect or explain the current system</text>
+<rect x="40" y="504" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="40" y="519" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="60" y="539" class="name">review</text>
+<text x="60" y="569" class="body">“Check this diff for defects.”</text>
+<text x="60" y="593" class="body">Return evidence; review alone does not edit.</text>
+<rect x="490" y="504" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="490" y="519" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="510" y="539" class="name">docs</text>
+<text x="510" y="569" class="body">“Help users understand this.”</text>
+<text x="510" y="593" class="body">Write or update docs from current source.</text>
+<text x="40" y="653" class="group">04 / OPERATIONS</text><text x="199" y="653" class="hint">Measure performance or ship a verified change</text>
+<rect x="40" y="670" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="40" y="685" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="60" y="705" class="name">profile</text>
+<text x="60" y="735" class="body">“Where is the time going?”</text>
+<text x="60" y="759" class="body">Measure first; optimize when requested.</text>
+<rect x="490" y="670" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="490" y="685" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="510" y="705" class="name">deploy</text>
+<text x="510" y="735" class="body">“Release this to the target environment.”</text>
+<text x="510" y="759" class="body">Check readiness, rollout, and health.</text>
+<text x="40" y="819" class="group">05 / SUPPORT</text><text x="172" y="819" class="hint">Use alongside the task when needed</text>
+<rect x="40" y="836" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="40" y="851" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="60" y="871" class="name">repo-setup</text>
+<text x="60" y="901" class="body">“Prepare this repository for development.”</text>
+<text x="60" y="925" class="body">Set up instructions, tools, and checks.</text>
+<rect x="490" y="836" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="490" y="851" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="510" y="871" class="name">jj</text>
+<text x="510" y="901" class="body">“Manage these changes and workspaces.”</text>
+<text x="510" y="925" class="body">Inspect revisions, conflicts, and PR delivery.</text>
+<rect x="40" y="962" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="40" y="977" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="60" y="997" class="name">wiki</text>
+<text x="60" y="1027" class="body">“What did we learn or decide?”</text>
+<text x="60" y="1051" class="body">Retrieve or save knowledge in an opted-in wiki.</text>
+<rect x="490" y="962" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="490" y="977" width="4" height="28" rx="2" fill="#0f766e"/>
+<text x="510" y="997" class="name">use-other-harness</text>
+<text x="510" y="1027" class="body">“Run this task in the harness I named.”</text>
+<text x="510" y="1051" class="body">A bounded assignment, explicitly requested.</text>
+<rect x="40" y="1100" width="880" height="194" rx="14" fill="#0f172a"/>
+<text x="64" y="1130" font-size="13" font-weight="700" letter-spacing="1" fill="#5eead4">EXAMPLE PATHS / SKIP STEPS YOU DO NOT NEED</text>
+<text x="64" y="1164" font-size="17" fill="#cbd5e1">Unclear feature</text>
+<text x="294" y="1164" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">spec</text>
+<path d="M386 1158 h35" fill="none" stroke="#5eead4" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="441" y="1164" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">plan</text>
+<path d="M533 1158 h35" fill="none" stroke="#5eead4" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="588" y="1164" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">build</text>
+<path d="M680 1158 h35" fill="none" stroke="#5eead4" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="735" y="1164" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">review</text>
+<text x="64" y="1203" font-size="17" fill="#cbd5e1">Failing behavior</text>
+<text x="294" y="1203" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">debug</text>
+<path d="M386 1197 h35" fill="none" stroke="#5eead4" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="441" y="1203" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">review</text>
+<text x="64" y="1242" font-size="17" fill="#cbd5e1">Ready to implement</text>
+<text x="294" y="1242" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">build</text>
+<path d="M386 1236 h35" fill="none" stroke="#5eead4" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="441" y="1242" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">review</text>
+<path d="M533 1236 h35" fill="none" stroke="#5eead4" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="588" y="1242" font-family="ui-monospace,Consolas,monospace" font-size="19" font-weight="600" fill="#ffffff">deploy*</text>
+<text x="64" y="1274" font-size="14" fill="#cbd5e1">* Deploy only when authorized. Helpers and Nova Flow are optional, not extra skill stages.</text></svg>
