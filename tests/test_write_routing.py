@@ -93,6 +93,18 @@ class WriteRoutingTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertEqual(json.loads(result.stdout), {})
 
+    def test_hook_cli_allows_explicitly_for_agy(self):
+        allowed = json.dumps({'toolCall': {'name': 'run_command', 'args': {'CommandLine': 'ls'}}})
+        for payload in (allowed, 'not json', '[]'):
+            result = subprocess.run([sys.executable, str(ROOT / 'hooks/write-routing.py'), '--harness', 'agy'],
+                                    input=payload, text=True, capture_output=True, timeout=3)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(json.loads(result.stdout), {'decision': 'allow'})
+        result = subprocess.run([sys.executable, str(ROOT / 'hooks/write-routing.py'), '--harness', 'codex'],
+                                input=allowed, text=True, capture_output=True, timeout=3)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {})
+
 
 if __name__ == '__main__':
     unittest.main()

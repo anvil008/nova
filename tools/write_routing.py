@@ -235,6 +235,8 @@ def hook_main():
     except (OSError, ValueError, TypeError, AttributeError, KeyError) as error:
         print(f'Nova write routing skipped: {error}', file=sys.stderr)
         result = {}
+    if args.harness == 'agy' and not result:
+        result = {'decision': 'allow'}
     print(json.dumps(result))
 
 
