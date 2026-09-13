@@ -3,7 +3,7 @@
 <desc id="description">PreToolUse invokes read routing in Codex, Claude, and Agy: recognized large reads are denied with scout guidance. Another PreToolUse hook routes recognized task-file edits to a native implementer; it never launches a worker, and Codex/Agy use a supplied argv runner because their events cannot safely identify a helper. In Codex and Claude, SubagentStop sets a marker, the next eligible parent Stop gives a one-shot integration reminder, and SessionEnd clears the marker. Claude WorktreeCreate creates a workspace under the primary checkout; WorktreeRemove retains JJ workspaces and unsafe-to-remove Git worktrees. PostToolUse formatting and linting require explicit configuration. Agy PostToolUse observes delegation and a normal fully idle Stop continues once with the integration reminder. Automatic Flow tracking is disabled. Separately, bootstrap preserves older hook paths during plugin updates.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#0f766e"/></marker></defs>
 <style>text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}.label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#0f766e}.title{font-size:21px;font-weight:650;fill:#0f172a}.body{font-size:16px;fill:#475569}.code{font-family:ui-monospace,Consolas,monospace;font-size:17px;fill:#0f172a}.small{font-size:14px;fill:#64748b}</style>
-<rect width="1040" height="1542" rx="20" fill="#f8fafc"/>
+<rect width="1040" height="1714" rx="20" fill="#f8fafc"/>
 <text x="40" y="42" class="label">NOVA / HOOKS AT A GLANCE</text>
 <text x="40" y="84" font-size="32" font-weight="700" fill="#0f172a">What fires, and what happens next?</text>
 <text x="40" y="114" class="body">Registered by the plugin. Native enablement and trust settings still apply.</text>
@@ -97,4 +97,4 @@
 <text x="60" y="1592" font-size="20" font-weight="650" fill="#ffffff">Bootstrap update → preserve_hook_paths() → existing sessions keep their hook files</text>
 <text x="60" y="1620" font-size="16" fill="#cbd5e1">Back up versioned Codex/Claude hook and tool files; restore missing paths after native updates.</text>
 <text x="60" y="1644" font-size="16" fill="#cbd5e1">Runs on failed updates too. Start new harness sessions to load the newly installed plugin.</text>
-<text x="40" y="1694" class="small">The parent still owns tests, review, integration, and authorized delivery.</text></svg>
+<text x="40" y="1694" class="small">The parent still owns verification, review, integration, and authorized delivery.</text></svg>
