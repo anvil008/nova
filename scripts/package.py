@@ -75,6 +75,20 @@ def build(output, version=None):
                     'PreToolUse': [{'matcher': 'view_file|run_command', 'hooks': [{
                         'type': 'command', 'timeout': 5,
                         'command': 'python3 -c "import os,sys; p = \\"hooks/read-routing.py\\" if os.path.exists(\\"hooks/read-routing.py\\") else os.path.expanduser(\\"~/.gemini/config/plugins/nova/hooks/read-routing.py\\"); os.execv(sys.executable, [sys.executable, p] + sys.argv[1:])" --harness agy'}]}]}})
+                # Agy's Stop can continue once; PostToolUse records observed delegation.
+                agy_hooks = json.loads((plugin / 'hooks.json').read_text())
+                integration_command = ('python3 -c "import os,runpy; '
+                    'p=os.path.expanduser(\\\"~/.gemini/config/plugins/nova/hooks/integration.py\\\"); '
+                    'runpy.run_path(\\\"hooks/integration.py\\\" if os.path.isfile(\\\"hooks/integration.py\\\") '
+                    'else p,run_name=\\\"__main__\\\")" --harness agy')
+                agy_hooks['nova-integration'] = {
+                    'enabled': True, 'description': 'One parent integration reminder after delegation',
+                    'PostToolUse': [{'matcher': 'invoke_subagent', 'hooks': [{
+                        'type': 'command', 'timeout': 5,
+                        'command': integration_command + ' --event PostToolUse'}]}],
+                    'Stop': [{'type': 'command', 'timeout': 5,
+                              'command': integration_command + ' --event Stop'}]}
+                write_json(plugin / 'hooks.json', agy_hooks)
                 (plugin / 'rules').mkdir(exist_ok=True)
                 shutil.copy2(ROOT / 'instructions/development.md', plugin / 'rules/nova.md')
             if harness == 'codex':

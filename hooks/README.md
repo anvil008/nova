@@ -55,4 +55,14 @@ Agy hook commands reference bootstrap's stable bundle path; rebuilding at a new 
 
 Sources: [Claude hooks](https://code.claude.com/docs/en/hooks), [Agy hooks and payloads](https://antigravity.google/docs/hooks/), [Agy plugin layout](https://antigravity.google/docs/cli/plugins/).
 
-`integration.py` supplies a one-shot parent Stop reminder after SubagentStop in Codex/Claude. It never merges, inspects transcripts, or treats its marker as integration evidence. See the harness comparison for boundaries. Git workspace cleanup requires HEAD ancestry in local trunk as well as a clean checkout.
+## Parent integration reminders
+
+`integration.py` reminds the parent to integrate each ready, verified result into local main promptly, keep child work local, publish through one integration PR, and verify merged/superseded branch cleanup. It performs no Git/JJ operations and cannot prove verification or integration.
+
+Codex/Claude use SubagentStop to arm a session marker. The next eligible parent Stop consumes it and blocks once with the reminder, respecting stop_hook_active. SessionEnd clears leftovers. Read-only children can also arm it; their results require no merge.
+
+Agy has no documented SubagentStop event. Its PostToolUse adapter observes successful `invoke_subagent` calls and arms a conversation-scoped marker. A Stop with `fullyIdle: true`, `terminationReason: model_stop`, and no error consumes it and returns `decision: continue` with the reminder. Background work, error/limit stops, unrelated calls, and missing identities do not trigger continuation. Consumption prevents repeated reminders without new delegation. This observes delegation, not proof of child completion; the parent still verifies results. Without a native SessionEnd event, an unused Agy marker can remain until that conversation's next eligible Stop. No Flow run is created.
+
+Payload and continuation contracts: [Agy hooks](https://antigravity.google/docs/hooks/). Tests exercise the packaged commands after relocation and from a project directory; they do not establish model compliance or live completion of a delegated task.
+
+Git workspace cleanup requires HEAD ancestry in local trunk as well as a clean checkout. Squash/rebase equivalents require explicit parent verification before manual cleanup.

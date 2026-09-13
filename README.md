@@ -94,6 +94,14 @@ Match your situation to a skill below. These are entry points, not a required se
 
 Browse the [skill sources](skills/) for their full instructions. Reports default to Markdown; substantial unfinished tasks can retain a checkpoint for resumption.
 
+## Local integration, one publication PR
+
+Each completed workspace result is handed to the parent with its commit and checks. The parent verifies the combined changes and integrates them into **local `main` promptly**, while preserving unrelated active work. Children keep intermediate changes local.
+
+When you authorize publication, the parent pushes one integration bookmark and opens or updates **one PR for the accumulated result**. After merge, it reconciles local main with GitHub, preserves newer local work, and verifies branch cleanup—including superseded PR branches. Remote main stays protected; local integration does not require a PR.
+
+Hooks supply bounded reminders, not proof that work is verified or integrated. The parent owns the actual version-control operations and reports any blocker. See [development conventions](instructions/development.md#parent-owned-task-integration).
+
 ## Helpers and workspace behavior
 
 Nova includes three optional native helpers: a **scout** for focused investigation, an **implementer** for a bounded change, and a **reviewer** for independent inspection. The main agent remains responsible for checking and integrating their results.
@@ -106,12 +114,12 @@ Work that needs isolation uses `.workspaces/<task>/` under the primary checkout.
 
 Hooks connect native agent events to small local functions. This map shows what Nova registers, what needs configuration, and what remains disabled.
 
-![Nova hook map: PreToolUse checks large reads; SubagentStop and parent Stop provide an integration reminder; Claude WorktreeCreate and WorktreeRemove manage isolated workspaces; PostToolUse formatting and linting are opt-in. Automatic Flow tracking is disabled, while bootstrap separately preserves old hook paths during updates.](docs/diagrams/nova-hooks.svg)
+![Nova hook map: PreToolUse checks large reads; Codex/Claude child-stop and Agy delegation events arm a parent integration reminder; Claude WorktreeCreate and WorktreeRemove manage isolated workspaces; PostToolUse formatting and linting are opt-in. Automatic Flow tracking is disabled, while bootstrap separately preserves old hook paths during updates.](docs/diagrams/nova-hooks.svg)
 
 [View the hook map at full size](docs/diagrams/nova-hooks.svg) · [Hook configuration](hooks/README.md) · [Harness differences](instructions/harnesses.md)
 
 - **Before a read:** recognized large reads receive scout-routing guidance. The hook does not launch a helper itself.
-- **After a child stops:** Codex and Claude schedule one parent Stop reminder to finish integration. The hook never merges changes; `SessionEnd` clears leftover reminders.
+- **After delegation:** Codex and Claude use child-stop events; Agy observes successful `invoke_subagent` tool calls. Each can issue one parent continuation reminder to verify results, integrate into local main, and finish authorized publication and cleanup. Agy waits for a normal, fully idle Stop. Hooks never merge changes themselves.
 - **When Claude creates or removes an isolated workspace:** the adapter uses the primary checkout’s `.workspaces/` directory and retains work that cannot be safely removed. JJ cleanup stays explicit.
 - **After supported editor calls:** formatting and linting run only with an enabled configuration. Codex/Claude use `NOVA_HOOK_CONFIG`; Agy requires explicit adapter setup. These checks do not replace final verification.
 
