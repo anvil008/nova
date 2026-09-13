@@ -61,13 +61,20 @@ def build(output, version=None):
                     'matcher': 'Read|read_file|Bash|exec_command|shell_command',
                     'hooks': [{'type': 'command', 'timeout': 5,
                                'command': f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/read-routing.py" --harness {harness}'}]}]
+                for event in ('SubagentStop', 'Stop', 'SessionEnd'):
+                    adapter['hooks'][event] = [{'hooks': [{'type': 'command', 'timeout': 5,
+                        'command': 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/integration.py"'}]}]
+                if harness == 'claude':
+                    for event in ('WorktreeCreate', 'WorktreeRemove'):
+                        adapter['hooks'][event] = [{'hooks': [{'type': 'command', 'timeout': 120,
+                            'command': 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/workspace.py"'}]}]
                 write_json(plugin / 'hooks/hooks.json', adapter)
             else:
                 write_json(plugin / 'hooks.json', {'nova-read-routing': {
                     'enabled': True, 'description': 'Route bulk reads to the existing scout',
                     'PreToolUse': [{'matcher': 'view_file|run_command', 'hooks': [{
                         'type': 'command', 'timeout': 5,
-                        'command': 'python3 hooks/read-routing.py --harness agy'}]}]}})
+                        'command': 'python3 -c "import os,sys; p = \\"hooks/read-routing.py\\" if os.path.exists(\\"hooks/read-routing.py\\") else os.path.expanduser(\\"~/.gemini/config/plugins/nova/hooks/read-routing.py\\"); os.execv(sys.executable, [sys.executable, p] + sys.argv[1:])" --harness agy'}]}]}})
                 (plugin / 'rules').mkdir(exist_ok=True)
                 shutil.copy2(ROOT / 'instructions/development.md', plugin / 'rules/nova.md')
             if harness == 'codex':

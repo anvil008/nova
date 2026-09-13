@@ -1,0 +1,493 @@
+{
+  "nova_dagr": 1,
+  "revision": 27,
+  "run": {
+    "id": "demo",
+    "title": "Demo \u00b7 Improve session tracking",
+    "state": "active",
+    "phase": "spec",
+    "created_at": "2026-09-08T04:56:48.693Z"
+  },
+  "updated_at": "2026-09-08T04:56:48.810Z",
+  "milestones": [],
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Understand the missing session",
+      "milestone": null,
+      "phase": "spec",
+      "deps": [],
+      "state": "done",
+      "note": "",
+      "attempts": [
+        {
+          "number": 1,
+          "state": "done",
+          "started_at": "2026-09-08T04:56:48.719Z",
+          "reason": "Initial attempt",
+          "inputs": [],
+          "workers": {
+            "main": {
+              "harness": "codex",
+              "model": "gpt-6-astra",
+              "effort": "medium"
+            }
+          },
+          "ended_at": "2026-09-08T04:56:48.723Z",
+          "outcome_note": "",
+          "evidence": "Illustrative demo check",
+          "evidence_level": "reported",
+          "source_revision": ""
+        }
+      ],
+      "issue": null,
+      "kind": "task",
+      "parent_id": null
+    },
+    {
+      "id": "T02",
+      "title": "Inspect lifecycle hooks",
+      "milestone": null,
+      "phase": "spec",
+      "deps": [
+        "T01"
+      ],
+      "state": "done",
+      "note": "",
+      "attempts": [
+        {
+          "number": 1,
+          "state": "done",
+          "started_at": "2026-09-08T04:56:48.731Z",
+          "reason": "Initial attempt",
+          "inputs": [
+            "T01.a1"
+          ],
+          "workers": {
+            "scout": {
+              "harness": "codex",
+              "model": "gpt-5.6-luna",
+              "effort": "low"
+            }
+          },
+          "ended_at": "2026-09-08T04:56:48.735Z",
+          "outcome_note": "",
+          "evidence": "Illustrative demo check",
+          "evidence_level": "reported",
+          "source_revision": ""
+        }
+      ],
+      "issue": null,
+      "kind": "task",
+      "parent_id": "T01"
+    },
+    {
+      "id": "T03",
+      "title": "Build the session adapter",
+      "milestone": null,
+      "phase": "spec",
+      "deps": [
+        "T01"
+      ],
+      "state": "working",
+      "note": "Demo: final concurrency check running",
+      "attempts": [
+        {
+          "number": 1,
+          "state": "failed",
+          "started_at": "2026-09-08T04:56:48.744Z",
+          "reason": "Initial attempt",
+          "inputs": [
+            "T01.a1"
+          ],
+          "workers": {
+            "builder": {
+              "harness": "codex",
+              "model": "gpt-5.6-terra",
+              "effort": "max"
+            }
+          },
+          "ended_at": "2026-09-08T04:56:48.758Z",
+          "outcome_note": "Demo: adapter dropped the session identifier",
+          "evidence": "",
+          "evidence_level": "reported",
+          "source_revision": ""
+        },
+        {
+          "number": 2,
+          "state": "failed",
+          "started_at": "2026-09-08T04:56:48.762Z",
+          "reason": "Demo: preserve the identifier across hook events",
+          "inputs": [
+            "T01.a1"
+          ],
+          "workers": {
+            "builder": {
+              "harness": "codex",
+              "model": "gpt-5.6-terra",
+              "effort": "max"
+            }
+          },
+          "ended_at": "2026-09-08T04:56:48.766Z",
+          "outcome_note": "Demo: concurrent hook writes still lose an update",
+          "evidence": "",
+          "evidence_level": "reported",
+          "source_revision": ""
+        },
+        {
+          "number": 3,
+          "state": "working",
+          "started_at": "2026-09-08T04:56:48.769Z",
+          "reason": "Demo: serialize updates and rerun concurrency checks",
+          "inputs": [
+            "T01.a1"
+          ],
+          "workers": {
+            "builder": {
+              "harness": "codex",
+              "model": "gpt-5.6-terra",
+              "effort": "max"
+            }
+          },
+          "progress": {
+            "done": 2,
+            "total": 3,
+            "note": "Demo: final concurrency check running"
+          }
+        }
+      ],
+      "issue": null,
+      "kind": "task",
+      "parent_id": "T01"
+    },
+    {
+      "id": "T04",
+      "title": "Check the combined behavior",
+      "milestone": null,
+      "phase": "spec",
+      "deps": [
+        "T02",
+        "T03"
+      ],
+      "state": "pending",
+      "note": "",
+      "attempts": [],
+      "issue": null,
+      "kind": "task",
+      "parent_id": null
+    },
+    {
+      "id": "T05",
+      "title": "Integrate the checked change",
+      "milestone": null,
+      "phase": "spec",
+      "deps": [
+        "T04"
+      ],
+      "state": "pending",
+      "note": "",
+      "attempts": [],
+      "issue": null,
+      "kind": "task",
+      "parent_id": null
+    },
+    {
+      "id": "T06",
+      "title": "Check a remote harness",
+      "milestone": null,
+      "phase": "spec",
+      "deps": [],
+      "state": "blocked",
+      "note": "Demo: waiting for access to the remote host",
+      "attempts": [
+        {
+          "number": 1,
+          "state": "blocked",
+          "started_at": "2026-09-08T04:56:48.781Z",
+          "reason": "Initial attempt",
+          "inputs": [],
+          "workers": {
+            "main": {
+              "harness": "codex",
+              "model": "gpt-6-astra",
+              "effort": "medium"
+            }
+          }
+        }
+      ],
+      "issue": null,
+      "kind": "task",
+      "parent_id": null
+    },
+    {
+      "id": "T07",
+      "title": "Keep the old polling workaround",
+      "milestone": null,
+      "phase": "spec",
+      "deps": [],
+      "state": "canceled",
+      "note": "Demo: native hooks replace polling",
+      "attempts": [],
+      "issue": null,
+      "kind": "task",
+      "parent_id": null
+    },
+    {
+      "id": "T08",
+      "title": "Validate the packaged hook path",
+      "milestone": null,
+      "phase": "spec",
+      "deps": [],
+      "state": "failed",
+      "note": "Demo: packaged hook script was missing; retry not started",
+      "attempts": [
+        {
+          "number": 1,
+          "state": "failed",
+          "started_at": "2026-09-08T04:56:48.806Z",
+          "reason": "Initial attempt",
+          "inputs": [],
+          "ended_at": "2026-09-08T04:56:48.810Z",
+          "outcome_note": "Demo: packaged hook script was missing; retry not started",
+          "evidence": "",
+          "evidence_level": "reported",
+          "source_revision": ""
+        }
+      ],
+      "issue": null,
+      "kind": "task",
+      "parent_id": null
+    }
+  ],
+  "agents": [
+    {
+      "id": "main",
+      "parent": null,
+      "role": "main",
+      "harness": "codex",
+      "model": "gpt-6-astra",
+      "effort": "medium",
+      "phase": "spec",
+      "state": "waiting",
+      "task": "T06",
+      "activity": "",
+      "updated_at": "2026-09-08T04:56:48.785Z"
+    },
+    {
+      "id": "scout",
+      "parent": "main",
+      "role": "scout",
+      "harness": "codex",
+      "model": "gpt-5.6-luna",
+      "effort": "low",
+      "phase": "spec",
+      "state": "idle",
+      "task": null,
+      "activity": "",
+      "updated_at": "2026-09-08T04:56:48.735Z"
+    },
+    {
+      "id": "builder",
+      "parent": "main",
+      "role": "implementer",
+      "harness": "codex",
+      "model": "gpt-5.6-terra",
+      "effort": "max",
+      "phase": "spec",
+      "state": "working",
+      "task": "T03",
+      "activity": "",
+      "updated_at": "2026-09-08T04:56:48.769Z"
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "at": "2026-09-08T04:56:48.694Z",
+      "type": "run_created",
+      "detail": "Improve session tracking"
+    },
+    {
+      "seq": 2,
+      "at": "2026-09-08T04:56:48.702Z",
+      "type": "agent_updated",
+      "detail": "idle",
+      "agent": "main"
+    },
+    {
+      "seq": 3,
+      "at": "2026-09-08T04:56:48.707Z",
+      "type": "agent_updated",
+      "detail": "idle",
+      "agent": "scout"
+    },
+    {
+      "seq": 4,
+      "at": "2026-09-08T04:56:48.711Z",
+      "type": "agent_updated",
+      "detail": "idle",
+      "agent": "builder"
+    },
+    {
+      "seq": 5,
+      "at": "2026-09-08T04:56:48.715Z",
+      "type": "task_added",
+      "detail": "Understand the missing session",
+      "task": "T01"
+    },
+    {
+      "seq": 6,
+      "at": "2026-09-08T04:56:48.719Z",
+      "type": "task_working",
+      "detail": "Understand the missing session",
+      "task": "T01"
+    },
+    {
+      "seq": 7,
+      "at": "2026-09-08T04:56:48.723Z",
+      "type": "task_done",
+      "detail": "Understand the missing session",
+      "task": "T01"
+    },
+    {
+      "seq": 8,
+      "at": "2026-09-08T04:56:48.727Z",
+      "type": "task_added",
+      "detail": "Inspect lifecycle hooks",
+      "task": "T02"
+    },
+    {
+      "seq": 9,
+      "at": "2026-09-08T04:56:48.731Z",
+      "type": "task_working",
+      "detail": "Inspect lifecycle hooks",
+      "task": "T02"
+    },
+    {
+      "seq": 10,
+      "at": "2026-09-08T04:56:48.735Z",
+      "type": "task_done",
+      "detail": "Inspect lifecycle hooks",
+      "task": "T02"
+    },
+    {
+      "seq": 11,
+      "at": "2026-09-08T04:56:48.739Z",
+      "type": "task_added",
+      "detail": "Build the session adapter",
+      "task": "T03"
+    },
+    {
+      "seq": 12,
+      "at": "2026-09-08T04:56:48.744Z",
+      "type": "task_working",
+      "detail": "Build the session adapter",
+      "task": "T03"
+    },
+    {
+      "seq": 13,
+      "at": "2026-09-08T04:56:48.748Z",
+      "type": "task_added",
+      "detail": "Check the combined behavior",
+      "task": "T04"
+    },
+    {
+      "seq": 14,
+      "at": "2026-09-08T04:56:48.752Z",
+      "type": "task_added",
+      "detail": "Integrate the checked change",
+      "task": "T05"
+    },
+    {
+      "seq": 15,
+      "at": "2026-09-08T04:56:48.758Z",
+      "type": "task_failed",
+      "detail": "Demo: adapter dropped the session identifier",
+      "task": "T03"
+    },
+    {
+      "seq": 16,
+      "at": "2026-09-08T04:56:48.762Z",
+      "type": "task_retried",
+      "detail": "Demo: preserve the identifier across hook events",
+      "task": "T03"
+    },
+    {
+      "seq": 17,
+      "at": "2026-09-08T04:56:48.766Z",
+      "type": "task_failed",
+      "detail": "Demo: concurrent hook writes still lose an update",
+      "task": "T03"
+    },
+    {
+      "seq": 18,
+      "at": "2026-09-08T04:56:48.769Z",
+      "type": "task_retried",
+      "detail": "Demo: serialize updates and rerun concurrency checks",
+      "task": "T03"
+    },
+    {
+      "seq": 19,
+      "at": "2026-09-08T04:56:48.773Z",
+      "type": "task_progress",
+      "detail": "2/3 Demo: final concurrency check running",
+      "task": "T03"
+    },
+    {
+      "seq": 20,
+      "at": "2026-09-08T04:56:48.777Z",
+      "type": "task_added",
+      "detail": "Check a remote harness",
+      "task": "T06"
+    },
+    {
+      "seq": 21,
+      "at": "2026-09-08T04:56:48.781Z",
+      "type": "task_working",
+      "detail": "Check a remote harness",
+      "task": "T06"
+    },
+    {
+      "seq": 22,
+      "at": "2026-09-08T04:56:48.785Z",
+      "type": "task_blocked",
+      "detail": "Demo: waiting for access to the remote host",
+      "task": "T06"
+    },
+    {
+      "seq": 23,
+      "at": "2026-09-08T04:56:48.792Z",
+      "type": "task_added",
+      "detail": "Keep the old polling workaround",
+      "task": "T07"
+    },
+    {
+      "seq": 24,
+      "at": "2026-09-08T04:56:48.796Z",
+      "type": "task_canceled",
+      "detail": "Demo: native hooks replace polling",
+      "task": "T07"
+    },
+    {
+      "seq": 25,
+      "at": "2026-09-08T04:56:48.802Z",
+      "type": "task_added",
+      "detail": "Validate the packaged hook path",
+      "task": "T08"
+    },
+    {
+      "seq": 26,
+      "at": "2026-09-08T04:56:48.806Z",
+      "type": "task_working",
+      "detail": "Validate the packaged hook path",
+      "task": "T08"
+    },
+    {
+      "seq": 27,
+      "at": "2026-09-08T04:56:48.810Z",
+      "type": "task_failed",
+      "detail": "Demo: packaged hook script was missing; retry not started",
+      "task": "T08"
+    }
+  ]
+}

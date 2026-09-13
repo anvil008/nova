@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Nova run tracking: milestones, tasks, agents, and immutable archived runs."""
+import curses
+import textwrap
 import argparse
 import copy
 from contextlib import contextmanager, nullcontext
@@ -860,209 +862,366 @@ def diagnostics(directory, data=None, error=None, archived=False):
     return lines
 
 
-def interactive(directory, archive_id=None):
-    """Read-only curses UI; wrapper restores terminal modes on every exit."""
-    import curses
-    import textwrap
+def demo():
+    data=create('Improve session tracking','demo')
+    def step(*args):change(data,parser().parse_args(args))
+    step('agent','main','--harness','codex','--model','gpt-6-astra','--effort','medium')
+    step('agent','scout','--parent','main','--role','scout','--harness','codex','--model','gpt-5.6-luna','--effort','low')
+    step('agent','builder','--parent','main','--role','implementer','--harness','codex','--model','gpt-5.6-terra','--effort','max')
+    for ident,title,agent,deps,state in [
+        ('T01','Understand the missing session','main',[], 'done'),
+        ('T02','Inspect lifecycle hooks','scout',['T01'],'done'),
+        ('T03','Build the session adapter','builder',['T01'],'working'),
+        ('T04','Check the combined behavior','main',['T02','T03'],'pending'),
+        ('T05','Integrate the checked change','main',['T04'],'pending')]:
+        args=['task','add',ident,title]
+        for dep in deps:args+=['--after',dep]
+        step(*args)
+        if state!='pending':
+            step('task','set',ident,'working','--agent',agent)
+            if state=='done':step('task','set',ident,'done','--evidence','Illustrative demo check')
+    step('task','parent','T02','T01')
+    step('task','parent','T03','T01')
+    step('task','set','T03','failed','--note','Demo: adapter dropped the session identifier')
+    step('task','retry','T03','--agent','builder','--note','Demo: preserve the identifier across hook events')
+    step('task','set','T03','failed','--note','Demo: concurrent hook writes still lose an update')
+    step('task','retry','T03','--agent','builder','--note','Demo: serialize updates and rerun concurrency checks')
+    step('task','progress','T03','--done','2','--total','3','--note','Demo: final concurrency check running')
+    step('task','add','T06','Check a remote harness')
+    step('task','set','T06','working','--agent','main')
+    step('task','set','T06','blocked','--note','Demo: waiting for access to the remote host')
+    step('task','add','T07','Keep the old polling workaround')
+    step('task','set','T07','canceled','--note','Demo: native hooks replace polling')
+    step('task','add','T08','Validate the packaged hook path')
+    step('task','set','T08','working')
+    step('task','set','T08','failed','--note','Demo: packaged hook script was missing; retry not started')
+    data['run']['title']='Improve session tracking'
+    return data
 
+
+def layout(data):
+    agents={a['id']:a for a in data['agents']}
+    lanes=[('main','MAIN')]
+    for a in data['agents']:
+        if a.get('parent'):lanes.append((a['id'],('BUILDER' if a.get('role')=='implementer' else (a.get('role') or 'helper').upper())))
+    lane_index={ident:i for i,(ident,_) in enumerate(lanes)}
+    rows=[]
+    for _,task in view_rows(data):
+        if task.get('kind')=='group':continue
+        workers=list((task['attempts'][-1] if task['attempts'] else {}).get('workers',{}))
+        workers+=[a['id'] for a in data['agents'] if a.get('task')==task['_task_id']]
+        owner=workers[0] if workers else None
+        # An unassigned task has no asserted executor; its marker is hollow.
+        lane=lane_index.get(owner,0)
+        rows.append({'task':task,'lane':lane,'owner':owner,'delegated':bool(owner in agents and agents[owner].get('parent'))})
+    return lanes,rows
+
+
+def sections(data, rows):
+    groups={}
+    for row in rows:
+        task=row['task'];parent=task.get('parent_id');root=None
+        while parent:
+            ancestor=find(data['tasks'],parent)
+            if not ancestor:break
+            if ancestor.get('kind')=='group':root=ancestor
+            parent=ancestor.get('parent_id')
+        key=root['id'] if root else data['run']['id']
+        if key not in groups:groups[key]={'title':root['title'] if root else data['run']['title'],'rows':[]}
+        groups[key]['rows'].append(row)
+    return list(groups.values())
+
+
+def tree_rows(data, rows):
+    """Nest only recorded task parents; keep dependency edges as annotations."""
+    by_task={}
+    for row in rows:by_task.setdefault(row['task']['_task_id'],[]).append(row)
+    children={}
+    for ident,attempts in by_task.items():
+        parent=attempts[0]['task'].get('parent_id')
+        children.setdefault(parent if parent in by_task else None,[]).append(ident)
+    output=[]
+    def walk(ident,prefix,last):
+        attempts=by_task[ident];latest=attempts[-1]
+        original=find(data['tasks'],ident)
+        multiple=len(original['attempts'])>1
+        task={**latest['task'],**original,'_historical':False} if multiple else latest['task']
+        output.append({**latest,'task':task,'tree':prefix+('└─' if last else '├─'),
+                       'label':original['title'],'ref':original.get('display_ref') or ident,'attempt_row':False})
+        nested=prefix+('  ' if last else '│ ')
+        descendants=children.get(ident,[])
+        if multiple:
+            for i,row in enumerate(attempts):
+                t=row['task'];end=i==len(attempts)-1 and not descendants
+                note=t.get('_row_note') or t['attempts'][-1].get('reason') or 'Attempt '+str(t['attempts'][-1]['number'])
+                output.append({**row,'tree':nested+('└─' if end else '├─'),
+                               'label':note.removeprefix('Demo: '),'ref':'a'+str(t['attempts'][-1]['number']),'attempt_row':True})
+        for i,child in enumerate(descendants):walk(child,nested,i==len(descendants)-1)
+    for i,ident in enumerate(children.get(None,[])):walk(ident,'',i==len(children[None])-1)
+    return output
+
+
+def requirements(data,row):
+    if row.get('attempt_row'):return ''
+    return ', '.join((find(data['tasks'],d).get('display_ref') or d) for d in row['task']['deps'])
+
+
+def dependency_badges(data,row):
+    if row.get('attempt_row'):return []
+    marks={'done':'✓','working':'◐','failed':'×','blocked':'!','pending':'○','canceled':'−'}
+    result=[]
+    for ident in row['task']['deps']:
+        task=find(data['tasks'],ident)
+        result.append(((task.get('display_ref') or ident)+marks[task['state']],task['state']))
+    return result
+
+
+TOKEN_KEYS=('input_tokens','output_tokens','cache_read_tokens','cache_write_tokens')
+
+def aggregate_usage(data):
+    """Sum source records once across session-only and historical task storage."""
+    groups={};seen=set()
+    native={a['id'] for a in data['agents'] if 'counter_usage' in a.get('telemetry',{})}
+    latest={}
+    for a in data['agents']:
+        if a['id'] in native:
+            session=a.get('session_id',a['id'])
+            if session not in latest or (a['telemetry'].get('counter_at') or '')>(latest[session]['telemetry'].get('counter_at') or ''):latest[session]=a
+    records=[u for a in latest.values() for u in a['telemetry']['counter_usage']]
+    records += [u for a in data['agents'] if a['id'] not in native for u in a.get('usage',[])]
+    records += [u for t in data['tasks'] for a in t['attempts'] for u in a.get('usage',[]) if u.get('agent') not in native]
+    for u in records:
+        identity=(u.get('harness',''),u['id'])
+        if identity in seen:continue
+        seen.add(identity)
+        key=(u.get('harness',''),u.get('model') or 'unknown model')
+        groups.setdefault(key,[]).append(u)
+    for a in data['agents']:
+        if a.get('model'):groups.setdefault((a.get('harness',''),a['model']),[])
+    return groups
+
+
+def usage_header(data):
+    groups=aggregate_usage(data);records=[u for values in groups.values() for u in values]
+    def number(value):
+        return f'{value/1e6:.2f}m' if value>=1e6 else f'{value/1e3:.1f}k' if value>=1000 else str(value)
+    def total(key):
+        values=[u[key] for u in records if key in u]
+        return number(sum(values))+('*' if len(values)<len(records) else '') if values else '—'
+    combined=number(sum(u['input_tokens']+u['output_tokens'] for u in records)) if records and all('input_tokens' in u and 'output_tokens' in u for u in records) else '—'
+    sessions={};task_agents={u.get('agent') for t in data['tasks'] for a in t['attempts'] for u in a.get('usage',[])}
+    for a in data['agents']:
+        key=(a.get('harness',''),a.get('session_id',a['id']))
+        observed=bool(a['telemetry']['counter_usage']) if 'counter_usage' in a.get('telemetry',{}) else bool(a.get('usage') or a['id'] in task_agents)
+        sessions[key]=sessions.get(key,False) or observed
+    scope='latest counters' if any('counter_usage' in a.get('telemetry',{}) for a in data['agents']) else 'reported usage'
+    return [f"Tokens {combined} · in/out {total('input_tokens')}/{total('output_tokens')}",
+            f"Cache read/write {total('cache_read_tokens')}/{total('cache_write_tokens')}",
+            f"{sum(sessions.values())}/{len(sessions)} sessions reporting · {scope}"]
+
+
+def inspector(data,row,width):
+    t=row['task'];ref=display_reference(t)
+    lines=[ref+'  '+t['title'],t['state'].upper()+'  ·  '+(task_runtime(data,t) if row['owner'] else 'Executor not assigned')]
+    def reference(ident):
+        found=find(data['tasks'],ident)
+        return display_reference(found) if found else ident
+    if t['deps']:lines.append('Requires: '+', '.join(reference(x) for x in t['deps']))
+    if t.get('parent_id'):
+        group=find(data['tasks'],t['parent_id']);lines.append('Objective: '+group['title'])
+    agent=find(data['agents'],row['owner']) if row['owner'] else None
+    if agent:lines.append('Agent: '+agent['id'])
+    if agent and agent.get('workspace'):lines.append('Workspace: '+agent['workspace'])
+    attempt=t['attempts'][-1] if t['attempts'] else {}
+    if attempt.get('reason'):lines.append('Attempt: '+attempt['reason'])
+    if attempt.get('progress'):
+        progress=attempt['progress'];lines.append(f"Progress: {progress['done']}/{progress['total']} · {progress.get('note','')}")
+    if attempt.get('source_revision'):lines.append('Checked revision: '+attempt['source_revision'])
+    if attempt.get('evidence'):lines.append('Evidence: '+attempt['evidence'])
+    if t.get('_row_note'):lines.append(t['_row_note'])
+    return [part for line in lines for part in textwrap.wrap(line,max(10,width))]
+
+
+def flow_view(directory,run_id=None,is_demo=False,plain=False):
+    def read():return demo() if is_demo else selected_run(directory,run_id)
+    if plain:
+        def emit(text):print(''.join(c if c.isprintable() or c=='\n' else ' ' for c in str(text)))
+        data=read();lanes,rows=layout(data)
+        emit('NOVA FLOW'+('   DEMO · sample data' if is_demo else '   LIVE'))
+        emit(data['run']['title'])
+        for group in sections(data,rows):
+            emit(group['title']);emit('TASK FLOW                                                     AGENT / MODEL                     STATE')
+            for row in tree_rows(data,group['rows']):
+                runtime=(lanes[row['lane']][1].lower()+' · '+task_runtime(data,row['task'],model_only=True)) if row['owner'] else '—'
+                deps=' ← '+' '.join(label for label,state in dependency_badges(data,row)) if dependency_badges(data,row) else ''
+                emit(f"{row['tree']} {row['ref']} {row['label']}{deps}  ·  {runtime}  ·  {row['task']['state']}")
+        return
     def screen(win):
-        try:
-            curses.curs_set(0)
-        except curses.error:
-            pass
+        try:curses.curs_set(0)
+        except curses.error:pass
         win.timeout(200)
         if curses.has_colors():
-            curses.start_color()
-            curses.use_default_colors()
-            for i, color in enumerate((curses.COLOR_GREEN, curses.COLOR_CYAN, curses.COLOR_YELLOW, curses.COLOR_RED, curses.COLOR_MAGENTA, curses.COLOR_BLUE), 1):
-                curses.init_pair(i, color, -1)
-            if curses.COLORS >= 256:
-                curses.init_pair(6, 75, -1)
-                for i, color in enumerate((81, 80, 79, 114, 147, 141), 7):
-                    curses.init_pair(i, color, -1)
-        accent = curses.color_pair(6) if curses.has_colors() else 0
-        selected = 0; detail_offset = 0; choice = archive_id; data = None
-        inventory = []; error = ''; next_refresh = 0; tab = 0
-        initial_selection = True
-        select_working = True
-        folded = False; selected_id = None; follow_work = True; raw_usage = False
-        def put(y, x, value, width, attr=0):
-            value = ''.join(c if c.isprintable() else ' ' for c in str(value))
-            try:
-                win.addnstr(y, x, value, max(0, width), attr)
-            except curses.error:
-                pass
+            curses.start_color();curses.use_default_colors()
+            for i,c in enumerate((curses.COLOR_BLUE,curses.COLOR_GREEN,curses.COLOR_CYAN,curses.COLOR_YELLOW,curses.COLOR_RED,curses.COLOR_MAGENTA),1):curses.init_pair(i,c,-1)
+            if curses.COLORS>=256:
+                for pair,value in ((1,75),(3,81),(5,209),(6,141)):curses.init_pair(pair,value,-1)
+        def color(n):return curses.color_pair(n) if curses.has_colors() else 0
+        def put(y,x,s,w,attr=0):
+            try:win.addnstr(y,x,''.join(c if c.isprintable() else ' ' for c in str(s)),max(0,w),attr)
+            except curses.error:pass
+        selection=None;offset=0;details=False;fold=False;refresh=0;data=None;error='';choices=[];choice=run_id
         while True:
-            if time.monotonic() >= next_refresh:
+            if time.monotonic()>=refresh:
                 try:
-                    inventory = summaries(directory)
-                    if initial_selection and choice is None and not run_paths(directory):
-                        archives = [r for r in inventory if r['archived']]
-                        if archives:
-                            choice = max(archives, key=lambda r: r['updated_at'])['id']
-                    initial_selection = False
-                    path = directory / 'archive' / identifier(choice) / 'run.json' if choice else directory / 'run.json'
-                    data = selected_run(directory,choice); error = ''
-                except (OSError, ValueError) as exc:
-                    data = None; error = str(exc)
-                next_refresh = time.monotonic() + 2
-            win.erase(); height, width = win.getmaxyx()
-            put(0, 1, 'NOVA FLOW  /  ' + ('ARCHIVE: '+choice if choice else 'active run'), width-2, accent|curses.A_BOLD)
-            put(height-1, 1, '↑↓ select   h hide done   Tab panel   [ ] runs   q quit', width-2, curses.A_REVERSE)
-            rows = view_rows(data,folded=folded) if data else []
-            if selected_id:
-                selected = next((i for i,(_,t) in enumerate(rows) if t['id']==selected_id), min(selected,max(0,len(rows)-1)))
-            if (select_working or follow_work) and rows:
-                selected = next((i for i, (_,t) in enumerate(rows) if t['state']=='working' and t.get('kind')!='group'),len(rows)-1 if select_working else selected)
-                select_working = False
-            selected = min(selected, max(0, len(rows)-1))
-            if rows: selected_id = rows[selected][1]['id']
-            if not data:
-                put(3, 2, 'No readable run: ' + error, width-4)
-                put(5, 2, 'Press ] for archives, or create a run with nova-flow init TITLE.', width-4)
-                put(7, 2, str(directory), width-4)
-            else:
-                run = data['run']; done = sum(t['state']=='done' for t in work_tasks(data))
-                put(1, 1, f'{run["title"]}  [{run["state"]}]  {run["phase"]}  {done}/{len(work_tasks(data))} tasks done', width-2)
-                put(2, 1, 'Milestones: '+' · '.join(m['id']+': '+m['title'] for m in data['milestones']) if data['milestones'] else '', width-2,curses.A_DIM)
-                row_stride = 1
-                graph_height = max(2, min(max(len(rows)*row_stride, 7), (height-10)*3//5))
-                visible_tasks = max(1,graph_height//row_stride)
-                put(3, 2, ('GRAPH' if rows and not any(t['_edges'] for _,t in rows) else 'GRAPH ')+(' · settled hidden' if folded else ''), width-4, curses.A_DIM)
-                model_width = min(22,max(5,max((len(task_runtime(data,t,model_only=True)) for _,t in rows),default=5)))
-                model_column = width-15-model_width
-                if width>=60:
-                    put(3,model_column,'MODEL'.rjust(model_width),model_width,curses.A_DIM)
-                    put(3,width-13,'STATE',12,curses.A_DIM)
-                start = max(0, selected-visible_tasks+1)
-                milestones = {m['id']: m['title'] for m in data['milestones']}
-                milestones[None] = ''
-                for offset, (prefix, task) in enumerate(rows[start:start+visible_tasks]):
-                    y = 4+offset*row_stride
-                    index = start+offset
-                    state = task['state']
-                    color = 1 if state=='done' else 2 if state=='working' else 3 if state=='blocked' else 4 if state=='failed' else 0
-                    attr = curses.color_pair(color) if curses.has_colors() else 0
-                    if index==selected: put(y,0,'▌',1,accent|curses.A_BOLD)
-                    symbol = {'done':'●','working':'◐','failed':'×','blocked':'!','pending':'○','canceled':'−'}[state]
-                    graph_width = min(len(prefix), max(2,width//4))
-                    gradient = accent
-                    put(y,2,prefix,graph_width,gradient)
-                    xrow = 2+graph_width
-                    display_id = task['_task_id'] if task['id'].endswith('.a1') else task['id']
-                    display_id = display_reference(task)
-                    put(y,xrow,symbol,1,accent|curses.A_BOLD)
-                    put(y,xrow+2,display_id,width-xrow-2,accent|curses.A_BOLD)
-                    title_x = xrow+len(display_id)+3
-                    status_x = max(title_x+1,width-13)
-                    model_x = max(title_x+1,model_column) if width>=60 else status_x
-                    title = task_tags(task)+task['title']+' · '+task['_elapsed']
-                    if task['_join']: title = 'JOIN '+','.join(task['deps'])+' · '+title
-                    if task.get('_cause'): title = '← '+task['_cause']+' · '+title
-                    if task.get('_progress'): title = str(task['_progress']['done'])+'/'+str(task['_progress']['total'])+' '+title
-                    if task['_historical']: title = task['_row_note']+' · '+title
-                    put(y,title_x,title,max(0,model_x-title_x-1),curses.A_BOLD if index==selected else 0)
-                    if width>=60:
-                        put(y,model_x,task_runtime(data,task,model_only=True)[:model_width].rjust(model_width),max(0,status_x-model_x-1),curses.A_DIM)
-                    evidence = task['attempts'][-1].get('evidence_level') if task['attempts'] else None
-                    mark = '◆' if evidence=='verified' else '◇' if state=='done' else ''
-                    waiting = [d for d in task['deps'] if find(data['tasks'],d)['state']!='done']
-                    label = ('waits '+','.join(waiting) if waiting else 'needs answer' if task.get('kind')=='question' else 'ready' if any(a.get('task')==task['_task_id'] for a in data['agents']) else 'unassigned') if state=='pending' else state
-                    if task.get('kind')=='group':label='group';mark=''
-                    put(y,status_x,label+' '+mark,max(0,width-status_x-1),attr|curses.A_BOLD)
-                activity_y = 4+graph_height
-                free_agents = [a for a in data['agents'] if not a.get('task') and a['state'] in ('working','waiting')]
-                activity = ' · '.join(a['id']+' / '+a['phase']+' / '+(a['model'] or 'model —')+': '+(a['activity'] or a['state']) for a in free_agents)
-                put(activity_y,2,'Unassigned: '+activity if activity else str(sum(t['state'] in ('done','canceled') for t in work_tasks(data)))+' settled tasks'+(' folded' if folded else '')+' · reports '+age_text(data['updated_at'])+' ago · silence ≠ failure',width-4,curses.A_DIM)
-                top = 6+graph_height
-                x = 3; room = max(1,width-6)
-                panel_color = accent
-                headings = ['TASK DETAILS', 'AGENTS / reported activity', 'EVENT LOG', 'DIAGNOSTICS']
-                heading = headings[tab]
-                if tab==0 and rows:
-                    task = rows[selected][1]
-                    heading = task.get('display_ref',task['id'])+' · '+task['state'].upper()+' / TASK DETAILS'
-                content = []
-                if tab==0 and rows:
-                    t = rows[selected][1]
-                    content = [t['phase']+': '+t['title'], task_runtime(data,t)+' · '+t['_elapsed']]
-                    if t['_row_note']: content.append(t['_row_note'])
-                    if t.get('parent_id'):content.append('Parent: '+display_reference(find(data['tasks'],t['parent_id'])))
-                    if t.get('last_activity'):content.append('Activity: '+t['last_activity']['label']+' · '+age_text(t['last_activity']['at'])+' ago')
-                    if t['deps']: content.append('Depends on: '+', '.join(t['deps']))
-                    if t['_blockers']: content.append('Waiting for: '+', '.join(t['_blockers']))
-                    if t.get('_cause'): content.append('Caused by: '+t['_cause'])
-                    if t.get('_progress'): content.append('Progress count: '+str(t['_progress']['done'])+'/'+str(t['_progress']['total']))
-                    if t.get('milestone'): content.append('Milestone: '+t['milestone']+' / '+milestones[t['milestone']])
-                    if t.get('issue'): content.append('GitHub issue: '+t['issue'])
-                    content += ['', *usage_lines(t,compact=not raw_usage)]
-                    content.append('[u] '+('Hide individual usage records' if raw_usage else 'Show individual usage records'))
-                    for attempt in t['attempts']:
-                        if raw_usage: content += ['', f'Attempt {attempt["number"]}: {attempt["state"]}', attempt['started_at'], attempt.get('reason','')]
-                        if attempt.get('evidence'): content += [attempt.get('evidence_level','reported')+': '+attempt['evidence']]
-                        if attempt.get('source_revision'): content += ['Revision: '+attempt['source_revision']]
-                    if t.get('kind')=='group':
-                        content=[t['title'],t['_group_label'],'Progress is derived from descendant tasks.']
-                elif tab==1:
-                    def agents(parent, depth):
-                        for a in data['agents']:
-                            if a.get('parent')==parent:
-                                content.extend([' '*depth+'↳ '+a['id']+' / '+a['role']+' / '+a['state'], '  '+a['phase']+' → '+(a.get('task') or 'unassigned'), '  '+' '.join(filter(None,[a['harness'],a['model'],a['effort']])), '  '+a['activity'], '  Last observed '+age_text(a['updated_at'])+' ago / '+a['updated_at']])
-                                content.extend('  Session-only '+k.replace('_', ' ')+': '+str(sum(u.get(k,0) for u in a.get('usage',[]))) for k in TOKEN_FIELDS if any(k in u for u in a.get('usage',[])))
-                                agents(a['id'],depth+2)
-                    agents(None,0)
-                elif tab==3:
-                    content = diagnostics(directory,data,archived=bool(choice))
-                elif tab==2:
-                    for event in reversed(data['events']): content.extend([event['at']+' '+event['type'],event['detail'],''])
-                wrapped = []
-                for line in content:
-                    clean = ''.join(c if c.isprintable() else ' ' for c in str(line))
-                    wrapped.extend(textwrap.wrap(clean,max(1,room)) or [''])
-                # Bottom anchored, content-sized; preserve the graph above.
-                top = max(top, height-4-max(1,len(wrapped)))
-                put(top,1,'┌'+'─'*max(0,width-4)+'┐',width-2,panel_color)
-                put(height-3,1,'└'+'─'*max(0,width-4)+'┘',width-2,panel_color)
-                for y in range(top+1,height-3):
-                    put(y,1,'│',1,panel_color);put(y,width-2,'│',1,panel_color)
-                put(top,x,' '+heading+' ',room,panel_color|curses.A_BOLD)
-                capacity = max(1,height-top-4)
-                if len(wrapped)>capacity: put(top,width-24,' PgUp/PgDn scroll ',20,panel_color)
-                detail_offset = min(detail_offset,max(0,len(wrapped)-capacity))
-                for y,line in enumerate(wrapped[detail_offset:detail_offset+capacity],top+1):put(y,x,line,room)
-            win.refresh()
-            key = win.getch()
-            if key==ord('u'):
-                raw_usage=not raw_usage;tab=0;detail_offset=0;continue
-            if key==ord('f'):
-                follow_work=not follow_work;continue
-            if key==ord('h'):
-                folded=not folded;continue
-            if key==ord('d'):
-                tab=3;detail_offset=0;continue
+                    data=demo() if is_demo else selected_run(directory,choice)
+                    choices=[] if is_demo else [r['id'] for r in summaries(directory)]
+                    error=''
+                except (OSError,ValueError) as exc:error=str(exc);data=None
+                refresh=time.monotonic()+2
+            win.erase();height,width=win.getmaxyx()
+            graph_top=4 if _WEB_URL else 3
+            put(0,2,'NOVA FLOW',width-4,color(1)|curses.A_BOLD)
+            if _WEB_URL:put(2,2,_WEB_URL+('?run=demo' if is_demo else ''),width-4,color(1))
+            put(height-1,2,'↑↓ scroll   d back to tasks   q quit' if details else '↑↓ task   h hide done   [ ] run   d details   q quit',width-4,curses.A_DIM)
+            if data:
+                lanes,all_rows=layout(data)
+                rows=[r for r in all_rows if not fold or r['task']['state'] not in ('done','canceled')]
+                rows=[r for group in sections(data,rows) for r in tree_rows(data,group['rows'])]
+                index=next((i for i,r in enumerate(rows) if r['task']['id']==selection),0)
+                if rows:selection=rows[index]['task']['id']
+                done=sum(t['state']=='done' for t in work_tasks(data))
+                put(1,2,('DEMO · ' if is_demo else '')+f"{done}/{len(work_tasks(data))} done",width-4,curses.A_DIM)
+                content=inspector(data,rows[index],min(100,width-6)) if rows else ['No visible tasks. Press h to show completed work.']
+                detail_height=min(len(content)+2,max(4,height//2)) if details else min(5,max(3,height//4))
+                detail_top=height-detail_height-2
+                entries=[]
+                for group in sections(data,rows):
+                    if entries:entries.append(('space',None))
+                    entries.append(('group',group))
+                    entries.append(('columns',None))
+                    for r in group['rows']:
+                        entries.append(('task',r))
+
+                selected_line=next((i for i,(kind,r) in enumerate(entries) if kind=='task' and r['task']['id']==selection),0)
+                available=max(1,detail_top-graph_top-1)
+                start=max(0,selected_line-available+2)
+                # Keep an objective heading visible when scrolling through its tasks.
+                display=entries[start:]
+                if start and display and display[0][0]!='group':
+                    header=next((entry for entry in reversed(entries[:start]) if entry[0]=='group'),None)
+                    if header:display=[header]+([] if display[0][0]=='columns' else [('columns',None)])+display
+                status_x=max(30,width-13)
+                model_width=32 if width>=115 else 22 if width>=90 else 14 if width>=70 else 0
+                model_x=status_x-model_width-2 if model_width else status_x
+                for pos,(kind,row) in enumerate(display[:available]):
+                    y=graph_top+pos
+                    if kind=='space':continue
+                    if kind=='columns':
+                        put(y,3,'TASK FLOW',max(0,model_x-5),curses.A_DIM)
+                        if model_width:put(y,model_x,'AGENT / MODEL',model_width,curses.A_DIM)
+                        put(y,status_x,'STATE',11,curses.A_DIM)
+                        continue
+                    if kind=='group':
+                        current=[r for r in row['rows'] if not r.get('attempt_row')]
+                        count=sum(r['task']['state']=='done' for r in current)
+                        title=row['title']+f"  ·  {count}/{len(current)} done"
+                        put(y,2,title,width-4,color(1)|curses.A_BOLD)
+                        continue
+                    t=row['task'];state=t['state']
+                    tint=color(2 if state=='done' else 3 if state=='working' else 4 if state=='blocked' else 5 if state=='failed' else 1)
+                    symbol={'done':'●','working':'◉','failed':'×','blocked':'!','canceled':'−','pending':'○'}[state]
+                    branch=row['tree']
+                    put(y,3,branch,min(len(branch),max(0,model_x-5)),curses.A_DIM)
+                    node_x=3+len(branch)
+                    if node_x<model_x-2:put(y,node_x,symbol,1,tint)
+                    ref=row['ref'];label_x=node_x+2
+                    if label_x<model_x-2:put(y,label_x,ref,min(len(ref),model_x-label_x-2),tint|curses.A_BOLD)
+                    title_x=label_x+len(ref)+1
+                    badges=dependency_badges(data,row)
+                    suffix=' ← '+' '.join(label for label,state in badges) if badges else ''
+                    room=max(0,model_x-title_x-2)
+                    # Keep join references visible when there is still room for a useful title.
+                    reserve=len(suffix) if room>=len(suffix)+12 else 0
+                    title_room=max(0,room-reserve)
+                    title=row['label']
+                    if len(title)>title_room:title=title[:max(0,title_room-1)]+('…' if title_room else '')
+                    put(y,title_x,title,title_room,curses.A_BOLD if t['id']==selection else curses.A_DIM if state=='canceled' else 0)
+                    if suffix and (reserve or len(title)+len(suffix)<=room):
+                        x=title_x+len(title)
+                        put(y,x,' ← ',3,color(6));x+=3
+                        for label,dep_state in badges:
+                            put(y,x,label,len(label),color(2 if dep_state=='done' else 3 if dep_state=='working' else 5 if dep_state=='failed' else 4 if dep_state=='blocked' else 1));x+=len(label)+1
+                    if model_width:
+                        runtime=(lanes[row['lane']][1].lower()+' · '+task_runtime(data,t,model_only=True)) if row['owner'] else '—'
+                        put(y,model_x,runtime,model_width,curses.A_DIM)
+                    put(y,status_x,state,11,tint)
+                    if t['id']==selection:put(y,0,'▸',1,color(1))
+                put(detail_top,2,'─'*max(0,min(108,width-4)),width-4,color(1))
+                offset=min(offset,max(0,len(content)-detail_height+1))
+                for i,line in enumerate(content[offset:offset+detail_height-1]):put(detail_top+1+i,3,line,width-6,curses.A_BOLD if i==0 and offset==0 else 0)
+            else:put(4,2,error,width-4,color(4));rows=[];index=0
+            win.refresh();key=win.getch()
             if key in (ord('q'),27):break
-            if key==curses.KEY_DOWN:follow_work=False;selected=min(selected+1,max(0,len(rows)-1));detail_offset=0
-            if key==curses.KEY_UP:follow_work=False;selected=max(0,selected-1);detail_offset=0
-            if key==curses.KEY_NPAGE:detail_offset+=max(1,height//4)
-            if key==curses.KEY_PPAGE:detail_offset=max(0,detail_offset-max(1,height//4))
-            if key==9:tab=(tab+1)%4;detail_offset=0
-            if key==ord('r'):next_refresh=0
-            if key in (ord('['),ord(']')):
-                choices=[None]+[r['id'] for r in inventory]
-                i=choices.index(choice) if choice in choices else 0
-                choice=choices[(i+(1 if key==ord(']') else -1))%len(choices)]
-                selected=0;detail_offset=0;next_refresh=0;select_working=True;selected_id=None
-            if rows and 0<=selected<len(rows): selected_id=rows[selected][1]['id']
+            if key==ord('d'):details=not details;offset=0
+            if details and key in (curses.KEY_UP,curses.KEY_DOWN):offset=max(0,offset+(1 if key==curses.KEY_DOWN else -1))
+            if not details and key in (curses.KEY_UP,curses.KEY_DOWN) and rows:
+                index=max(0,min(len(rows)-1,index+(1 if key==curses.KEY_DOWN else -1)));selection=rows[index]['task']['id'];offset=0
+            if key==ord('h'):fold=not fold;offset=0
+            if key in (ord('['),ord(']')) and choices:
+                options=[None]+choices;i=options.index(choice) if choice in options else 0
+                choice=options[(i+(1 if key==ord(']') else -1))%len(options)];refresh=0;selection=None;offset=0
     curses.wrapper(screen)
 
 
-def serve(directory, host, port):
+
+def viewer_store(directory):
+    directory=Path(directory).resolve()
+    if directory.parent.name=='runs':return directory.parent.parent
+    return directory
+
+
+def ensure_viewer(directory):
+    import subprocess
+    import urllib.request
+    root=viewer_store(directory);metadata=root/'viewer.json'
+    def running():
+        try:
+            info=json.loads(metadata.read_text())
+            with urllib.request.urlopen('http://127.0.0.1:'+str(info['port'])+'/api/health',timeout=.3) as response:
+                live=json.load(response)
+            return info['url'] if live.get('store')==str(root) and live.get('pid')==info['pid'] else None
+        except (OSError,ValueError,KeyError):return None
+    with locked(root/'viewer'):
+        url=running()
+        if url:return url
+        with (root/'viewer/server.log').open('ab') as log:
+            process=subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--dir',str(root),'serve','--host','0.0.0.0','--port','8910','--managed'],stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True,cwd=str(root.parent))
+        import threading
+        threading.Thread(target=process.wait,daemon=True).start()
+        for _ in range(40):
+            url=running()
+            if url:return url
+            if process.poll() is not None:break
+            time.sleep(.05)
+        raise ValueError('Viewer did not start; inspect '+str(root/'viewer/server.log'))
+
+
+_WEB_URL=''
+
+def serve(directory, host, port, managed=False):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             route = urlparse(self.path)
             try:
                 if route.path == '/':
-                    body, content_type = PAGE.encode(), 'text/html; charset=utf-8'
+                    page=Path(__file__).with_name('nova-flow.html')
+                    body, content_type = page.read_bytes(), 'text/html; charset=utf-8'
+                elif route.path == '/api/demo':
+                    data=read(Path(__file__).with_name('nova-flow-demo.json'))
+                    data['_view']={'rows':view_rows(data),'diagnostics':[]}
+                    body,content_type=json.dumps(data).encode(),'application/json'
+                elif route.path == '/api/health':
+                    body,content_type=json.dumps({'store':str(directory.resolve()),'pid':os.getpid()}).encode(),'application/json'
                 elif route.path == '/api/runs':
                     body, content_type = json.dumps(summaries(directory)).encode(), 'application/json'
                 elif route.path == '/api/run':
@@ -1085,7 +1244,18 @@ def serve(directory, host, port):
                 self.send_error(400, 'Invalid run data')
         def log_message(self, *args):
             pass
-    server = ThreadingHTTPServer((host, port), Handler)
+    try:server = ThreadingHTTPServer((host, port), Handler)
+    except OSError:
+        if not managed:raise
+        server=ThreadingHTTPServer((host,0),Handler)
+    if managed:
+        import socket
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as probe:
+            try:probe.connect(('10.255.255.255',1));address=probe.getsockname()[0]
+            except OSError:address='127.0.0.1'
+        info={'pid':os.getpid(),'port':server.server_port,'url':f'http://{address}:{server.server_port}/'}
+        path=directory/'viewer.json';temp=directory/'.viewer.json.tmp'
+        temp.write_text(json.dumps(info));os.replace(temp,path)
     print(f'Nova Flow: http://{host}:{server.server_port} (read-only)', flush=True)
     try:
         server.serve_forever()
@@ -1164,16 +1334,29 @@ def parser():
     for command in ('view', 'check', 'doctor'):
         q = sub.add_parser(command); q.add_argument('--archive', help='Archived run ID'); q.add_argument('--json', action='store_true')
         if command == 'view':
+            q.add_argument('--demo', action='store_true', help='Show illustrative data without writing run records')
             q.add_argument('--watch', action='store_true')
             q.add_argument('--plain', action='store_true', help='Print text instead of the interactive terminal UI')
-    q = sub.add_parser('serve'); q.add_argument('--host', default='127.0.0.1'); q.add_argument('--port', type=int, default=8910)
+    sub.add_parser('web',help='Start or reuse the repository browser viewer and print its URL')
+    q = sub.add_parser('serve'); q.add_argument('--managed',action='store_true'); q.add_argument('--host', default='127.0.0.1'); q.add_argument('--port', type=int, default=8910)
     return p
 
 
 def main(argv=None):
     p = parser(); argv = list(sys.argv[1:] if argv is None else argv)
-    args = p.parse_args(argv or ['view']); directory = args.dir.expanduser().absolute() if args.dir else project_store(Path.cwd())
+    commands=next(a.choices for a in p._actions if isinstance(a,argparse._SubParsersAction))
+    if not any(value in commands for value in argv):
+        view_flags=[x for x in argv if x in ('--demo','--plain')]
+        argv=[x for x in argv if x not in view_flags]+['view']+view_flags
+    args = p.parse_args(argv); directory = args.dir.expanduser().absolute() if args.dir else project_store(Path.cwd())
+    global _WEB_URL
     try:
+        if args.command=='web':print(ensure_viewer(directory));return
+        if args.command!='serve' and sys.stdout.isatty() and os.environ.get('NOVA_FLOW_NO_WEB')!='1':
+            try:
+                _WEB_URL=ensure_viewer(directory)
+                if args.command!='view':print('Nova Flow web: '+_WEB_URL,file=sys.stderr)
+            except (OSError,ValueError) as error:print('Nova viewer: '+str(error),file=sys.stderr)
         if args.command=='references':
             with locked(directory):
                 paths=run_paths(directory)+sorted((directory/'archive').glob('*/run.json'))+sorted((directory/'runs').glob('*/archive/*/run.json'))
@@ -1200,7 +1383,7 @@ def main(argv=None):
             candidates=[p.parent for p in run_paths(directory) if read(p)['run']['id']==args.run]
             require(len(candidates)==1,'Run not found or ambiguous');directory=candidates[0]
         if args.command == 'serve':
-            serve(directory, args.host, args.port); return
+            serve(directory, args.host, args.port, args.managed); return
         if args.command == 'list':
             print(json.dumps(summaries(directory), indent=2)); return
         if args.command == 'doctor':
@@ -1209,15 +1392,16 @@ def main(argv=None):
             except (OSError, ValueError) as error: info = diagnostics(directory, error=error, archived=bool(args.archive))
             print(json.dumps(info) if args.json else '\n'.join(info)); return
         if args.command in ('view', 'check'):
-            if args.command == 'view' and not args.json and not args.plain and sys.stdin.isatty() and sys.stdout.isatty():
-                interactive(directory, args.archive); return
+            if args.command == 'view' and not args.json and not args.watch:
+                flow_view(directory,args.archive,args.demo,args.plain or not (sys.stdin.isatty() and sys.stdout.isatty())); return
             path = directory / 'archive' / identifier(args.archive) / 'run.json' if args.archive else directory / 'run.json'
             while True:
-                data = selected_run(directory,args.archive)
+                data = demo() if getattr(args,'demo',False) else selected_run(directory,args.archive)
                 if args.command == 'check':
                     print(json.dumps({'valid': True, 'revision': data['revision']}) if args.json else 'Valid Nova Flow run'); break
                 if args.watch and sys.stdout.isatty(): print('\033[2J\033[H', end='')
-                print(json.dumps(data, indent=2) if args.json else terminal(data), flush=True)
+                if args.json:print(json.dumps(data, indent=2),flush=True)
+                else:flow_view(directory,args.archive,args.demo,True)
                 if not args.watch: break
                 time.sleep(2)
             return
@@ -1262,7 +1446,7 @@ def main(argv=None):
         p.exit(1, f'nova-flow: {error}\n')
 
 
-PAGE = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nova Flow</title><style>\n:root{color-scheme:dark;--bg:#0d1318;--paper:#10171c;--ink:#d7d9d7;--muted:#8b9094;--line:#2c393c;--green:#8fd18a;--pale:#23362e}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}header{min-height:58px;padding:12px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:24px}header strong{font-size:15px;color:var(--green)}header small{margin-left:auto}small,.muted{color:var(--muted)}main{padding:22px 24px;max-width:1800px;margin:auto}h1{font-size:21px;line-height:1.4;margin:5px 0}h2{font-size:12px;text-transform:uppercase;letter-spacing:1.3px;color:var(--muted);margin:0 0 14px}h3{font-size:13px;margin:0}.eyebrow{font-size:11px;color:var(--muted)}input{font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:5px}select,button{font:inherit;background:var(--bg);border:1px solid var(--line);border-radius:3px;color:var(--ink);padding:5px 8px;max-width:100%}button{cursor:pointer}button:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--green);outline-offset:2px}.summary{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px}.summary p{margin:4px 0;font-size:12px;max-width:90ch}.badge{font-size:11px;display:inline-block;border-radius:3px;padding:2px 7px;background:var(--pale);margin:2px;color:var(--green)}.working{background:#213547;color:#67d7ef}.failed,.blocked{background:#422d24;color:#e58b64}.done{background:#23362e;color:#91cfa8}.grid{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:16px}.panel{background:var(--paper);border:1px solid var(--line);padding:18px;margin-bottom:16px;min-width:0}.grid>div,aside{min-width:0}.scroll{overflow:auto;max-width:100%}svg{display:block;width:100%;height:auto}svg text{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:var(--ink)}.task-node{cursor:pointer}.task-node .row-bg{fill:transparent}.task-node:hover .row-bg{fill:#1c2929}.task-node.selected .row-bg{fill:#223630}.task-node text{pointer-events:none}.agent{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.agent.child{border-left:1px solid var(--line);padding-left:12px}.agent p{margin:4px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:10px;font:12px/1.6 ui-monospace,monospace}.error{color:#e58b64;padding:15px;border:1px solid #634332;margin-bottom:20px}#task-detail p{overflow-wrap:anywhere}#task-detail details{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}#events p{margin:0;padding:5px 0;border-bottom:1px solid #233034;overflow-wrap:anywhere}#events small{display:inline-block;margin-right:10px}footer{color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}kbd{border:1px solid var(--line);padding:1px 4px;border-radius:3px}.graph-hint{font-size:11px;margin-top:-8px;margin-bottom:16px}@media(max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}header{flex-wrap:wrap;gap:10px}header small{margin-left:0}main{padding:16px 12px}.panel{padding:14px}h1{font-size:18px}header{padding:12px}select{max-width:260px}}\n</style></head><body><header><strong>▸ nova-flow</strong><label>Run <select id="runs" aria-label="Select active or archived run"><option value="active">Active run</option></select></label><small id="connection">Connecting…</small></header><main><div id="error" role="status" hidden></div><div id="content" hidden><div class="summary"><div><div class="eyebrow" id="run-id"></div><h1 id="title"></h1><p id="summary" class="muted"></p></div><div id="stats"></div></div><div class="grid"><div><section class="panel"><h2>Task graph</h2><p class="muted graph-hint">Top → bottom · attempt rows · ⋈ joins dependencies · dotted lines connect retries</p><div id="milestones"></div><label>Search <input id="filter" type="search" placeholder="Task, milestone, agent, model"></label> <label><input id="fold" type="checkbox"> Fold settled tasks</label><label><input id="follow" type="checkbox" checked> Follow working task</label><p id="fold-count" class="muted"></p><div class="scroll"><svg id="graph" role="img" aria-label="Top-down task dependency graph"></svg></div></section><section class="panel"><h2>Event log</h2><div id="events"></div></section></div><aside><section class="panel" id="task-detail" aria-live="polite"><h2>Task details</h2><p class="muted">Select a task in the graph.</p></section><section class="panel"><h2>Agents</h2><p class="muted">Assignments reported by the run. Timestamps indicate the last report.</p><div id="agents"></div></section></aside></div></div><details class="panel"><summary>Diagnostics · bindings and missing data</summary><pre id="diagnostics">Waiting for run data.</pre></details><footer><span>Read only · polls every 2s · activity is reported, not process monitoring</span><span><kbd>j</kbd> / <kbd>k</kbd> select task · <kbd>↑</kbd> / <kbd>↓</kbd></span></footer></main><script>\nconst $=id=>document.getElementById(id);let current=null,selected=null,requestRevision=0,requestedRun=new URLSearchParams(location.search).get(\'run\')||\'active\';const ns=\'http://www.w3.org/2000/svg\';\nfunction el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}\nfunction svg(tag,attrs,text){const n=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n}\nfunction badge(text,state){return el(\'span\',text,\'badge \'+(state||\'\'))}\nfunction showTask(id){selected=id;const t=current._view.rows.map(r=>r[1]).find(t=>t.id===id)||current.tasks.find(t=>t.id===id);if(!t)return;const box=$(\'task-detail\');if(t.kind===\'group\'){box.replaceChildren(el(\'h2\',t.title),el(\'p\',t._group_label),el(\'p\',\'Progress is derived from descendant tasks.\'));return;}box.replaceChildren(el(\'h2\',t.title),el(\'p\',ref(t)+\' · \'+t.phase+\' · \'+t.state),el(\'p\',t._row_note||t.note||\'No task note.\',\'muted\'),el(\'p\',\'Elapsed: \'+(t._elapsed||\'not started\')+\' · task progress \'+(t._progress_age||\'unknown\')+\' ago\'),el(\'p\',\'Blockers: \'+((t._blockers||[]).join(\', \')||\'none\')));if(t.parent_id)box.append(el(\'p\',\'Parent: \'+ref(current.tasks.find(x=>x.id===t.parent_id))));if(t.last_activity)box.append(el(\'p\',\'Activity: \'+t.last_activity.label));if(t._cause)box.append(el(\'p\',\'Caused by: \'+t._cause));if(t._progress)box.append(el(\'p\',\'Progress: \'+t._progress.done+\'/\'+t._progress.total+\' · \'+t._progress.note));if(t._inputs?.length)box.append(el(\'p\',\'Attempt inputs: \'+t._inputs.join(\', \')));if(t.issue){const link=el(\'a\',t.issue);link.href=t.issue;link.target=\'_blank\';link.rel=\'noopener noreferrer\';box.append(link)}if(t.deps.length)box.append(el(\'p\',\'Depends on: \'+t.deps.join(\', \')));for(const a of t.attempts){const d=el(\'details\');d.open=true;d.append(el(\'summary\',\'Attempt \'+a.number+\' · \'+a.state));d.append(el(\'p\',a.reason));d.append(el(\'small\',a.started_at+(a.ended_at?\' → \'+a.ended_at:\'\')));if(a.evidence)d.append(el(\'p\',(a.evidence_level===\'verified\'?\'Verified evidence: \':\'Reported evidence: \')+a.evidence));if(a.source_revision)d.append(el(\'pre\',\'Source revision: \'+a.source_revision));\nfor(const [id,runtime] of Object.entries(a.workers||{}))d.append(el(\'p\',id+\' · \'+[runtime.harness,runtime.model,runtime.effort].filter(Boolean).join(\' / \')));\nconst records=el(\'details\');records.append(el(\'summary\',\'Individual usage records (\'+(a.usage||[]).length+\')\'));const totals=k=>{const values=(a.usage||[]).filter(u=>k in u);return values.length?values.reduce((n,u)=>n+u[k],0).toLocaleString()+(values.length<(a.usage||[]).length?\' (partial)\':\'\'):\'not reported\'};d.append(el(\'p\',\'Tokens: \'+totals(\'input_tokens\')+\' in / \'+totals(\'output_tokens\')+\' out\'));for(const u of a.usage||[]){records.append(el(\'h3\',(u.agent||\'Unassigned\')+\' · \'+(u.model||\'Model not reported\')));records.append(el(\'small\',[u.harness,u.effort].filter(Boolean).join(\' / \')));for(const key of [\'input_tokens\',\'output_tokens\',\'cache_read_tokens\',\'cache_write_tokens\',\'reasoning_tokens\'])records.append(el(\'p\',key.replaceAll(\'_\',\' \')+\': \'+(key in u?u[key].toLocaleString():\'not reported\')));records.append(el(\'small\',\'Source: \'+u.source))}\nif(!(a.usage||[]).length)records.append(el(\'p\',\'Token usage: not reported\',\'muted\'));d.append(records);box.append(d)}if(!t.attempts.length)box.append(el(\'p\',\'No attempt started.\',\'muted\'));document.querySelectorAll(\'.task-node\').forEach(n=>n.classList.toggle(\'selected\',n.dataset.id===id));document.querySelectorAll(\'path[data-to]\').forEach(n=>n.setAttribute(\'stroke-width\',n.dataset.to===id||n.dataset.from===id?\'3\':\'1.4\'))}\nconst colors=[\'#67d7ef\',\'#76ddcf\',\'#94ddb8\',\'#b5cfdf\',\'#b6b3ee\',\'#c6a0e7\'];let taskOrder=[];\nfunction ref(t){return (t.display_ref||t._task_id||t.id)+((t._historical||t.attempts?.[0]?.number>1)?\'.a\'+t.attempts[0].number:\'\')}\nfunction graph(data){\n const g=$(\'graph\');g.replaceChildren();const q=$(\'filter\').value.toLowerCase(),fold=$(\'fold\').checked;\n const all=data._view.rows;const rows=all.filter(([prefix,t])=>{const original=data.tasks.find(x=>x.id===t._task_id);const hay=[t.id,t.title,t.milestone||\'\',...Object.keys((t.attempts[0]||{}).workers||{}),...Object.values((t.attempts[0]||{}).workers||{}).map(r=>r.model||\'\')].join(\' \').toLowerCase();return hay.includes(q)&&!(fold&&[\'done\',\'canceled\'].includes(t.state))});\n taskOrder=rows.map(r=>r[1].id);$(\'fold-count\').textContent=rows.length+\' of \'+all.length+\' attempt/task rows shown\'+(fold?\' · settled tasks folded\':\'\');\n const legend=$(\'milestones\');legend.replaceChildren();for(const [i,m] of data.milestones.entries()){const item=badge(m.id+\' · \'+m.title);item.style.color=colors[i%colors.length];legend.append(item)}\n const width=Math.max(300,g.parentElement.clientWidth),compact=width<1100,stride=compact?112:76,titleX=compact?Math.min(120,width*.2):220;const height=Math.max(100,rows.length*stride+30);g.style.minWidth=\'0\';g.setAttribute(\'viewBox\',`0 0 ${width} ${height}`);\n const positions=new Map(rows.map(([prefix,t],i)=>[t.id,{x:t._join?24:24+Math.min(prefix.length,20)*8,y:32+i*stride}]));\n const latest=new Map();for(const [,t] of all)latest.set(t._task_id,t.id);\n for(const [,t] of rows){const end=positions.get(t.id);const previous=t.attempts[0]&&t.attempts[0].number>1?t._task_id+\'.a\'+(t.attempts[0].number-1):null;\n const sources=[...(t._edges||[]),...(t._parent_ref?[t._parent_ref]:[])];for(const id of sources){const start=positions.get(id);if(!start)continue;g.append(svg(\'path\',{d:`M${start.x} ${start.y} Q${start.x+12} ${start.y+12},${start.x+12} ${start.y+24} L${start.x+12} ${end.y-24} Q${start.x+12} ${end.y-10},${end.x} ${end.y}`,fill:\'none\',stroke:colors[rows.findIndex(r=>r[1].id===id)%colors.length],\'stroke-width\':1.4,\'stroke-dasharray\':(id===t._cause||id===previous)?\'3 3\':\'none\',\'data-from\':id,\'data-to\':t.id}))}}\n for(const [i,[prefix,t]]of rows.entries()){const p=positions.get(t.id),color=({done:\'#8fd18a\',working:\'#67d7ef\',failed:\'#e58b64\',blocked:\'#d3ae72\',pending:\'#8b9094\',canceled:\'#8b9094\'}[t.state]);const n=svg(\'g\',{class:\'task-node\',tabindex:0,role:\'button\',\'aria-label\':t.id+\' \'+t.title+\', \'+t.state});n.dataset.id=t.id;n.append(svg(\'rect\',{class:\'row-bg\',x:titleX-10,y:p.y-24,width:width-titleX,height:stride-6,rx:3}));n.append(svg(\'text\',{x:p.x-5,y:p.y+4,\'font-size\':17,style:\'fill:\'+color},t._join?\'⋈\':t.state===\'done\'?\'●\':t.state===\'failed\'?\'×\':\'○\'));\n n.append(svg(\'text\',{x:titleX,y:p.y-4,\'font-size\':13},(ref(t)+\' \'+(t._join?\'⋈ \':\'\')+([t.milestone,t.issue?\'#\'+t.issue.split(\'/\').at(-1):\'\'].filter(Boolean).length?\'[\'+[t.milestone,t.issue?\'#\'+t.issue.split(\'/\').at(-1):\'\'].filter(Boolean).join(\' · \')+\'] \':\'\')+t.title).slice(0,Math.max(12,Math.floor((width-titleX-16)/8)))));\n n.append(svg(\'text\',{x:titleX,y:p.y+16,\'font-size\':11,style:\'fill:var(--muted)\'},(t.kind===\'question\'&&t.state===\'pending\'&&!t._blockers.length?\'needs answer\':t.state)+\' · \'+t._elapsed+(t._progress?\' · \'+t._progress.done+\'/\'+t._progress.total:\'\')+(t._cause?\' · cause \'+t._cause:\'\')+(t._blockers.length?\' · waits \'+t._blockers.join(\', \'):t.deps.length?\' · inputs \'+t.deps.join(\', \'):\' · root\')));\n if(t._historical)n.append(svg(\'text\',{x:titleX,y:p.y+33,\'font-size\':11,style:\'fill:var(--muted)\'},\'Previous attempt: \'+(t._row_note||\'no reason recorded\')));\n const attempt=t.attempts[0]||{},runtimes=[...Object.values(attempt.workers||{}),...(attempt.usage||[])];if(!t._historical)runtimes.push(...data.agents.filter(a=>a.task===t._task_id));const models=[...new Set(runtimes.filter(r=>r.model).map(r=>r.model+\' · \'+(r.effort||\'effort —\')))];\n const usage=attempt.usage||[],count=k=>{const u=usage.filter(x=>k in x);return u.length?u.reduce((n,x)=>n+x[k],0).toLocaleString()+(u.length<usage.length?\'*\':\'\'):\'—\'};\n if(t.kind!==\'group\')n.append(svg(\'text\',{x:compact?titleX:width-335,y:p.y+(compact?50:-4),\'font-size\':11,style:\'fill:\'+color},models.join(\', \')||\'model/effort —\'));if(t.kind!==\'group\')n.append(svg(\'text\',{x:compact?titleX:width-335,y:p.y+(compact?68:16),\'font-size\':11,style:\'fill:var(--muted)\'},\'tokens in/out \'+count(\'input_tokens\')+\' / \'+count(\'output_tokens\')));\n n.addEventListener(\'click\',()=>{$(\'follow\').checked=false;showTask(t.id)});n.addEventListener(\'keydown\',e=>{if(e.key===\'Enter\'||e.key===\' \'){e.preventDefault();showTask(t.id)}});g.append(n)}\n if(!rows.length)g.append(svg(\'text\',{x:20,y:40,\'font-size\':13},all.length?\'No matching rows. Clear search or unfold settled tasks.\':\'No tasks defined yet. Agent activity remains in the roster.\'));\n}\nwindow.addEventListener(\'resize\',()=>{if(current)render(current)});$(\'filter\').addEventListener(\'input\',()=>{if(current)render(current)});$(\'fold\').addEventListener(\'change\',()=>{if(current)render(current)});\ndocument.addEventListener(\'keydown\',e=>{if(e.target.closest(\'select,input,textarea,button\')||e.ctrlKey||e.metaKey||e.altKey)return;const step=[\'j\',\'ArrowDown\'].includes(e.key)?1:[\'k\',\'ArrowUp\'].includes(e.key)?-1:0;if(!step||!taskOrder.length)return;e.preventDefault();$(\'follow\').checked=false;const i=taskOrder.indexOf(selected);showTask(taskOrder[Math.max(0,Math.min(taskOrder.length-1,i<0?0:i+step))]);});\nfunction render(data){current=data;$(\'title\').textContent=data.run.title;$(\'run-id\').textContent=data.run.id+\' · revision \'+data.revision;$(\'summary\').textContent=data.run.summary||\'Updated \'+data.updated_at;$(\'stats\').replaceChildren(badge(data.run.state,data.run.state),badge(\'Phase: \'+data.run.phase),badge(data.tasks.filter(t=>t.kind!==\'group\'&&t.state===\'done\').length+\'/\'+data.tasks.filter(t=>t.kind!==\'group\').length+\' tasks done\'));graph(data);const agents=$(\'agents\');agents.replaceChildren();function draw(parent,depth){for(const a of data.agents.filter(a=>(a.parent||null)===parent)){const row=el(\'div\',undefined,\'agent\'+(depth?\' child\':\'\'));row.append(el(\'h3\',a.id+\' · \'+a.role),badge(a.state,a.state),el(\'p\',a.phase+(a.task?\' → \'+a.task:\'\')),el(\'small\',[a.harness,a.model,a.effort].filter(Boolean).join(\' · \')||\'Runtime not supplied\'),el(\'p\',a.activity||\'No activity note.\'),el(\'small\',a.workspace||\'Workspace not reported\'),el(\'small\',\'Last report \'+a.updated_at));for(const k of [\'input_tokens\',\'output_tokens\',\'cache_read_tokens\',\'cache_write_tokens\',\'reasoning_tokens\']){const values=(a.usage||[]).filter(u=>k in u);if(values.length)row.append(el(\'p\',\'Session-only \'+k.replaceAll(\'_\',\' \')+\': \'+values.reduce((n,u)=>n+u[k],0).toLocaleString()))}row.style.marginLeft=(depth*14)+\'px\';agents.append(row);draw(a.id,depth+1)}}draw(null,0);if(!data.agents.length)agents.append(el(\'p\',\'No agents registered.\',\'muted\'));const events=$(\'events\');events.replaceChildren();for(const e of data.events.slice(-12).reverse()){const row=el(\'p\');row.append(el(\'small\',e.at+\' · \'+e.type+\' \'),el(\'span\',e.detail));events.append(row)}$(\'diagnostics\').textContent=data._view.diagnostics.join(\'\\n\');if($(\'follow\').checked){const active=data._view.rows.find(r=>r[1].state===\'working\'&&taskOrder.includes(r[1].id));if(active)selected=active[1].id;}if(!selected&&taskOrder.length)selected=taskOrder[0];if(selected&&data._view.rows.some(r=>r[1].id===selected))showTask(selected);else{$(\'task-detail\').replaceChildren(el(\'h2\',\'Task details\'),el(\'p\',\'Select a task in the graph.\',\'muted\'))}}\nasync function refresh(){const generation=++requestRevision;try{const inventory=await fetch(\'/api/runs\');if(!inventory.ok)throw Error(\'Could not read run inventory\');const runs=await inventory.json();const selectedRun=requestedRun;$(\'runs\').replaceChildren(new Option(\'Repository · all active runs\',\'active\'),...runs.map(r=>new Option(r.title+\' · \'+(r.archived?\'archived\':r.lifecycle||r.state),r.id)));$(\'runs\').value=selectedRun;const response=await fetch(\'/api/run?id=\'+encodeURIComponent(selectedRun));if(!response.ok)throw Error(response.status===404?\'No active run. Create one with nova-flow init, or select an archived run.\':\'Run data could not be validated.\');const data=await response.json();if(generation!==requestRevision)return;render(data);$(\'error\').hidden=true;$(\'content\').hidden=false;$(\'connection\').textContent=\'Read \'+new Date().toLocaleTimeString()+\' · last report \'+data.updated_at}catch(e){if(generation!==requestRevision)return;$(\'error\').textContent=e.message;$(\'error\').className=\'error\';$(\'error\').hidden=false;$(\'content\').hidden=true;$(\'connection\').textContent=\'Waiting for valid run data\'}}\n$(\'runs\').addEventListener(\'change\',()=>{selected=null;requestedRun=$(\'runs\').value;refresh()});async function poll(){await refresh();setTimeout(poll,2000)}poll();\n</script></body></html>\n'
+
 
 if __name__ == '__main__':
     main()

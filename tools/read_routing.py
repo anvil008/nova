@@ -178,6 +178,8 @@ def hook_main():
         # A routing failure must not strand ordinary development or grant permissions.
         print(f'Nova read routing skipped: {error}', file=sys.stderr)
         result = {}
+    if args.harness == 'agy' and not result:
+        result = {'decision': 'allow'}
     print(json.dumps(result))
 
 

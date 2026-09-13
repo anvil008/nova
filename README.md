@@ -2,7 +2,7 @@
 
 Shared development skills for Codex, Claude Code, and Antigravity. The main agent applies a skill in the current conversation, uses helpers for useful independent tasks, and verifies the result.
 
-[System guide](docs/proposals/nova-next.html) · [Installation](docs/install.md) · [Architecture](docs/adr/0030-shared-skills-native-plugin-delivery.md)
+[System guide](docs/proposals/nova-next.html) · [Installation](docs/install.md) · [Harness comparison](instructions/harnesses.md) · [Architecture](docs/adr/0030-shared-skills-native-plugin-delivery.md)
 
 ## Scout read routing
 

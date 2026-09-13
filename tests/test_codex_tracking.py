@@ -122,3 +122,27 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(json.loads(result.stdout),{})
         self.assertEqual(self.data()['agents'][0]['state'],'idle')
+
+    def test_reset_restarts_current_counter_and_continues_collection(self):
+        self.append('turn_context',{'model':'m'})
+        self.tokens(1000);self.hook('SessionStart')
+        self.tokens(20);self.hook('PostToolUse')
+        self.tokens(50);self.hook('PostToolUse')
+        state=self.data()['agents'][0]['telemetry']
+        self.assertEqual(state['totals']['input_tokens'],50)
+        self.assertEqual(sum(u['input_tokens'] for u in state['counter_usage']),50)
+        self.assertEqual(state['counter_resets'],1)
+        before=self.data();self.hook('TranscriptPoll');self.assertEqual(self.data(),before)
+
+    def test_legacy_stuck_cursor_rebuilds_without_rewriting_history(self):
+        self.tokens(1000);self.tokens(20);self.hook('SessionStart')
+        data=self.data();agent=data['agents'][0]
+        history=json.loads(json.dumps(agent.get('usage',[])))
+        agent['telemetry'].pop('counter_usage',None)
+        agent['telemetry']['totals']['input_tokens']=1000
+        agent['telemetry']['warning']='Cumulative counters decreased; usage after reset is unattributed.'
+        tracking.dagr.atomic(self.root/'.nova/run.json',data)
+        self.hook('TranscriptPoll');agent=self.data()['agents'][0]
+        self.assertEqual(agent['telemetry']['totals']['input_tokens'],20)
+        self.assertEqual(agent['usage'],history)
+        self.assertNotIn('warning',agent['telemetry'])

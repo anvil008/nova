@@ -199,7 +199,7 @@ class DagrTests(unittest.TestCase):
         with urllib.request.urlopen(address + '/api/run', timeout=3) as response:
             self.assertEqual(json.load(response)['run']['id'], 'feature')
         with urllib.request.urlopen(address + '/', timeout=3) as response:
-            self.assertIn('Top-down task dependency graph', response.read().decode())
+            self.assertIn('Work in motion', response.read().decode())
         for request in [address + '/api/run?id=../escape', address + '/arbitrary-file',
                         urllib.request.Request(address + '/api/run', data=b'{}', method='POST')]:
             with self.assertRaises(urllib.error.HTTPError):
