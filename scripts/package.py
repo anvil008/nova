@@ -60,7 +60,10 @@ def build(output, version=None):
                 adapter['hooks']['PreToolUse'] = [{
                     'matcher': 'Read|read_file|Bash|exec_command|shell_command',
                     'hooks': [{'type': 'command', 'timeout': 5,
-                               'command': f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/read-routing.py" --harness {harness}'}]}]
+                               'command': f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/read-routing.py" --harness {harness}'}]}, {
+                    'matcher': 'Edit|Write|MultiEdit|NotebookEdit|apply_patch|Bash|exec_command|shell_command',
+                    'hooks': [{'type': 'command', 'timeout': 5,
+                               'command': f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/write-routing.py" --harness {harness}'}]}]
                 for event in ('SubagentStop', 'Stop', 'SessionEnd'):
                     adapter['hooks'][event] = [{'hooks': [{'type': 'command', 'timeout': 5,
                         'command': 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/integration.py"'}]}]
@@ -77,6 +80,11 @@ def build(output, version=None):
                         'command': 'python3 -c "import os,sys; p = \\"hooks/read-routing.py\\" if os.path.exists(\\"hooks/read-routing.py\\") else os.path.expanduser(\\"~/.gemini/config/plugins/nova/hooks/read-routing.py\\"); os.execv(sys.executable, [sys.executable, p] + sys.argv[1:])" --harness agy'}]}]}})
                 # Agy's Stop can continue once; PostToolUse records observed delegation.
                 agy_hooks = json.loads((plugin / 'hooks.json').read_text())
+                agy_hooks['nova-write-routing'] = {
+                    'enabled': True, 'description': 'Route file authoring to the existing implementer',
+                    'PreToolUse': [{'matcher': 'write|write_file|write_to_file|replace|replace_file|replace_file_content|multi_replace_file_content|run_command', 'hooks': [{
+                        'type': 'command', 'timeout': 5,
+                        'command': 'python3 -c "import os,sys; p = \\\"hooks/write-routing.py\\\" if os.path.exists(\\\"hooks/write-routing.py\\\") else os.path.expanduser(\\\"~/.gemini/config/plugins/nova/hooks/write-routing.py\\\"); os.execv(sys.executable, [sys.executable, p] + sys.argv[1:])" --harness agy'}]}]}
                 integration_command = ('python3 -c "import os,runpy; '
                     'p=os.path.expanduser(\\\"~/.gemini/config/plugins/nova/hooks/integration.py\\\"); '
                     'runpy.run_path(\\\"hooks/integration.py\\\" if os.path.isfile(\\\"hooks/integration.py\\\") '

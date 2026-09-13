@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+"""Run an assigned authoring command as argv, without implicit shell evaluation."""
+from write_routing import runner_main
+
+if __name__ == '__main__':
+    runner_main()
