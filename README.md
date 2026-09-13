@@ -71,7 +71,7 @@ Tell the agent your constraints, such as “review only,” “keep the public A
 
 Match your situation to a skill below. These are entry points, not a required sequence—`debug` can diagnose and repair a bug without a separate `build` task, for example.
 
-![Nova skill guide grouped by purpose: Decide with spec, plan, or multiplan; Change with build, debug, or refactor; Assure with review or docs; Operations with profile or deploy; Support with repo-setup, jj, wiki, or use-other-harness.](docs/diagrams/nova-skills.svg)
+![Nova skill guide grouped by purpose: Decide with spec, plan, or multiplan; Change with build, debug, or refactor; Assure with review or docs; Operations with profile or deploy; Support with repo-setup, jj, si-project, si-global, or use-other-harness.](docs/diagrams/nova-skills.svg)
 
 [View the skill guide at full size](docs/diagrams/nova-skills.svg)
 
@@ -89,7 +89,8 @@ Match your situation to a skill below. These are entry points, not a required se
 | Release a verified change to a named environment | [deploy](skills/deploy/SKILL.md) |
 | Prepare project instructions and development tools | [repo-setup](skills/repo-setup/SKILL.md) |
 | Manage JJ revisions, workspaces, and PR delivery | [jj](skills/jj/SKILL.md) |
-| Save or retrieve durable project knowledge | [wiki](skills/wiki/SKILL.md) |
+| Project-scoped adaptation and self-improvement | [si-project](skills/si-project/SKILL.md) |
+| Cross-project pattern synthesis and skill evolution | [si-global](skills/si-global/SKILL.md) |
 | Explicitly run a bounded task in another coding harness | [use-other-harness](skills/use-other-harness/SKILL.md) |
 
 Browse the [skill sources](skills/) for their full instructions. Reports default to Markdown; substantial unfinished tasks can retain a checkpoint for resumption.

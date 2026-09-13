@@ -33,7 +33,7 @@ class PackageTests(unittest.TestCase):
             plugin = moved / harness / 'plugins/nova'
             self.assertFalse(any(p.is_symlink() for p in plugin.rglob('*')))
             skills = list((plugin / 'skills').glob('*/SKILL.md'))
-            self.assertEqual(len(skills), 14)
+            self.assertEqual(len(skills), 15)
             for skill in skills:
                 self.assertEqual(skill.read_bytes(), (ROOT / skill.relative_to(plugin)).read_bytes())
                 for link in re.findall(r'\]\(([^)]+)\)', skill.read_text()):
