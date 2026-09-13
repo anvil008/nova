@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="1370" viewBox="0 0 1040 1370" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="1542" viewBox="0 0 1040 1542" role="img" aria-labelledby="title description">
 <title id="title">Nova hooks: triggers, functions, and effects</title>
-<desc id="description">PreToolUse invokes read routing in Codex, Claude, and Agy: recognized large reads are denied with scout guidance. In Codex and Claude, SubagentStop sets a marker, the next eligible parent Stop gives a one-shot integration reminder, and SessionEnd clears the marker. Claude WorktreeCreate creates a workspace under the primary checkout; WorktreeRemove retains JJ workspaces and unsafe-to-remove Git worktrees. PostToolUse formatting and linting require explicit configuration. Automatic Flow tracking is disabled. Separately, bootstrap preserves older hook paths during plugin updates.</desc>
+<desc id="description">PreToolUse invokes read routing in Codex, Claude, and Agy: recognized large reads are denied with scout guidance. In Codex and Claude, SubagentStop sets a marker, the next eligible parent Stop gives a one-shot integration reminder, and SessionEnd clears the marker. Claude WorktreeCreate creates a workspace under the primary checkout; WorktreeRemove retains JJ workspaces and unsafe-to-remove Git worktrees. PostToolUse formatting and linting require explicit configuration. Agy PostToolUse observes delegation and a normal fully idle Stop continues once with the integration reminder. Automatic Flow tracking is disabled. Separately, bootstrap preserves older hook paths during plugin updates.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#0f766e"/></marker></defs>
 <style>text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}.label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#0f766e}.title{font-size:21px;font-weight:650;fill:#0f172a}.body{font-size:16px;fill:#475569}.code{font-family:ui-monospace,Consolas,monospace;font-size:17px;fill:#0f172a}.small{font-size:14px;fill:#64748b}</style>
-<rect width="1040" height="1370" rx="20" fill="#f8fafc"/>
+<rect width="1040" height="1542" rx="20" fill="#f8fafc"/>
 <text x="40" y="42" class="label">NOVA / HOOKS AT A GLANCE</text>
 <text x="40" y="84" font-size="32" font-weight="700" fill="#0f172a">What fires, and what happens next?</text>
 <text x="40" y="114" class="body">Registered by the plugin. Native enablement and trust settings still apply.</text>
@@ -72,13 +72,23 @@
 <text x="626" y="937" class="body">scoped format commands, then lint.</text>
 <text x="626" y="962" class="body">Codex/Claude get context; Agy logs it.</text>
 <text x="626" y="987" class="body">No config: no format/lint work.</text>
-<rect x="40" y="1050" width="960" height="116" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
-<text x="60" y="1082" class="label">DISABLED / AUTOMATIC NOVA FLOW TRACKING</text>
-<text x="60" y="1113" class="body">No tracking events are registered by the package builder. Retained adapters require custom setup.</text>
-<text x="60" y="1141" class="body">The integration Stop reminder above is separate from Flow tracking and does not record a run.</text>
-<rect x="40" y="1184" width="960" height="136" rx="12" fill="#0f172a"/>
-<text x="60" y="1216" font-size="13" font-weight="700" letter-spacing="1" fill="#5eead4">INSTALL-TIME SUPPORT / NOT A NATIVE HOOK</text>
-<text x="60" y="1248" font-size="20" font-weight="650" fill="#ffffff">Bootstrap update → preserve_hook_paths() → existing sessions keep their hook files</text>
-<text x="60" y="1276" font-size="16" fill="#cbd5e1">Back up versioned Codex/Claude hook and tool files; restore missing paths after native updates.</text>
-<text x="60" y="1300" font-size="16" fill="#cbd5e1">Runs on failed updates too. Start new harness sessions to load the newly installed plugin.</text>
-<text x="40" y="1350" class="small">The main agent still owns tests, review, integration, and authorized delivery.</text></svg>
+<rect x="40" y="1050" width="960" height="154" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="60" y="1086" class="code">PostToolUse</text><text x="60" y="1111" class="code">→ idle Stop</text>
+<text x="60" y="1138" class="small">invoke_subagent succeeds</text>
+<path d="M278 1103 h24" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="330" y="1086" class="title">integration.py</text><text x="330" y="1114" class="body">Agy</text><text x="330" y="1182" class="label">REGISTERED / ONE SHOT</text>
+<path d="M574 1103 h24" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="626" y="1084" class="body">Delegation arms a conversation marker.</text>
+<text x="626" y="1109" class="body">Normal fully idle Stop continues once</text>
+<text x="626" y="1134" class="body">with the local-main / one-PR reminder.</text>
+<text x="626" y="1159" class="body">No continuation on errors or busy stops.</text>
+<rect x="40" y="1222" width="960" height="116" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
+<text x="60" y="1254" class="label">DISABLED / AUTOMATIC NOVA FLOW TRACKING</text>
+<text x="60" y="1285" class="body">No tracking events are registered by the package builder. Retained adapters require custom setup.</text>
+<text x="60" y="1313" class="body">The integration Stop reminder above is separate from Flow tracking and does not record a run.</text>
+<rect x="40" y="1356" width="960" height="136" rx="12" fill="#0f172a"/>
+<text x="60" y="1388" font-size="13" font-weight="700" letter-spacing="1" fill="#5eead4">INSTALL-TIME SUPPORT / NOT A NATIVE HOOK</text>
+<text x="60" y="1420" font-size="20" font-weight="650" fill="#ffffff">Bootstrap update → preserve_hook_paths() → existing sessions keep their hook files</text>
+<text x="60" y="1448" font-size="16" fill="#cbd5e1">Back up versioned Codex/Claude hook and tool files; restore missing paths after native updates.</text>
+<text x="60" y="1472" font-size="16" fill="#cbd5e1">Runs on failed updates too. Start new harness sessions to load the newly installed plugin.</text>
+<text x="40" y="1522" class="small">The main agent still owns tests, review, integration, and authorized delivery.</text></svg>
