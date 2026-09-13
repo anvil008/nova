@@ -55,23 +55,31 @@ def create(payload):
         raise ValueError('Add /.workspaces/ to the primary .gitignore before creating a non-colocated JJ workspace')
     container.mkdir(exist_ok=True)
     if vcs == 'jj':
-        # Resolve the local trunk alias; never inherit an unrelated task's parents.
-        run(['jj', 'workspace', 'add', '-r', 'trunk()', '--name', name, str(destination)], root)
+        # Local main includes verified results that are not published yet.
+        local = run(['jj', 'log', '-r', 'present(main)', '--no-graph',
+                     '-T', 'commit_id ++ "\\n"'], root).splitlines()
+        if len(local) > 1:
+            raise ValueError('Local main is conflicted; reconcile it before creating a workspace')
+        base = local[0] if local else 'trunk()'
+        run(['jj', 'workspace', 'add', '-r', base, '--name', name, str(destination)], root)
     else:
         try:
-            base = run(['git', 'symbolic-ref', 'refs/remotes/origin/HEAD'], root)
+            remote = run(['git', 'symbolic-ref', 'refs/remotes/origin/HEAD'], root)
+            branch = remote.removeprefix('refs/remotes/origin/')
+            candidates = [f'refs/heads/{branch}', remote]
         except ValueError:
-            base = None
-            for candidate in ('refs/remotes/origin/main', 'refs/remotes/origin/master',
-                              'refs/heads/main', 'refs/heads/master'):
-                try:
-                    run(['git', 'rev-parse', '--verify', candidate + '^{commit}'], root)
-                    base = candidate
-                    break
-                except ValueError:
-                    continue
-            if base is None:
-                raise ValueError('Cannot identify trunk; configure origin/HEAD before creating a workspace')
+            candidates = ['refs/heads/main', 'refs/heads/master',
+                          'refs/remotes/origin/main', 'refs/remotes/origin/master']
+        base = None
+        for candidate in candidates:
+            try:
+                run(['git', 'rev-parse', '--verify', candidate + '^{commit}'], root)
+                base = candidate
+                break
+            except ValueError:
+                continue
+        if base is None:
+            raise ValueError('Cannot identify trunk; configure origin/HEAD before creating a workspace')
         run(['git', 'worktree', 'add', '-b', f'worktree-{name}', str(destination), base], root)
     return str(destination)
 

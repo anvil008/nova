@@ -45,7 +45,7 @@
 <text x="330" y="666" class="label">REGISTERED</text>
 <text x="626" y="568" class="body">Create a JJ workspace or Git worktree</text>
 <text x="626" y="593" class="body">in &lt;primary&gt;/.workspaces/&lt;task&gt;/.</text>
-<text x="626" y="618" class="body">Start from locally known trunk refs;</text>
+<text x="626" y="618" class="body">Prefer local main, including unpushed work;</text>
 <text x="626" y="643" class="body">the hook does not fetch remote refs.</text>
 <rect x="40" y="706" width="960" height="154" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
 <path d="M278 759 h24" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
