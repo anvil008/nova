@@ -10,6 +10,8 @@
 
 ## Unreleased
 
+- Route recognized task-file edits to native implementers across Codex, Claude, and Agy. Keep routing cooperative: the parent starts and observes workers, Claude can identify its implementer, and Codex/Agy use a supplied argv runner without claiming universal shell-write interception or permission bypass.
+
 - Reduce recurring instruction context with compact global/shared defaults and conditional integration, reporting, and Flow references. Preserve local integration and single-PR publication rules.
 
 - Integrate verified workspace results into local main promptly; publish accumulated results through one PR and verify superseded branch cleanup. Add a bounded Agy delegation/Stop reminder alongside Codex/Claude reminders.
