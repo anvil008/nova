@@ -1,52 +1,118 @@
 # Nova
 
-Shared development skills for Codex, Claude Code, and Antigravity. The main agent applies a skill in the current conversation, uses helpers for useful independent tasks, and verifies the result.
+**Development skills for Codex, Claude Code, and Antigravity CLI.**
 
-[System guide](docs/proposals/nova-next.html) · [Installation](docs/install.md) · [Harness comparison](instructions/harnesses.md) · [Architecture](docs/adr/0030-shared-skills-native-plugin-delivery.md)
+Nova helps your coding agent plan features, fix bugs, review code, and document changes using a shared set of workflows. It runs inside your existing agent conversation and works with your repository’s instructions and checks.
 
-## Scout read routing
+Use one skill for a small task, or move from specification to implementation for a larger change. The main agent owns the result and brings in helpers when an independent task benefits from them.
 
-Packaged hooks redirect recognized large reads to the existing scout: Haiku for Claude, Luna for Codex, and Gemini 3.8 Flash low for Agy. Targeted reads stay direct; the builder role is unchanged. This uses native agents, not Portal or Flow tracking. See [routing, thresholds, and fallback](instructions/read-routing.md).
+[Quick start](#quick-start) · [Usage](#use-nova) · [Skills](#choose-a-skill) · [Installation guide](instructions/install.md) · [Harness comparison](instructions/harnesses.md)
 
-## Nova Flow
+## How Nova works
 
-The bundled `nova-flow` command tracks milestones, tasks, dependencies, workflow phases, and parent/subagent activity. It provides a terminal view and a live browser view, with attempt evidence and archives of completed runs. It is independent of Herdr Flow. Automatic tracking is disabled for now across all packaged harnesses; use the command only when explicitly requested.
+![Nova workflow: describe a task in Codex, Claude Code, or Antigravity CLI. The main agent applies a skill, does the work, verifies it, and delivers within your authorization. Scout, implementer, and reviewer helpers are optional; Nova Flow tracking is opt-in.](docs/diagrams/nova-workflow.svg)
 
-```sh
-nova-flow init 'My feature'
-nova-flow milestone discovery 'Define behavior'
-nova-flow task add spec 'Agree on behavior' --milestone discovery --phase spec
-nova-flow serve
-```
+[View the diagram at full size](docs/diagrams/nova-workflow.svg)
 
-Bootstrap installs the self-contained command to `~/.local/bin/`; use `--bin-dir` to change that location. It refuses to overwrite modified or conflicting files. The [tool guide](tools/README.md) covers updates, subagents, results, archiving, and LAN binding.
+1. **Describe the outcome.** Ask for a feature, a fix, a review, or documentation. Choose a skill when you want a specific workflow.
+2. **Work in the conversation.** The main agent reads project guidance, applies the skill, and makes the requested changes. Helpers can investigate, implement a bounded task, or review independently.
+3. **Verify the result.** The agent runs relevant checks and inspects the final changes. Failures feed back into the work; remaining limits are reported.
+4. **Deliver within your scope.** You receive the result and verification evidence. When authorized, the parent agent also integrates changes and completes the PR or deployment process.
 
-## Skills
+Small tasks can go straight to the relevant skill. There is no required sequence of skills or mandatory team.
 
-| Work | Skills |
-| --- | --- |
-| Define and prepare | spec, plan, multiplan |
-| Change code | build, debug, refactor |
-| Check and document | review, docs |
-| Measure and release | profile, deploy |
-| Support | repo-setup, jj, wiki, use-other-harness |
+## Quick start
 
-Spec is an interactive discovery session, with prototypes when requested. Plan breaks accepted behavior into tasks and acceptance tests. Build implements and verifies. Small clear tasks can start directly with the relevant skill. Multiplan explicitly requests separate Antigravity, Claude, and Codex drafts and one synthesis.
-
-Reports use Markdown under `docs/`; HTML is generated only on request. Substantial unfinished tasks keep a short checkpoint. Development uses jj with small changes based on main, local integration, and authorized publication. See [development conventions](instructions/development.md).
-
-## Install from this checkout
+You need **Python 3.11+** and at least one supported CLI already installed and available on `PATH`: `codex`, `claude`, or `agy`. Install repository tools such as jj and your project’s dependencies separately.
 
 ```sh
+git clone https://github.com/anvil008/nova.git
+cd nova
+
+# Preview the installation.
 ./scripts/bootstrap.sh --dry-run
+
+# Install into the supported CLIs available on this machine.
 ./scripts/bootstrap.sh
 ```
 
-Installs into available native harnesses. Use `--harness codex` (or claude/agy) to select one and `--with-codex-helpers` for optional Codex helper setup. Reruns update the stored bundles. See the [installation guide](instructions/install.md) for existing marketplace conflicts, prerequisites, and project configuration.
+Bootstrap installs the native plugins and the `nova-flow` command. It also synchronizes global instruction files for the selected harnesses using ownership checks. If you want to keep global instructions separate, use `--no-align-global`. Existing modified or unmanaged files are preserved; conflicts stop installation with an explanation.
 
-## Build and check
+To install only for Codex, including its optional native helpers:
 
-Requires Python 3.11+. Tests also require PyYAML (see requirements-dev.txt).
+```sh
+./scripts/bootstrap.sh --harness codex --with-codex-helpers
+```
+
+Use `--harness claude` or `--harness agy` to select either of the other CLIs. Claude and Agy helpers ship inside their plugins. The [installation guide](instructions/install.md) covers updates, custom locations, existing marketplace conflicts, and manual installation.
+
+**Start a new agent session after installation.** Open your project and use Nova’s `repo-setup` skill to record its development commands and reconcile project instructions.
+
+## Use Nova
+
+Select a skill from your harness’s catalog, then describe what you want:
+
+| Harness | Example |
+| --- | --- |
+| Codex | `$nova:build Add CSV export to the reports page.` |
+| Claude Code | `/nova:build Add CSV export to the reports page.` |
+| Antigravity CLI | Select the Nova build skill using the name shown in its skill catalog, then describe the feature. |
+
+Other starting points:
+
+- **An idea to work through:** “Use Nova spec to define an offline mode. Ask about the behavior before proposing an implementation.”
+- **A reproducible bug:** “Use Nova debug to reproduce this failing test, fix the cause, and verify the result.”
+- **A second look:** “Use Nova review to inspect this diff. Report concrete defects without changing files.”
+- **A simpler explanation:** “Use Nova docs to update the setup guide from the current code.”
+
+Tell the agent your constraints, such as “review only,” “keep the public API unchanged,” or “open a PR without merging.” Nova’s workflows carry that scope through the task.
+
+## Choose a skill
+
+| Your goal | Skill |
+| --- | --- |
+| Clarify an idea and agree on behavior | `spec` |
+| Turn a defined change into an implementation plan | `plan` |
+| Explicitly compare plans from Antigravity, Claude, and Codex | `multiplan` |
+| Implement a feature or fix | `build` |
+| Reproduce a failure and isolate its cause | `debug` |
+| Simplify code while preserving behavior | `refactor` |
+| Review a diff or pull request | `review` |
+| Write documentation grounded in the project | `docs` |
+| Measure performance and verify an optimization | `profile` |
+| Release a verified change to a named environment | `deploy` |
+| Prepare project instructions and development tools | `repo-setup` |
+| Manage JJ revisions, workspaces, and PR delivery | `jj` |
+| Save or retrieve durable project knowledge | `wiki` |
+| Explicitly run a bounded task in another coding harness | `use-other-harness` |
+
+Browse the [skill sources](skills/) for their full instructions. Reports default to Markdown; substantial unfinished tasks can retain a checkpoint for resumption.
+
+## Helpers and workspace behavior
+
+Nova includes three optional native helpers: a **scout** for focused investigation, an **implementer** for a bounded change, and a **reviewer** for independent inspection. The main agent remains responsible for checking and integrating their results.
+
+Packaged read-routing hooks direct recognized large reads toward the existing scout, while focused reads stay in the main conversation. Codex needs `--with-codex-helpers` for native scout setup. See [read routing and fallback](instructions/read-routing.md).
+
+Work that needs isolation uses `.workspaces/<task>/` under the primary checkout. Claude includes native workspace creation and retention hooks; Codex and Agy follow the shared instructions. Native trust settings and desktop app behavior vary—see the [harness comparison](instructions/harnesses.md).
+
+## Optional: track work with Nova Flow
+
+`nova-flow` provides terminal and browser views of tasks, dependencies, attempts, and parent/helper activity. **Automatic tracking is disabled.** Use it when you explicitly want a tracked run; it is not required to use Nova skills.
+
+From your project directory, start a new run and add a task:
+
+```sh
+nova-flow init 'CSV export'
+nova-flow task add export 'Implement CSV export' --phase build
+nova-flow view
+```
+
+Run `nova-flow serve` for the browser view. Add `~/.local/bin` to `PATH` if the command is not found. The [Flow guide](tools/README.md) covers progress updates, verification evidence, usage reporting, and archives.
+
+## Contributing
+
+Build and check changes from the repository root:
 
 ```sh
 python3 -m pip install -r requirements-dev.txt
@@ -55,24 +121,26 @@ python3 scripts/update-guide.py --check
 python3 scripts/package.py
 ```
 
-The build produces `dist/plugins/{codex,claude,agy}/`, each containing a native marketplace and a complete `plugins/nova/` bundle. It does not install anything. A package contains copies, so it remains usable after moving it away from this checkout. Version comes from `VERSION`.
+The package builder creates self-contained bundles in `dist/plugins/{codex,claude,agy}/`. Building does not update installed plugins; rerun bootstrap to apply source changes locally.
 
-```text
-skills/          One source for each workflow, references, and report assets
-instructions/    Shared development conventions
-agents/          Native optional scout, implementer, and reviewer definitions
-hooks/           Shared advisory post-edit runner and configuration examples
-tools/           Shared utilities as they are added
-packaging/       Native manifest differences
-scripts/         Package build and validation
-tests/          Executable package and hook checks
-docs/           Guide, installation, decisions, and task evidence
-```
+| Directory | Contents |
+| --- | --- |
+| [skills/](skills/) | Workflow instructions, references, and report assets |
+| [instructions/](instructions/) | Shared conventions and installation guidance |
+| [agents/](agents/) | Native helper definitions |
+| [hooks/](hooks/) | Read routing, workspace adapters, and optional edit checks |
+| [tools/](tools/) | Nova Flow and shared utilities |
+| [scripts/](scripts/) | Packaging, bootstrap, and validation |
+| [tests/](tests/) | Executable checks |
+| [docs/](docs/) | Architecture decisions, guides, and project history |
 
-Generated distributions are ignored. Change the sources, rebuild, then use the native plugin manager to update an installed copy. Hook configuration and project instructions are separate setup steps; see the installation guide for each harness.
+See [development conventions](instructions/development.md) and the [plugin architecture](docs/adr/0030-shared-skills-native-plugin-delivery.md). Formatter and linter hooks require explicit configuration.
 
-## Migration from 0.6
+<details>
+<summary>Upgrading from the older 0.6 architecture</summary>
 
-This replaces the mandatory role pipeline, sealed-test guard, control plane, contract sidecars, duplicated harness trees, and bootstrap installers. Their source remains in version history. Existing home-directory installations are not changed by building this repository.
+Nova replaces the older mandatory role pipeline, sealed-test guard, control plane, and duplicated harness trees. Those designs remain in project history; the current architecture uses shared skills and native plugins.
 
-Disable or uninstall the previous plugin through its native manager before installing this version. Separately inspect old standalone skills, hooks, and binaries; plugin removal may not own those files. Never delete unrelated user configuration. Historical ADRs and research describe earlier designs; ADR 0030 establishes the current design.
+Disable or uninstall the previous plugin through its native manager before installing this version. Inspect old standalone skills, hooks, and binaries separately: plugin removal may not own them. Building this repository alone does not change existing installations.
+
+</details>
