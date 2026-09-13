@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="1340" viewBox="0 0 960 1340" role="img" aria-labelledby="title description">
 <title id="title">Which Nova skill should I use?</title>
-<desc id="description">Choose by the task. Decide: spec clarifies behavior, plan prepares implementation, multiplan explicitly compares three harness plans. Change: build implements, debug diagnoses failures, refactor simplifies without changing behavior. Assure: review finds defects, docs explains current behavior. Operations: profile measures performance, deploy releases an authorized change. Support: repo-setup prepares tooling, jj manages revisions and PRs, wiki retrieves or saves project knowledge, use-other-harness runs an explicitly requested harness. Example paths can skip unnecessary stages; deployment requires authorization.</desc>
+<desc id="description">Choose by the task. Decide: spec clarifies behavior, plan prepares implementation, multiplan explicitly compares three harness plans. Change: build implements, debug diagnoses failures, refactor simplifies without changing behavior. Assure: review finds defects, docs explains current behavior. Operations: profile measures performance, deploy releases an authorized change. Support: repo-setup prepares tooling, jj manages revisions and PRs, si-project adapts in-repo, si-global evolves skills, use-other-harness runs an explicitly requested harness. Example paths can skip unnecessary stages; deployment requires authorization.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#5eead4"/></marker></defs>
 <style>text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}.group{font-size:13px;font-weight:700;letter-spacing:1.3px;fill:#0f766e}.name{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:22px;font-weight:700;fill:#0f172a}.body{font-size:17px;fill:#475569}.hint{font-size:15px;fill:#64748b}</style>
 <rect width="960" height="1340" rx="20" fill="#f8fafc"/>
@@ -74,9 +74,9 @@
 <text x="510" y="925" class="body">Inspect revisions, conflicts, and PR delivery.</text>
 <rect x="40" y="962" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
 <rect x="40" y="977" width="4" height="28" rx="2" fill="#0f766e"/>
-<text x="60" y="997" class="name">wiki</text>
-<text x="60" y="1027" class="body">“What did we learn or decide?”</text>
-<text x="60" y="1051" class="body">Retrieve or save knowledge in an opted-in wiki.</text>
+<text x="60" y="997" class="name">si-project / si-global</text>
+<text x="60" y="1027" class="body">“Adapt project habits or evolve shared skills.”</text>
+<text x="60" y="1051" class="body">In-repo store (.nova/si/) and cross-repo synthesis.</text>
 <rect x="490" y="962" width="430" height="110" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
 <rect x="490" y="977" width="4" height="28" rx="2" fill="#0f766e"/>
 <text x="510" y="997" class="name">use-other-harness</text>
