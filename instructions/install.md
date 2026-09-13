@@ -81,7 +81,13 @@ Claude bundles register native WorktreeCreate/WorktreeRemove hooks. Codex and Ag
 
 ## Project instructions and checks
 
-Every skill explicitly reads the bundled `instructions/development.md`. That makes the conventions available during Nova tasks without assuming plugin-root instruction files are automatically loaded.
+### Instruction loading
+
+Bootstrap synchronizes the selected harness's global file (`AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`); each harness uses its own file. These contain compact standing rules.
+
+Every Nova skill reads the short bundled `instructions/development.md`, reusing it within the conversation. Antigravity also receives that same content as `rules/nova.md`; reuse it rather than reading a duplicate. Skill bodies and references are not all preloaded just because they are installed.
+
+The shared instructions route to [integration](integration.md) before revision changes or delivery, [reporting](reporting.md) for substantial artifacts or resumption, [read routing](read-routing.md) for bulk reads, and [Flow](flow.md) only after an explicit Flow request. Read the relevant reference once, not the entire folder. Installation and harness documentation are reference material for setup and troubleshooting.
 
 For persistent project guidance, run Nova's repo-setup skill. It reconciles the conventions with existing project instructions and records actual build/test commands. Use `AGENTS.md` for Codex, `CLAUDE.md` or its supported imports for Claude, and the project's supported rules/instruction mechanism for Agy. A plugin-root `CLAUDE.md` is not project context. Personal configuration and command permissions are not overwritten.
 
