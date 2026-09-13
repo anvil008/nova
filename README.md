@@ -102,6 +102,21 @@ Packaged read-routing hooks direct recognized large reads toward the existing sc
 
 Work that needs isolation uses `.workspaces/<task>/` under the primary checkout. Claude includes native workspace creation and retention hooks; Codex and Agy follow the shared instructions. Native trust settings and desktop app behavior vary—see the [harness comparison](instructions/harnesses.md).
 
+## Hooks: what runs when?
+
+Hooks connect native agent events to small local functions. This map shows what Nova registers, what needs configuration, and what remains disabled.
+
+![Nova hook map: PreToolUse checks large reads; SubagentStop and parent Stop provide an integration reminder; Claude WorktreeCreate and WorktreeRemove manage isolated workspaces; PostToolUse formatting and linting are opt-in. Automatic Flow tracking is disabled, while bootstrap separately preserves old hook paths during updates.](docs/diagrams/nova-hooks.svg)
+
+[View the hook map at full size](docs/diagrams/nova-hooks.svg) · [Hook configuration](hooks/README.md) · [Harness differences](instructions/harnesses.md)
+
+- **Before a read:** recognized large reads receive scout-routing guidance. The hook does not launch a helper itself.
+- **After a child stops:** Codex and Claude schedule one parent Stop reminder to finish integration. The hook never merges changes; `SessionEnd` clears leftover reminders.
+- **When Claude creates or removes an isolated workspace:** the adapter uses the primary checkout’s `.workspaces/` directory and retains work that cannot be safely removed. JJ cleanup stays explicit.
+- **After supported editor calls:** formatting and linting run only with an enabled configuration. Codex/Claude use `NOVA_HOOK_CONFIG`; Agy requires explicit adapter setup. These checks do not replace final verification.
+
+Native hook enablement and trust settings still apply. Bootstrap’s compatibility backup runs during installation, helping existing sessions retain their hook entrypoints until restarted.
+
 ## Optional: track work with Nova Flow
 
 `nova-flow` provides terminal and browser views of tasks, dependencies, attempts, and parent/helper activity. **Automatic tracking is disabled.** Use it when you explicitly want a tracked run; it is not required to use Nova skills.
