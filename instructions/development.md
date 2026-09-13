@@ -21,6 +21,17 @@ Unless the user or repository specifies another location, create additional JJ w
 
 For authorized publication, prefer a short-lived bookmark and PR into trunk. Direct-to-trunk delivery requires corresponding authorization and verification of the exact candidate. State whether work is local, published, or integrated; implementation authorization alone does not imply permission to merge or deploy.
 
+
+## Parent-owned task integration
+
+For both JJ workspaces and Git worktrees, a child reporting done means ready for integration. The parent must collect immutable result commits and verification evidence, review and test the combined candidate, and carry the authorized delivery path through integration without waiting for another user reminder. Read-only subagent work needs no merge. Workspaces belonging to other tasks are outside this obligation.
+
+This user's standing preference authorizes local integration of verified task results. Preserve repository PR protections and explicit review-only, no-merge, or no-publish limits. When remote PR delivery is authorized, complete required checks/review and merge through that path, then fetch and synchronize local main. When only local delivery is authorized and repository rules permit it, integrate the verified candidate locally. Do not request the same authorization again. If a real review, permission, or CI boundary remains, finish all independent work and report awaiting review or blocked with the exact reason; do not call the task complete.
+
+For JJ, integrate the child revisions into one tested candidate and advance the local main bookmark to the verified integrated revision. For Git, integrate the child branches into one tested candidate and fast-forward local main to the integrated commit. Account for squash/rebase commit mappings; record the resulting immutable main commit. Updating a bookmark or ref alone does not update the primary checkout's files: safely synchronize that checkout too. Never reset dirty files, move an active task off its revision, force-update divergent main, rewrite published history, or bypass protections. Report any primary-checkout synchronization blocked by unrelated work.
+
+Before removing a task workspace, prove its work reached the integration target and preserve dirty, untracked and ignored files. A clean status, empty JJ child commit, stopped process, or successful subagent exit is not integration evidence. The final response states integrated (with main commit and local synchronization status), awaiting review, or blocked. A child handoff includes its workspace, immutable commit, checks, and unresolved issues; the parent owns the remaining work.
+
 ## Selective delegation
 
 The optional helper roster is scout (bounded read-only discovery), implementer (one assigned task and verification), and reviewer (independent candidate assessment). Skills own workflows; helpers own assignments. Pass task-relevant skill guidance without asking helpers to repeat the whole workflow, spawn another team, or produce another overall report. Do not invoke a helper merely because it exists. Scout summaries include source pointers, constraints, and uncertainty; inspect consequential details without routinely repeating the entire search.

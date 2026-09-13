@@ -90,6 +90,12 @@ def remove(payload):
     # Git worktree remove alone may delete ignored files. Check those explicitly.
     if run(['git', 'status', '--porcelain', '--untracked-files=all', '--ignored'], path):
         raise ValueError(f'Workspace retained: modified, untracked, or ignored files in {path}')
+    # A clean checkout may still contain commits absent from local trunk.
+    try:
+        trunk = run(['git', 'symbolic-ref', 'refs/remotes/origin/HEAD'], root).split('/')[-1]
+    except ValueError:
+        trunk = 'main'
+    run(['git', 'merge-base', '--is-ancestor', 'HEAD', f'refs/heads/{trunk}'], path)
     # Never force or delete branches here.
     run(['git', 'worktree', 'remove', str(path)], root)
 

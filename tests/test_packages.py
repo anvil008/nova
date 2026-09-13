@@ -105,7 +105,7 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual(set(hooks), {'nova-read-routing'})
                 self.assertEqual(set(hooks['nova-read-routing']) - {'enabled', 'description'}, {'PreToolUse'})
                 continue
-            expected = {'PreToolUse', 'PostToolUse'}
+            expected = {'PreToolUse', 'PostToolUse', 'SubagentStop', 'Stop', 'SessionEnd'}
             if harness == 'claude':
                 expected |= {'WorktreeCreate', 'WorktreeRemove'}
             self.assertEqual(set(hooks['hooks']), expected)

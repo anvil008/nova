@@ -57,6 +57,17 @@ class WorkspaceHooks(unittest.TestCase):
         self.assertFalse(second.exists())
         self.assertTrue(first.exists())
 
+    def test_clean_unintegrated_commit_is_retained_until_main_contains_it(self):
+        path = self.create('unmerged')
+        (path / 'file.txt').write_text('finished task\n')
+        self.git('-C', str(path), 'add', '.')
+        self.git('-C', str(path), 'commit', '-m', 'task')
+        self.assertNotEqual(self.hook('WorktreeRemove', worktree_path=str(path)).returncode, 0)
+        self.assertTrue(path.exists())
+        self.git('merge', '--ff-only', 'worktree-unmerged')
+        self.assertEqual(self.hook('WorktreeRemove', worktree_path=str(path)).returncode, 0)
+        self.assertFalse(path.exists())
+
     def test_dirty_and_ignored_worktree_retained(self):
         path = self.create('dirty')
         (path / 'file.txt').write_text('user changes\n')

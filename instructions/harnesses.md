@@ -76,3 +76,11 @@ Verify package contents and native discovery separately from actual hook executi
 - [Agy hooks](https://antigravity.google/docs/hooks)
 - [Agy projects](https://www.antigravity.google/docs/projects)
 - [JJ workspaces](https://docs.jj-vcs.dev/latest/working-copy/#workspaces)
+
+## Task integration and completion
+
+All harnesses follow the parent-owned integration policy in development.md for both JJ and Git. Codex and Claude packages register SubagentStop, Stop and SessionEnd command hooks: a child exit schedules one parent Stop reminder to finish verified integration and local-main synchronization. The hook never blocks the child or merges code itself. It consumes its marker and respects stop_hook_active to avoid a continuation loop; it is a reminder, not proof that integration happened. A read-only child also triggers the reminder, which explicitly requires no merge in that case. Sessions with no child event rely on the standing instructions. Session markers live under XDG_CACHE_HOME/nova/integration (default ~/.cache/nova/integration).
+
+Agy uses persistent rules for this policy; no unverified parent/child hook contract is assumed. Claude WorktreeRemove also refuses clean Git worktrees whose HEAD is not an ancestor of local trunk. Squash/rebase equivalents require explicit parent verification and manual cleanup. JJ cleanup remains explicit.
+
+Hook contracts: [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude hooks](https://code.claude.com/docs/en/hooks).

@@ -105,3 +105,5 @@ For a repeatable Linux offline install trial, run `python3 scripts/native-smoke.
 - [Codex plugins](https://learn.chatgpt.com/docs/build-plugins), [hooks](https://learn.chatgpt.com/docs/hooks), [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
 - [Claude plugins](https://code.claude.com/docs/en/plugins), [plugin reference](https://code.claude.com/docs/en/plugins-reference)
 - [Antigravity CLI plugins](https://www.antigravity.google/docs/cli/plugins)
+
+Bootstrap preserves existing Codex/Claude versioned hook and tool dependencies under `~/.local/share/nova/hook-compat/` and restores missing cache paths after native updates, including failures. This keeps running sessions functional until restarted. Compatibility files are retained deliberately; do not prune them while sessions still reference those versions.

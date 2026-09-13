@@ -6,7 +6,7 @@
 
 ## Optional post-edit hooks
 
-Plugin sources; formatting/linting remains disabled until explicitly configured. `post-edit.py` runs a project's explicitly configured single-file format and lint commands in order. It has no model calls, transcript capture, wiki writes, test seals, builder identities, or Stop continuation loop. Final tests, review, and delivery remain workflow responsibilities.
+Plugin sources; formatting/linting remains disabled until explicitly configured. `post-edit.py` runs a project's explicitly configured single-file format and lint commands in order. It has no model calls, transcript capture, wiki writes, test seals, builder identities, or unbounded Stop continuation loop. Final tests, review, and delivery remain workflow responsibilities.
 
 Keep the shared runner once. The JSON adapters differ only in native configuration shape and tool names. During a separately requested setup, replace `/ABSOLUTE/PATH/` entries with correctly shell-quoted paths, select the target root and existing tools in a project config, review the commands, and enable that config. Merge native event entries with existing configuration rather than replacing it. Commands are trusted executable configuration: enabling a formatter authorizes its scoped edits; the runner is not a security sandbox.
 
@@ -54,3 +54,5 @@ With custom tracking hooks explicitly configured, launches need no `track` wrapp
 Agy hook commands reference bootstrap's stable bundle path; rebuilding at a new prefix regenerates those paths. Native installation leaves unrelated global hooks unchanged. Start fresh harness sessions after installation to reload discovery.
 
 Sources: [Claude hooks](https://code.claude.com/docs/en/hooks), [Agy hooks and payloads](https://antigravity.google/docs/hooks/), [Agy plugin layout](https://antigravity.google/docs/cli/plugins/).
+
+`integration.py` supplies a one-shot parent Stop reminder after SubagentStop in Codex/Claude. It never merges, inspects transcripts, or treats its marker as integration evidence. See the harness comparison for boundaries. Git workspace cleanup requires HEAD ancestry in local trunk as well as a clean checkout.

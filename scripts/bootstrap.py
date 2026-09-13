@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Build and install Nova with native plugin managers. No dependency downloads."""
+from contextlib import contextmanager
 import argparse
 import hashlib
 import json
@@ -17,6 +18,40 @@ def run(command, capture=False):
     result = subprocess.run(list(map(str, command)), check=True, text=True,
                             stdout=subprocess.PIPE if capture else None, timeout=120)
     return json.loads(result.stdout) if capture else None
+
+
+@contextmanager
+def preserve_hook_paths(home=None):
+    """Native updates may evict versions still referenced by running sessions."""
+    home = Path.home() if home is None else Path(home)
+    archive = home / '.local/share/nova/hook-compat'
+    bases = {h: home / f'.{h}/plugins/cache/nova/nova' for h in ('codex', 'claude')}
+    for harness, base in bases.items():
+        if not base.is_dir():
+            continue
+        for version in base.iterdir():
+            if not version.is_dir() or version.is_symlink():
+                continue
+            for part in ('hooks', 'tools'):
+                for source in (version / part).rglob('*'):
+                    if source.is_file() and not source.is_symlink() and '__pycache__' not in source.parts:
+                        target = archive / harness / version.name / source.relative_to(version)
+                        if not target.exists():
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(source, target)
+    try:
+        yield
+    finally:
+        for harness, base in bases.items():
+            saved = archive / harness
+            if not saved.exists():
+                continue
+            for source in saved.rglob('*'):
+                if source.is_file() and not source.is_symlink():
+                    target = base / source.relative_to(saved)
+                    if not target.exists():
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source, target)
 
 
 def fingerprint():
@@ -114,22 +149,23 @@ def main():
         version = (ROOT / 'VERSION').read_text().strip().split('+')[0]
         version += ('.' if '-' in version else '-') + 'local.' + fingerprint()
         build(bundle, version=version)
-        for harness in selected:
-            if harness == 'agy':
-                run(['agy', 'plugin', 'install', bundle / 'agy/plugins/nova'])
-            else:
-                if actions[harness] == 'replace':
-                    run([harness, 'plugin', 'marketplace', 'remove', 'nova'])
-                if actions[harness] in ('add', 'replace'):
-                    run([harness, 'plugin', 'marketplace', 'add', bundle / harness])
-                if harness == 'codex':
-                    run(['codex', 'plugin', 'add', 'nova@nova'])
+        with preserve_hook_paths():
+            for harness in selected:
+                if harness == 'agy':
+                    run(['agy', 'plugin', 'install', bundle / 'agy/plugins/nova'])
                 else:
-                    installed = run(['claude', 'plugin', 'list', '--json'], capture=True)
-                    exists = any(x['id'] == 'nova@nova' and x.get('scope') == 'user' for x in installed)
-                    if actions[harness] == 'keep':
-                        run(['claude', 'plugin', 'marketplace', 'update', 'nova'])
-                    run(['claude', 'plugin', 'update' if exists else 'install', 'nova@nova'])
+                    if actions[harness] == 'replace':
+                        run([harness, 'plugin', 'marketplace', 'remove', 'nova'])
+                    if actions[harness] in ('add', 'replace'):
+                        run([harness, 'plugin', 'marketplace', 'add', bundle / harness])
+                    if harness == 'codex':
+                        run(['codex', 'plugin', 'add', 'nova@nova'])
+                    else:
+                        installed = run(['claude', 'plugin', 'list', '--json'], capture=True)
+                        exists = any(x['id'] == 'nova@nova' and x.get('scope') == 'user' for x in installed)
+                        if actions[harness] == 'keep':
+                            run(['claude', 'plugin', 'marketplace', 'update', 'nova'])
+                        run(['claude', 'plugin', 'update' if exists else 'install', 'nova@nova'])
         owned = receipt.get('helpers', {})
         for target, data in helpers:
             target.parent.mkdir(parents=True, exist_ok=True)

@@ -30,3 +30,5 @@ Read [shared development instructions](../../instructions/development.md) once p
 - Integrate after required checks/review within existing authorization. Direct-to-trunk delivery requires verifying the exact candidate before advancing trunk. Report workspace, tested commit, continuation change ID, bookmark/PR, verification limits, and local/published/integrated state in the owning task's response.
 
 Official details: [workspaces](https://docs.jj-vcs.dev/latest/working-copy/), [bookmarks](https://docs.jj-vcs.dev/latest/bookmarks/), [conflicts](https://docs.jj-vcs.dev/latest/conflicts/), [recovery](https://docs.jj-vcs.dev/latest/operation-log/).
+
+Parent-owned integration applies to JJ workspaces and Git worktrees: follow `instructions/development.md` (the shared development instructions for the JJ skill). Child completion is a handoff; the parent must integrate verified results and synchronize local main within existing authorization before declaring overall completion. Preserve active or dirty primary checkouts and report concrete blockers.
