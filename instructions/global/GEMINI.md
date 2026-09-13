@@ -1,6 +1,10 @@
 # Development defaults
 
-Carry the user's scope and authorization through completion; honor local-only, review-only, no-merge, and no-publish limits. Keep work proportional. Delegate only when authorized and an independent question or review warrants it.
+Carry the user's scope and authorization through completion; honor local-only, review-only, no-merge, and no-publish limits. Keep work proportional.
+
+## Authorship
+
+The parent plans, observes, verifies, reviews, and integrates. A native implementer authors every task file change—code, tests, docs, config, and reports—including small edits. The parent makes native calls; hooks never create workers. Parallelize only available, independent writers with disjoint ownership; serialize coupled work and reuse the same worker for repairs. The parent may investigate read-only, run checks/builds, and integrate; incidental command output is exempt. If no implementer is available, report that limitation and obtain a user exception before authoring directly. Explicit user overrides control.
 
 ## Changes and delivery
 

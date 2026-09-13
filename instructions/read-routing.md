@@ -28,7 +28,7 @@ The JSON contains each file's absolute path, one-based start_line, source lines,
 
 ## Predictable file generation
 
-For output-heavy boilerplate or repetitive tests/configuration, assign the existing implementer one bounded task with the specification, reference-file paths, allowed target paths, and acceptance checks. The implementer reads its references and writes directly into its owned files. It returns file locations, a concise summary, verification, and concerns instead of sending the full generated code back to the main model. Inspect the diff and relevant sections for review; do not blindly accept generation based on a summary. This handoff uses normal native delegation, not a write-blocking hook or a second builder. Codex remains Terra at high, Claude Opus 5 at medium, and Agy Gemini 3.8 Flash high. Use direct implementation when handoff overhead would exceed the benefit.
+For task-file changes, assign the existing implementer one coherent task with the specification, reference-file paths, owned target paths, and acceptance checks. The implementer reads its references and writes the owned files. It returns file locations, a concise summary, verification, and concerns instead of sending full generated code back to the parent. Inspect the diff and relevant sections for review; do not blindly accept generation based on a summary. See [task-file routing](write-routing.md) for the cooperative hook contract. Codex remains Terra at high, Claude Opus 5 at medium, and Agy Gemini 3.8 Flash high.
 
 ## Routing and fallback
 

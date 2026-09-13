@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -123,10 +124,11 @@ class PackageTests(unittest.TestCase):
             path = plugin / ('hooks.json' if harness == 'agy' else 'hooks/hooks.json')
             hooks = json.loads(path.read_text())
             if harness == 'agy':
-                self.assertEqual(set(hooks), {'nova-read-routing', 'nova-integration'})
+                self.assertEqual(set(hooks), {'nova-read-routing', 'nova-write-routing', 'nova-integration'})
                 self.assertEqual(set(hooks['nova-integration']) - {'enabled', 'description'}, {'PostToolUse', 'Stop'})
                 self.assertNotIn('tracking.py', json.dumps(hooks))
                 self.assertEqual(set(hooks['nova-read-routing']) - {'enabled', 'description'}, {'PreToolUse'})
+                self.assertEqual(set(hooks['nova-write-routing']) - {'enabled', 'description'}, {'PreToolUse'})
                 continue
             expected = {'PreToolUse', 'PostToolUse', 'SubagentStop', 'Stop', 'SessionEnd'}
             if harness == 'claude':
@@ -185,6 +187,53 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(data['lines'][399], 'value_399 = 399')
             self.assertIsNone(data['next_line'])
             self.assertFalse((repo / '.nova').exists())
+
+    def test_write_routing_and_runner_work_after_relocation(self):
+        moved = self.base / 'relocated write bundle'
+        shutil.move(self.output, moved)
+        repo = self.base / 'target write'
+        repo.mkdir()
+        for harness in package.HARNESSES:
+            plugin = moved / harness / 'plugins/nova'
+            payload = {'cwd': str(repo), 'tool_name': 'Write',
+                       'tool_input': {'file_path': str(repo / 'main.py'), 'content': 'x'}}
+            if harness == 'agy':
+                installed = self.base / 'home/.gemini/config/plugins/nova'
+                installed.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(plugin, installed)
+                plugin = installed
+                config = json.loads((plugin / 'hooks.json').read_text())['nova-write-routing']
+                payload = {'workspacePaths': [str(repo)], 'toolCall': {
+                    'name': 'write_file', 'args': {'path': str(repo / 'main.py'), 'content': 'x'}}}
+                cwd = self.base  # Prove the Agy installed-plugin fallback works from a project cwd.
+            else:
+                config = json.loads((plugin / 'hooks/hooks.json').read_text())['hooks']
+                cwd = repo
+            entry = config['PreToolUse'][1] if harness != 'agy' else config['PreToolUse'][0]
+            command = entry['hooks'][0]['command']
+            env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(plugin), HOME=str(self.base / 'home'))
+            result = subprocess.run(['sh', '-c', command], input=json.dumps(payload), text=True,
+                                    capture_output=True, env=env, cwd=cwd, check=True)
+            decision = json.loads(result.stdout)
+            if harness == 'agy':
+                self.assertEqual(decision['decision'], 'deny')
+            else:
+                self.assertEqual(decision['hookSpecificOutput']['permissionDecision'], 'deny')
+            target = repo / f'{harness} quoted.txt'
+            runner = plugin / 'tools/nova-write'
+            write = subprocess.run([sys.executable, str(runner), '--', sys.executable, '-c',
+                                    'import pathlib,sys; pathlib.Path(sys.argv[1]).write_text(sys.argv[2])',
+                                    str(target), 'written via argv'], text=True, capture_output=True, timeout=3)
+            self.assertEqual(write.returncode, 0, write.stderr)
+            self.assertEqual(target.read_text(), 'written via argv')
+            exempt = dict(payload)
+            if harness == 'agy':
+                exempt['toolCall'] = {'name': 'run_command', 'args': {'CommandLine': f'python3 {shlex.quote(str(runner))} -- touch x'}}
+            else:
+                exempt.update({'tool_name': 'Bash', 'tool_input': {'command': f'python3 {shlex.quote(str(runner))} -- touch x'}})
+            result = subprocess.run(['sh', '-c', command], input=json.dumps(exempt), text=True,
+                                    capture_output=True, env=env, cwd=cwd, check=True)
+            self.assertEqual(json.loads(result.stdout), {})
 
 
 if __name__ == '__main__':
