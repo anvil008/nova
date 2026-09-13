@@ -233,7 +233,10 @@ class PackageTests(unittest.TestCase):
                 exempt.update({'tool_name': 'Bash', 'tool_input': {'command': f'python3 {shlex.quote(str(runner))} -- touch x'}})
             result = subprocess.run(['sh', '-c', command], input=json.dumps(exempt), text=True,
                                     capture_output=True, env=env, cwd=cwd, check=True)
-            self.assertEqual(json.loads(result.stdout), {})
+            if harness == 'agy':
+                self.assertEqual(json.loads(result.stdout), {'decision': 'allow'})
+            else:
+                self.assertEqual(json.loads(result.stdout), {})
 
 
 if __name__ == '__main__':
