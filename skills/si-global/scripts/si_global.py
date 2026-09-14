@@ -14,6 +14,21 @@ from pathlib import Path
 import re
 import sys
 
+EVAL_GATE = [
+    "python3 -m unittest discover -s tests",
+    "python3 scripts/update-guide.py --check",
+    "python3 scripts/package.py",
+]
+EVAL_GATE_NOTICE = (
+    "All proposals require Nova's CI verification to pass before applying to shared skills: "
+    + "; ".join(EVAL_GATE)
+    + "."
+)
+
+
+class RegistryError(Exception):
+    """Raised when the projects registry cannot be read."""
+
 
 def get_registry_path(custom_path: str | None = None) -> Path:
     if custom_path:
@@ -25,30 +40,36 @@ def get_registry_path(custom_path: str | None = None) -> Path:
 
 
 def read_registry(registry_path: Path) -> list[Path]:
-    if not registry_path.is_file():
+    if not registry_path.exists():
         return []
     try:
         data = json.loads(registry_path.read_text(encoding="utf-8"))
-        raw_list = []
-        if isinstance(data, list):
-            raw_list = data
-        elif isinstance(data, dict) and "projects" in data and isinstance(data["projects"], list):
-            raw_list = data["projects"]
-        return [Path(p).resolve() for p in raw_list if isinstance(p, str)]
-    except Exception:
-        return []
+    except (OSError, ValueError) as error:
+        raise RegistryError(f"invalid registry {registry_path}: {error}") from error
+    raw_list = data.get("projects") if isinstance(data, dict) else data
+    if not isinstance(raw_list, list) or not all(isinstance(p, str) for p in raw_list):
+        raise RegistryError(
+            f"invalid registry {registry_path}: expected a list of path strings"
+            " or an object whose \"projects\" is a list of path strings"
+        )
+    return [Path(p).resolve() for p in raw_list]
+
+
+def is_eval_mode(proj_root: Path) -> bool:
+    return (proj_root / ".nova" / "eval-mode.json").is_file()
 
 
 def inspect_project(proj_root: Path) -> dict:
     info = {
         "path": str(proj_root),
         "exists": proj_root.is_dir(),
+        "evalMode": is_eval_mode(proj_root),
         "storeExists": False,
         "patterns": 0,
         "raw": 0,
         "proposals": 0,
     }
-    if not proj_root.is_dir():
+    if not proj_root.is_dir() or info["evalMode"]:
         return info
 
     store = proj_root / ".nova" / "si"
@@ -67,7 +88,7 @@ def inspect_project(proj_root: Path) -> dict:
 def scan_all_patterns(projects: list[Path]) -> list[dict]:
     all_patterns = []
     for proj in projects:
-        if not proj.is_dir():
+        if not proj.is_dir() or is_eval_mode(proj):
             continue
         store = proj / ".nova" / "si"
         patterns_dir = store / "patterns"
@@ -207,7 +228,7 @@ def command_propose(args: argparse.Namespace) -> int:
                 "occurrences": c["totalOccurrences"],
             },
             "proposedChange": f"Add operational mitigation for recurring cross-project pattern `{slug}` into `{target_skill}` workflow.",
-            "evalGate": "evals/run_evals.py",
+            "evalGate": EVAL_GATE,
             "status": "pending-evaluation",
         }
         proposals.append(proposal)
@@ -223,7 +244,7 @@ def command_propose(args: argparse.Namespace) -> int:
         "registry": str(reg_path),
         "proposalsCount": len(proposals),
         "proposals": proposals,
-        "evalGateNotice": "All proposals require verification via evals/run_evals.py before applying to shared skills.",
+        "evalGateNotice": EVAL_GATE_NOTICE,
     }, indent=2))
     return 0
 
@@ -260,7 +281,11 @@ def main() -> int:
     if not handler:
         parser.print_help()
         return 1
-    return handler(args)
+    try:
+        return handler(args)
+    except RegistryError as error:
+        print(f"si-global error: {error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

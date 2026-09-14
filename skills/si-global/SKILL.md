@@ -16,8 +16,10 @@ Use bundled `scripts/si_global.py` via an absolute path resolved from this skill
 2. **Scan cross-project patterns**: Run `python3 <skill-dir>/scripts/si_global.py scan` to aggregate pattern pages across all registered stores.
 3. **Cluster systemic recurring issues**: Run `python3 <skill-dir>/scripts/si_global.py cluster --min-projects 2` to identify failure modes, flaky dependencies, or workflows that recur across 2 or more distinct projects.
 4. **Formulate shared skill proposals**: Run `python3 <skill-dir>/scripts/si_global.py propose --min-projects 2` to generate candidate patches for Nova's shared skills (`skills/*`).
-5. **Gate with evaluation suites**: Before adopting or publishing any proposed global skill change, verify that benchmark evaluation suites pass:
+5. **Gate with Nova's verification**: Before adopting or publishing any proposed global skill change, run the checks Nova's CI runs from the Nova repository root and confirm they pass (`propose` lists them as `evalGate`):
    ```bash
-   python3 evals/run_evals.py
+   python3 -m unittest discover -s tests
+   python3 scripts/update-guide.py --check
+   python3 scripts/package.py
    ```
-   No global skill modification may be applied without passing evaluation gates.
+   No global skill modification may be applied without passing this gate. Eval-mode projects (`.nova/eval-mode.json`) are flagged by `projects` and skipped by `scan`, `cluster`, and `propose`; an invalid registry file is an error, not an empty registry.

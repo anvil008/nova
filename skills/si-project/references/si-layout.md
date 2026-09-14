@@ -32,6 +32,8 @@ primarily used in hermetic testing.
 Whenever `si.py init` or `si.py register` runs, the primary repository root is registered in
 `~/.nova/known_projects.json` (overridden by `NOVA_PROJECTS_REGISTRY`).
 This registry tracks local repositories for cross-project pattern aggregation by `si-global`.
+A missing registry is empty; an unreadable or wrongly shaped one (anything other than a list of path
+strings or an object whose `projects` is a list of path strings) is refused and left untouched.
 
 ```json
 {
@@ -44,7 +46,9 @@ This registry tracks local repositories for cross-project pattern aggregation by
 ## Eval mode is refused
 
 A repository carrying `.nova/eval-mode.json` neither records into nor reads from a persistent
-store — every `--repo` subcommand refuses it. That is what keeps an evaluation run from
+store — every `--repo` subcommand refuses it, including `register`, and a marker in a secondary
+workspace or worktree counts too. The only exception is `resolve-root`, which reads no store and
+only prints the primary root. That is what keeps an evaluation run from
 contaminating — or being contaminated by — a real project's self-improvement history.
 
 ## The store layout
@@ -96,6 +100,8 @@ Written by `si.py record --id <id> --kind <kind> --summary <text> --file <path> 
 Optional `--model` and `--effort` flags record model attribution.
 Recording under an ID that already exists exits non-zero: a raw trace is the evidence pattern pages cite,
 so it is written once and never overwritten.
+Evidence files are stored by basename under `files/`, so two `--file` paths with the same basename are
+refused before anything is written.
 
 A bundle is staged under `raw/.staging-*` and renamed into place atomically only once its manifest is written.
 A left-behind `.staging-*` directory represents a crashed write and is reported by `check`.
@@ -135,6 +141,12 @@ A cited raw ID must already exist under `raw/`.
 ```
 
 Written by `si.py propose`.
+A proposal file is never overwritten: an automatic `<date>-<pattern>` ID that already exists gets a
+`-2`, `-3`, … suffix, and an explicit `--id` that already exists is refused. An explicit `--id`
+must match `[a-z0-9][a-z0-9._-]*`, the raw trace ID pattern, so it cannot name a path; `--apply` also accepts an older
+proposal's ID if it is a single path component that does not start with `.` and has no control characters. `--skill-name` (and a
+stored `skillName`) must be such a component too. The title is folded to one line, and so is the rule
+text of an `agents-md` proposal; a `skill` proposal's text is the whole `SKILL.md` and is kept verbatim.
 Synthesizes candidate project rules (for `AGENTS.md`) or local project skills (`.nova/skills/<name>/SKILL.md`).
 Requires interactive human approval before applying (`--apply`).
 
