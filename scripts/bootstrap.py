@@ -145,7 +145,7 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='Print actions without writes or native commands')
     parser.add_argument('--prefix', type=Path,
                         default=Path.home() / '.local/share/nova', help='Stable package storage')
-    parser.add_argument('--bin-dir', type=Path, default=Path.home() / '.local/bin', help='Install nova-flow here')
+    parser.add_argument('--bin-dir', type=Path, default=Path.home() / '.local/bin', help='Install host tools (nova-flow, nova-test) here')
     parser.add_argument('--with-codex-helpers', action='store_true', help='Install optional native TOML helpers')
     parser.add_argument('--replace-marketplace', action='store_true', help='Switch an existing nova marketplace source')
     parser.add_argument('--align-global', action='store_true', default=True,
@@ -174,7 +174,7 @@ def main():
             raise ValueError(f'Refusing symlink prefix: {prefix}')
         if options.dry_run:
             print(f'Build self-contained bundles in {bundle}')
-            print(f'Install nova-flow in {options.bin_dir.expanduser().absolute()} with ownership checks')
+            print(f'Install host tools (nova-flow, nova-test) in {options.bin_dir.expanduser().absolute()} with ownership checks')
             for harness in selected:
                 print(f'{harness}: inspect marketplace; register if absent; install/update nova')
             if options.with_codex_helpers:
@@ -187,7 +187,7 @@ def main():
         actions = {h: marketplace(h, bundle / h, options.replace_marketplace)
                    for h in selected if h != 'agy'}
         receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
-        tool_copies = owned_updates([ROOT / 'tools/nova-flow', ROOT / 'tools/nova-flow.html', ROOT / 'tools/nova-flow-demo.json'], options.bin_dir.expanduser().absolute(), receipt.get('tools', {}))
+        tool_copies = owned_updates([ROOT / 'tools/nova-flow', ROOT / 'tools/nova-flow.html', ROOT / 'tools/nova-flow-demo.json', ROOT / 'tools/nova-test'], options.bin_dir.expanduser().absolute(), receipt.get('tools', {}))
         helpers = []
         # Preflight helper files using the canonical sources before publishing the bundle.
         if options.with_codex_helpers:
@@ -235,7 +235,7 @@ def main():
         if global_instructions:
             synced = [h for h in selected if h in global_targets()]
             print(f'Aligned global instructions for {", ".join(synced)}.')
-        print(f'Installed nova-flow in {options.bin_dir.expanduser().absolute()}; add this directory to PATH if needed.')
+        print(f'Installed host tools (nova-flow, nova-test) in {options.bin_dir.expanduser().absolute()}; add this directory to PATH if needed.')
         print('Nova installed. Start new harness sessions to load the updated plugins.')
         print('Project instructions and formatter/linter activation remain repo-setup tasks.')
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
