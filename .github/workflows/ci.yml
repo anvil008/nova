@@ -6,20 +6,37 @@ on:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   package:
-    runs-on: ubuntu-latest
+    # Fork pull requests never run on the self-hosted runner.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, x64, forge, ct160, debian-13, native, nova]
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: '3.13'
-      - run: python3 -m pip install -r requirements-dev.txt
-      - run: python3 -m unittest discover -s tests -v
-      - run: python3 scripts/update-guide.py --check
-      - run: python3 scripts/package.py
-      - uses: actions/upload-artifact@v4
+          clean: true
+          persist-credentials: false
+      - name: Create an isolated Python environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/update-guide.py --check
+      - run: python scripts/package.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nova-plugins
           path: dist/plugins/
           include-hidden-files: true
+      # The runner workspace persists between jobs.
+      - name: Clean the persistent runner workspace
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: git clean -ffdx
