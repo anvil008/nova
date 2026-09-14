@@ -41,7 +41,7 @@
 <rect x="48" y="284" width="418" height="60" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
 <rect x="48" y="294" width="4" height="40" rx="2" fill="#0f766e"/>
 <text x="64" y="308" font-size="14" font-weight="650" fill="#0f172a">2. Process Execution &amp; Stream Capture</text>
-<text x="64" y="330" class="body" font-size="12.5">High-precision wall timer tracks execution; captures stdout &amp; stderr</text>
+<text x="64" y="330" class="body" font-size="12.5">Timed run; stdout &amp; stderr captured in full</text>
 
 <!-- Connector 2 -->
 <path d="M 257 344 V 360" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
@@ -51,13 +51,13 @@
 <text x="257" y="382" text-anchor="middle" font-size="13" font-weight="650" fill="#ffffff">Branch on Child Exit Code</text>
 
 <!-- Branch paths -->
-<path d="M 197 394 V 412 H 152 V 422" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#green-arrow)"/>
-<rect x="127" y="403" width="50" height="18" rx="4" fill="#d1fae5"/>
-<text x="152" y="416" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">EXIT 0</text>
+<path d="M 197 394 V 424" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#green-arrow)"/>
+<rect x="137" y="400" width="50" height="18" rx="4" fill="#d1fae5"/>
+<text x="162" y="413" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">EXIT 0</text>
 
-<path d="M 317 394 V 412 H 362 V 422" fill="none" stroke="#e11d48" stroke-width="2" marker-end="url(#red-arrow)"/>
-<rect x="337" y="403" width="50" height="18" rx="4" fill="#ffe4e6"/>
-<text x="362" y="416" text-anchor="middle" font-size="11" font-weight="700" fill="#9f1239">EXIT != 0</text>
+<path d="M 317 394 V 424" fill="none" stroke="#e11d48" stroke-width="2" marker-end="url(#red-arrow)"/>
+<rect x="327" y="400" width="58" height="18" rx="4" fill="#ffe4e6"/>
+<text x="356" y="413" text-anchor="middle" font-size="11" font-weight="700" fill="#9f1239">EXIT != 0</text>
 
 <!-- Outcome A: Success Card -->
 <rect x="48" y="424" width="202" height="260" rx="10" fill="#ecfdf5" stroke="#a7f3d0"/>
@@ -71,8 +71,8 @@
 <text x="60" y="524" class="body" font-size="11">Extracts summary &amp; duration.</text>
 
 <rect x="58" y="534" width="182" height="74" rx="6" fill="#ffffff" stroke="#6ee7b7"/>
-<text x="66" y="552" class="code" font-size="10" font-weight="600" fill="#065f46">✓ Succeeded in 2.3s</text>
-<text x="66" y="568" class="code" font-size="9.5" fill="#334155">Ran 183 tests... OK</text>
+<text x="66" y="552" class="code" font-size="11" font-weight="600" fill="#065f46">✓ Succeeded in 2.3s</text>
+<text x="66" y="568" class="code" font-size="10.5" fill="#334155">Ran 183 tests... OK</text>
 <text x="66" y="594" font-size="11.5" font-weight="700" fill="#059669">~18–22 tokens output</text>
 
 <rect x="58" y="618" width="182" height="52" rx="6" fill="#d1fae5"/>
@@ -91,9 +91,9 @@
 <text x="276" y="524" class="body" font-size="11">stdout &amp; stderr unchanged.</text>
 
 <rect x="274" y="534" width="182" height="74" rx="6" fill="#ffffff" stroke="#fda4af"/>
-<text x="282" y="552" class="code" font-size="10" font-weight="600" fill="#be123c">✗ Failed (exit 1) 0.4s</text>
-<text x="282" y="568" class="code" font-size="9" fill="#475569">Traceback (most recent):</text>
-<text x="282" y="582" class="code" font-size="9" fill="#475569"> AssertionError: expected...</text>
+<text x="282" y="552" class="code" font-size="11" font-weight="600" fill="#be123c">✗ Failed (exit 1) 0.4s</text>
+<text x="282" y="568" class="code" font-size="10.5" fill="#475569">Traceback (most recent):</text>
+<text x="282" y="582" class="code" font-size="10.5" fill="#475569"> AssertionError: expected...</text>
 <text x="282" y="598" font-size="10.5" font-weight="700" fill="#be123c">Full failure traces</text>
 
 <rect x="274" y="618" width="182" height="52" rx="6" fill="#ffe4e6"/>
@@ -106,43 +106,43 @@
 <!-- Benchmark Table Card -->
 <rect x="494" y="208" width="418" height="226" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
 <text x="510" y="230" font-size="10.5" font-weight="700" fill="#0f766e">SUITE / ECOSYSTEM</text>
-<text x="670" y="230" text-anchor="end" font-size="10.5" font-weight="700" fill="#0f766e">RAW</text>
-<text x="760" y="230" text-anchor="end" font-size="10.5" font-weight="700" fill="#0f766e">NOVA-TEST</text>
+<text x="722" y="230" text-anchor="end" font-size="10.5" font-weight="700" fill="#0f766e">RAW</text>
+<text x="812" y="230" text-anchor="end" font-size="10.5" font-weight="700" fill="#0f766e">NOVA-TEST</text>
 <text x="896" y="230" text-anchor="end" font-size="10.5" font-weight="700" fill="#0f766e">SAVINGS</text>
 <path d="M 510 238 H 896" stroke="#e2e8f0" stroke-width="1"/>
 
 <!-- Row 1: Python Empirical -->
 <rect x="502" y="244" width="402" height="38" rx="6" fill="#f0fdfa"/>
 <text x="510" y="260" font-size="12" font-weight="700" fill="#0f172a">Python (Empirical)</text>
-<text x="510" y="274" font-size="10" fill="#0f766e">Nova test suite (183 tests)</text>
-<text x="670" y="265" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,840</text>
-<text x="760" y="265" text-anchor="end" class="code" font-size="11.5" font-weight="700" fill="#0f766e">18</text>
+<text x="510" y="274" font-size="10.5" fill="#0f766e">Nova test suite (183 tests)</text>
+<text x="722" y="265" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,840</text>
+<text x="812" y="265" text-anchor="end" class="code" font-size="11.5" font-weight="700" fill="#0f766e">18</text>
 <text x="896" y="265" text-anchor="end" font-size="12" font-weight="700" fill="#059669">99.0%</text>
 
 <!-- Row 2: Rust Analytical -->
 <text x="510" y="297" font-size="12" font-weight="600" fill="#0f172a">Rust (cargo test)</text>
-<text x="510" y="310" font-size="10" fill="#64748b">Analytical: ~150 unit tests</text>
-<text x="670" y="303" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,950</text>
-<text x="760" y="303" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">22</text>
+<text x="510" y="310" font-size="10.5" fill="#64748b">Analytical: ~150 unit tests</text>
+<text x="722" y="303" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,950</text>
+<text x="812" y="303" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">22</text>
 <text x="896" y="303" text-anchor="end" font-size="12" font-weight="600" fill="#059669">98.9%</text>
 <path d="M 510 317 H 896" stroke="#f1f5f9" stroke-width="1"/>
 
 <!-- Row 3: Go Analytical -->
 <text x="510" y="333" font-size="12" font-weight="600" fill="#0f172a">Go (go test ./...)</text>
-<text x="510" y="346" font-size="10" fill="#64748b">Analytical: ~40 packages</text>
-<text x="670" y="339" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,450</text>
-<text x="760" y="339" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">20</text>
+<text x="510" y="346" font-size="10.5" fill="#64748b">Analytical: ~40 packages</text>
+<text x="722" y="339" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,450</text>
+<text x="812" y="339" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">20</text>
 <text x="896" y="339" text-anchor="end" font-size="12" font-weight="600" fill="#059669">98.6%</text>
 <path d="M 510 353 H 896" stroke="#f1f5f9" stroke-width="1"/>
 
 <!-- Row 4: Node/TS Analytical -->
 <text x="510" y="369" font-size="12" font-weight="600" fill="#0f172a">Node / TS (vitest / jest)</text>
-<text x="510" y="382" font-size="10" fill="#64748b">Analytical: ~150 tests</text>
-<text x="670" y="375" text-anchor="end" class="code" font-size="11.5" fill="#64748b">2,100</text>
-<text x="760" y="375" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">20</text>
+<text x="510" y="382" font-size="10.5" fill="#64748b">Analytical: ~150 tests</text>
+<text x="722" y="375" text-anchor="end" class="code" font-size="11.5" fill="#64748b">2,100</text>
+<text x="812" y="375" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">20</text>
 <text x="896" y="375" text-anchor="end" font-size="12" font-weight="600" fill="#059669">99.0%</text>
 
-<text x="510" y="416" font-size="10" fill="#64748b">* Tokens estimated via cl100k_base. Python 183-test suite empirically measured.</text>
+<text x="510" y="416" font-size="10.5" fill="#64748b">* Tokens estimated via cl100k_base. Python 183-test suite empirically measured.</text>
 
 <!-- Compounding Impact Dark Card -->
 <rect x="494" y="444" width="418" height="240" rx="10" fill="#0f172a"/>
