@@ -67,7 +67,7 @@ Sources: [Claude hooks](https://code.claude.com/docs/en/hooks), [Agy hooks and p
 
 `integration.py` reminds the parent to integrate each ready, verified result into local main promptly, keep child work local, publish through one integration PR, and verify merged/superseded branch cleanup. It performs no Git/JJ operations and cannot prove verification or integration.
 
-Codex/Claude use SubagentStop to arm a session marker. The next eligible parent Stop consumes it and blocks once with the reminder, respecting stop_hook_active. SessionEnd clears leftovers. Read-only children can also arm it; their results require no merge.
+Codex/Claude use SubagentStop to arm a session marker. The next eligible parent Stop consumes it and blocks once with the reminder, respecting stop_hook_active. SessionEnd clears leftovers. Known read-only child types (scout, reviewer, Explore, Plan, claude-code-guide, statusline-setup, including plugin-namespaced forms) do not arm it and leave an existing marker intact; missing, empty, or unknown types still arm it.
 
 Agy has no documented SubagentStop event. Its PostToolUse adapter observes successful `invoke_subagent` calls and arms a conversation-scoped marker. A Stop with `fullyIdle: true`, `terminationReason: model_stop`, and no error consumes it and returns `decision: continue` with the reminder. Background work, error/limit stops, unrelated calls, and missing identities do not trigger continuation. Consumption prevents repeated reminders without new delegation. This observes delegation, not proof of child completion; the parent still verifies results. Without a native SessionEnd event, an unused Agy marker can remain until that conversation's next eligible Stop. No Flow run is created.
 

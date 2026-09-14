@@ -26,6 +26,26 @@ class IntegrationHooks(unittest.TestCase):
             event('SessionEnd')
             self.assertEqual(event('Stop'), {})
 
+    def test_read_only_children_do_not_arm_reminder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory)
+            def stop():
+                return hook.handle(dict(hook_event_name='Stop', session_id='parent'), cache)
+            def child(*agent_type):
+                payload = dict(hook_event_name='SubagentStop', session_id='parent')
+                if agent_type:
+                    payload['agent_type'] = agent_type[0]
+                return hook.handle(payload, cache)
+            for agent_type in ('nova:scout', 'reviewer', 'Explore', 'Plan', 'claude-code-guide'):
+                self.assertEqual(child(agent_type), {})
+                self.assertEqual(stop(), {}, agent_type)
+            for agent_type in (('nova:implementer',), ('general-purpose',), ('',), (None,), ()):
+                child(*agent_type)
+                self.assertEqual(stop().get('decision'), 'block', agent_type)
+            child('nova:implementer')
+            child('nova:reviewer')
+            self.assertEqual(stop().get('decision'), 'block')
+
     def test_missing_session_is_noop(self):
         self.assertEqual(hook.handle({'hook_event_name': 'Stop'}, Path('/unused')), {})
 
