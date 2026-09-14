@@ -10,14 +10,14 @@ Use one skill for a small task, or move from specification to implementation for
 
 ## How Nova works
 
-![Nova workflow: describe a task in Codex, Claude Code, or Antigravity CLI. The parent agent applies a skill, assigns task-file changes to a native implementer, verifies and integrates the result, and delivers within your authorization. Scout and reviewer helpers are optional; Nova Flow tracking is opt-in.](docs/diagrams/nova-workflow.svg)
+![Nova workflow: describe a task in Codex, Claude Code, or Antigravity CLI. The parent agent applies a skill, assigns task-file changes to a native implementer, verifies and integrates the result, and delivers within your authorization with a summary covering the workflow, deliverables, evidence, and the local main commit. Scout and reviewer helpers are optional; Nova Flow tracking is opt-in.](docs/diagrams/nova-workflow.svg)
 
 [View the diagram at full size](docs/diagrams/nova-workflow.svg)
 
 1. **Describe the outcome.** Ask for a feature, a fix, a review, or documentation. Choose a skill when you want a specific workflow.
 2. **Work in the conversation.** The parent reads project guidance, applies the skill, and assigns code, tests, docs, configuration, and file-backed reports to a native implementer. Scout and reviewer helpers remain available for bounded investigation and independent review.
 3. **Verify the result.** The agent runs relevant checks and inspects the final changes. Failures feed back into the work; remaining limits are reported.
-4. **Deliver within your scope.** You receive the result and verification evidence. When authorized, the parent agent also integrates changes and completes the PR or deployment process.
+4. **Deliver within your scope.** You receive the result and verification evidence. The delivery summary includes a workflow diagram, key deliverables with file links, verification evidence, and the immutable local `main` commit. When authorized, the parent agent also integrates changes and completes the PR or deployment process.
 
 Small tasks can go straight to the relevant skill. There is no required sequence of skills or mandatory team.
 
@@ -117,13 +117,13 @@ Work that needs isolation uses `.workspaces/<task>/` under the primary checkout.
 
 Hooks connect native agent events to small local functions. This map shows what Nova registers, what needs configuration, and what remains disabled.
 
-![Nova hook map: PreToolUse routes large reads and recognized task-file writes; Codex/Claude child-stop and Agy delegation events arm a parent integration reminder; Claude WorktreeCreate and WorktreeRemove manage isolated workspaces; PostToolUse formatting and linting are opt-in. Automatic Flow tracking is disabled, while bootstrap separately preserves old hook paths during updates.](docs/diagrams/nova-hooks.svg)
+![Nova hook map: PreToolUse routes large reads and recognized task-file writes; Codex/Claude implementer and writer child stops and Agy delegation events arm a parent integration reminder, while known read-only children do not; Claude WorktreeCreate and WorktreeRemove manage isolated workspaces; PostToolUse formatting and linting are opt-in. Automatic Flow tracking is disabled, while bootstrap separately preserves old hook paths during updates.](docs/diagrams/nova-hooks.svg)
 
 [View the hook map at full size](docs/diagrams/nova-hooks.svg) · [Hook configuration](hooks/README.md) · [Harness differences](instructions/harnesses.md)
 
 - **Before a read:** recognized large reads receive scout-routing guidance. The hook does not launch a helper itself.
-- **Before a task-file edit:** recognized edits receive implementer-routing guidance. Claude can identify its implementer; Codex and Agy use a supplied argv runner because their pre-tool events cannot safely identify a helper. The hook cannot launch workers or guarantee interception of arbitrary scripts. [Details and limits](instructions/write-routing.md).
-- **After delegation:** Codex and Claude use child-stop events; Agy observes successful `invoke_subagent` tool calls. Each can issue one parent continuation reminder to verify results, integrate into local main, and finish authorized publication and cleanup. Agy waits for a normal, fully idle Stop. Hooks never merge changes themselves.
+- **Before a task-file edit:** recognized edits receive implementer-routing guidance, and unrecognized calls pass through unchanged (Agy receives an explicit allow). Claude can identify its implementer; Codex and Agy use a supplied argv runner because their pre-tool events cannot safely identify a helper. The hook cannot launch workers or guarantee interception of arbitrary scripts. [Details and limits](instructions/write-routing.md).
+- **After delegation:** Codex and Claude use child-stop events; Agy observes successful `invoke_subagent` tool calls. Each can issue one parent continuation reminder to verify results, integrate into local main, and finish authorized publication and cleanup. Known read-only child types—scout, reviewer, Explore, Plan, and similar—do not arm the Codex/Claude reminder; unknown or missing types still do. Agy waits for a normal, fully idle Stop. Hooks never merge changes themselves.
 - **When Claude creates or removes an isolated workspace:** the adapter uses the primary checkout’s `.workspaces/` directory and retains work that cannot be safely removed. JJ cleanup stays explicit.
 - **After supported editor calls:** formatting and linting run only with an enabled configuration. Codex/Claude use `NOVA_HOOK_CONFIG`; Agy requires explicit adapter setup. These checks do not replace final verification.
 
