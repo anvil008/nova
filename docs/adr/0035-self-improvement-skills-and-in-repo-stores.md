@@ -48,7 +48,8 @@ The `si-project` skill operates within a repository:
 To enable core skill evolution across projects:
 - Local projects initialized with `si-project` register their primary root in `~/.nova/known_projects.json` (configurable via `NOVA_PROJECTS_REGISTRY`).
 - The `si-global` skill inspects registered projects, clusters recurring systemic issues across repositories (patterns observed across >= 2 distinct projects), and formulates candidate updates to Nova's shared skills (`skills/*`).
-- Any updates to shared global skills are strictly gated by offline evaluation suites (`evals/run_evals.py`) before publication.
+- Any updates to shared global skills are strictly gated by Nova's CI verification (`python3 -m unittest discover -s tests`, `python3 scripts/update-guide.py --check`, `python3 scripts/package.py`) before publication.
+  - Amendment: this gate originally named `evals/run_evals.py`, which was removed with the `evals/` directory; the gate now names the checks CI actually runs.
 
 ## Consequences
 
