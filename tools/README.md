@@ -1,4 +1,108 @@
-# Nova Flow
+# Nova Tools
+
+Nova provides specialized CLI tools supporting autonomous agent development workflows:
+
+- **`nova-test`**: Quiet test runner for routine test suite execution across any language ecosystem, suppressing noisy progress logs on success to conserve LLM context tokens while preserving 100% of diagnostic details on failure.
+- **`nova-read`**: Bounded, numbered source reader for scouts and bulk file inspection, enforcing line and byte budgets.
+- **`nova-write`**: Direct argv command runner for implementers, executing commands directly via `execvp` without shell word-splitting or implicit shell invocation.
+- **`nova-flow`**: Run tracker, terminal task tree, and persistent browser viewer for multi-agent workflows and reporting.
+
+---
+
+## Nova Test
+
+`nova-test` wraps any test command or verification script to standardize quiet-on-success execution. Routine test execution across large test suites frequently produces hundreds of lines of progress dots, individual test passes, and compilation notices. In agent workflows, this routine noise rapidly consumes model context window tokens without providing diagnostic value.
+
+### Behavior
+
+- **Success (exit code 0)**:
+  Suppresses line-by-line verbose progress. Prints a compact timing summary followed by extracted framework summary metrics:
+  ```text
+  ✓ [nova-test] Succeeded in 2.3s (exit 0)
+  Ran 157 tests in 2.256s
+  OK
+  ```
+- **Failure (non-zero exit code)**:
+  Emits a failure header indicating the child return code and execution duration, followed immediately by the complete, 100% untouched raw stdout and stderr:
+  ```text
+  ✗ [nova-test] Failed with exit code 1 in 0.4s:
+  Traceback (most recent call last):
+    ...
+  AssertionError: ...
+  ```
+  Exits with the child process's exact return code.
+- **Verbose Bypass (`-v` / `--verbose`)**:
+  When passed as the first argument, `nova-test -v <command...>` bypasses all output filtering and streams process output directly.
+
+### Multi-Language & Ecosystem Support
+
+`nova-test` passes arguments directly to the OS process launcher without an intermediate shell, making it inherently language-agnostic. On success, smart pattern extractors parse concise summary lines for all common language ecosystems:
+
+- **Rust (`cargo test`)**:
+  Extracts suite outcome lines (e.g. `test result: ok. 14 passed; 0 failed; 0 ignored; ...`).
+- **Go (`go test`, `go test ./...`)**:
+  Extracts package results and timings (e.g. `ok  github.com/example/pkg  0.123s`, `PASS`).
+- **Python (`unittest`, `pytest`)**:
+  Extracts test run counts and status (e.g. `Ran 157 tests in 35.5s` / `OK`, `5 passed, 1 skipped in 0.12s`).
+- **JavaScript / TypeScript (`jest`, `vitest`, `mocha`, `bun test`, `pnpm/npm test`)**:
+  Extracts test suites and pass counts (e.g. `Tests: 12 passed, 12 total`, `15 passing (35ms)`).
+- **C / C++ (`ctest`, `make test`)**:
+  Extracts pass percentages and real time (e.g. `100% tests passed, 0 tests failed out of 10`).
+- **Java / Kotlin (`maven`, `gradle`)**:
+  Extracts test counts and build status (e.g. `[INFO] Tests run: 5, Failures: 0`, `BUILD SUCCESSFUL`).
+- **Generic Fallback**:
+  If no recognized test framework pattern is detected, outputs the last 1–3 non-empty lines (or nothing if the command was silent).
+
+### Common Examples
+
+```sh
+# Run Python unittests quietly
+nova-test python3 -m unittest discover -s tests
+
+# Run pytest quietly
+nova-test pytest
+
+# Run Rust cargo tests quietly
+nova-test cargo test
+
+# Run Go package tests quietly
+nova-test go test ./...
+
+# Run Node test suites quietly
+nova-test npm test
+nova-test npx vitest run
+
+# Run build / check scripts quietly
+nova-test python3 scripts/update-guide.py --check
+
+# Force full verbose streaming when diagnosing live
+nova-test -v python3 -m unittest discover -s tests
+```
+
+---
+
+## Nova Read
+
+`nova-read` is a bounded, numbered source reader for scout agents and bulk codebase inspection. It formats file contents with 1-based line numbers within configurable line and byte bounds, preventing unexpected token exhaustion when inspecting large source trees.
+
+```sh
+python3 /path/to/tools/nova-read --paths src/session.py src/cache.py
+python3 /path/to/tools/nova-read --paths src/session.py --start 2001 --limit 1000
+```
+
+---
+
+## Nova Write
+
+`nova-write` is a direct argv runner that executes assigned authoring commands via `os.execvp` without an intermediate shell. This ensures that arguments with spaces, quotes, and special characters are preserved exactly without shell word-splitting or command injection risks.
+
+```sh
+python3 /path/to/tools/nova-write -- python3 -c "import pathlib; pathlib.Path('output.txt').write_text('content')"
+```
+
+---
+
+## Nova Flow
 
 `nova-flow` is an independent Nova tool for recording and viewing a run. It has its own versioned JSON format and no dependency on Herdr or its Flow plugin. Python 3.11+ on Linux or macOS is sufficient; there are no third-party runtime packages.
 
@@ -171,9 +275,9 @@ The default viewer combines active runs. The browser run selector and terminal `
 Launch independent sessions from any workspace:
 
 ```sh
-nova-flow track --harness codex -- codex
 nova-flow track --harness agy -- agy
 nova-flow track --harness claude -- claude
+nova-flow track --harness codex -- codex
 ```
 
 Use your actual installed harness executable and arguments after `--`. To collaborate on an existing run:

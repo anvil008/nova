@@ -31,7 +31,66 @@ def read_only_agent(agent_type):
     return re.split(r'(?:__|[:./]+)', agent_type.lower())[-1].replace('-', '_') in READ_ONLY_AGENTS
 
 
-def handle(payload, cache):
+def _text(value):
+    return value if isinstance(value, str) and value else ''
+
+
+def _write(marker, state):
+    """Atomic replace so a concurrent hook cannot read a half-written marker."""
+    temporary = marker.with_name(f'{marker.name}.{os.getpid()}.tmp')
+    temporary.write_text(json.dumps(state), encoding='utf-8')
+    os.replace(temporary, marker)
+
+
+def _state(marker):
+    """Marker state; an unreadable or pre-JSON marker falls back to arm-on-stop."""
+    try:
+        state = json.loads(marker.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        return {'legacy': True}
+    return state if isinstance(state, dict) else {'legacy': True}
+
+
+def _delivery(entry, pending, newest):
+    """Record each pending agent whose result reached the parent in this transcript entry."""
+    if not isinstance(entry, dict) or entry.get('type') != 'user':
+        return
+    stamp = _text(entry.get('timestamp'))
+    if not stamp:
+        return
+    result = entry.get('toolUseResult')
+    if isinstance(result, dict):  # Foreground Agent tool result; a launch ack is not a delivery.
+        agent_id = result.get('agentId')
+        if agent_id in pending and result.get('status') != 'async_launched':
+            newest[agent_id] = max(newest.get(agent_id, ''), stamp)
+        return
+    message = entry.get('message')
+    content = message.get('content') if isinstance(message, dict) else None
+    if isinstance(content, list):
+        content = ' '.join(_text(part.get('text')) for part in content if isinstance(part, dict))
+    if not isinstance(content, str) or '<task-notification>' not in content:
+        return
+    for agent_id in pending:  # Any notified status counts as delivered to the parent.
+        if f'<task-id>{agent_id}</task-id>' in content:
+            newest[agent_id] = max(newest.get(agent_id, ''), stamp)
+
+
+def _deliveries(transcript, pending, consumed):
+    """Newest unconsumed delivery timestamp per pending agent id; OSError when unreadable."""
+    newest = {}
+    with open(transcript, encoding='utf-8', errors='replace') as lines:
+        for line in lines:
+            if any(agent_id in line for agent_id in pending):
+                try:
+                    _delivery(json.loads(line), pending, newest)
+                except ValueError:
+                    continue  # Truncated or partially written line.
+    return {agent: stamp for agent, stamp in newest.items() if stamp > _text(consumed.get(agent))}
+
+
+def handle(payload, cache, harness='codex'):
     session = payload.get('session_id')
     if not isinstance(session, str) or not session:
         return {}
@@ -41,11 +100,49 @@ def handle(payload, cache):
     if event == 'SubagentStop':
         if read_only_agent(payload.get('agent_type')):
             return {}
+        state = _state(marker)
+        pending = state.get('pending')
+        state['pending'] = pending if isinstance(pending, dict) else {}
+        consumed = state.get('consumed')
+        state['consumed'] = consumed if isinstance(consumed, dict) else {}
+        agent_id = _text(payload.get('agent_id'))
+        if harness == 'claude' and agent_id and _text(payload.get('transcript_path')):
+            state['pending'][agent_id] = True
+        else:  # Only Claude's transcript records child results; others arm on stop as before.
+            state['legacy'] = True
         cache.mkdir(parents=True, exist_ok=True)
-        marker.touch()
+        _write(marker, state)
         return {}  # Parent Stop owns continuation; never make a child merge trunk.
-    if event == 'Stop' and marker.exists():
-        marker.unlink(missing_ok=True)
+    if event == 'Stop':
+        state = _state(marker)
+        if not state:
+            return {}
+        pending = state.get('pending') if isinstance(state.get('pending'), dict) else {}
+        consumed = state.get('consumed') if isinstance(state.get('consumed'), dict) else {}
+        legacy = bool(state.get('legacy'))
+        delivered = {}
+        if not legacy:
+            if not pending:
+                return {}
+            transcript = _text(payload.get('transcript_path'))
+            if not transcript:
+                legacy = True  # No parent transcript to read: fail open.
+            else:
+                try:
+                    delivered = _deliveries(transcript, pending, consumed)
+                except OSError:
+                    legacy = True  # Unreadable transcript: fail open.
+        if legacy:
+            marker.unlink(missing_ok=True)
+            if not payload.get('stop_hook_active'):
+                return {'decision': 'block', 'reason': REMINDER}
+            return {}
+        if not delivered:
+            return {}  # Children are still running: no result has reached the parent yet.
+        for agent_id, stamp in delivered.items():
+            pending.pop(agent_id, None)
+            consumed[agent_id] = stamp  # Remember it so a later re-arm alone cannot remind again.
+        _write(marker, {'pending': pending, 'consumed': consumed})
         if not payload.get('stop_hook_active'):
             return {'decision': 'block', 'reason': REMINDER}
     if event == 'SessionEnd':
@@ -83,7 +180,8 @@ if __name__ == '__main__':
         payload = json.load(sys.stdin)
         result = {}
         if isinstance(payload, dict):
-            result = handle_agy(payload, cache, args.event) if args.harness == 'agy' else handle(payload, cache)
+            result = (handle_agy(payload, cache, args.event) if args.harness == 'agy'
+                      else handle(payload, cache, args.harness))
         print(json.dumps(result))
     except (ValueError, OSError, TypeError) as error:
         print(f'Nova integration reminder unavailable: {error}', file=sys.stderr)

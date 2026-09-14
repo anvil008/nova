@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1040" height="1714" viewBox="0 0 1040 1714" role="img" aria-labelledby="title description">
 <title id="title">Nova hooks: triggers, functions, and effects</title>
-<desc id="description">PreToolUse invokes read routing in Codex, Claude, and Agy: recognized large reads are denied with scout guidance. Another PreToolUse hook routes recognized task-file edits to a native implementer; it never launches a worker, and Codex/Agy use a supplied argv runner because their events cannot safely identify a helper. In Codex and Claude, SubagentStop sets a marker, the next eligible parent Stop gives a one-shot integration reminder, and SessionEnd clears the marker. Claude WorktreeCreate creates a workspace under the primary checkout; WorktreeRemove retains JJ workspaces and unsafe-to-remove Git worktrees. PostToolUse formatting and linting require explicit configuration. Agy PostToolUse observes delegation and a normal fully idle Stop continues once with the integration reminder. Automatic Flow tracking is disabled. Separately, bootstrap preserves older hook paths during plugin updates.</desc>
+<desc id="description">PreToolUse invokes read routing in Agy, Claude, and Codex: recognized large reads are denied with scout guidance. Another PreToolUse hook routes recognized task-file edits to a native implementer; it never launches a worker, Agy/Codex use a supplied argv runner because their events cannot safely identify a helper, and calls it does not deny pass through, with Agy receiving an explicit allow. In Claude and Codex, a writer child’s SubagentStop sets a marker while known read-only children such as scout and reviewer do not arm it, the parent Stop gives a one-shot integration reminder — in Claude only once that child’s result has reached the parent transcript, in Codex on the next eligible stop — and SessionEnd clears the marker. Claude WorktreeCreate creates a workspace under the primary checkout; WorktreeRemove retains JJ workspaces and unsafe-to-remove Git worktrees. PostToolUse formatting and linting require explicit configuration. Agy PostToolUse observes delegation and a normal fully idle Stop continues once with the integration reminder. Automatic Flow tracking is disabled. Separately, bootstrap preserves older hook paths during plugin updates.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#0f766e"/></marker></defs>
 <style>text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}.label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#0f766e}.title{font-size:21px;font-weight:650;fill:#0f172a}.body{font-size:16px;fill:#475569}.code{font-family:ui-monospace,Consolas,monospace;font-size:17px;fill:#0f172a}.small{font-size:14px;fill:#64748b}</style>
 <rect width="1040" height="1714" rx="20" fill="#f8fafc"/>
@@ -15,7 +15,7 @@
 <text x="60" y="235" class="small">Read or shell tool</text>
 <text x="60" y="258" class="small">Recognized large read</text>
 <text x="330" y="210" class="title">read-routing.py</text>
-<text x="330" y="238" class="body">Codex · Claude · Agy</text>
+<text x="330" y="238" class="body">Agy · Claude · Codex</text>
 <text x="330" y="306" class="label">REGISTERED</text>
 <text x="626" y="208" class="body">Inspect files within a bounded budget.</text>
 <text x="626" y="233" class="body">Deny an oversized read with guidance</text>
@@ -29,12 +29,13 @@
 <text x="60" y="432" class="small">SessionEnd clears</text>
 <text x="60" y="455" class="small">any leftover marker.</text>
 <text x="330" y="382" class="title">integration.py</text>
-<text x="330" y="410" class="body">Codex · Claude</text>
+<text x="330" y="410" class="body">Claude · Codex</text>
 <text x="330" y="494" class="label">REGISTERED</text>
-<text x="626" y="380" class="body">Child stop sets a session marker.</text>
-<text x="626" y="405" class="body">Next eligible parent Stop blocks once</text>
-<text x="626" y="430" class="body">with an integration reminder.</text>
-<text x="626" y="455" class="body">It never merges code itself.</text>
+<text x="626" y="380" class="body">Writer child stop sets a session marker.</text>
+<text x="626" y="405" class="body">Read-only helpers (scout, reviewer) skip it.</text>
+<text x="626" y="430" class="body">Parent Stop blocks once after the child’s</text>
+<text x="626" y="455" class="body">result reaches the parent conversation.</text>
+<text x="626" y="480" class="body">It never merges code itself.</text>
 <rect x="40" y="534" width="960" height="154" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
 <path d="M278 587 h24" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
 <path d="M574 587 h24" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
@@ -66,11 +67,11 @@
 <text x="60" y="939" class="small">Supported editor calls</text>
 <text x="60" y="962" class="small">Not arbitrary shell writes</text>
 <text x="330" y="914" class="title">post-edit.py</text>
-<text x="330" y="942" class="body">Codex · Claude; Agy setup</text>
+<text x="330" y="942" class="body">Claude · Codex; Agy setup</text>
 <text x="330" y="1010" class="label">OPT-IN / NOVA_HOOK_CONFIG</text>
 <text x="626" y="912" class="body">With an enabled project config, run</text>
 <text x="626" y="937" class="body">scoped format commands, then lint.</text>
-<text x="626" y="962" class="body">Codex/Claude get context; Agy logs it.</text>
+<text x="626" y="962" class="body">Claude/Codex get context; Agy logs it.</text>
 <text x="626" y="987" class="body">No config: no format/lint work.</text>
 <rect x="40" y="1050" width="960" height="154" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
 <text x="60" y="1086" class="code">PostToolUse</text><text x="60" y="1111" class="code">→ idle Stop</text>
@@ -86,8 +87,8 @@
 <path d="M278 1275 h24" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
 <path d="M574 1275 h24" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
 <text x="60" y="1258" class="code">PreToolUse</text><text x="60" y="1283" class="small">Recognized task-file edit</text><text x="60" y="1308" class="small">or shell write shape</text>
-<text x="330" y="1258" class="title">write-routing.py</text><text x="330" y="1286" class="body">Codex · Claude · Agy</text><text x="330" y="1354" class="label">REGISTERED / COOPERATIVE</text>
-<text x="626" y="1256" class="body">Deny with implementer guidance.</text><text x="626" y="1281" class="body">Claude identifies its implementer; Codex</text><text x="626" y="1306" class="body">and Agy receive an argv runner path.</text><text x="626" y="1331" class="body">The hook never launches a worker.</text>
+<text x="330" y="1258" class="title">write-routing.py</text><text x="330" y="1286" class="body">Agy · Claude · Codex</text><text x="330" y="1354" class="label">REGISTERED / COOPERATIVE</text>
+<text x="626" y="1256" class="body">Deny with implementer guidance.</text><text x="626" y="1281" class="body">Claude identifies its implementer; Agy</text><text x="626" y="1306" class="body">and Codex receive an argv runner path.</text><text x="626" y="1331" class="body">Other calls pass through; Agy gets an</text><text x="626" y="1356" class="body">explicit allow. It never launches a worker.</text>
 <rect x="40" y="1394" width="960" height="116" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
 <text x="60" y="1426" class="label">DISABLED / AUTOMATIC NOVA FLOW TRACKING</text>
 <text x="60" y="1457" class="body">No tracking events are registered by the package builder. Retained adapters require custom setup.</text>
@@ -95,6 +96,6 @@
 <rect x="40" y="1528" width="960" height="136" rx="12" fill="#0f172a"/>
 <text x="60" y="1560" font-size="13" font-weight="700" letter-spacing="1" fill="#5eead4">INSTALL-TIME SUPPORT / NOT A NATIVE HOOK</text>
 <text x="60" y="1592" font-size="20" font-weight="650" fill="#ffffff">Bootstrap update → preserve_hook_paths() → existing sessions keep their hook files</text>
-<text x="60" y="1620" font-size="16" fill="#cbd5e1">Back up versioned Codex/Claude hook and tool files; restore missing paths after native updates.</text>
+<text x="60" y="1620" font-size="16" fill="#cbd5e1">Back up versioned Claude/Codex hook and tool files; restore missing paths after native updates.</text>
 <text x="60" y="1644" font-size="16" fill="#cbd5e1">Runs on failed updates too. Start new harness sessions to load the newly installed plugin.</text>
 <text x="40" y="1694" class="small">The parent still owns verification, review, integration, and authorized delivery.</text></svg>

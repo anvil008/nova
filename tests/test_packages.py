@@ -134,6 +134,11 @@ class PackageTests(unittest.TestCase):
             if harness == 'claude':
                 expected |= {'WorktreeCreate', 'WorktreeRemove'}
             self.assertEqual(set(hooks['hooks']), expected)
+            for event in ('SubagentStop', 'Stop', 'SessionEnd'):  # Delivery gating is Claude-only.
+                for group in hooks['hooks'][event]:
+                    for hook in group['hooks']:
+                        self.assertTrue(hook['command'].endswith(f'integration.py" --harness {harness}'),
+                                        hook['command'])
             env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(plugin))
             env.pop('NOVA_HOOK_CONFIG', None)
             for group in hooks['hooks']['PostToolUse']:

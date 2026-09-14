@@ -125,6 +125,18 @@ class BootstrapTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap.global_instruction_updates(['claude'], {})
 
+    def test_bootstrap_tool_copies_include_nova_test(self):
+        tool_sources = [
+            ROOT / 'tools/nova-flow',
+            ROOT / 'tools/nova-flow.html',
+            ROOT / 'tools/nova-flow-demo.json',
+            ROOT / 'tools/nova-test',
+        ]
+        updates = bootstrap.owned_updates(tool_sources, self.root / 'bin', {})
+        installed_names = [target.name for target, _ in updates]
+        self.assertIn('nova-test', installed_names)
+        self.assertIn('nova-flow', installed_names)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Run test suites quietly on success to conserve tokens, preserving full traces on failure."""
+import os
+import re
+import subprocess
+import sys
+import time
+
+ANSI_REGEX = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text."""
+    return ANSI_REGEX.sub("", text)
+
+
+def extract_summary(stdout: str, stderr: str) -> list[str]:
+    """Extract concise test framework summary lines from captured output."""
+    raw_lines = []
+    if stdout:
+        raw_lines.extend(stdout.splitlines())
+    if stderr:
+        raw_lines.extend(stderr.splitlines())
+
+    cleaned_lines = [strip_ansi(line) for line in raw_lines]
+
+    # 1. Rust: cargo test
+    # e.g.: test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+    rust_matches = [
+        line.strip()
+        for line in cleaned_lines
+        if re.search(r"\btest result: ok\.\s+\d+\s+passed;", line)
+    ]
+    if rust_matches:
+        return rust_matches
+
+    # 2. Go: go test
+    # e.g.: PASS or ok  github.com/pkg  0.123s
+    go_matches = [
+        line.strip()
+        for line in cleaned_lines
+        if re.search(r"^(?:PASS$|ok\s+\S+\s+[\d.]+(?:s|ms))", line)
+    ]
+    if go_matches:
+        return go_matches
+
+    # 3. Python: unittest
+    # e.g.: Ran 157 tests in 35.493s \n\n OK (or OK (skipped=...))
+    for i, line in enumerate(cleaned_lines):
+        if re.search(r"^Ran \d+ tests? in [\d.]+s", line.strip()):
+            res = [line.strip()]
+            for next_line in cleaned_lines[i + 1:]:
+                s = next_line.strip()
+                if s:
+                    if re.search(r"^OK\b", s):
+                        res.append(s)
+                    break
+            return res
+
+    # 4. Python: pytest
+    # e.g.: === 5 passed in 0.12s === or 5 passed, 1 skipped in 0.12s
+    pytest_matches = []
+    for line in cleaned_lines:
+        s = line.strip()
+        m = re.search(r"(?:^|=+\s*)(\d+\s+passed.*? in [\d.]+s)(?:\s*=+$|$)", s)
+        if m:
+            pytest_matches.append(m.group(1).strip())
+        elif re.search(r"^\d+\s+passed\b.* in [\d.]+s", s):
+            pytest_matches.append(s)
+    if pytest_matches:
+        return pytest_matches
+
+    # 5. JavaScript / TypeScript: jest, vitest, mocha, bun, pnpm/npm test
+    # e.g.: Tests: 12 passed, 12 total, Test Suites: 2 passed, 2 total, Time: 1.234 s
+    # e.g.: 15 passing (35ms)
+    js_matches = []
+    for line in cleaned_lines:
+        s = line.strip()
+        if re.search(r"^(?:Test Suites:|Tests:|Snapshots:|Time:)\s+\d+", s):
+            js_matches.append(s)
+        elif re.search(r"^(?:Test Files|Tests)\s+.*passed", s):
+            js_matches.append(s)
+        elif re.search(r"^Duration\s+[\d.]+\s*(?:s|ms)", s):
+            js_matches.append(s)
+        elif re.search(r"^\d+\s+passing(?:\s+\(.*\))?$", s):
+            js_matches.append(s)
+        elif re.search(r"^\d+\s+pass(?:\s+\d+\s+fail)?$", s):
+            js_matches.append(s)
+        elif re.search(r"^Ran \d+ tests across \d+ files", s):
+            js_matches.append(s)
+    if js_matches:
+        return js_matches
+
+    # 6. C / C++: ctest, make test
+    # e.g.: 100% tests passed, 0 tests failed out of 10
+    ctest_matches = []
+    for line in cleaned_lines:
+        s = line.strip()
+        if re.search(r"^\d+%\s+tests passed,\s+\d+\s+tests failed out of\s+\d+", s):
+            ctest_matches.append(s)
+        elif re.search(r"^Total Test time \(real\)\s*=", s):
+            ctest_matches.append(s)
+    if ctest_matches:
+        return ctest_matches
+
+    # 7. Java / Kotlin: maven, gradle
+    # e.g.: [INFO] Tests run: 5, Failures: 0, Errors: 0... or BUILD SUCCESSFUL
+    java_matches = []
+    for line in cleaned_lines:
+        s = line.strip()
+        if re.search(r"^(?:\[INFO\]\s+)?Tests run:\s+\d+,\s+Failures:\s+0,\s+Errors:\s+0", s):
+            java_matches.append(s)
+        elif re.search(r"^(?:\[INFO\]\s+)?BUILD SUCCESS\b", s):
+            java_matches.append(s)
+        elif re.search(r"^BUILD SUCCESSFUL\b", s):
+            java_matches.append(s)
+        elif re.search(r"^\d+\s+tests completed,\s+0\s+failed", s):
+            java_matches.append(s)
+    if java_matches:
+        return java_matches
+
+    # 8. Generic fallback: emit last 1-3 non-empty lines
+    non_empty = [line.strip() for line in cleaned_lines if line.strip()]
+    if non_empty:
+        return non_empty[-3:] if len(non_empty) >= 3 else non_empty
+    return []
+
+
+def main():
+    args = sys.argv[1:]
+    verbose = False
+
+    if args and args[0] in ("-h", "--help"):
+        print(
+            "Usage: nova-test [-v|--verbose] <command...>\n\n"
+            "Run test suites quietly on success to conserve tokens, preserving full traces on failure."
+        )
+        sys.exit(0)
+
+    if args and args[0] in ("-v", "--verbose"):
+        verbose = True
+        args = args[1:]
+
+    if args and args[0] == "--":
+        args = args[1:]
+
+    if not args:
+        sys.stderr.write("Usage: nova-test [-v|--verbose] <command...>\n")
+        sys.exit(2)
+
+    start_time = time.perf_counter()
+
+    if verbose:
+        result = subprocess.run(args)
+        sys.exit(result.returncode)
+
+    try:
+        proc = subprocess.run(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            errors="replace",
+        )
+    except FileNotFoundError:
+        sys.stderr.write(f"nova-test: command not found: {args[0]}\n")
+        sys.exit(127)
+    except OSError as err:
+        sys.stderr.write(f"nova-test: {err}\n")
+        sys.exit(126)
+
+    duration = time.perf_counter() - start_time
+
+    if proc.returncode == 0:
+        print(f"✓ [nova-test] Succeeded in {duration:.1f}s (exit 0)")
+        summary_lines = extract_summary(proc.stdout, proc.stderr)
+        for line in summary_lines:
+            print(line)
+        sys.exit(0)
+    else:
+        sys.stderr.write(
+            f"✗ [nova-test] Failed with exit code {proc.returncode} in {duration:.1f}s:\n"
+        )
+        sys.stderr.flush()
+        if proc.stdout:
+            sys.stdout.write(proc.stdout)
+            sys.stdout.flush()
+        if proc.stderr:
+            sys.stderr.write(proc.stderr)
+            sys.stderr.flush()
+        sys.exit(proc.returncode if proc.returncode >= 0 else 128 + abs(proc.returncode))
+
+
+if __name__ == "__main__":
+    main()

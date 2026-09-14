@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="800" viewBox="0 0 900 800" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="826" viewBox="0 0 900 826" role="img" aria-labelledby="title description">
   <title id="title">How Nova turns a request into a verified result</title>
-  <desc id="description">Describe your task in Codex, Claude Code, or Antigravity CLI. The parent agent applies a Nova skill, assigns task-file changes to a native implementer, verifies the result, and delivers within your authorization. Optional scout and reviewer helpers return their results to the parent. Failed checks return to the work step. Nova Flow is optional tracking, disabled by default.</desc>
+  <desc id="description">Describe your task in Antigravity, Claude Code, or Codex. The parent agent applies a Nova skill, assigns task-file changes to a native implementer, verifies the result, and delivers within your authorization, summarizing the change with a workflow diagram, key deliverables, verification evidence, and the immutable local main commit. Optional scout and reviewer helpers return their results to the parent. Failed checks return to the work step. Nova Flow is optional tracking, disabled by default.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#64748b"/></marker>
     <marker id="teal-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#0f766e"/></marker>
@@ -13,12 +13,12 @@
       .line { fill: none; stroke: #64748b; stroke-width: 2; marker-end: url(#arrow); }
     </style>
   </defs>
-  <rect width="900" height="800" rx="20" fill="#f8fafc"/>
+  <rect width="900" height="826" rx="20" fill="#f8fafc"/>
   <text x="48" y="45" class="label">NOVA / FROM REQUEST TO RESULT</text>
   <rect x="48" y="68" width="804" height="124" rx="14" fill="#0f172a"/>
   <text x="72" y="104" font-size="24" font-weight="650" fill="#ffffff">Your task. Your existing coding agent.</text>
   <text x="72" y="132" font-size="17" fill="#cbd5e1">Describe the outcome, context, and constraints.</text>
-  <text x="72" y="164" font-size="17" font-weight="600" fill="#5eead4">Codex  ·  Claude Code  ·  Antigravity CLI</text>
+  <text x="72" y="164" font-size="17" font-weight="600" fill="#5eead4">Antigravity  ·  Claude Code  ·  Codex</text>
   <path d="M 298 192 V 230" class="line"/>
   <rect x="48" y="240" width="500" height="100" rx="12" fill="#ecfdf5" stroke="#99d5c5"/>
   <circle cx="80" cy="273" r="16" fill="#ccfbf1"/><text x="75" y="279" class="number">1</text>
@@ -37,10 +37,11 @@
   <path d="M 48 554 H 25 V 424 H 44" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#teal-arrow)"/>
   <text x="18" y="516" font-size="12" fill="#0f766e" transform="rotate(-90 18 516)">fix &amp; retry</text>
   <path d="M 298 600 V 628" class="line"/>
-  <rect x="48" y="638" width="500" height="92" rx="12" fill="#0f766e"/>
+  <rect x="48" y="638" width="500" height="118" rx="12" fill="#0f766e"/>
   <circle cx="80" cy="671" r="16" fill="#ccfbf1"/><text x="75" y="677" class="number">4</text>
   <text x="110" y="678" font-size="22" font-weight="650" fill="#ffffff">Deliver within your scope</text>
-  <text x="72" y="708" font-size="17" fill="#ecfdf5">Local main first. One PR when authorized.</text>
+  <text x="72" y="703" font-size="17" fill="#ecfdf5">Local main first. One PR when authorized.</text>
+  <text x="72" y="727" font-size="17" fill="#ecfdf5">Summary: diagram, deliverables, evidence, commit.</text>
   <path d="M 551 290 H 592" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="5 5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
   <rect x="604" y="240" width="248" height="230" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-dasharray="5 5"/>
   <text x="624" y="270" class="label">NATIVE HELPERS</text>
@@ -58,5 +59,5 @@
   <rect x="624" y="656" width="208" height="49" rx="8" fill="#e2e8f0"/>
   <text x="638" y="678" font-size="15" font-weight="600" fill="#334155">Only when requested.</text>
   <text x="638" y="697" font-size="14" fill="#475569">Automatic tracking is off.</text>
-  <text x="48" y="768" font-size="16" fill="#475569">The main agent owns verification, integration, and the final handoff.</text>
+  <text x="48" y="794" font-size="16" fill="#475569">The main agent owns verification, integration, and the final handoff.</text>
 </svg>

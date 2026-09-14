@@ -12,7 +12,7 @@ Use the current conversation and existing decisions. Follow persistent scope, de
 
 # Planning expertise
 
-Use plan when desired behavior is sufficiently clear to design and test. Resolve missing product intent with the user or spec before dependent planning; do not invent requirements. Use multiplan only when explicitly requested for independent Codex, Claude, and Agy alternatives. Ordinary plan remains one approach.
+Use plan when desired behavior is sufficiently clear to design and test. Resolve missing product intent with the user or spec before dependent planning; do not invent requirements. Use multiplan only when explicitly requested for independent Agy, Claude, and Codex alternatives. Ordinary plan remains one approach.
 
 Start from the specification or a clear request; a separate spec file is not a prerequisite. Develop one actionable approach by default. Reuse accepted scope, user decisions, existing plans, diagnoses, and current evidence. Compare alternatives only when requested or when a material trade-off needs resolution; do not ask the user to choose a number of plans. Planning includes acceptance-test authoring by default, but does not authorize product implementation. Honor explicit read-only, no-test-edit, or document-only requests; map tests and disclose the deferred baseline in those modes.
 

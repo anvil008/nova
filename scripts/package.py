@@ -66,7 +66,7 @@ def build(output, version=None):
                                'command': f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/write-routing.py" --harness {harness}'}]}]
                 for event in ('SubagentStop', 'Stop', 'SessionEnd'):
                     adapter['hooks'][event] = [{'hooks': [{'type': 'command', 'timeout': 5,
-                        'command': 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/integration.py"'}]}]
+                        'command': f'python3 "${{CLAUDE_PLUGIN_ROOT}}/hooks/integration.py" --harness {harness}'}]}]
                 if harness == 'claude':
                     for event in ('WorktreeCreate', 'WorktreeRemove'):
                         adapter['hooks'][event] = [{'hooks': [{'type': 'command', 'timeout': 120,

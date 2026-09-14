@@ -10,9 +10,9 @@ The parent starts the native implementer. The hook cannot do that. An unavailabl
 
 ## What the hook recognizes
 
-`write-routing.py --harness codex|claude|agy` handles packaged `PreToolUse` events. Codex and Claude match `Edit`, `Write`, `MultiEdit`, `NotebookEdit`, `apply_patch`, `Bash`, `exec_command`, and `shell_command`; Agy matches `write`, `write_file`, `write_to_file`, `replace`, `replace_file`, `replace_file_content`, `multi_replace_file_content`, and `run_command`. A recognized authored edit is denied with a compact implementer handoff.
+`write-routing.py --harness codex|claude|agy` handles packaged `PreToolUse` events. Agy matches `write`, `write_file`, `write_to_file`, `replace`, `replace_file`, `replace_file_content`, `multi_replace_file_content`, and `run_command`; Claude and Codex match `Edit`, `Write`, `MultiEdit`, `NotebookEdit`, `apply_patch`, `Bash`, `exec_command`, and `shell_command`. A recognized authored edit is denied with a compact implementer handoff.
 
-Claude permits ordinary native writes only when its event has an `agent_id` and `agent_type: implementer`. Codex and Agy do not provide safe per-helper identity on those tool events, so the implementer uses the absolute runner path supplied in the routing guidance:
+Claude permits ordinary native writes only when its event has an `agent_id` and `agent_type: implementer`. Agy and Codex do not provide safe per-helper identity on those tool events, so the implementer uses the absolute runner path supplied in the routing guidance:
 
 ```sh
 python3 '<absolute bundle path>/tools/nova-write' -- COMMAND [ARGS...]
@@ -32,4 +32,4 @@ This is cooperative routing, not a security boundary. Unknown command shapes, ar
 
 Validation covers local hook and package behavior. It does not establish a live model trial, universal interception, or token savings.
 
-Native contracts: [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude hooks](https://code.claude.com/docs/en/hooks), and [Agy hooks](https://antigravity.google/docs/hooks/). Codex/Agy tool events do not safely identify the calling helper; do not infer it from a shared session, transcript, or timing.
+Native contracts: [Agy hooks](https://antigravity.google/docs/hooks/), [Claude hooks](https://code.claude.com/docs/en/hooks), and [Codex hooks](https://learn.chatgpt.com/docs/hooks). Agy/Codex tool events do not safely identify the calling helper; do not infer it from a shared session, transcript, or timing.
