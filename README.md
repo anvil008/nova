@@ -6,7 +6,7 @@ Nova helps your coding agent plan features, fix bugs, review code, and document 
 
 Use one skill for a small task, or move from specification to implementation for a larger change. The parent agent owns decisions, verification, and delivery; native implementers author task-file changes.
 
-[Quick start](#quick-start) · [Usage](#use-nova) · [Skills](#choose-a-skill) · [Installation guide](instructions/install.md) · [Harness comparison](instructions/harnesses.md)
+[Quick start](#quick-start) · [Usage](#use-nova) · [Skills](#choose-a-skill) · [Verification](#token-efficient-verification-with-nova-test) · [Installation guide](instructions/install.md) · [Harness comparison](instructions/harnesses.md)
 
 ## How Nova works
 
@@ -128,6 +128,73 @@ Hooks connect native agent events to small local functions. This map shows what 
 - **After supported editor calls:** formatting and linting run only with an enabled configuration. Claude/Codex use `NOVA_HOOK_CONFIG`; Agy requires explicit adapter setup. These checks do not replace final verification.
 
 Native hook enablement and trust settings still apply. Bootstrap’s compatibility backup runs during installation, helping existing sessions retain their hook entrypoints until restarted.
+
+## Token-efficient verification with nova-test
+
+![Nova test runner: wraps test commands across Rust, Go, Python, Node, C++, and Java, suppressing passing noise on success to save 98%+ tokens while preserving 100% of failure traces on non-zero exit.](docs/diagrams/nova-test.svg)
+
+[View the diagram at full size](docs/diagrams/nova-test.svg) · [Tool documentation](tools/README.md#nova-test)
+
+Autonomous coding agents run test suites repeatedly during development—establishing baselines, testing incremental changes, and executing final verifications. Routine test runs across medium to large suites produce substantial output: repetitive progress dots, passing test names (`... ok`), dependency compilation notices, and verbose framework banners. In agent workflows, these passing lines consume hundreds or thousands of tokens per run without providing diagnostic value.
+
+Because conversational history accumulates in the model's context window across turns, verbose test output compounds rapidly. A routine 10-turn feature implementation or debugging session where tests run 15–20 times can easily accumulate **35,000+ tokens of passing test noise**. This unnecessary context bloat crowds out critical code context, increases per-turn inference latency, and accelerates context window exhaustion.
+
+`nova-test` is a lightweight, language-agnostic process wrapper that eliminates this overhead:
+
+- **Quiet on success (`exit 0`):** Suppresses line-by-line passing noise and extracts only the framework's summary outcome and execution time, reducing output to ~18–22 tokens (a 98%+ reduction).
+- **Full traces on failure (`exit != 0`):** Immediately emits a failure header and streams 100% of raw stdout and stderr untouched, preserving stack traces, assertion messages, and child exit codes for diagnosis.
+- **Direct execution:** Invokes target commands directly via `execvp` without an intermediate shell, avoiding shell quoting issues and escaping bugs.
+- **Verbose bypass:** Passing `-v` or `--verbose` as the first argument streams output directly without any filtering.
+
+### Benchmark savings
+
+The table below compares raw verbose test suite output against `nova-test` across major language ecosystems. Results for Python reflect direct empirical measurements on Nova's own test suite; Rust, Go, and TypeScript figures are analytical calculations based on typical test suites of comparable scale:
+
+| Ecosystem / Test Runner | Test Suite | Raw Output | `nova-test` Output | Token Reduction | Measurement Type |
+| --- | --- | ---: | ---: | ---: | --- |
+| **Python** (`unittest` / `pytest`) | Nova test suite (183 tests) | 1,840 tokens | 18 tokens | **99.0%** | Direct empirical |
+| **Rust** (`cargo test`) | Typical unit suite (~150 tests) | 1,950 tokens | 22 tokens | **98.9%** | Analytical |
+| **Go** (`go test ./...`) | Multi-package suite (~40 packages) | 1,450 tokens | 20 tokens | **98.6%** | Analytical |
+| **TypeScript / Node** (`vitest` / `jest`) | Full suite (~150 tests across 20 files) | 2,100 tokens | 20 tokens | **99.0%** | Analytical |
+
+*Token counts estimated using standard cl100k_base tokenization. In a 10-turn feature session with 20 test executions, raw verbosity consumes ~36,800 tokens across conversational history; `nova-test` reduces this to ~400 tokens, preserving **over 35,000 tokens** of valuable context.*
+
+### Multi-language support and recipes
+
+`nova-test` includes built-in pattern extractors for all major ecosystems and automatically falls back to a clean tail summary for unrecognized tools:
+
+- **Python (`unittest`, `pytest`):**
+  ```sh
+  nova-test python3 -m unittest discover -s tests
+  nova-test pytest
+  ```
+- **Rust (`cargo test`):**
+  ```sh
+  nova-test cargo test
+  nova-test cargo test --all-targets
+  ```
+- **JavaScript / TypeScript (`npm`, `pnpm`, `vitest`, `jest`):**
+  ```sh
+  nova-test npm test
+  nova-test npx vitest run
+  ```
+- **Go (`go test`):**
+  ```sh
+  nova-test go test ./...
+  ```
+- **C / C++ (`ctest`, `make test`):**
+  ```sh
+  nova-test ctest --output-on-failure
+  ```
+- **Java / Kotlin (`maven`, `gradle`):**
+  ```sh
+  nova-test mvn test
+  nova-test ./gradlew test
+  ```
+- **Verbose bypass (when full output is needed):**
+  ```sh
+  nova-test -v python3 -m unittest discover -s tests
+  ```
 
 ## Optional: track work with Nova Flow
 

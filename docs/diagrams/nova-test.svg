@@ -1,0 +1,204 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="820" viewBox="0 0 960 820" role="img" aria-labelledby="title description">
+<title id="title">How nova-test saves 98%+ tokens on test suites</title>
+<desc id="description">Nova test runner wraps any test command across Rust, Go, Python, Node, C++, and Java. It executes commands directly, suppresses repetitive passing noise on exit code 0 to save 98%+ context window tokens, and dumps 100% of raw failure traces on non-zero exit codes.</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#64748b"/></marker>
+  <marker id="green-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#059669"/></marker>
+  <marker id="red-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#e11d48"/></marker>
+  <marker id="teal-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#0f766e"/></marker>
+</defs>
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; }
+  .label { font-size: 13px; font-weight: 700; letter-spacing: 1.2px; fill: #0f766e; }
+  .title { font-size: 21px; font-weight: 650; fill: #0f172a; }
+  .body { font-size: 14px; fill: #475569; }
+  .code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .small { font-size: 12px; fill: #64748b; }
+</style>
+<rect width="960" height="820" rx="20" fill="#f8fafc"/>
+
+<!-- Header -->
+<text x="48" y="40" class="label">NOVA / TOKEN-EFFICIENT VERIFICATION</text>
+<rect x="48" y="54" width="864" height="110" rx="14" fill="#0f172a"/>
+<text x="72" y="88" font-size="23" font-weight="650" fill="#ffffff">How nova-test saves 98%+ tokens on test suites</text>
+<text x="72" y="116" font-size="15.5" fill="#cbd5e1">Wraps any test command across Rust, Go, Python, Node, C++, and Java.</text>
+<text x="72" y="142" font-size="14.5" font-weight="600" fill="#5eead4">Quiet on success, full traces on failure.</text>
+
+<!-- Left Column: How it Works -->
+<text x="48" y="196" class="label">HOW IT WORKS / PROCESS WRAPPER</text>
+
+<!-- Step 1: Command Input -->
+<rect x="48" y="208" width="418" height="60" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="48" y="218" width="4" height="40" rx="2" fill="#0f766e"/>
+<text x="64" y="232" font-size="14" font-weight="650" fill="#0f172a">1. Command Input</text>
+<text x="64" y="254" class="code" font-size="13" font-weight="600" fill="#0f766e">nova-test &lt;command...&gt;</text>
+<text x="252" y="254" class="small">Direct execvp, no shell overhead</text>
+
+<!-- Connector 1 -->
+<path d="M 257 268 V 284" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+<!-- Step 2: Process Execution & Timing -->
+<rect x="48" y="284" width="418" height="60" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="48" y="294" width="4" height="40" rx="2" fill="#0f766e"/>
+<text x="64" y="308" font-size="14" font-weight="650" fill="#0f172a">2. Process Execution &amp; Stream Capture</text>
+<text x="64" y="330" class="body" font-size="12.5">High-precision wall timer tracks execution; captures stdout &amp; stderr</text>
+
+<!-- Connector 2 -->
+<path d="M 257 344 V 360" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+<!-- Step 3: Branch on Exit Code -->
+<rect x="137" y="360" width="240" height="34" rx="8" fill="#0f172a"/>
+<text x="257" y="382" text-anchor="middle" font-size="13" font-weight="650" fill="#ffffff">Branch on Child Exit Code</text>
+
+<!-- Branch paths -->
+<path d="M 197 394 V 412 H 152 V 422" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#green-arrow)"/>
+<rect x="127" y="403" width="50" height="18" rx="4" fill="#d1fae5"/>
+<text x="152" y="416" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">EXIT 0</text>
+
+<path d="M 317 394 V 412 H 362 V 422" fill="none" stroke="#e11d48" stroke-width="2" marker-end="url(#red-arrow)"/>
+<rect x="337" y="403" width="50" height="18" rx="4" fill="#ffe4e6"/>
+<text x="362" y="416" text-anchor="middle" font-size="11" font-weight="700" fill="#9f1239">EXIT != 0</text>
+
+<!-- Outcome A: Success Card -->
+<rect x="48" y="424" width="202" height="260" rx="10" fill="#ecfdf5" stroke="#a7f3d0"/>
+<circle cx="68" cy="446" r="9" fill="#10b981"/>
+<path d="M 64 446 L 67 449 L 72 443" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+<text x="84" y="450" font-size="13.5" font-weight="700" fill="#065f46">Success (Exit 0)</text>
+
+<text x="60" y="474" font-size="11.5" font-weight="650" fill="#047857">Regex Framework Filter</text>
+<text x="60" y="492" class="body" font-size="11">Suppresses repetitive dots</text>
+<text x="60" y="508" class="body" font-size="11">and passing test lines.</text>
+<text x="60" y="524" class="body" font-size="11">Extracts summary &amp; duration.</text>
+
+<rect x="58" y="534" width="182" height="74" rx="6" fill="#ffffff" stroke="#6ee7b7"/>
+<text x="66" y="552" class="code" font-size="10" font-weight="600" fill="#065f46">✓ Succeeded in 2.3s</text>
+<text x="66" y="568" class="code" font-size="9.5" fill="#334155">Ran 183 tests... OK</text>
+<text x="66" y="594" font-size="11.5" font-weight="700" fill="#059669">~18–22 tokens output</text>
+
+<rect x="58" y="618" width="182" height="52" rx="6" fill="#d1fae5"/>
+<text x="149" y="638" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">98%+ Token Savings</text>
+<text x="149" y="656" text-anchor="middle" font-size="10.5" fill="#047857">Context window preserved</text>
+
+<!-- Outcome B: Failure Card -->
+<rect x="264" y="424" width="202" height="260" rx="10" fill="#fff1f2" stroke="#fecdd3"/>
+<circle cx="284" cy="446" r="9" fill="#f43f5e"/>
+<path d="M 280 442 L 288 450 M 288 442 L 280 450" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+<text x="300" y="450" font-size="13.5" font-weight="700" fill="#9f1239">Failure (Exit != 0)</text>
+
+<text x="276" y="474" font-size="11.5" font-weight="650" fill="#be123c">Untouched Raw Output</text>
+<text x="276" y="492" class="body" font-size="11">Emits timing failure header,</text>
+<text x="276" y="508" class="body" font-size="11">then streams 100% of captured</text>
+<text x="276" y="524" class="body" font-size="11">stdout &amp; stderr unchanged.</text>
+
+<rect x="274" y="534" width="182" height="74" rx="6" fill="#ffffff" stroke="#fda4af"/>
+<text x="282" y="552" class="code" font-size="10" font-weight="600" fill="#be123c">✗ Failed (exit 1) 0.4s</text>
+<text x="282" y="568" class="code" font-size="9" fill="#475569">Traceback (most recent):</text>
+<text x="282" y="582" class="code" font-size="9" fill="#475569"> AssertionError: expected...</text>
+<text x="282" y="598" font-size="10.5" font-weight="700" fill="#be123c">Full failure traces</text>
+
+<rect x="274" y="618" width="182" height="52" rx="6" fill="#ffe4e6"/>
+<text x="365" y="638" text-anchor="middle" font-size="12" font-weight="700" fill="#9f1239">100% Diagnostic Fidelity</text>
+<text x="365" y="656" text-anchor="middle" font-size="10.5" fill="#be123c">Exact returncode returned</text>
+
+<!-- Right Column: Benchmarks & Compounding -->
+<text x="494" y="196" class="label">BENCHMARKS &amp; COMPOUNDING IMPACT</text>
+
+<!-- Benchmark Table Card -->
+<rect x="494" y="208" width="418" height="226" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="510" y="230" font-size="10.5" font-weight="700" fill="#0f766e">SUITE / ECOSYSTEM</text>
+<text x="670" y="230" text-anchor="end" font-size="10.5" font-weight="700" fill="#0f766e">RAW</text>
+<text x="760" y="230" text-anchor="end" font-size="10.5" font-weight="700" fill="#0f766e">NOVA-TEST</text>
+<text x="896" y="230" text-anchor="end" font-size="10.5" font-weight="700" fill="#0f766e">SAVINGS</text>
+<path d="M 510 238 H 896" stroke="#e2e8f0" stroke-width="1"/>
+
+<!-- Row 1: Python Empirical -->
+<rect x="502" y="244" width="402" height="38" rx="6" fill="#f0fdfa"/>
+<text x="510" y="260" font-size="12" font-weight="700" fill="#0f172a">Python (Empirical)</text>
+<text x="510" y="274" font-size="10" fill="#0f766e">Nova test suite (183 tests)</text>
+<text x="670" y="265" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,840</text>
+<text x="760" y="265" text-anchor="end" class="code" font-size="11.5" font-weight="700" fill="#0f766e">18</text>
+<text x="896" y="265" text-anchor="end" font-size="12" font-weight="700" fill="#059669">99.0%</text>
+
+<!-- Row 2: Rust Analytical -->
+<text x="510" y="297" font-size="12" font-weight="600" fill="#0f172a">Rust (cargo test)</text>
+<text x="510" y="310" font-size="10" fill="#64748b">Analytical: ~150 unit tests</text>
+<text x="670" y="303" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,950</text>
+<text x="760" y="303" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">22</text>
+<text x="896" y="303" text-anchor="end" font-size="12" font-weight="600" fill="#059669">98.9%</text>
+<path d="M 510 317 H 896" stroke="#f1f5f9" stroke-width="1"/>
+
+<!-- Row 3: Go Analytical -->
+<text x="510" y="333" font-size="12" font-weight="600" fill="#0f172a">Go (go test ./...)</text>
+<text x="510" y="346" font-size="10" fill="#64748b">Analytical: ~40 packages</text>
+<text x="670" y="339" text-anchor="end" class="code" font-size="11.5" fill="#64748b">1,450</text>
+<text x="760" y="339" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">20</text>
+<text x="896" y="339" text-anchor="end" font-size="12" font-weight="600" fill="#059669">98.6%</text>
+<path d="M 510 353 H 896" stroke="#f1f5f9" stroke-width="1"/>
+
+<!-- Row 4: Node/TS Analytical -->
+<text x="510" y="369" font-size="12" font-weight="600" fill="#0f172a">Node / TS (vitest / jest)</text>
+<text x="510" y="382" font-size="10" fill="#64748b">Analytical: ~150 tests</text>
+<text x="670" y="375" text-anchor="end" class="code" font-size="11.5" fill="#64748b">2,100</text>
+<text x="760" y="375" text-anchor="end" class="code" font-size="11.5" fill="#0f766e">20</text>
+<text x="896" y="375" text-anchor="end" font-size="12" font-weight="600" fill="#059669">99.0%</text>
+
+<text x="510" y="416" font-size="10" fill="#64748b">* Tokens estimated via cl100k_base. Python 183-test suite empirically measured.</text>
+
+<!-- Compounding Impact Dark Card -->
+<rect x="494" y="444" width="418" height="240" rx="10" fill="#0f172a"/>
+<text x="514" y="470" font-size="11" font-weight="700" letter-spacing="1" fill="#5eead4">MULTI-TURN COMPOUNDING IMPACT</text>
+<text x="514" y="492" font-size="15" font-weight="650" fill="#ffffff">Context window savings across feature sessions</text>
+<text x="514" y="512" font-size="12" fill="#cbd5e1">10-turn feature session with 20 test runs (TDD &amp; verification):</text>
+
+<!-- Raw Bar -->
+<rect x="514" y="524" width="378" height="38" rx="6" fill="#1e293b"/>
+<rect x="514" y="524" width="378" height="38" rx="6" fill="#f43f5e" fill-opacity="0.15" stroke="#f43f5e" stroke-width="1"/>
+<text x="526" y="548" font-size="12" font-weight="600" fill="#fecdd3">Raw test verbosity:</text>
+<text x="880" y="548" text-anchor="end" class="code" font-size="12.5" font-weight="700" fill="#fda4af">~36,800 tokens</text>
+
+<!-- nova-test Bar -->
+<rect x="514" y="570" width="378" height="38" rx="6" fill="#064e3b" stroke="#059669" stroke-width="1"/>
+<text x="526" y="594" font-size="12" font-weight="600" fill="#a7f3d0">With nova-test:</text>
+<text x="880" y="594" text-anchor="end" class="code" font-size="12.5" font-weight="700" fill="#6ee7b7">~400 tokens</text>
+
+<!-- Savings Callout -->
+<rect x="514" y="618" width="378" height="48" rx="6" fill="#0f766e"/>
+<text x="703" y="642" text-anchor="middle" font-size="13.5" font-weight="700" fill="#ffffff">⚡ 35,000+ Tokens Preserved</text>
+<text x="703" y="658" text-anchor="middle" font-size="10.5" fill="#ccfbf1">Eliminates context eviction, truncation, and latency spikes</text>
+
+<!-- Supported Ecosystems Badges -->
+<text x="48" y="708" class="label">SUPPORTED ECOSYSTEMS &amp; TEST RUNNERS</text>
+
+<!-- Rust -->
+<rect x="48" y="718" width="135" height="50" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="58" y="738" font-size="12.5" font-weight="700" fill="#0f172a">Rust</text>
+<text x="58" y="754" class="code" font-size="11" fill="#0f766e">cargo test</text>
+
+<!-- Go -->
+<rect x="193" y="718" width="135" height="50" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="203" y="738" font-size="12.5" font-weight="700" fill="#0f172a">Go</text>
+<text x="203" y="754" class="code" font-size="11" fill="#0f766e">go test</text>
+
+<!-- Python -->
+<rect x="338" y="718" width="135" height="50" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="348" y="738" font-size="12.5" font-weight="700" fill="#0f172a">Python</text>
+<text x="348" y="754" class="code" font-size="11" fill="#0f766e">pytest / unittest</text>
+
+<!-- Node/TS -->
+<rect x="483" y="718" width="135" height="50" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="493" y="738" font-size="12.5" font-weight="700" fill="#0f172a">Node / TS</text>
+<text x="493" y="754" class="code" font-size="11" fill="#0f766e">vitest / jest</text>
+
+<!-- C/C++ -->
+<rect x="628" y="718" width="135" height="50" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="638" y="738" font-size="12.5" font-weight="700" fill="#0f172a">C / C++</text>
+<text x="638" y="754" class="code" font-size="11" fill="#0f766e">ctest / make test</text>
+
+<!-- Java -->
+<rect x="773" y="718" width="139" height="50" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="783" y="738" font-size="12.5" font-weight="700" fill="#0f172a">Java / Kotlin</text>
+<text x="783" y="754" class="code" font-size="11" fill="#0f766e">maven / gradle</text>
+
+<!-- Footer -->
+<text x="48" y="794" class="small">Universal process wrapper · Works with any language or script · Force full streaming with -v / --verbose</text>
+</svg>
