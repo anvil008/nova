@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 
 REMINDER = ('The parent owns this task’s integration. As each child result becomes ready, '
@@ -20,6 +21,14 @@ REMINDER = ('The parent owns this task’s integration. As each child result bec
             'Do not wait for the user to repeat existing authorization. Child exit or a hook '
             'marker is not verification: never merge unreviewed work or unrelated workspaces. '
             'Read-only results need no merge. Report any remaining verification or synchronization blocker.')
+READ_ONLY_AGENTS = {'scout', 'reviewer', 'explore', 'plan', 'claude_code_guide', 'statusline_setup'}
+
+
+def read_only_agent(agent_type):
+    # Mirrors tools/write_routing.normalized_name; unknown or missing types still arm.
+    if not isinstance(agent_type, str):
+        return False
+    return re.split(r'(?:__|[:./]+)', agent_type.lower())[-1].replace('-', '_') in READ_ONLY_AGENTS
 
 
 def handle(payload, cache):
@@ -30,6 +39,8 @@ def handle(payload, cache):
     marker = cache / key
     event = payload.get('hook_event_name')
     if event == 'SubagentStop':
+        if read_only_agent(payload.get('agent_type')):
+            return {}
         cache.mkdir(parents=True, exist_ok=True)
         marker.touch()
         return {}  # Parent Stop owns continuation; never make a child merge trunk.
