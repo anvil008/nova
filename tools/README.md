@@ -275,9 +275,9 @@ The default viewer combines active runs. The browser run selector and terminal `
 Launch independent sessions from any workspace:
 
 ```sh
-nova-flow track --harness codex -- codex
 nova-flow track --harness agy -- agy
 nova-flow track --harness claude -- claude
+nova-flow track --harness codex -- codex
 ```
 
 Use your actual installed harness executable and arguments after `--`. To collaborate on an existing run:

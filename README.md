@@ -1,6 +1,6 @@
 # Nova
 
-**Development skills for Codex, Claude Code, and Antigravity CLI.**
+**Development skills for Antigravity, Claude Code, and Codex.**
 
 Nova helps your coding agent plan features, fix bugs, review code, and document changes using a shared set of workflows. It runs inside your existing agent conversation and works with your repository’s instructions and checks.
 
@@ -10,7 +10,7 @@ Use one skill for a small task, or move from specification to implementation for
 
 ## How Nova works
 
-![Nova workflow: describe a task in Codex, Claude Code, or Antigravity CLI. The parent agent applies a skill, assigns task-file changes to a native implementer, verifies and integrates the result, and delivers within your authorization with a summary covering the workflow, deliverables, evidence, and the local main commit. Scout and reviewer helpers are optional; Nova Flow tracking is opt-in.](docs/diagrams/nova-workflow.svg)
+![Nova workflow: describe a task in Antigravity, Claude Code, or Codex. The parent agent applies a skill, assigns task-file changes to a native implementer, verifies and integrates the result, and delivers within your authorization with a summary covering the workflow, deliverables, evidence, and the local main commit. Scout and reviewer helpers are optional; Nova Flow tracking is opt-in.](docs/diagrams/nova-workflow.svg)
 
 [View the diagram at full size](docs/diagrams/nova-workflow.svg)
 
@@ -23,7 +23,7 @@ Small tasks can go straight to the relevant skill. There is no required sequence
 
 ## Quick start
 
-You need **Python 3.11+** and at least one supported CLI already installed and available on `PATH`: `codex`, `claude`, or `agy`. Install repository tools such as jj and your project’s dependencies separately.
+You need **Python 3.11+** and at least one supported CLI already installed and available on `PATH`: `agy`, `claude`, or `codex`. Install repository tools such as jj and your project’s dependencies separately.
 
 ```sh
 git clone https://github.com/anvil008/nova.git
@@ -44,7 +44,7 @@ To install only for Codex, including its optional native helpers:
 ./scripts/bootstrap.sh --harness codex --with-codex-helpers
 ```
 
-Use `--harness claude` or `--harness agy` to select either of the other CLIs. Claude and Agy helpers ship inside their plugins. The [installation guide](instructions/install.md) covers updates, custom locations, existing marketplace conflicts, and manual installation.
+Use `--harness agy` or `--harness claude` to select either of the other CLIs. Agy and Claude helpers ship inside their plugins. The [installation guide](instructions/install.md) covers updates, custom locations, existing marketplace conflicts, and manual installation.
 
 **Start a new agent session after installation.** Open your project and use Nova’s `repo-setup` skill to record its development commands and reconcile project instructions.
 
@@ -54,9 +54,9 @@ Select a skill from your harness’s catalog, then describe what you want:
 
 | Harness | Example |
 | --- | --- |
-| Codex | `$nova:build Add CSV export to the reports page.` |
+| Antigravity | Select the Nova build skill using the name shown in its skill catalog, then describe the feature. |
 | Claude Code | `/nova:build Add CSV export to the reports page.` |
-| Antigravity CLI | Select the Nova build skill using the name shown in its skill catalog, then describe the feature. |
+| Codex | `$nova:build Add CSV export to the reports page.` |
 
 Other starting points:
 
@@ -111,21 +111,21 @@ Nova includes a native **implementer** for every task-file change, plus optional
 
 Packaged read-routing hooks direct recognized large reads toward the existing scout, while focused reads stay in the main conversation. Codex needs `--with-codex-helpers` for native scout setup. See [read routing and fallback](instructions/read-routing.md).
 
-Work that needs isolation uses `.workspaces/<task>/` under the primary checkout. Claude includes native workspace creation and retention hooks; Codex and Agy follow the shared instructions. Native trust settings and desktop app behavior vary—see the [harness comparison](instructions/harnesses.md).
+Work that needs isolation uses `.workspaces/<task>/` under the primary checkout. Claude includes native workspace creation and retention hooks; Agy and Codex follow the shared instructions. Native trust settings and desktop app behavior vary—see the [harness comparison](instructions/harnesses.md).
 
 ## Hooks: what runs when?
 
 Hooks connect native agent events to small local functions. This map shows what Nova registers, what needs configuration, and what remains disabled.
 
-![Nova hook map: PreToolUse routes large reads and recognized task-file writes; Codex/Claude implementer and writer child stops and Agy delegation events arm a parent integration reminder, while known read-only children do not; Claude WorktreeCreate and WorktreeRemove manage isolated workspaces; PostToolUse formatting and linting are opt-in. Automatic Flow tracking is disabled, while bootstrap separately preserves old hook paths during updates.](docs/diagrams/nova-hooks.svg)
+![Nova hook map: PreToolUse routes large reads and recognized task-file writes; Claude/Codex implementer and writer child stops and Agy delegation events arm a parent integration reminder, while known read-only children do not; Claude WorktreeCreate and WorktreeRemove manage isolated workspaces; PostToolUse formatting and linting are opt-in. Automatic Flow tracking is disabled, while bootstrap separately preserves old hook paths during updates.](docs/diagrams/nova-hooks.svg)
 
 [View the hook map at full size](docs/diagrams/nova-hooks.svg) · [Hook configuration](hooks/README.md) · [Harness differences](instructions/harnesses.md)
 
 - **Before a read:** recognized large reads receive scout-routing guidance. The hook does not launch a helper itself.
-- **Before a task-file edit:** recognized edits receive implementer-routing guidance, and unrecognized calls pass through unchanged (Agy receives an explicit allow). Claude can identify its implementer; Codex and Agy use a supplied argv runner because their pre-tool events cannot safely identify a helper. The hook cannot launch workers or guarantee interception of arbitrary scripts. [Details and limits](instructions/write-routing.md).
-- **After delegation:** Codex and Claude use child-stop events; Agy observes successful `invoke_subagent` tool calls. Each can issue one parent continuation reminder to verify results, integrate into local main, and finish authorized publication and cleanup. Known read-only child types—scout, reviewer, Explore, Plan, and similar—do not arm the Codex/Claude reminder; unknown or missing types still do. Agy waits for a normal, fully idle Stop. Hooks never merge changes themselves.
+- **Before a task-file edit:** recognized edits receive implementer-routing guidance, and unrecognized calls pass through unchanged (Agy receives an explicit allow). Claude can identify its implementer; Agy and Codex use a supplied argv runner because their pre-tool events cannot safely identify a helper. The hook cannot launch workers or guarantee interception of arbitrary scripts. [Details and limits](instructions/write-routing.md).
+- **After delegation:** Claude and Codex use child-stop events; Agy observes successful `invoke_subagent` tool calls. Each can issue one parent continuation reminder to verify results, integrate into local main, and finish authorized publication and cleanup. Known read-only child types—scout, reviewer, Explore, Plan, and similar—do not arm the Claude/Codex reminder; unknown or missing types still do. Agy waits for a normal, fully idle Stop. Hooks never merge changes themselves.
 - **When Claude creates or removes an isolated workspace:** the adapter uses the primary checkout’s `.workspaces/` directory and retains work that cannot be safely removed. JJ cleanup stays explicit.
-- **After supported editor calls:** formatting and linting run only with an enabled configuration. Codex/Claude use `NOVA_HOOK_CONFIG`; Agy requires explicit adapter setup. These checks do not replace final verification.
+- **After supported editor calls:** formatting and linting run only with an enabled configuration. Claude/Codex use `NOVA_HOOK_CONFIG`; Agy requires explicit adapter setup. These checks do not replace final verification.
 
 Native hook enablement and trust settings still apply. Bootstrap’s compatibility backup runs during installation, helping existing sessions retain their hook entrypoints until restarted.
 
@@ -154,7 +154,7 @@ python3 scripts/update-guide.py --check
 python3 scripts/package.py
 ```
 
-The package builder creates self-contained bundles in `dist/plugins/{codex,claude,agy}/`. Building does not update installed plugins; rerun bootstrap to apply source changes locally.
+The package builder creates self-contained bundles in `dist/plugins/{agy,claude,codex}/`. Building does not update installed plugins; rerun bootstrap to apply source changes locally.
 
 | Directory | Contents |
 | --- | --- |

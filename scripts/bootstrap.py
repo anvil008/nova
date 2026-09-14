@@ -160,7 +160,7 @@ def main():
         selected = list(HARNESSES)
     selected = list(dict.fromkeys(selected))
     if not selected:
-        parser.error('No supported harness CLI found. Install Codex, Claude Code, or Agy first.')
+        parser.error('No supported harness CLI found. Install Agy, Claude Code, or Codex first.')
     missing = [h for h in selected if not shutil.which(h)]
     if missing:
         parser.error('Missing harness CLI: ' + ', '.join(missing))

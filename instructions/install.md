@@ -15,7 +15,7 @@ Select one or more harnesses, preview the actions, or include optional Codex hel
 ```sh
 ./scripts/bootstrap.sh --harness codex --dry-run
 ./scripts/bootstrap.sh --harness codex --with-codex-helpers
-./scripts/bootstrap.sh --harness claude --harness agy
+./scripts/bootstrap.sh --harness agy --harness claude
 ./scripts/bootstrap.sh --harness all
 ```
 
@@ -25,7 +25,7 @@ Bundles are stored under `~/.local/share/nova/plugins/`, so installed packages a
 
 If an existing marketplace named `nova` points elsewhere, bootstrap stops before installation. `--replace-marketplace` explicitly switches that named source to this build. Other marketplaces are preserved. Do not run concurrent bootstraps into the same prefix.
 
-`--with-codex-helpers` copies the optional definitions to the native Codex agents directory. It refuses conflicting files and symlinks. A receipt tracks bootstrap-owned copies so reruns update unchanged copies while preserving user edits. Claude and Agy helpers already travel inside their plugins.
+`--with-codex-helpers` copies the optional definitions to the native Codex agents directory. It refuses conflicting files and symlinks. A receipt tracks bootstrap-owned copies so reruns update unchanged copies while preserving user edits. Agy and Claude helpers already travel inside their plugins.
 
 Bootstrap automatically aligns host global instruction files (`~/.gemini/GEMINI.md`, `~/.claude/CLAUDE.md`, and `~/.codex/AGENTS.md`) from `instructions/global/` using ownership receipts, keeping trunk-based development and workspace placement standards consistent across all tools. Use `--no-align-global` to skip host file synchronization, or `--force-global` to overwrite unmanaged modifications.
 
@@ -45,6 +45,25 @@ python3 scripts/package.py
 
 This creates three self-contained marketplace directories in `dist/plugins/`. Copy a complete harness directory to a stable location before registering it if this checkout or `dist/` will be deleted. Rebuilds replace only directories marked as Nova build outputs. Build and installation are separate operations.
 
+## Antigravity
+
+```sh
+agy plugin install /absolute/path/to/dist/plugins/agy/plugins/nova
+```
+
+Inspect `agy plugin list` and `agy agents`; restart the session for changes. The CLI bundle includes skills, native agent definitions, and rules. Use its displayed skill names. For updates, use the installed CLI's supported install/update flow; consult `agy plugin help` first. Antigravity IDE uses different plugin locations and is not covered by the CLI installation trial.
+
+Agy's hook example is shipped under `hooks/agy.example.json`, not activated automatically. When configuring hooks, resolve the installed plugin directory, replace its runner/config placeholders with shell-quoted absolute paths, and merge the native event definition into the supported hook configuration. Enable the configured event only after testing its command. Do not assume plugin-path environment variables are portable across harnesses.
+
+## Claude Code
+
+```sh
+claude plugin marketplace add /absolute/path/to/dist/plugins/claude
+claude plugin install nova@nova
+```
+
+Start a new session. Invoke `/nova:refactor`, or another Nova skill. Helpers are in native `agents/`; hooks are in `hooks/hooks.json`. Inspect `claude plugin details nova@nova` for discovery. Update with the native marketplace/plugin update commands after rebuilding.
+
 ## Codex
 
 ```sh
@@ -56,52 +75,33 @@ Use a new conversation and select the Nova skill from the catalog (for example `
 
 The plugin packages all skills and default-location post-edit hooks. Codex plugin helper discovery is not assumed: optional TOML helper definitions are shipped in `setup/agents/`. During an explicitly requested helper setup, copy the selected definitions into the target project's `.codex/agents/` or the user's `~/.codex/agents/`, resolving name conflicts first. Those copies must be updated separately when helper definitions change.
 
-## Claude Code
-
-```sh
-claude plugin marketplace add /absolute/path/to/dist/plugins/claude
-claude plugin install nova@nova
-```
-
-Start a new session. Invoke `/nova:refactor`, or another Nova skill. Helpers are in native `agents/`; hooks are in `hooks/hooks.json`. Inspect `claude plugin details nova@nova` for discovery. Update with the native marketplace/plugin update commands after rebuilding.
-
-## Antigravity CLI
-
-```sh
-agy plugin install /absolute/path/to/dist/plugins/agy/plugins/nova
-```
-
-Inspect `agy plugin list` and `agy agents`; restart the session for changes. The CLI bundle includes skills, native agent definitions, and rules. Use its displayed skill names. For updates, use the installed CLI's supported install/update flow; consult `agy plugin help` first. Antigravity IDE uses different plugin locations and is not covered by the CLI installation trial.
-
-Agy's hook example is shipped under `hooks/agy.example.json`, not activated automatically. When configuring hooks, resolve the installed plugin directory, replace its runner/config placeholders with shell-quoted absolute paths, and merge the native event definition into the supported hook configuration. Enable the configured event only after testing its command. Do not assume plugin-path environment variables are portable across harnesses.
-
 ## Workspace isolation
 
-Claude bundles register native WorktreeCreate/WorktreeRemove hooks. Codex and Agy use project AGENTS.md and the shared placement instructions. See [harness comparison](harnesses.md) for base selection, cleanup retention, ignored-file handling, app settings, and the other configured differences.
+Claude bundles register native WorktreeCreate/WorktreeRemove hooks. Agy and Codex use project AGENTS.md and the shared placement instructions. See [harness comparison](harnesses.md) for base selection, cleanup retention, ignored-file handling, app settings, and the other configured differences.
 
 ## Project instructions and checks
 
 ### Instruction loading
 
-Bootstrap synchronizes the selected harness's global file (`AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`); each harness uses its own file. These contain compact standing rules.
+Bootstrap synchronizes the selected harness's global file (`GEMINI.md`, `CLAUDE.md`, or `AGENTS.md`); each harness uses its own file. These contain compact standing rules.
 
 Every Nova skill reads the short bundled `instructions/development.md`, reusing it within the conversation. Antigravity also receives that same content as `rules/nova.md`; reuse it rather than reading a duplicate. Skill bodies and references are not all preloaded just because they are installed.
 
 The shared instructions route to [integration](integration.md) before revision changes or delivery, [reporting](reporting.md) for substantial artifacts or resumption, [read routing](read-routing.md) for bulk reads, [task-file routing](write-routing.md) for implementation, and [Flow](flow.md) only after an explicit Flow request. Read the relevant reference once, not the entire folder. Installation and harness documentation are reference material for setup and troubleshooting.
 
-For persistent project guidance, run Nova's repo-setup skill. It reconciles the conventions with existing project instructions and records actual build/test commands. Use `AGENTS.md` for Codex, `CLAUDE.md` or its supported imports for Claude, and the project's supported rules/instruction mechanism for Agy. A plugin-root `CLAUDE.md` is not project context. Personal configuration and command permissions are not overwritten.
+For persistent project guidance, run Nova's repo-setup skill. It reconciles the conventions with existing project instructions and records actual build/test commands. Use the project's supported rules/instruction mechanism for Agy, `CLAUDE.md` or its supported imports for Claude, and `AGENTS.md` for Codex. A plugin-root `CLAUDE.md` is not project context. Personal configuration and command permissions are not overwritten.
 
-The post-edit runner does nothing unless given an explicit config. Copy `hooks/project.example.json` to a chosen project configuration path, set the absolute repository root and actual argv-based commands, then enable it. Codex and Claude hooks read the absolute config path from `NOVA_HOOK_CONFIG`, set in the harness process environment. Agy's configured command can pass `--config` directly. No repository config is auto-discovered or executed merely by opening a repository.
+The post-edit runner does nothing unless given an explicit config. Copy `hooks/project.example.json` to a chosen project configuration path, set the absolute repository root and actual argv-based commands, then enable it. Claude and Codex hooks read the absolute config path from `NOVA_HOOK_CONFIG`, set in the harness process environment. Agy's configured command can pass `--config` directly. No repository config is auto-discovered or executed merely by opening a repository.
 
-Hook scripts are advisory. Codex/Claude receive diagnostic context; Agy writes diagnostics to logs. Write routing cannot universally recognize arbitrary shell or script writes, and native permissions still apply to its implementer runner. Tests and review remain separate workflow checks. Native hook trust/enablement settings still apply.
+Hook scripts are advisory. Claude/Codex receive diagnostic context; Agy writes diagnostics to logs. Write routing cannot universally recognize arbitrary shell or script writes, and native permissions still apply to its implementer runner. Tests and review remain separate workflow checks. Native hook trust/enablement settings still apply.
 
 ## Validate before updating a personal installation
 
 ```sh
 python3 -m unittest discover -s tests -v
 python3 scripts/package.py
-claude plugin validate dist/plugins/claude/plugins/nova
 agy plugin validate dist/plugins/agy/plugins/nova
+claude plugin validate dist/plugins/claude/plugins/nova
 ```
 
 Use isolated native configuration directories for installation trials. Structural validation and component discovery do not establish model execution, behavior compliance, or token savings. Current trial evidence is in the source repository at `docs/reports/build01-20260907-native-plugin-migration.md`.
@@ -110,10 +110,10 @@ For a repeatable Linux offline install trial, run `python3 scripts/native-smoke.
 
 ## Native references
 
-- [Codex plugins](https://learn.chatgpt.com/docs/build-plugins), [hooks](https://learn.chatgpt.com/docs/hooks), [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+- [Antigravity plugins](https://www.antigravity.google/docs/cli/plugins)
 - [Claude plugins](https://code.claude.com/docs/en/plugins), [plugin reference](https://code.claude.com/docs/en/plugins-reference)
-- [Antigravity CLI plugins](https://www.antigravity.google/docs/cli/plugins)
+- [Codex plugins](https://learn.chatgpt.com/docs/build-plugins), [hooks](https://learn.chatgpt.com/docs/hooks), [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
 
-Bootstrap preserves existing Codex/Claude versioned hook and tool dependencies under `~/.local/share/nova/hook-compat/` and restores missing cache paths after native updates, including failures. This keeps running sessions functional until restarted. Compatibility files are retained deliberately; do not prune them while sessions still reference those versions.
+Bootstrap preserves existing Claude/Codex versioned hook and tool dependencies under `~/.local/share/nova/hook-compat/` and restores missing cache paths after native updates, including failures. This keeps running sessions functional until restarted. Compatibility files are retained deliberately; do not prune them while sessions still reference those versions.
 
-The parent integration reminder is installed for Codex, Claude, and Agy. Agy uses supported delegation-tool and idle Stop events rather than SubagentStop; it continues at most once per armed reminder. These reminders do not perform merges or activate Flow tracking.
+The parent integration reminder is installed for Agy, Claude, and Codex. Agy uses supported delegation-tool and idle Stop events rather than SubagentStop; it continues at most once per armed reminder. These reminders do not perform merges or activate Flow tracking.

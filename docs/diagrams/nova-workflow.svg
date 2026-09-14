@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="826" viewBox="0 0 900 826" role="img" aria-labelledby="title description">
   <title id="title">How Nova turns a request into a verified result</title>
-  <desc id="description">Describe your task in Codex, Claude Code, or Antigravity CLI. The parent agent applies a Nova skill, assigns task-file changes to a native implementer, verifies the result, and delivers within your authorization, summarizing the change with a workflow diagram, key deliverables, verification evidence, and the immutable local main commit. Optional scout and reviewer helpers return their results to the parent. Failed checks return to the work step. Nova Flow is optional tracking, disabled by default.</desc>
+  <desc id="description">Describe your task in Antigravity, Claude Code, or Codex. The parent agent applies a Nova skill, assigns task-file changes to a native implementer, verifies the result, and delivers within your authorization, summarizing the change with a workflow diagram, key deliverables, verification evidence, and the immutable local main commit. Optional scout and reviewer helpers return their results to the parent. Failed checks return to the work step. Nova Flow is optional tracking, disabled by default.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#64748b"/></marker>
     <marker id="teal-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#0f766e"/></marker>
@@ -18,7 +18,7 @@
   <rect x="48" y="68" width="804" height="124" rx="14" fill="#0f172a"/>
   <text x="72" y="104" font-size="24" font-weight="650" fill="#ffffff">Your task. Your existing coding agent.</text>
   <text x="72" y="132" font-size="17" fill="#cbd5e1">Describe the outcome, context, and constraints.</text>
-  <text x="72" y="164" font-size="17" font-weight="600" fill="#5eead4">Codex  ·  Claude Code  ·  Antigravity CLI</text>
+  <text x="72" y="164" font-size="17" font-weight="600" fill="#5eead4">Antigravity  ·  Claude Code  ·  Codex</text>
   <path d="M 298 192 V 230" class="line"/>
   <rect x="48" y="240" width="500" height="100" rx="12" fill="#ecfdf5" stroke="#99d5c5"/>
   <circle cx="80" cy="273" r="16" fill="#ccfbf1"/><text x="75" y="279" class="number">1</text>

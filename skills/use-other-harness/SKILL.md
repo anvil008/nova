@@ -8,7 +8,7 @@ Read [shared development instructions](../../instructions/development.md) when a
 
 # Use another harness
 
-Use only for an explicit request to run Claude Code, Codex, or Agy as another harness. An explicit multiplan invocation also authorizes its three named planning passes; creating or discussing that skill does not execute them. Preserve requested model and effort. If unspecified, use configured defaults unless the task requires a user choice, and disclose the effective setting or that it could not be determined. Never route across harnesses automatically.
+Use only for an explicit request to run Agy, Claude Code, or Codex as another harness. An explicit multiplan invocation also authorizes its three named planning passes; creating or discussing that skill does not execute them. Preserve requested model and effort. If unspecified, use configured defaults unless the task requires a user choice, and disclose the effective setting or that it could not be determined. Never route across harnesses automatically.
 
 Inspect installed CLI help and version before constructing its headless invocation. Use supported prompt, model, effort, output, and working-directory options; avoid stale flags and invented model identifiers. Honor authentication and permissions. Do not add approval-bypass flags merely to avoid setup problems.
 
