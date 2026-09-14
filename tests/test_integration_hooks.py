@@ -1,4 +1,6 @@
+import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -48,6 +50,126 @@ class IntegrationHooks(unittest.TestCase):
 
     def test_missing_session_is_noop(self):
         self.assertEqual(hook.handle({'hook_event_name': 'Stop'}, Path('/unused')), {})
+
+
+class DeliveryGatedReminder(unittest.TestCase):
+    """Claude supplies agent_id and transcripts, so the reminder waits for the child's result."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.cache = Path(directory.name) / 'cache'
+        self.transcript = Path(directory.name) / 'parent.jsonl'
+        self.transcript.write_text('{"type": "user", "timestamp": "2026-09-14T17:00:00.000Z"}\n')
+
+    def append(self, entry):
+        with self.transcript.open('a', encoding='utf-8') as lines:
+            lines.write(json.dumps(entry) + '\n')
+
+    def notification(self, agent_id, stamp, status='completed'):
+        self.append({'type': 'user', 'timestamp': stamp, 'message': {'role': 'user', 'content':
+                    f'<task-notification>\n<task-id>{agent_id}</task-id>\n<status>{status}</status>\n'
+                    '</task-notification>'}})
+
+    def child(self, agent_id, agent_type='nova:implementer', harness='claude'):
+        return hook.handle({'hook_event_name': 'SubagentStop', 'session_id': 'parent',
+                            'agent_type': agent_type, 'agent_id': agent_id,
+                            'agent_transcript_path': f'/tmp/agent-{agent_id}.jsonl',
+                            'transcript_path': str(self.transcript)}, self.cache, harness)
+
+    def stop(self, transcript=None, harness='claude', **kw):
+        payload = {'hook_event_name': 'Stop', 'session_id': 'parent',
+                   'transcript_path': str(self.transcript) if transcript is None else transcript}
+        return hook.handle(dict(payload, **kw), self.cache, harness)
+
+    def pending(self):
+        marker = self.cache / hashlib.sha256(b'parent').hexdigest()
+        return json.loads(marker.read_text())['pending'] if marker.exists() else {}
+
+    def test_reminder_waits_for_the_childs_result_and_fires_once_per_delivery(self):
+        self.assertEqual(self.child('agentone'), {})
+        self.assertEqual(self.stop(), {})  # Intermediate stop while the child still runs.
+        self.assertEqual(list(self.pending()), ['agentone'])
+        self.notification('agentone', '2026-09-14T17:10:00.000Z')
+        self.assertEqual(self.stop()['decision'], 'block')
+        self.assertEqual(self.pending(), {})
+        self.assertEqual(self.stop(), {})
+        self.child('agentone')  # Re-armed by a later stop with no new result delivered.
+        self.assertEqual(self.stop(), {})
+        self.notification('agentone', '2026-09-14T17:20:00.000Z')  # Resumed and finished again.
+        self.assertEqual(self.stop()['decision'], 'block')
+        self.assertEqual(self.stop(), {})
+
+    def test_foreground_agent_result_delivers_but_a_launch_acknowledgement_does_not(self):
+        self.child('agenttwo')
+        self.append({'type': 'user', 'timestamp': '2026-09-14T17:05:00.000Z',
+                     'toolUseResult': {'agentId': 'agenttwo', 'status': 'async_launched'}})
+        self.assertEqual(self.stop(), {})
+        self.append({'type': 'user', 'timestamp': '2026-09-14T17:06:00.000Z',
+                     'toolUseResult': {'agentId': 'agenttwo', 'status': 'completed'}})
+        self.assertEqual(self.stop()['decision'], 'block')
+
+    def test_undelivered_children_stay_pending_while_a_delivered_one_reminds(self):
+        self.child('agentaaa')
+        self.child('agentbbb')
+        self.notification('agentaaa', '2026-09-14T17:10:00.000Z')
+        self.assertEqual(self.stop()['decision'], 'block')
+        self.assertEqual(list(self.pending()), ['agentbbb'])
+        self.assertEqual(self.stop(), {})
+        self.notification('agentbbb', '2026-09-14T17:12:00.000Z', status='failed')
+        self.assertEqual(self.stop()['decision'], 'block')
+        self.assertEqual(self.pending(), {})
+
+    def test_active_stop_hook_records_consumption_without_blocking(self):
+        self.child('agentthree')
+        self.notification('agentthree', '2026-09-14T17:10:00.000Z')
+        self.assertEqual(self.stop(stop_hook_active=True), {})
+        self.assertEqual(self.pending(), {})
+        self.assertEqual(self.stop(), {})
+
+    def test_unreadable_or_missing_transcript_falls_back_to_arm_on_stop(self):
+        self.child('agentfour')
+        self.assertEqual(self.stop(transcript=str(self.transcript) + '.missing')['decision'], 'block')
+        self.assertEqual(self.stop(), {})
+        self.child('agentfive')
+        self.assertEqual(self.stop(transcript='')['decision'], 'block')
+
+    def test_read_only_children_never_become_pending(self):
+        self.assertEqual(self.child('agentsix', 'nova:scout'), {})
+        self.assertEqual(self.stop(), {})
+        self.child('agentseven')
+        self.child('agentsix', 'reviewer')
+        self.assertEqual(list(self.pending()), ['agentseven'])
+        self.notification('agentsix', '2026-09-14T17:10:00.000Z')
+        self.assertEqual(self.stop(), {})
+        self.notification('agentseven', '2026-09-14T17:11:00.000Z')
+        self.assertEqual(self.stop()['decision'], 'block')
+
+    def test_malformed_transcript_lines_are_ignored(self):
+        self.child('agenteight')
+        with self.transcript.open('a', encoding='utf-8') as lines:
+            lines.write('{"type": "user", "agenteight" truncated\n')
+        self.assertEqual(self.stop(), {})
+        self.notification('agenteight', '2026-09-14T17:10:00.000Z')
+        self.assertEqual(self.stop()['decision'], 'block')
+
+    def test_a_legacy_child_keeps_arming_the_reminder_alongside_identified_children(self):
+        self.child('agentnine')
+        hook.handle({'hook_event_name': 'SubagentStop', 'session_id': 'parent'}, self.cache, 'claude')
+        self.assertEqual(self.stop()['decision'], 'block')
+        self.assertEqual(self.stop(), {})
+
+    def test_codex_arms_on_stop_even_though_its_payload_carries_the_same_fields(self):
+        # Codex SubagentStop supplies agent_id and agent_transcript_path, but its rollout
+        # transcript never records a child result, so only Claude gets delivery gating.
+        self.assertEqual(self.child('agentten', harness='codex'), {})
+        self.assertEqual(self.stop(harness='codex')['decision'], 'block')
+        self.assertEqual(self.stop(harness='codex'), {})
+        self.child('agentten')
+        self.assertEqual(self.stop(), {})
+        self.notification('agentten', '2026-09-14T17:10:00.000Z')
+        self.assertEqual(self.stop()['decision'], 'block')
+
 
 class AgyIntegrationHooks(unittest.TestCase):
     def test_delegation_reminder_waits_for_idle_and_is_consumed_once(self):
