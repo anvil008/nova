@@ -117,7 +117,7 @@ Nova provides specialized CLI tools to support token efficiency, workflow tracki
 
 ### `nova-test` (Token-efficient verification)
 
-![Nova test runner: wraps test commands across Rust, Go, Python, Node, C++, and Java, suppressing passing noise on success to save 98%+ tokens while preserving 100% of failure traces on non-zero exit.](docs/diagrams/nova-test.svg)
+![nova-test wraps any test command: it runs the command directly with execvp, capturing stdout, stderr, and wall time. On exit 0 it prints only the framework summary (about 20 tokens); on a non-zero exit it prints the raw stdout and stderr untouched and returns the same exit code. Across a 10-turn session with 20 test runs this preserves roughly 35,000 tokens of context. Summary extraction is built in for Rust, Go, Python, Node/TS, C/C++, and Java/Kotlin.](docs/diagrams/nova-test.svg)
 
 [Tool documentation](tools/README.md#nova-test)
 
