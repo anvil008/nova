@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import uuid
 
 RAW_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
@@ -103,8 +104,22 @@ def resolve_toplevel(repo: Path, fallback_dir: bool = False) -> Path:
 
 
 def refuse_eval_mode(repo: Path, toplevel: Path | None = None) -> None:
+    # Check every directory from --repo up to its enclosing workspace or worktree
+    # root, so a marker there also covers its subdirectories, plus the primary root.
+    # The boundary matches resolve_toplevel: an enclosing jj workspace wins over any
+    # nested .git (such as a vendored repository inside the workspace).
+    boundary = find_up(repo, ".jj")
+    if boundary is not None and not (boundary / ".jj" / "repo").exists():
+        boundary = None
+    if boundary is None:
+        boundary = find_up(repo, ".git")
     candidates = [repo]
-    if toplevel is not None and toplevel != repo:
+    if boundary is not None:
+        current = repo
+        while current != boundary and current != toplevel and current.parent != current:
+            current = current.parent
+            candidates.append(current)
+    if toplevel is not None and toplevel not in candidates:
         candidates.append(toplevel)
     for candidate in candidates:
         marker = candidate / ".nova" / "eval-mode.json"
@@ -120,28 +135,51 @@ def get_registry_path() -> Path:
 
 
 def read_registry(registry_path: Path) -> list[str]:
-    if not registry_path.is_file():
+    # Same shape rules as si_global.py's reader; duplicated because skills ship separately.
+    if not registry_path.exists():
         return []
     try:
         data = json.loads(registry_path.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            return [str(p) for p in data if isinstance(p, str)]
-        if (
-            isinstance(data, dict)
-            and "projects" in data
-            and isinstance(data["projects"], list)
-        ):
-            return [str(p) for p in data["projects"] if isinstance(p, str)]
-    except Exception:
-        pass
-    return []
+    except (OSError, ValueError) as error:
+        raise SiError(f"invalid registry {registry_path}: {error}") from error
+    raw_list = data.get("projects") if isinstance(data, dict) else data
+    if not isinstance(raw_list, list) or not all(isinstance(p, str) for p in raw_list):
+        raise SiError(
+            f"invalid registry {registry_path}: expected a list of path strings"
+            " or an object whose \"projects\" is a list of path strings"
+        )
+    return list(raw_list)
+
+
+def is_safe_component(name: object) -> bool:
+    return (
+        isinstance(name, str)
+        and bool(name)
+        and not name.startswith(".")
+        and not any(ch in ("/", "\\") or unicodedata.category(ch) == "Cc" for ch in name)
+    )
+
+
+def validate_proposal_id(proposal_id: str, apply_only: bool = False) -> str:
+    # Existing proposals may predate the strict pattern, so --apply accepts any
+    # single safe path component; new proposals must match RAW_ID.
+    valid = is_safe_component(proposal_id) if apply_only else bool(RAW_ID.match(proposal_id))
+    if not valid:
+        raise SiError(f"invalid proposal id: {proposal_id!r}")
+    return proposal_id
+
+
+def validate_skill_name(skill_name: object) -> str:
+    if not is_safe_component(skill_name):
+        raise SiError(f"invalid skill name: {skill_name!r}")
+    return skill_name
 
 
 def register_project(primary_root: Path, registry_path: Path | None = None) -> Path:
     if registry_path is None:
         registry_path = get_registry_path()
-    registry_path.parent.mkdir(parents=True, exist_ok=True)
     existing = set(read_registry(registry_path))
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
     existing.add(str(primary_root.resolve()))
     sorted_projects = sorted(existing)
 
@@ -260,6 +298,8 @@ def update_pattern_index(store: Path) -> None:
 
 def command_init(args: argparse.Namespace) -> int:
     store, primary_root = resolve_store_and_root(args)
+    # Refuse an invalid registry before creating anything.
+    read_registry(get_registry_path())
     created = False
     if not (store / "project.json").exists():
         store.mkdir(parents=True, exist_ok=True)
@@ -351,6 +391,14 @@ def command_record(args: argparse.Namespace) -> int:
     for f in files_to_copy:
         if not f.is_file():
             raise SiError(f"file not found: {f}")
+    seen_names: dict[str, Path] = {}
+    for f in files_to_copy:
+        if f.name in seen_names:
+            raise SiError(
+                f"duplicate evidence file name {f.name!r}: {seen_names[f.name]} and {f}"
+                " would both be stored as files/" + f.name
+            )
+        seen_names[f.name] = f
 
     raw_parent = store / "raw"
     raw_parent.mkdir(parents=True, exist_ok=True)
@@ -589,7 +637,28 @@ def command_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def create_proposal_file(proposals_dir: Path, base_id: str, explicit: bool) -> tuple[str, Path]:
+    """Exclusively create a new proposal file, never overwriting an existing one."""
+    suffix = 1
+    while True:
+        proposal_id = base_id if suffix == 1 else f"{base_id}-{suffix}"
+        pfile = proposals_dir / f"{proposal_id}.json"
+        try:
+            fd = os.open(pfile, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            if explicit:
+                raise SiError(f"proposal {proposal_id} already exists (proposals are never overwritten)")
+            suffix += 1
+            continue
+        os.close(fd)
+        return proposal_id, pfile
+
+
 def command_propose(args: argparse.Namespace) -> int:
+    is_apply_only = bool(args.apply and args.id and not (args.rule or args.title or args.pattern))
+    proposal_id = validate_proposal_id(args.id, is_apply_only) if args.id is not None else None
+    if args.skill_name is not None:
+        validate_skill_name(args.skill_name)
     store, primary_root = resolve_store_and_root(args)
     if not (store / "project.json").exists():
         raise SiError(f"store does not exist at {store}; run init first")
@@ -597,24 +666,29 @@ def command_propose(args: argparse.Namespace) -> int:
     proposals_dir = store / "proposals"
     proposals_dir.mkdir(parents=True, exist_ok=True)
 
-    proposal_id = args.id
     target_kind = args.target or "agents-md"
     skill_name = args.skill_name
 
-    is_apply_only = bool(args.apply and proposal_id and not (args.rule or args.title or args.pattern))
     if is_apply_only:
         # Applying an existing proposal
         pfile = proposals_dir / f"{proposal_id}.json"
         if not pfile.is_file():
             raise SiError(f"proposal not found: {proposal_id}")
-        data = json.loads(pfile.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(pfile.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise SiError(f"invalid proposal {proposal_id}: {error}") from error
+        if not isinstance(data, dict):
+            raise SiError(f"invalid proposal {proposal_id}: expected a JSON object")
         if data.get("applied"):
             print(json.dumps({"message": f"proposal {proposal_id} already applied", "proposal": data}))
             return 0
 
         target = data.get("target", "agents-md")
-        content = data.get("proposal", "")
-        title = data.get("title", proposal_id)
+        content = str(data.get("proposal", ""))
+        if target == "agents-md":
+            content = sanitize_line(content)
+        title = sanitize_line(str(data.get("title", proposal_id))) or proposal_id
 
         if target == "agents-md":
             agents_md = primary_root / "AGENTS.md"
@@ -626,7 +700,7 @@ def command_propose(args: argparse.Namespace) -> int:
                 agents_md.write_text(f"# Project Instructions\n{rule_block}", encoding="utf-8")
             target_file_str = "AGENTS.md"
         elif target == "skill":
-            sname = data.get("skillName") or "custom-skill"
+            sname = validate_skill_name(data.get("skillName") or "custom-skill")
             sdir = primary_root / ".nova" / "skills" / sname
             sdir.mkdir(parents=True, exist_ok=True)
             (sdir / "SKILL.md").write_text(content, encoding="utf-8")
@@ -661,13 +735,16 @@ def command_propose(args: argparse.Namespace) -> int:
     else:
         cited_patterns = available_patterns
 
+    explicit_id = bool(proposal_id)
     if not proposal_id:
         slug = chosen_pattern or "general"
         proposal_id = f"{today_utc()}-{slug}"
 
-    title = args.title or f"Adaptation rule from {proposal_id}"
-    content = args.rule
-    if not content:
+    # AGENTS.md rules are folded to one line; a skill's text is the whole SKILL.md, kept verbatim.
+    content = args.rule or ""
+    if target_kind == "agents-md":
+        content = sanitize_line(content)
+    if not content.strip():
         if chosen_pattern:
             ptext = (patterns_dir / f"{chosen_pattern}.md").read_text(encoding="utf-8")
             content = f"Apply project mitigation for pattern `{chosen_pattern}`."
@@ -676,6 +753,10 @@ def command_propose(args: argparse.Namespace) -> int:
 
     if target_kind == "skill" and not skill_name:
         skill_name = chosen_pattern or "project-skill"
+
+    proposal_id, pfile = create_proposal_file(proposals_dir, proposal_id, explicit_id)
+    title = sanitize_line(args.title) if args.title else ""
+    title = title or f"Adaptation rule from {proposal_id}"
 
     proposal_data = {
         "id": proposal_id,
@@ -689,7 +770,6 @@ def command_propose(args: argparse.Namespace) -> int:
         "appliedAt": None,
     }
 
-    pfile = proposals_dir / f"{proposal_id}.json"
     pfile.write_text(json.dumps(proposal_data, indent=2) + "\n", encoding="utf-8")
     append_log(store, f"propose {proposal_id} — {title}")
 
@@ -736,6 +816,7 @@ def command_resolve_root(args: argparse.Namespace) -> int:
 def command_register(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve() if getattr(args, "repo", None) else Path.cwd().resolve()
     primary = resolve_toplevel(repo, fallback_dir=True)
+    refuse_eval_mode(repo, primary)
     reg_path = Path(args.registry).resolve() if getattr(args, "registry", None) else get_registry_path()
     register_project(primary, reg_path)
     print(json.dumps({

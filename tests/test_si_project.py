@@ -142,6 +142,51 @@ class StoreInitAndStatusTests(unittest.TestCase):
         self.assertFalse(data2["created"])
 
 
+class InvalidRegistryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.base = Path(self.temp_dir.name).resolve()
+        self.repo = self.base / "project"
+        self.repo.mkdir(parents=True)
+        (self.repo / ".git").mkdir()
+        self.registry = self.base / "known_projects.json"
+        self.env = {"NOVA_PROJECTS_REGISTRY": str(self.registry)}
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_init_and_register_refuse_invalid_registry(self):
+        for content in (
+            "{not json",
+            json.dumps({"projects": "not-a-list"}),
+            json.dumps({"projects": ["/ok", 3]}),
+            json.dumps({"other": ["/elsewhere"]}),
+            json.dumps("just a string"),
+        ):
+            self.registry.write_text(content, encoding="utf-8")
+            before = self.registry.read_bytes()
+            for cmd in (["init"], ["register"]):
+                res = run_si(cmd + ["--repo", str(self.repo)], env=self.env)
+                self.assertNotEqual(res.returncode, 0, f"{cmd} accepted registry {content!r}")
+                self.assertIn("si error: invalid registry", res.stderr)
+                self.assertEqual(self.registry.read_bytes(), before)
+            self.assertFalse((self.repo / ".nova" / "si").exists())
+
+        # An explicit --registry path is validated the same way.
+        explicit = self.base / "explicit.json"
+        explicit.write_text("[1]", encoding="utf-8")
+        res = run_si(["register", "--repo", str(self.repo), "--registry", str(explicit)], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertEqual(explicit.read_text(encoding="utf-8"), "[1]")
+
+    def test_register_keeps_valid_list_registry_entries(self):
+        self.registry.write_text(json.dumps(["/existing/project"]), encoding="utf-8")
+        res = run_si(["register", "--repo", str(self.repo)], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        data = json.loads(self.registry.read_text(encoding="utf-8"))
+        self.assertEqual(data["projects"], sorted(["/existing/project", str(self.repo)]))
+
+
 class RawAndPatternTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -219,6 +264,32 @@ class RawAndPatternTests(unittest.TestCase):
         ], env=self.env)
         self.assertNotEqual(pat_bad.returncode, 0)
 
+    def test_record_refuses_duplicate_evidence_basenames(self):
+        (self.base / "d1").mkdir()
+        (self.base / "d2").mkdir()
+        (self.base / "d1" / "same.txt").write_text("first\n", encoding="utf-8")
+        (self.base / "d2" / "same.txt").write_text("second\n", encoding="utf-8")
+
+        res = run_si([
+            "record",
+            "--repo", str(self.repo),
+            "--id", "t3",
+            "--kind", "build-wave",
+            "--summary", "duplicate names",
+            "--file", str(self.base / "d1" / "same.txt"),
+            "--file", str(self.base / "d2" / "same.txt"),
+        ], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("si error:", res.stderr)
+        self.assertIn("same.txt", res.stderr)
+
+        raw_dir = self.repo / ".nova" / "si" / "raw"
+        self.assertFalse((raw_dir / "t3").exists())
+        self.assertEqual([p.name for p in raw_dir.iterdir()], [])
+
+        check = run_si(["check", "--repo", str(self.repo)], env=self.env)
+        self.assertEqual(check.returncode, 0, check.stderr)
+
 
 class ProposeAndApplyTests(unittest.TestCase):
     def setUp(self):
@@ -292,6 +363,7 @@ class ProposeAndApplyTests(unittest.TestCase):
         self.assertIn("applied proposal prop-lock-mitigation to AGENTS.md", impact)
 
     def test_propose_and_apply_to_local_skill(self):
+        skill_text = "---\nname: sandbox-helper\ndescription: Lock helper.\n---\n\n# Helper\n\necho helper\n"
         res = run_si([
             "propose",
             "--repo", str(self.repo),
@@ -300,14 +372,223 @@ class ProposeAndApplyTests(unittest.TestCase):
             "--title", "Custom Lock Helper",
             "--target", "skill",
             "--skill-name", "sandbox-helper",
-            "--rule", "#!/bin/bash\necho helper",
+            "--rule", skill_text,
             "--apply",
         ], env=self.env)
         self.assertEqual(res.returncode, 0, res.stderr)
 
         custom_skill_md = self.repo / ".nova" / "skills" / "sandbox-helper" / "SKILL.md"
         self.assertTrue(custom_skill_md.is_file())
-        self.assertIn("echo helper", custom_skill_md.read_text(encoding="utf-8"))
+        # A skill proposal's text is the whole SKILL.md: frontmatter and newlines survive.
+        self.assertEqual(custom_skill_md.read_text(encoding="utf-8"), skill_text)
+        stored = json.loads(
+            (self.repo / ".nova" / "si" / "proposals" / "prop-custom-skill.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(stored["proposal"], skill_text)
+
+        # Creating first and applying later keeps the text verbatim too.
+        res = run_si([
+            "propose", "--repo", str(self.repo), "--id", "prop-skill-later",
+            "--pattern", "sandbox-contention", "--target", "skill",
+            "--skill-name", "later-helper", "--rule", skill_text,
+        ], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        res = run_si(["propose", "--repo", str(self.repo), "--id", "prop-skill-later", "--apply"], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        later_md = self.repo / ".nova" / "skills" / "later-helper" / "SKILL.md"
+        self.assertEqual(later_md.read_text(encoding="utf-8"), skill_text)
+
+    def test_apply_accepts_existing_legacy_id_and_folds_agents_md_rule(self):
+        proposals_dir = self.repo / ".nova" / "si" / "proposals"
+        (proposals_dir / "Fix-Lock.json").write_text(json.dumps({
+            "id": "Fix-Lock",
+            "target": "agents-md",
+            "title": "Legacy rule",
+            "patterns": ["sandbox-contention"],
+            "proposal": "Do X.\n## Injected heading",
+            "applied": False,
+        }), encoding="utf-8")
+
+        res = run_si(["propose", "--repo", str(self.repo), "--id", "Fix-Lock", "--apply"], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        lines = (self.repo / "AGENTS.md").read_text(encoding="utf-8").splitlines()
+        self.assertEqual([l for l in lines if l.startswith("#")], ["# Project Instructions", "## Legacy rule"])
+        self.assertIn("Do X. ## Injected heading", lines)
+
+        # The relaxed rule is for --apply only: a new proposal still needs a strict ID.
+        res = run_si([
+            "propose", "--repo", str(self.repo), "--id", "New-Upper",
+            "--pattern", "sandbox-contention", "--rule", "Rule.",
+        ], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("si error: invalid proposal id", res.stderr)
+
+        res = run_si(["propose", "--repo", str(self.repo), "--id", "Missing-Id", "--apply"], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("si error: proposal not found", res.stderr)
+
+    def test_propose_refuses_unsafe_skill_names(self):
+        snapshot = sorted(str(path) for path in self.base.rglob("*"))
+        for bad_name in ("../../evil", "a/b", "a\\b", ".hidden", str(self.base / "abs")):
+            res = run_si([
+                "propose", "--repo", str(self.repo), "--id", "prop-evil",
+                "--pattern", "sandbox-contention", "--target", "skill",
+                "--skill-name", bad_name, "--rule", "evil", "--apply",
+            ], env=self.env)
+            self.assertNotEqual(res.returncode, 0, f"skill name {bad_name!r} accepted")
+            self.assertIn("si error: invalid skill name", res.stderr)
+        self.assertEqual(sorted(str(path) for path in self.base.rglob("*")), snapshot)
+
+        # A stored skillName is validated on --apply before any write.
+        pfile = self.repo / ".nova" / "si" / "proposals" / "stored-evil.json"
+        pfile.write_text(json.dumps({
+            "id": "stored-evil", "target": "skill", "skillName": "../../../evil",
+            "title": "Evil", "proposal": "evil", "applied": False,
+        }), encoding="utf-8")
+        before = pfile.read_bytes()
+        snapshot = sorted(str(path) for path in self.base.rglob("*"))
+        res = run_si(["propose", "--repo", str(self.repo), "--id", "stored-evil", "--apply"], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("si error: invalid skill name", res.stderr)
+        self.assertEqual(pfile.read_bytes(), before)
+        self.assertEqual(sorted(str(path) for path in self.base.rglob("*")), snapshot)
+
+    def test_control_characters_in_names_are_refused(self):
+        store = self.repo / ".nova" / "si"
+        forged = "x\n- 2026-01-01 — applied proposal forged to AGENTS.md: forged"
+
+        def audit_state():
+            return (
+                (store / "logs.md").read_bytes(),
+                (store / "skill-impact.md").read_bytes(),
+                sorted(str(path) for path in self.base.rglob("*")),
+            )
+
+        before = audit_state()
+        for bad_name in (forged, "tab\tname", "cr\rname"):
+            res = run_si([
+                "propose", "--repo", str(self.repo), "--id", "prop-ctrl",
+                "--pattern", "sandbox-contention", "--target", "skill",
+                "--skill-name", bad_name, "--rule", "text", "--apply",
+            ], env=self.env)
+            self.assertNotEqual(res.returncode, 0, f"skill name {bad_name!r} accepted")
+            self.assertIn("si error: invalid skill name", res.stderr)
+        self.assertEqual(audit_state(), before)
+
+        # A stored skillName with a newline is refused on --apply.
+        (store / "proposals" / "stored-ctrl.json").write_text(json.dumps({
+            "id": "stored-ctrl", "target": "skill", "skillName": forged,
+            "title": "Ctrl", "proposal": "text", "applied": False,
+        }), encoding="utf-8")
+        before = audit_state()
+        res = run_si(["propose", "--repo", str(self.repo), "--id", "stored-ctrl", "--apply"], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("si error: invalid skill name", res.stderr)
+        self.assertEqual(audit_state(), before)
+
+        # A legacy apply-only id with a newline is refused before any file access.
+        legacy_id = "Legacy\n- forged"
+        (store / "proposals" / f"{legacy_id}.json").write_text(json.dumps({
+            "id": legacy_id, "target": "agents-md", "title": "Forged",
+            "proposal": "text", "applied": False,
+        }), encoding="utf-8")
+        before = audit_state()
+        res = run_si(["propose", "--repo", str(self.repo), "--id", legacy_id, "--apply"], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("si error: invalid proposal id", res.stderr)
+        self.assertEqual(audit_state(), before)
+        self.assertFalse((self.repo / "AGENTS.md").exists())
+
+    def test_apply_corrupt_proposal_is_controlled_error(self):
+        proposals_dir = self.repo / ".nova" / "si" / "proposals"
+        for name, content in (("empty", ""), ("broken", "{not json"), ("listy", "[]")):
+            (proposals_dir / f"{name}.json").write_text(content, encoding="utf-8")
+            res = run_si(["propose", "--repo", str(self.repo), "--id", name, "--apply"], env=self.env)
+            self.assertEqual(res.returncode, 1, res.stderr)
+            self.assertIn(f"si error: invalid proposal {name}", res.stderr)
+            self.assertNotIn("Traceback", res.stderr)
+
+    def test_propose_allocates_unique_ids_without_overwriting(self):
+        proposals_dir = self.repo / ".nova" / "si" / "proposals"
+        ids = []
+        for extra in (
+            [],
+            ["--target", "skill", "--skill-name", "kept-skill"],
+            ["--rule", "Third rule."],
+        ):
+            res = run_si([
+                "propose",
+                "--repo", str(self.repo),
+                "--pattern", "sandbox-contention",
+            ] + extra, env=self.env)
+            self.assertEqual(res.returncode, 0, res.stderr)
+            ids.append(json.loads(res.stdout)["id"])
+
+        base_id = f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}-sandbox-contention"
+        self.assertEqual(ids, [base_id, f"{base_id}-2", f"{base_id}-3"])
+        self.assertEqual(len(list(proposals_dir.glob("*.json"))), 3)
+        second = json.loads((proposals_dir / f"{base_id}-2.json").read_text(encoding="utf-8"))
+        self.assertEqual(second["skillName"], "kept-skill")
+        third = json.loads((proposals_dir / f"{base_id}-3.json").read_text(encoding="utf-8"))
+        self.assertEqual(third["proposal"], "Third rule.")
+
+        apply_res = run_si([
+            "propose", "--repo", str(self.repo), "--id", f"{base_id}-3", "--apply",
+        ], env=self.env)
+        self.assertEqual(apply_res.returncode, 0, apply_res.stderr)
+        self.assertIn("Third rule.", (self.repo / "AGENTS.md").read_text(encoding="utf-8"))
+
+        # An explicit ID that already exists is refused and left untouched.
+        before = (proposals_dir / f"{base_id}-2.json").read_text(encoding="utf-8")
+        dup = run_si([
+            "propose",
+            "--repo", str(self.repo),
+            "--id", f"{base_id}-2",
+            "--pattern", "sandbox-contention",
+            "--rule", "Overwrite attempt.",
+        ], env=self.env)
+        self.assertNotEqual(dup.returncode, 0)
+        self.assertIn("si error:", dup.stderr)
+        self.assertEqual((proposals_dir / f"{base_id}-2.json").read_text(encoding="utf-8"), before)
+
+    def test_propose_refuses_unsafe_ids(self):
+        outside = self.base / "outside"
+        snapshot = sorted(str(path) for path in self.base.rglob("*"))
+        for bad_id in ("../x", "../../outside/escape", str(outside / "abs"), "a/b", "a\\b", ".hidden", "Upper"):
+            for extra in (
+                ["--pattern", "sandbox-contention", "--rule", "Escape attempt."],
+                ["--apply"],
+            ):
+                if bad_id == "Upper" and extra == ["--apply"]:
+                    continue  # a safe legacy ID on --apply; covered by the legacy-id test
+                res = run_si(["propose", "--repo", str(self.repo), "--id", bad_id] + extra, env=self.env)
+                self.assertNotEqual(res.returncode, 0, f"id {bad_id!r} accepted with {extra}")
+                self.assertIn("si error: invalid proposal id", res.stderr)
+        # Nothing was created anywhere, inside or outside the store.
+        self.assertEqual(sorted(str(path) for path in self.base.rglob("*")), snapshot)
+
+    def test_multiline_rule_and_title_are_folded(self):
+        res = run_si([
+            "propose",
+            "--repo", str(self.repo),
+            "--id", "prop-multiline",
+            "--pattern", "sandbox-contention",
+            "--title", "Real title\n## Injected title heading",
+            "--rule", "Do X.\n## Injected heading\n\n- injected item",
+            "--apply",
+        ], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+
+        stored = json.loads(
+            (self.repo / ".nova" / "si" / "proposals" / "prop-multiline.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(stored["proposal"], "Do X. ## Injected heading - injected item")
+        self.assertEqual(stored["title"], "Real title ## Injected title heading")
+
+        lines = (self.repo / "AGENTS.md").read_text(encoding="utf-8").splitlines()
+        headings = [line for line in lines if line.startswith("#")]
+        self.assertEqual(headings, ["# Project Instructions", "## Real title ## Injected title heading"])
+        self.assertNotIn("- injected item", lines)
 
 
 class CheckTests(unittest.TestCase):
@@ -389,6 +670,93 @@ class EvalModeTests(unittest.TestCase):
             res = run_si(cmd + ["--repo", str(self.repo)], env=self.env)
             self.assertNotEqual(res.returncode, 0, f"{cmd} should have failed in eval mode")
             self.assertIn("eval mode refused", res.stderr)
+
+    def test_eval_mode_refuses_register_but_allows_resolve_root(self):
+        res = run_si(["register", "--repo", str(self.repo)], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("eval mode refused", res.stderr)
+        self.assertFalse(self.registry.exists())
+
+        root = run_si(["resolve-root", "--repo", str(self.repo)], env=self.env)
+        self.assertEqual(root.returncode, 0, root.stderr)
+        self.assertEqual(root.stdout.strip(), str(self.repo))
+
+    def test_eval_mode_marker_in_secondary_workspace_refuses_register(self):
+        primary_dir = self.base / "primary"
+        (primary_dir / ".jj" / "repo").mkdir(parents=True)
+        secondary_dir = primary_dir / ".workspaces" / "eval-run"
+        (secondary_dir / ".jj").mkdir(parents=True)
+        (secondary_dir / ".jj" / "repo").write_text("../../../.jj/repo\n", encoding="utf-8")
+        (secondary_dir / ".nova").mkdir()
+        (secondary_dir / ".nova" / "eval-mode.json").write_text("{}", encoding="utf-8")
+
+        res = run_si(["register", "--repo", str(secondary_dir)], env=self.env)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("eval mode refused", res.stderr)
+        self.assertFalse(self.registry.exists())
+
+    def test_eval_mode_marker_covers_nested_git_repo_in_jj_workspace(self):
+        primary_dir = self.base / "primary"
+        (primary_dir / ".jj" / "repo").mkdir(parents=True)
+        secondary_dir = primary_dir / ".workspaces" / "ev"
+        (secondary_dir / ".jj").mkdir(parents=True)
+        (secondary_dir / ".jj" / "repo").write_text("../../../.jj/repo\n", encoding="utf-8")
+        (secondary_dir / ".nova").mkdir()
+        (secondary_dir / ".nova" / "eval-mode.json").write_text("{}", encoding="utf-8")
+        nested = secondary_dir / "vendor" / "lib"
+        (nested / ".git").mkdir(parents=True)
+        sub = nested / "src"
+        sub.mkdir()
+
+        for repo in (nested, sub):
+            root = run_si(["resolve-root", "--repo", str(repo)], env=self.env)
+            self.assertEqual(root.stdout.strip(), str(primary_dir))
+            for cmd in (["register"], ["init"], ["status"]):
+                res = run_si(cmd + ["--repo", str(repo)], env=self.env)
+                self.assertNotEqual(res.returncode, 0, f"{cmd} ran in a nested repo of an eval-mode workspace")
+                self.assertIn("eval mode refused", res.stderr)
+        self.assertFalse(self.registry.exists())
+        self.assertFalse((primary_dir / ".nova").exists())
+
+    def test_eval_mode_marker_covers_jj_workspace_subdirectory(self):
+        primary_dir = self.base / "primary"
+        (primary_dir / ".jj" / "repo").mkdir(parents=True)
+        secondary_dir = primary_dir / ".workspaces" / "ev"
+        (secondary_dir / ".jj").mkdir(parents=True)
+        (secondary_dir / ".jj" / "repo").write_text("../../../.jj/repo\n", encoding="utf-8")
+        (secondary_dir / ".nova").mkdir()
+        (secondary_dir / ".nova" / "eval-mode.json").write_text("{}", encoding="utf-8")
+        sub = secondary_dir / "sub" / "deeper"
+        sub.mkdir(parents=True)
+
+        for cmd in (["register"], ["init"], ["status"], ["check"]):
+            res = run_si(cmd + ["--repo", str(sub)], env=self.env)
+            self.assertNotEqual(res.returncode, 0, f"{cmd} ran in an eval-mode workspace subdirectory")
+            self.assertIn("eval mode refused", res.stderr)
+        self.assertFalse(self.registry.exists())
+        self.assertFalse((primary_dir / ".nova").exists())
+
+    def test_eval_mode_marker_covers_git_worktree_subdirectory(self):
+        main_repo = self.base / "main-git"
+        main_repo.mkdir()
+        git = ["git", "-c", "user.name=Tester", "-c", "user.email=test@example.com"]
+        subprocess.run(git + ["init", "-b", "main"], cwd=main_repo, capture_output=True, check=True)
+        (main_repo / "README.md").write_text("initial\n", encoding="utf-8")
+        subprocess.run(git + ["add", "README.md"], cwd=main_repo, capture_output=True, check=True)
+        subprocess.run(git + ["commit", "-m", "init"], cwd=main_repo, capture_output=True, check=True)
+        wt_dir = self.base / "wt-eval"
+        subprocess.run(git + ["worktree", "add", str(wt_dir), "-b", "eval"], cwd=main_repo, capture_output=True, check=True)
+        (wt_dir / ".nova").mkdir()
+        (wt_dir / ".nova" / "eval-mode.json").write_text("{}", encoding="utf-8")
+        sub = wt_dir / "sub"
+        sub.mkdir()
+
+        for cmd in (["register"], ["init"], ["status"]):
+            res = run_si(cmd + ["--repo", str(sub)], env=self.env)
+            self.assertNotEqual(res.returncode, 0, f"{cmd} ran in an eval-mode worktree subdirectory")
+            self.assertIn("eval mode refused", res.stderr)
+        self.assertFalse(self.registry.exists())
+        self.assertFalse((main_repo / ".nova").exists())
 
 
 if __name__ == "__main__":

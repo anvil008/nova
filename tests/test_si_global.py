@@ -60,6 +60,25 @@ class RegistryHandlingTests(unittest.TestCase):
         self.assertEqual(data["totalProjects"], 0)
         self.assertEqual(data["projects"], [])
 
+    def test_invalid_registry_fails(self):
+        for content in (
+            "{not json",
+            json.dumps({"projects": "not-a-list"}),
+            json.dumps({"projects": [1, 2]}),
+            json.dumps({"other": []}),
+            json.dumps("just a string"),
+        ):
+            self.registry.write_text(content, encoding="utf-8")
+            for cmd in (["projects"], ["scan"], ["cluster"], ["propose"]):
+                res = run_global(cmd, env=self.env)
+                self.assertNotEqual(res.returncode, 0, f"{cmd} accepted registry {content!r}")
+                self.assertIn("invalid registry", res.stderr)
+                self.assertEqual(res.stdout, "")
+
+        # An explicit --registry path is validated the same way.
+        res = run_global(["--registry", str(self.registry), "projects"])
+        self.assertNotEqual(res.returncode, 0)
+
     def test_projects_with_registered_repos(self):
         repo1 = self.base / "repo1"
         repo1.mkdir()
@@ -164,12 +183,50 @@ class ScanAndClusterTests(unittest.TestCase):
         self.assertEqual(data["proposalsCount"], 1)
         prop = data["proposals"][0]
         self.assertEqual(prop["targetSkill"], "build")
-        self.assertEqual(prop["evalGate"], "evals/run_evals.py")
+        self.assertEqual(prop["evalGate"], [
+            "python3 -m unittest discover -s tests",
+            "python3 scripts/update-guide.py --check",
+            "python3 scripts/package.py",
+        ])
         self.assertIn("evalGateNotice", data)
+        skill_md = (REPO / "skills" / "si-global" / "SKILL.md").read_text(encoding="utf-8")
+        ci = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        for command in prop["evalGate"]:
+            self.assertIn(command, data["evalGateNotice"])
+            self.assertIn(command, skill_md)
+            args = command.split()[1:]
+            # Every referenced path must exist so the gate cannot silently rot.
+            target = args[args.index("-s") + 1] if "-s" in args else args[0]
+            self.assertTrue((REPO / target).exists(), f"eval gate references missing path: {target}")
+            self.assertIn(target, ci)
+        self.assertNotIn("run_evals", skill_md)
 
         # Check output file written
         prop_file = out_dir / "global-flaky-test-runner.json"
         self.assertTrue(prop_file.is_file())
+
+    def test_eval_mode_projects_are_flagged_and_skipped(self):
+        (self.repo_b / ".nova" / "eval-mode.json").write_text("{}", encoding="utf-8")
+
+        res = run_global(["projects"], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        projects = {p["path"]: p for p in json.loads(res.stdout)["projects"]}
+        self.assertTrue(projects[str(self.repo_b)]["evalMode"])
+        self.assertFalse(projects[str(self.repo_a)]["evalMode"])
+
+        res = run_global(["scan"], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        patterns = json.loads(res.stdout)["patterns"]
+        self.assertEqual({p["project"] for p in patterns}, {str(self.repo_a)})
+
+        res = run_global(["cluster", "--min-projects", "2"], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(json.loads(res.stdout)["clusterCount"], 0)
+
+        res = run_global(["propose", "--min-projects", "1"], env=self.env)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        for prop in json.loads(res.stdout)["proposals"]:
+            self.assertNotIn(str(self.repo_b), prop["cluster"]["projects"])
 
 
 if __name__ == "__main__":
